@@ -10,7 +10,6 @@
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run dev --workspace functions",
     "build": "npm run build --workspace frontend && npm run build --workspace functions",
-    "build:sites": "npm run build --workspace frontend && node scripts/prepare-sites.mjs",
     "lint": "npm run lint --workspace frontend && npm run lint --workspace functions",
     "firebase:emulators": "npm run build && npx --yes firebase-tools@15.24.0 emulators:start",
     "firebase:deploy": "npm run build && npx --yes firebase-tools@15.24.0 deploy --only hosting,functions"
