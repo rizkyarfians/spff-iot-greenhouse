@@ -113,7 +113,7 @@ function setAuthCookies(
         cookieSecure,
 
       path:
-        '/api',
+        '/',
 
       maxAge,
     },
@@ -139,7 +139,7 @@ function setAuthCookies(
         cookieSecure,
 
       path:
-        '/api',
+        '/',
     },
   );
 

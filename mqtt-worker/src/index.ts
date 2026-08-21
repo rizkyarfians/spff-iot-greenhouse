@@ -9,7 +9,7 @@ const ingestionService = new IngestionService(repository);
 const worker = new MqttWorker(ingestionService);
 const commandDispatcher = new CommandDispatchService(repository, worker);
 const scheduleEvaluator = new ScheduleEvaluator(repository);
-let shuttingDown = false;
+let shuttingDown = false; 
 
 async function shutdown(signal: string) {
   if (shuttingDown) return;
