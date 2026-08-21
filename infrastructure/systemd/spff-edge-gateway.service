@@ -1,0 +1,26 @@
+[Unit]
+Description=SPFF ESP32 serial to MQTT edge gateway
+Requires=spff-mqtt-broker.service
+After=spff-mqtt-broker.service
+
+[Service]
+Type=simple
+User=spff
+Group=spff
+SupplementaryGroups=dialout
+WorkingDirectory=/opt/spff/edge-gateway
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/spff/edge-gateway/.env
+ExecStart=/usr/bin/node /opt/spff/edge-gateway/dist/index.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+[Unit]
+Description=SPFF MQTT ingestion and command worker
+After=postgresql.service spff-mqtt-broker.service
+Requires=postgresql.service spff-mqtt-broker.service
+
+[Service]
+Type=simple
+User=spff
+Group=spff
+WorkingDirectory=/opt/spff/mqtt-worker
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/spff/mqtt-worker/.env
+ExecStart=/usr/bin/node /opt/spff/mqtt-worker/dist/index.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

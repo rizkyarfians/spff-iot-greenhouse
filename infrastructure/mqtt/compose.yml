@@ -1,0 +1,106 @@
+name: spff-mqtt
+
+services:
+  mqtt-config-init:
+    image: eclipse-mosquitto:2.1.0
+    user: "0:0"
+    restart: "no"
+    environment:
+      SPFF_SITE_ID: ${SPFF_SITE_ID:?SPFF_SITE_ID is required}
+      SPFF_DEVICE_ID: ${SPFF_DEVICE_ID:?SPFF_DEVICE_ID is required}
+      MQTT_EDGE_USERNAME: ${MQTT_EDGE_USERNAME:?MQTT_EDGE_USERNAME is required}
+      MQTT_EDGE_PASSWORD: ${MQTT_EDGE_PASSWORD:?MQTT_EDGE_PASSWORD is required}
+      MQTT_WORKER_USERNAME: ${MQTT_WORKER_USERNAME:?MQTT_WORKER_USERNAME is required}
+      MQTT_WORKER_PASSWORD: ${MQTT_WORKER_PASSWORD:?MQTT_WORKER_PASSWORD is required}
+      MQTT_COMMAND_USERNAME: ${MQTT_COMMAND_USERNAME:?MQTT_COMMAND_USERNAME is required}
+      MQTT_COMMAND_PASSWORD: ${MQTT_COMMAND_PASSWORD:?MQTT_COMMAND_PASSWORD is required}
+      MQTT_HEALTH_USERNAME: ${MQTT_HEALTH_USERNAME:?MQTT_HEALTH_USERNAME is required}
+      MQTT_HEALTH_PASSWORD: ${MQTT_HEALTH_PASSWORD:?MQTT_HEALTH_PASSWORD is required}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        validate_topic_part() {
+          case "$$1" in
+            ""|*[!a-zA-Z0-9_-]*) echo "Invalid MQTT identity: $$1" >&2; exit 1 ;;
+          esac
+        }
+        validate_password() {
+          if [ "$${#1}" -lt 20 ]; then
+            echo "Every MQTT password must contain at least 20 characters." >&2
+            exit 1
+          fi
+        }
+        validate_topic_part "$$SPFF_SITE_ID"
+        validate_topic_part "$$SPFF_DEVICE_ID"
+        validate_topic_part "$$MQTT_EDGE_USERNAME"
+        validate_topic_part "$$MQTT_WORKER_USERNAME"
+        validate_topic_part "$$MQTT_COMMAND_USERNAME"
+        validate_topic_part "$$MQTT_HEALTH_USERNAME"
+        validate_password "$$MQTT_EDGE_PASSWORD"
+        validate_password "$$MQTT_WORKER_PASSWORD"
+        validate_password "$$MQTT_COMMAND_PASSWORD"
+        validate_password "$$MQTT_HEALTH_PASSWORD"
+        umask 077
+        mosquitto_passwd -b -c /mosquitto/secrets/passwords "$$MQTT_EDGE_USERNAME" "$$MQTT_EDGE_PASSWORD"
+        mosquitto_passwd -b /mosquitto/secrets/passwords "$$MQTT_WORKER_USERNAME" "$$MQTT_WORKER_PASSWORD"
+        mosquitto_passwd -b /mosquitto/secrets/passwords "$$MQTT_COMMAND_USERNAME" "$$MQTT_COMMAND_PASSWORD"
+        mosquitto_passwd -b /mosquitto/secrets/passwords "$$MQTT_HEALTH_USERNAME" "$$MQTT_HEALTH_PASSWORD"
+        printf '%s\n' \
+          "user $$MQTT_EDGE_USERNAME" \
+          "topic read spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/commands" \
+          "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/telemetry" \
+          "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/state" \
+          "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/ack" \
+          "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/status" \
+          "" \
+          "user $$MQTT_WORKER_USERNAME" \
+          "topic read spff/v1/+/+/telemetry" \
+          "topic read spff/v1/+/+/state" \
+          "topic read spff/v1/+/+/ack" \
+          "topic read spff/v1/+/+/status" \
+          "" \
+          "user $$MQTT_COMMAND_USERNAME" \
+          "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/commands" \
+          "" \
+          "user $$MQTT_HEALTH_USERNAME" \
+          'topic read $$SYS/broker/uptime' \
+          > /mosquitto/secrets/acl
+        chown -R mosquitto:mosquitto /mosquitto/secrets /mosquitto/data
+        chmod 0600 /mosquitto/secrets/passwords /mosquitto/secrets/acl
+    volumes:
+      - mqtt-secrets:/mosquitto/secrets
+      - mqtt-data:/mosquitto/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2.1.0
+    user: "1883:1883"
+    restart: unless-stopped
+    depends_on:
+      mqtt-config-init:
+        condition: service_completed_successfully
+    environment:
+      MQTT_HEALTH_USERNAME: ${MQTT_HEALTH_USERNAME:?MQTT_HEALTH_USERNAME is required}
+      MQTT_HEALTH_PASSWORD: ${MQTT_HEALTH_PASSWORD:?MQTT_HEALTH_PASSWORD is required}
+    ports:
+      - "${MQTT_BIND_ADDRESS:-127.0.0.1}:${MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-secrets:/mosquitto/secrets:ro
+      - mqtt-data:/mosquitto/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'mosquitto_sub -h 127.0.0.1 -p 1883 -u "$${MQTT_HEALTH_USERNAME}" -P "$${MQTT_HEALTH_PASSWORD}" -t ''$$SYS/broker/uptime'' -C 1 -W 5 >/dev/null 2>&1',
+        ]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 10s
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  mqtt-data:
+  mqtt-secrets:

@@ -10,21 +10,25 @@
   "scripts": {
     "dev": "tsx watch src/local.ts",
     "build": "tsc",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "start": "node lib/local.js",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "admin:create": "tsx src/scripts/createAdmin.ts"
   },
   "dependencies": {
+    "@spff/contracts": "1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.2.1",
-    "firebase-admin": "^10.3.0",
     "firebase-functions": "^4.9.0",
-    "react-router-dom": "7.11.0"
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^22.17.0",
+    "@types/pg": "^8.21.0",
     "eslint": "^10.8.0",
     "globals": "^16.3.0",
     "tsx": "^4.20.3",

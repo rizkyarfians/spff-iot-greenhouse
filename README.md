@@ -1,123 +1,109 @@
-# IoT Greenhouse Dashboard
+# SPFF IoT Greenhouse Platform
 
-Dashboard monitoring dan kontrol IoT untuk pertanian/greenhouse. Frontend menggunakan React, Vite, TypeScript, Tailwind CSS, React Router, Lucide, Recharts, dan Axios. REST API menggunakan Express + TypeScript dan dapat dijalankan sebagai server lokal maupun Firebase Cloud Function generasi kedua.
+SPFF adalah platform greenhouse local-first. PostgreSQL lokal di Orange Pi adalah source of truth; Firebase hanya replica opsional untuk akses remote.
 
-## Struktur proyek
+## Workspace
 
 ```text
-iot-dashboard/
-├── frontend/
-│   ├── public/
-│   └── src/
-│       ├── api/
-│       ├── components/
-│       ├── hooks/
-│       ├── layouts/
-│       ├── pages/
-│       ├── services/
-│       ├── types/
-│       └── utils/
-├── functions/
-│   └── src/
-│       ├── controllers/
-│       ├── data/
-│       ├── middleware/
-│       ├── routes/
-│       ├── services/
-│       └── types/
-├── firebase.json
-└── package.json
+frontend/             React + Vite dashboard
+functions/            Express Local API (+ legacy Firebase Functions entry)
+edge-gateway/         Serial ESP32-S3 <-> MQTT + durable disk outbox
+mqtt-worker/          MQTT ingestion + command/schedule dispatcher
+sync-worker/          PostgreSQL transactional outbox -> Firebase
+packages/contracts/   Shared payload/topic/validator
+infrastructure/       PostgreSQL, Mosquitto, Nginx, systemd, backup
+scripts/              Operational checks/smoke tests
 ```
 
-## Menjalankan secara lokal
+## Development Windows/Linux
 
-Persyaratan: Node.js 22 dan npm.
+Install dependency dari root. Jangan membawa `node_modules` antar-OS/arsitektur.
 
 ```bash
 npm install
-copy frontend\.env.example frontend\.env
-copy functions\.env.example functions\.env
 npm run dev
 ```
 
-Frontend tersedia di `http://localhost:5173` dan backend di `http://localhost:5001`. Jalankan salah satu sisi saja dengan `npm run dev:frontend` atau `npm run dev:backend`.
+`npm run dev` menjalankan contract watcher, frontend `http://localhost:5173`, dan Local API `http://localhost:5001`. Vite meneruskan `/api` ke API.
 
-Environment frontend:
-
-```env
-VITE_API_BASE_URL=http://localhost:5001/api
-```
-
-Jika variabel tersebut tidak dibuat, frontend memakai `/api`, sehingga cocok untuk Firebase Hosting dan proxy development Vite. Untuk backend pada komputer lain di jaringan lokal, arahkan variabel ke `http://IP-SERVER:5001/api`. Browser yang membuka dashboard harus dapat mengakses IP dan port tersebut.
-
-Environment backend:
-
-```env
-PORT=5001
-CORS_ORIGIN=http://localhost:5173
-API_DELAY_MS=350
-```
-
-`CORS_ORIGIN` dapat berisi beberapa origin yang dipisahkan koma. `API_DELAY_MS` mensimulasikan latensi agar loading state mudah diuji.
-
-## Pemeriksaan kualitas
+Untuk platform MQTT lokal:
 
 ```bash
+npm run mqtt:configure
+npm run mqtt:up
+npm run mqtt:smoke
+npm run dev:platform
+```
+
+`dev:platform` tidak menyalakan Firebase Sync Worker karena cloud replica bersifat opsional. Jalankan terpisah hanya bila credential Firebase sudah dikonfigurasi:
+
+```bash
+npm run dev:sync-worker
+```
+
+## PostgreSQL
+
+Migration production saat ini:
+
+```text
+001_initial_schema.sql
+002_production_readiness.sql
+003_transactional_outbox.sql
+```
+
+Setelah migration, jalankan hardening role sebagai PostgreSQL admin:
+
+```text
+infrastructure/postgres/security/001_roles_and_grants.sql
+```
+
+Audit schema dari environment API:
+
+```bash
+npm run db:check
+```
+
+Endpoint operasional:
+
+- `GET /api/health` — liveness API.
+- `GET /api/ready` — PostgreSQL + schema/view/outbox readiness.
+- `GET /api/bootstrap` — data dashboard dari PostgreSQL.
+
+## Build, lint, test
+
+```bash
+npm run build
 npm run lint
-npm run build
+npm run test --workspace @spff/contracts
+npm run test --workspace @spff/edge-gateway
 ```
 
-## Firebase Emulator
+Di Orange Pi lakukan fresh install (`npm ci`) supaya native dependency dibangun/diunduh untuk Linux ARM64. Jangan copy `node_modules` Windows.
 
-Firebase Hosting hanya menjalankan hasil build frontend. Express dijalankan oleh Firebase Functions melalui function bernama `api` di region `asia-southeast2`.
+## Command pump
 
-```bash
-npm run firebase:emulators
+Dashboard tidak melakukan optimistic actual-state update. Request membawa `commandId`, API menyimpan `pending`, MQTT Worker publish QoS 1, dan actual state hanya berubah dari ACK ESP32 yang disimpan ke PostgreSQL.
+
+```text
+Dashboard -> API -> PostgreSQL pending -> MQTT Worker -> Mosquitto -> Edge -> ESP32
+ESP32 -> ACK + actual state -> Edge -> Mosquitto -> MQTT Worker -> PostgreSQL -> Dashboard
 ```
 
-Hosting emulator tersedia di `http://localhost:5000`. Rewrite `/api/**` diarahkan ke Function emulator.
+## Production deployment
 
-## Deployment Firebase
+Template Orange Pi tersedia di:
 
-Salin `.firebaserc.example` menjadi `.firebaserc` dan isi project ID, atau pilih project secara interaktif:
+- `infrastructure/nginx/spff.conf`
+- `infrastructure/systemd/`
+- `infrastructure/backup/`
+- `docs/production-readiness.md`
 
-```bash
-npm run build
-npx --yes firebase-tools@15.24.0 login
-npx --yes firebase-tools@15.24.0 use --add
-npx --yes firebase-tools@15.24.0 deploy --only hosting,functions
-```
+Template production Nginx sudah memakai Basic Auth dan meneruskan operator identity ke API; buat `/etc/nginx/spff.htpasswd` secara lokal dan gunakan TLS bila jaringan tidak tepercaya. Commissioning hardware tetap wajib sebelum kontrol pompa dianggap go-live. Tidak ada deployment yang dilakukan otomatis oleh repository ini.
 
-Perintah singkat setelah autentikasi dan project dikonfigurasi:
 
-```bash
-npm run firebase:deploy
-```
+## Hardening runtime Orange Pi
 
-## Endpoint API
-
-| Method | Endpoint | Keterangan |
-|---|---|---|
-| GET | `/api/health` | Status API |
-| GET | `/api/dashboard` | Ringkasan lengkap dashboard |
-| GET | `/api/sensors` | Nilai sensor terbaru |
-| GET | `/api/sensors/history?type=ph&range=day` | Riwayat time-series |
-| GET | `/api/pumps` | Daftar pompa |
-| PATCH | `/api/pumps/:id` | Ubah status pompa dengan `{ "isActive": true }` |
-| GET | `/api/alarms` | Alarm; filter `severity`, `acknowledged`, `limit` |
-| PATCH | `/api/alarms/:id/acknowledge` | Tandai alarm diketahui |
-| GET | `/api/schedules` | Jadwal kontrol dan penyiraman |
-
-## Data dan integrasi berikutnya
-
-Seluruh data saat ini merupakan dummy data dari `functions/src/data/mockData.ts`. Aksesnya dipisahkan melalui `functions/src/services/mockRepository.ts`, sehingga dapat diganti dengan Firestore, Realtime Database, MySQL, PostgreSQL, MQTT, atau Modbus tanpa memindahkan data ke komponen React.
-
-File utama yang umum diedit:
-
-- `frontend/src/pages/DashboardPage.tsx` — komposisi halaman.
-- `frontend/src/styles.css` — layout responsif dan tampilan visual.
-- `frontend/src/services/dashboardService.ts` — komunikasi REST API.
-- `functions/src/routes/index.ts` — definisi endpoint.
-- `functions/src/services/mockRepository.ts` — lapisan data.
-- `functions/src/data/mockData.ts` — dummy data.
-- `firebase.json` — Hosting, Functions, rewrite, dan emulator.
+- API production bind ke `127.0.0.1`; akses LAN melewati Nginx.
+- Nginx production membutuhkan `/etc/nginx/spff.htpasswd`. Contoh pembuatan di Orange Pi: `sudo apt install apache2-utils && sudo htpasswd -cB /etc/nginx/spff.htpasswd operator`. Jangan simpan file password di repository.
+- `spff-health-check.timer` menjalankan health check lokal tiap 5 menit; lihat hasil dengan `journalctl -u spff-health-check.service`.
+- Basic Auth tanpa HTTPS hanya layak di LAN yang benar-benar tepercaya. Untuk jaringan tidak tepercaya gunakan TLS.

@@ -1,0 +1,28 @@
+mosquitto_pub -h 127.0.0.1 -p 1883 -u spff_local -P "smartgreenhouse123" -t "spff/test" -m "hello"
+mosquitto_sub -h 127.0.0.1 -p 1883 -u spff_local -P "smartgreenhouse123" -t "spff/test" -v -d
+
+mosquitto_pub \
+  -h 192.168.1.142 \
+  -p 1883 \
+  -u spff_local \
+  -P 'smartgreenhouse123' \
+  -t "spff/test" \
+  -m "hello-from-orange-pi" \
+  -d
+
+mosquitto_pub -h 192.168.1.142 -p 1883 -u spff_local -P 'smartgreenhouse123' -q 1 -t "spff/v1/greenhouse-01/esp32-s3-01/telemetry" -f ~/telemetry.json -d
+
+mosquitto_sub -h 192.168.1.142 -p 1883 -u spff_local -P 'smartgreenhouse123' -q 1 -t "spff/v1/greenhouse-01/esp32-s3-01/commands" -v
+
+NOW=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z"); mosquitto_pub -h 192.168.1.142 -p 1883 -u spff_local -P smartgreenhouse123 -q 1 -t "spff/v1/greenhouse-01/esp32-s3-01/ack" -m "{\"schemaVersion\":1,\"siteId\":\"greenhouse-01\",\"deviceId\":\"esp32-s3-01\",\"kind\":\"command_ack\",\"commandId\":\"web-a84eb5a5-dbbc-4c8b-9c45-8fb269255aa4\",\"acknowledgedAt\":\"$NOW\",\"status\":\"accepted\",\"targetId\":\"pump_water\"}"
+
+NOW=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z"); mosquitto_pub -h 192.168.1.142 -p 1883 -u spff_local -P smartgreenhouse123 -q 1 -t "spff/v1/greenhouse-01/esp32-s3-01/ack" -m "{\"schemaVersion\":1,\"siteId\":\"greenhouse-01\",\"deviceId\":\"esp32-s3-01\",\"kind\":\"command_ack\",\"commandId\":\"web-a84eb5a5-dbbc-4c8b-9c45-8fb269255aa4\",\"acknowledgedAt\":\"$NOW\",\"status\":\"completed\",\"targetId\":\"pump_water\",\"actualState\":{\"isActive\":true}}"
+
+scp D:\spff-deploy.tar.gz orangepi@192.168.1.131:/tmp/spff-deploy.tar.gz
+
+
+
+Invoke-RestMethod -Method Post -Uri 'http://10.9.0.10/API-Vendor/send_energy_meter_value/' -Headers @{Authorization="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyaWQiOiIzIiwiZW1haWwiOm51bGwsIm5hbWUiOiJVc2VyIFZlbmRvciAzIiwidXNlcm5hbWUiOiJ2ZW5kb3IzIiwicm9sZSI6InZlbmRvciIsImlhdCI6MTc4NzEzNzI0OCwiZXhwIjoxNzg3NzQyMDQ4fQ.MRjMYx0nZOc15FeZKezFvG3QTmiFlVoVeiDd-QwI5R8"} -ContentType 'application/x-www-form-urlencoded' -Body @{id='223';sandbox='1';a_1='1';a_2='1';a_3='1';v_1_2='1';v_2_3='1';v_3_1='1';v_1_n='1';v_2_n='1';v_3_n='1';v_n='1';kw_1='1';kw_2='1';kw_3='1';kw_t='1';kvar='1';kva='1';hz='60';tpr='1';bsl='1';ts=(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')}
+
+
+Invoke-RestMethod -Method Post -Uri 'http://10.9.0.10/API-Vendor/send_emergency_status_pompa/' -Headers @{Authorization="Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyaWQiOiIzIiwiZW1haWwiOm51bGwsIm5hbWUiOiJVc2VyIFZlbmRvciAzIiwidXNlcm5hbWUiOiJ2ZW5kb3IzIiwicm9sZSI6InZlbmRvciIsImlhdCI6MTc4NzEzNzI0OCwiZXhwIjoxNzg3NzQyMDQ4fQ.MRjMYx0nZOc15FeZKezFvG3QTmiFlVoVeiDd-QwI5R8"} -ContentType 'application/x-www-form-urlencoded' -Body @{id='223';emergency='1';ts=(Get-Date -Format 'yyyy-MM-dd HH:mm:ss');sandbox='1'}

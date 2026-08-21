@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SPFF local health check every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=spff-health-check.service
+
+[Install]
+WantedBy=timers.target

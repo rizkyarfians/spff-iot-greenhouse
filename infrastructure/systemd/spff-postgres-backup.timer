@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily SPFF PostgreSQL backup timer
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 Asia/Jakarta
+Persistent=true
+RandomizedDelaySec=300
+Unit=spff-postgres-backup.service
+
+[Install]
+WantedBy=timers.target

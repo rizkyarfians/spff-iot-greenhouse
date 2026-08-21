@@ -1,0 +1,27 @@
+[Unit]
+Description=SPFF local REST API
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=spff
+Group=spff
+WorkingDirectory=/opt/spff/functions
+Environment=NODE_ENV=production
+Environment=TRUST_PROXY_AUTH=true
+EnvironmentFile=/opt/spff/functions/.env
+ExecStart=/usr/bin/node /opt/spff/functions/lib/local.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

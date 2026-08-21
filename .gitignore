@@ -5,5 +5,13 @@ lib/
 .firebase/
 firebase-debug.log*
 .dev-log.txt
+*.log
 *.local
 .DS_Store
+*.env
+!*.env.example
+*.dump
+edge-outbox/
+
+*.tsbuildinfo
+db-backups/

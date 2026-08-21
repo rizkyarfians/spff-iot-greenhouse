@@ -6,7 +6,7 @@ export const logger = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 export const delay = async (_req: Request, _res: Response, next: NextFunction) => {
-  const ms = Math.max(0, Math.min(Number(process.env.API_DELAY_MS ?? 350), 2000));
+  const ms = Math.max(0, Math.min(Number(process.env.API_DELAY_MS ?? 0), 2000));
   await new Promise((resolve) => setTimeout(resolve, ms)); next();
 };
 export const notFound = (req: Request, res: Response) => {

@@ -1,0 +1,17 @@
+[Unit]
+Description=SPFF local production health check
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=spff
+Group=spff
+EnvironmentFile=/opt/spff/infrastructure/monitoring/monitoring.env
+ExecStart=/opt/spff/infrastructure/monitoring/spff-health-check.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
