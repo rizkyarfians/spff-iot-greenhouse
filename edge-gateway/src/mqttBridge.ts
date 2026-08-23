@@ -6,7 +6,8 @@ import {
   type CommandAckMessage,
   type DeviceStatusMessage,
   type PumpCommandMessage,
-  type TelemetryMessage,
+  type TelemetryMessage,isTelemetryPersistedAckMessage,
+type TelemetryPersistedAckMessage,
 } from '@spff/contracts';
 import { connect, type IClientOptions, type MqttClient } from 'mqtt';
 import type { EdgeConfig } from './config.js';
@@ -17,7 +18,8 @@ export class MqttBridge {
   private connectedHandler: (() => Promise<void>) | null = null;
   private deviceAvailable = false;
   private lastStatus: DeviceStatusMessage | null = null;
-
+private telemetryPersistedHandler:
+  ((message: TelemetryPersistedAckMessage) => Promise<void>) | null = null;
   constructor(private readonly config: EdgeConfig) {}
 
   get isConnected() {
@@ -31,6 +33,12 @@ export class MqttBridge {
   onConnected(handler: () => Promise<void>) {
     this.connectedHandler = handler;
   }
+
+onTelemetryPersisted(
+  handler: (message: TelemetryPersistedAckMessage) => Promise<void>,
+) {
+  this.telemetryPersistedHandler = handler;
+}
 
   async start() {
     const offlineStatus = this.createStatus(false);
@@ -115,23 +123,69 @@ export class MqttBridge {
   }
 
   private async restoreSession() {
-    await this.subscribe(mqttTopics.commands(this.config.siteId, this.config.deviceId));
+await this.subscribe(
+  mqttTopics.acknowledgements(
+    this.config.siteId,
+    this.config.deviceId,
+  ),
+);
     await this.publishStatus(this.createStatus(this.deviceAvailable));
+
     console.log(`[mqtt] Connected as ${this.config.mqtt.clientId}.`);
   }
 
-  private async handleMessage(topic: string, payload: Buffer) {
-    if (topic !== mqttTopics.commands(this.config.siteId, this.config.deviceId) || !this.commandHandler) return;
-    try {
-      const message = decodeJsonMessage(payload);
-      if (!isPumpCommandMessage(message)) throw new Error('Command payload does not match the shared contract.');
-      if (message.siteId !== this.config.siteId || message.deviceId !== this.config.deviceId) return;
-      await this.commandHandler(message);
-    } catch (error) {
-      console.error('[mqtt] Command rejected', error);
-    }
-  }
+private async handleMessage(topic: string, payload: Buffer) {
+  try {
+    const message = decodeJsonMessage(payload);
 
+    if (
+      topic === mqttTopics.commands(
+        this.config.siteId,
+        this.config.deviceId,
+      )
+    ) {
+      if (!this.commandHandler) return;
+
+      if (!isPumpCommandMessage(message)) {
+        throw new Error(
+          'Command payload does not match the shared contract.',
+        );
+      }
+
+      if (
+        message.siteId !== this.config.siteId ||
+        message.deviceId !== this.config.deviceId
+      ) {
+        return;
+      }
+
+      await this.commandHandler(message);
+      return;
+    }
+
+    if (
+      topic === mqttTopics.acknowledgements(
+        this.config.siteId,
+        this.config.deviceId,
+      )
+    ) {
+      // Ignore command_ack messages that Edge itself may receive
+      // from the shared /ack topic.
+      if (!isTelemetryPersistedAckMessage(message)) return;
+
+      if (
+        message.siteId !== this.config.siteId ||
+        message.deviceId !== this.config.deviceId
+      ) {
+        return;
+      }
+
+      await this.telemetryPersistedHandler?.(message);
+    }
+  } catch (error) {
+    console.error('[mqtt] Message rejected', error);
+  }
+}
   private subscribe(topic: string) {
     return new Promise<void>((resolve, reject) => {
       this.client?.subscribe(topic, { qos: 1 }, (error) => error ? reject(error) : resolve());

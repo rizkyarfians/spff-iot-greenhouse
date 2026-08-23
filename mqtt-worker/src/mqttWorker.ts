@@ -1,4 +1,8 @@
-import { mqttTopics, type PumpCommandMessage } from "@spff/contracts";
+import {
+  mqttTopics,
+  type PumpCommandMessage,
+  type TelemetryPersistedAckMessage,
+} from '@spff/contracts';
 import { connect, type IClientOptions, type MqttClient } from "mqtt";
 import { config } from "./config.js";
 import type { IngestionService } from "./ingestionService.js";
@@ -35,13 +39,17 @@ export class MqttWorker {
     this.client.on("reconnect", () =>
       console.warn("[mqtt-worker] Reconnecting..."),
     );
-    this.client.on("message", (topic, payload) => {
-      void this.ingestionService
-        .process(topic, payload)
-        .catch((error: unknown) =>
-          console.error("[mqtt-worker] Message rejected", { topic, error }),
-        );
-    });
+this.client.on('message', (topic, payload) => {
+  void this.ingestionService
+    .process(topic, payload)
+    .then((acknowledgement) => {
+      if (!acknowledgement) return;
+      return this.publishTelemetryPersistedAck(acknowledgement);
+    })
+    .catch((error: unknown) =>
+      console.error('[mqtt-worker] Message rejected', { topic, error }),
+    );
+});
     this.client.on("connect", () => {
       void this.restoreSubscriptions()
         .then(() => {
@@ -101,6 +109,29 @@ export class MqttWorker {
     });
   }
 
+private async publishTelemetryPersistedAck(
+  message: TelemetryPersistedAckMessage,
+): Promise<void> {
+  const client = this.client;
+
+  if (!client?.connected) {
+    throw new Error('MQTT client is not connected.');
+  }
+
+  const topic = mqttTopics.acknowledgements(
+    message.siteId,
+    message.deviceId,
+  );
+
+  await new Promise<void>((resolve, reject) => {
+    client.publish(
+      topic,
+      JSON.stringify(message),
+      { qos: 1, retain: false },
+      (error) => (error ? reject(error) : resolve()),
+    );
+  });
+}
   async stop() {
     if (!this.client) return;
     const force = !this.client.connected;
