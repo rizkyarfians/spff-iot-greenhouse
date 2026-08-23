@@ -41,13 +41,56 @@ export class DurableOutbox {
       for (const file of files) {
         const filePath = path.join(this.directory, file);
         const parsed = JSON.parse(await readFile(filePath, 'utf8')) as OutboxRecord;
-        await publish(parsed);
-        await unlink(filePath);
+await publish(parsed);
+
+if (parsed.kind !== 'telemetry') {
+  await unlink(filePath);
+}
       }
     } finally {
       this.flushing = false;
     }
   }
+
+async acknowledgeTelemetry(messageId: string): Promise<boolean> {
+  const files = await this.listFiles();
+
+  for (const file of files) {
+    const filePath = path.join(this.directory, file);
+
+    let parsed: OutboxRecord;
+
+    try {
+      parsed = JSON.parse(
+        await readFile(filePath, 'utf8'),
+      ) as OutboxRecord;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+
+      if (code === 'ENOENT') continue;
+      throw error;
+    }
+
+    if (
+      parsed.kind !== 'telemetry' ||
+      parsed.payload.messageId !== messageId
+    ) {
+      continue;
+    }
+
+    try {
+      await unlink(filePath);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+
+      if (code !== 'ENOENT') throw error;
+    }
+
+    return true;
+  }
+
+  return false;
+}
 
   private async listFiles() {
     const entries = await readdir(this.directory, { withFileTypes: true });

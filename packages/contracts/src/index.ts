@@ -51,6 +51,13 @@ export interface TelemetryMessage extends MessageIdentity {
   sensors: Partial<Record<TelemetrySensorKey, number>>;
 }
 
+export interface TelemetryPersistedAckMessage extends MessageIdentity {
+  kind: 'telemetry_persisted_ack';
+  messageId: string;
+  sequence: number;
+  persistedAt: string;
+}
+
 export interface PumpCommandMessage extends MessageIdentity {
   kind: 'command';
   commandId: string;
@@ -165,6 +172,26 @@ export function isTelemetryMessage(value: unknown): value is TelemetryMessage {
     Object.entries(value.sensors).every(
       ([key, sensorValue]) => telemetrySensorKeys.includes(key as TelemetrySensorKey) && typeof sensorValue === 'number' && Number.isFinite(sensorValue),
     )
+  );
+}
+
+export function isTelemetryPersistedAckMessage(
+  value: unknown,
+): value is TelemetryPersistedAckMessage {
+  if (
+    !isRecord(value) ||
+    !hasIdentity(value) ||
+    value.kind !== 'telemetry_persisted_ack'
+  ) {
+    return false;
+  }
+
+  return (
+    typeof value.messageId === 'string' &&
+    value.messageId.length > 0 &&
+    Number.isSafeInteger(value.sequence) &&
+    (value.sequence as number) >= 0 &&
+    isIsoDate(value.persistedAt)
   );
 }
 

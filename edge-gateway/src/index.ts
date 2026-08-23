@@ -69,6 +69,27 @@ const serialGateway = new SerialGateway(
   },
 );
 
+
+mqttBridge.onTelemetryPersisted(async (acknowledgement) => {
+  const removed = await outbox.acknowledgeTelemetry(
+    acknowledgement.messageId,
+  );
+
+  console.log('[edge] Telemetry persisted', {
+    messageId: acknowledgement.messageId,
+    sequence: acknowledgement.sequence,
+    edgeOutboxRemoved: removed,
+  });
+
+  try {
+    await serialGateway.send(acknowledgement);
+  } catch (error) {
+    console.warn(
+      '[serial] Persistence ACK could not be forwarded to ESP32',
+      error instanceof Error ? error.message : error,
+    );
+  }
+});
 mqttBridge.onConnected(flushOutbox);
 
 mqttBridge.onCommand(async (command: PumpCommandMessage) => {
