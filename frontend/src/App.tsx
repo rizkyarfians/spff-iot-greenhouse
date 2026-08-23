@@ -38,7 +38,6 @@ import {
 } from './SecondaryPages'
 
 import {
-  pageTitles,
   type PageKey,
 } from './pageConfig'
 
@@ -1499,252 +1498,225 @@ const soilNpkGroups =
       />
 
 
-      <header className="app-header">
-        <div className="header-inner">
-          <div className="header-start">
-            <button
-              className="menu-button"
-              type="button"
-              aria-label="Buka navigasi"
-              aria-expanded={
-                navOpen
-              }
-              onClick={() =>
-                setNavOpen(
-                  (open) =>
-                    !open,
-                )
-              }
-            >
-              <span />
-              <span />
-              <span />
-            </button>
+      <div className="compact-account-dock">
+  <button
+    className="menu-button compact-menu-button"
+    type="button"
+    aria-label="Buka navigasi"
+    aria-expanded={
+      navOpen
+    }
+    onClick={() =>
+      setNavOpen(
+        (open) =>
+          !open,
+      )
+    }
+  >
+    <span />
+    <span />
+    <span />
+  </button>
 
 
-            <button
-              className="header-brand"
-              type="button"
-              onClick={() =>
-                navigateTo(
-                  'dashboard',
-                )
-              }
-            >
-              <span
-                className="header-brand-mark"
-                aria-hidden="true"
-              >
-                <Leaf
-                  size={18}
-                  strokeWidth={2}
-                />
-              </span>
+  <div className="compact-divider compact-menu-divider" />
 
-              <span>
-                Smart Greenhouse
-              </span>
-            </button>
 
+  <div className="notification-wrap">
+    <button
+      className="compact-icon-button"
+      type="button"
+      aria-label="Buka notifikasi"
+      aria-expanded={
+        notificationsOpen
+      }
+      onClick={() =>
+        setNotificationsOpen(
+          (open) =>
+            !open,
+        )
+      }
+    >
+      <Bell
+        className="header-bell-icon"
+        size={17}
+        strokeWidth={1.8}
+        aria-hidden="true"
+      />
+
+      {
+        !notificationsRead
+        && openAlarms.length > 0
+        && (
+          <span className="notification-dot" />
+        )
+      }
+    </button>
+
+
+    {
+      notificationsOpen
+      && (
+        <div
+          className="notification-panel"
+          role="status"
+        >
+          <div className="notification-panel-head">
+            <strong>
+              Notifikasi
+            </strong>
 
             {
-              activePage !== 'dashboard'
+              !notificationsRead
+              && openAlarms.length > 0
               && (
-                <span className="page-context">
+                <span>
                   {
-                    pageTitles[
-                      activePage
-                    ]
+                    openAlarms.length
                   }
+                  {' '}
+                  aktif
                 </span>
               )
             }
           </div>
 
 
-          <div className="header-account">
-            <div className="notification-wrap">
-              <button
-                className="notification-button"
-                type="button"
-                aria-label="Buka notifikasi"
-                aria-expanded={
-                  notificationsOpen
-                }
-                onClick={() =>
-                  setNotificationsOpen(
-                    (open) =>
-                      !open,
-                  )
-                }
-              >
-                <Bell
-                  className="header-bell-icon"
-                  size={18}
-                  strokeWidth={1.8}
-                  aria-hidden="true"
-                />
-
-
-                {
-                  !notificationsRead
-                  && openAlarms.length > 0
-                  && (
-                    <span className="notification-dot" />
-                  )
-                }
-              </button>
-
-
-              {
-                notificationsOpen
-                && (
-                  <div
-                    className="notification-panel"
-                    role="status"
-                  >
-                    <div className="notification-panel-head">
-                      <strong>
-                        Notifikasi
-                      </strong>
-
-
-                      {
-                        !notificationsRead
-                        && openAlarms.length > 0
-                        && (
-                          <span>
-                            {
-                              openAlarms.length
-                            } aktif
-                          </span>
-                        )
-                      }
-                    </div>
-
-
+          {
+            notificationsRead
+            || openAlarms.length === 0
+              ? (
+                  <p className="notification-empty">
                     {
-                      notificationsRead
-                      || openAlarms.length === 0
-                        ? (
-                            <p className="notification-empty">
-                              {
-                                connectionState === 'connected'
-                                  ? 'Tidak ada alarm aktif di database.'
-                                  : 'Menunggu koneksi backend SPFF.'
-                              }
-                            </p>
-                          )
-
-                        : (
-                            <div className="notification-list">
-                              {
-                                openAlarms
-                                  .slice(
-                                    0,
-                                    3,
-                                  )
-                                  .map(
-                                    (alarm) => (
-                                      <button
-                                        type="button"
-                                        key={
-                                          alarm.id
-                                        }
-                                        onClick={() =>
-                                          navigateTo(
-                                            'alarms',
-                                          )
-                                        }
-                                      >
-                                        <b>
-                                          {
-                                            alarm.title
-                                          }
-                                        </b>
-
-                                        <small>
-                                          {
-                                            alarm.description
-                                          }
-                                        </small>
-                                      </button>
-                                    ),
-                                  )
-                              }
-                            </div>
-                          )
+                      connectionState === 'connected'
+                        ? 'Tidak ada alarm aktif di database.'
+                        : 'Menunggu koneksi backend SPFF.'
                     }
+                  </p>
+                )
 
-
-                    <button
-                      className="mark-read-button"
-                      type="button"
-                      onClick={() =>
-                        setNotificationsRead(
-                          (read) =>
-                            !read,
+              : (
+                  <div className="notification-list">
+                    {
+                      openAlarms
+                        .slice(
+                          0,
+                          3,
                         )
-                      }
-                    >
-                      {
-                        notificationsRead
-                          ? 'Tampilkan notifikasi'
-                          : 'Tandai semua dibaca'
-                      }
-                    </button>
+                        .map(
+                          (alarm) => (
+                            <button
+                              type="button"
+                              key={
+                                alarm.id
+                              }
+                              onClick={() =>
+                                navigateTo(
+                                  'alarms',
+                                )
+                              }
+                            >
+                              <b>
+                                {
+                                  alarm.title
+                                }
+                              </b>
+
+                              <small>
+                                {
+                                  alarm.description
+                                }
+                              </small>
+                            </button>
+                          ),
+                        )
+                    }
                   </div>
                 )
-              }
-            </div>
+          }
 
 
-            <span className="greeting">
-              Hi, {user.displayName}!
-            </span>
-
-
-            <button
-              className="account-button"
-              type="button"
-              aria-label="Buka pengaturan profil"
-              title="Pengaturan"
-              onClick={() =>
-                navigateTo(
-                  'settings',
-                )
-              }
-            >
-              <span
-                className="avatar"
-                aria-hidden="true"
-              >
-                <UserRound
-                  size={17}
-                  strokeWidth={1.9}
-                />
-              </span>
-            </button>
-
-
-            <button
-              className="account-button"
-              type="button"
-              aria-label="Logout"
-              title="Logout"
-              onClick={() => {
-                void logout()
-              }}
-            >
-              <LogOut
-                size={17}
-                strokeWidth={1.9}
-                aria-hidden="true"
-              />
-            </button>
-          </div>
+          <button
+            className="mark-read-button"
+            type="button"
+            onClick={() =>
+              setNotificationsRead(
+                (read) =>
+                  !read,
+              )
+            }
+          >
+            {
+              notificationsRead
+                ? 'Tampilkan notifikasi'
+                : 'Tandai semua dibaca'
+            }
+          </button>
         </div>
-      </header>
+      )
+    }
+  </div>
+
+
+  <div className="compact-divider" />
+
+
+  <div className="compact-user-copy">
+    <span>
+      Hi,
+    </span>
+
+    <strong>
+      {user.displayName}!
+    </strong>
+  </div>
+
+
+  <button
+    className="compact-avatar-button"
+    type="button"
+    aria-label="Buka pengaturan profil"
+    title="Pengaturan"
+    onClick={() =>
+      navigateTo(
+        'settings',
+      )
+    }
+  >
+    <span
+      className="compact-avatar"
+      aria-hidden="true"
+    >
+      <UserRound
+        size={16}
+        strokeWidth={1.9}
+      />
+    </span>
+  </button>
+
+
+  <div className="compact-divider" />
+
+
+  <button
+    className="compact-icon-button"
+    type="button"
+    aria-label="Logout"
+    title="Logout"
+    onClick={() => {
+      void logout()
+    }}
+  >
+    <LogOut
+      size={16}
+      strokeWidth={1.9}
+      aria-hidden="true"
+    />
+  </button>
+</div>
+
+
+
 
 
       <main className="app-main">

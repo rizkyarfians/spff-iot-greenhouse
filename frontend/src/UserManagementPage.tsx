@@ -7,7 +7,6 @@ import {
 
 import {
   KeyRound,
-  Plus,
   RefreshCw,
   ShieldCheck,
   UserCheck,
@@ -22,7 +21,6 @@ import type {
 } from './api'
 
 import {
-  createUser,
   fetchUsers,
   updateUser,
 } from './api'
@@ -32,23 +30,6 @@ import {
 } from './authContext'
 
 import './UserManagementPage.css'
-
-
-type CreateUserForm = {
-  username: string
-  displayName: string
-  password: string
-  role: AppRole
-}
-
-
-const emptyCreateForm:
-CreateUserForm = {
-  username: '',
-  displayName: '',
-  password: '',
-  role: 'operator',
-}
 
 
 export function UserManagementPage() {
@@ -80,15 +61,6 @@ export function UserManagementPage() {
 
 
   const [
-    createForm,
-    setCreateForm,
-  ] =
-    useState<CreateUserForm>(
-      emptyCreateForm,
-    )
-
-
-  const [
     passwordTarget,
     setPasswordTarget,
   ] =
@@ -114,7 +86,9 @@ export function UserManagementPage() {
           const result =
             await fetchUsers()
 
-          setUsers(result)
+          setUsers(
+            result,
+          )
         } catch (error) {
           setNotice(
             error instanceof Error
@@ -144,86 +118,6 @@ export function UserManagementPage() {
       loadUsers,
     ],
   )
-
-
-  const submitUser =
-    async (
-      event:
-        FormEvent<HTMLFormElement>,
-    ) => {
-      event.preventDefault()
-
-      const username =
-        createForm
-          .username
-          .trim()
-
-      const displayName =
-        createForm
-          .displayName
-          .trim()
-
-      const password =
-        createForm.password
-
-
-      if (
-        !username
-        || !displayName
-        || !password
-      ) {
-        setNotice(
-          'Nama, username, dan password wajib diisi.',
-        )
-
-        return
-      }
-
-
-      if (
-        password.length < 12
-        || password.length > 128
-      ) {
-        setNotice(
-          'Password harus berisi 12 sampai 128 karakter.',
-        )
-
-        return
-      }
-
-
-      setNotice('')
-
-
-      try {
-        await createUser({
-          username,
-          displayName,
-          password,
-          role:
-            createForm.role,
-        })
-
-
-        setCreateForm(
-          emptyCreateForm,
-        )
-
-
-        setNotice(
-          'User berhasil dibuat.',
-        )
-
-
-        await loadUsers()
-      } catch (error) {
-        setNotice(
-          error instanceof Error
-            ? error.message
-            : 'User gagal dibuat.',
-        )
-      }
-    }
 
 
   const changeRole =
@@ -367,8 +261,13 @@ export function UserManagementPage() {
         )
 
 
-        setPasswordTarget(null)
-        setNewPassword('')
+        setPasswordTarget(
+          null,
+        )
+
+        setNewPassword(
+          '',
+        )
 
 
         await loadUsers()
@@ -391,6 +290,7 @@ export function UserManagementPage() {
           <ShieldCheck
             size={30}
             strokeWidth={1.8}
+            aria-hidden="true"
           />
 
           <div>
@@ -445,16 +345,18 @@ export function UserManagementPage() {
           </h1>
 
           <p>
-            Kelola akun admin dan operator
+            Kelola akses admin dan operator
             dashboard lokal SPFF.
           </p>
         </div>
 
 
         <button
-          className="um-button um-button--outline"
+          className="um-button um-button--outline um-refresh-button"
           type="button"
-          disabled={loading}
+          disabled={
+            loading
+          }
           onClick={() =>
             void loadUsers()
           }
@@ -462,6 +364,7 @@ export function UserManagementPage() {
           <RefreshCw
             size={16}
             strokeWidth={1.9}
+            aria-hidden="true"
           />
 
           Refresh
@@ -473,12 +376,13 @@ export function UserManagementPage() {
         <article className="um-summary-card">
           <div className="um-summary-icon">
             <Users
-              size={21}
+              size={22}
               strokeWidth={1.8}
+              aria-hidden="true"
             />
           </div>
 
-          <div>
+          <div className="um-summary-copy">
             <span>
               Total User
             </span>
@@ -486,6 +390,10 @@ export function UserManagementPage() {
             <strong>
               {users.length}
             </strong>
+
+            <small>
+              Semua akun terdaftar
+            </small>
           </div>
         </article>
 
@@ -493,12 +401,13 @@ export function UserManagementPage() {
         <article className="um-summary-card">
           <div className="um-summary-icon">
             <ShieldCheck
-              size={21}
+              size={22}
               strokeWidth={1.8}
+              aria-hidden="true"
             />
           </div>
 
-          <div>
+          <div className="um-summary-copy">
             <span>
               Admin Aktif
             </span>
@@ -506,6 +415,10 @@ export function UserManagementPage() {
             <strong>
               {adminCount}
             </strong>
+
+            <small>
+              Administrator sistem
+            </small>
           </div>
         </article>
 
@@ -513,12 +426,13 @@ export function UserManagementPage() {
         <article className="um-summary-card">
           <div className="um-summary-icon">
             <UserCheck
-              size={21}
+              size={22}
               strokeWidth={1.8}
+              aria-hidden="true"
             />
           </div>
 
-          <div>
+          <div className="um-summary-copy">
             <span>
               Operator Aktif
             </span>
@@ -526,19 +440,29 @@ export function UserManagementPage() {
             <strong>
               {operatorCount}
             </strong>
+
+            <small>
+              Operator yang dapat login
+            </small>
           </div>
         </article>
 
 
         <article className="um-summary-card">
-          <div className="um-summary-icon um-summary-icon--pending">
+          <div
+            className="
+              um-summary-icon
+              um-summary-icon--pending
+            "
+          >
             <UserX
-              size={21}
+              size={22}
               strokeWidth={1.8}
+              aria-hidden="true"
             />
           </div>
 
-          <div>
+          <div className="um-summary-copy">
             <span>
               Menunggu Aktivasi
             </span>
@@ -546,6 +470,10 @@ export function UserManagementPage() {
             <strong>
               {pendingCount}
             </strong>
+
+            <small>
+              Registrasi belum diaktifkan
+            </small>
           </div>
         </article>
       </div>
@@ -564,412 +492,280 @@ export function UserManagementPage() {
       }
 
 
-      <div className="um-content-grid">
-        <article className="um-card um-create-card">
-          <div className="um-card-heading">
-            <div className="um-heading-icon">
-              <Plus
-                size={19}
-                strokeWidth={1.9}
-              />
-            </div>
+      <article className="um-card um-list-card">
+        <div className="um-list-heading">
+          <div>
+            <span className="um-section-eyebrow">
+              Daftar akun
+            </span>
 
-            <div>
-              <h2>
-                Tambah User
-              </h2>
+            <h2>
+              User Terdaftar
+            </h2>
 
-              <p>
-                Buat akun admin atau operator
-                secara manual.
-              </p>
-            </div>
+            <p>
+              Kelola role, aktivasi,
+              dan password user.
+              Akun operator baru dibuat
+              melalui halaman registrasi.
+            </p>
           </div>
 
 
-          <form
-            className="um-create-form"
-            onSubmit={
-              submitUser
+          <div className="um-list-meta">
+            {
+              pendingCount > 0
+              && (
+                <span className="um-pending-chip">
+                  {pendingCount}
+                  {' '}
+                  perlu aktivasi
+                </span>
+              )
             }
-          >
-            <label className="um-field">
-              <span>
-                Nama
-              </span>
-
-              <input
-                type="text"
-                value={
-                  createForm.displayName
-                }
-                onChange={(event) =>
-                  setCreateForm(
-                    (current) => ({
-                      ...current,
-
-                      displayName:
-                        event.target.value,
-                    }),
-                  )
-                }
-                placeholder="Nama lengkap"
-                required
-              />
-            </label>
-
-
-            <label className="um-field">
-              <span>
-                Username
-              </span>
-
-              <input
-                type="text"
-                autoComplete="off"
-                value={
-                  createForm.username
-                }
-                onChange={(event) =>
-                  setCreateForm(
-                    (current) => ({
-                      ...current,
-
-                      username:
-                        event.target.value,
-                    }),
-                  )
-                }
-                placeholder="contoh: operator01"
-                required
-              />
-            </label>
-
-
-            <label className="um-field">
-              <span>
-                Password
-              </span>
-
-              <input
-                type="password"
-                autoComplete="new-password"
-                minLength={12}
-                maxLength={128}
-                value={
-                  createForm.password
-                }
-                onChange={(event) =>
-                  setCreateForm(
-                    (current) => ({
-                      ...current,
-
-                      password:
-                        event.target.value,
-                    }),
-                  )
-                }
-                placeholder="Minimal 12 karakter"
-                required
-              />
-
-              <small>
-                12–128 karakter.
-              </small>
-            </label>
-
-
-            <label className="um-field">
-              <span>
-                Role
-              </span>
-
-              <select
-                value={
-                  createForm.role
-                }
-                onChange={(event) => {
-                  const role:
-                  AppRole =
-                    event.target.value
-                    === 'admin'
-                      ? 'admin'
-                      : 'operator'
-
-
-                  setCreateForm(
-                    (current) => ({
-                      ...current,
-                      role,
-                    }),
-                  )
-                }}
-              >
-                <option value="operator">
-                  Operator
-                </option>
-
-                <option value="admin">
-                  Admin
-                </option>
-              </select>
-            </label>
-
-
-            <button
-              className="um-button um-button--primary um-create-submit"
-              type="submit"
-            >
-              <Plus
-                size={17}
-                strokeWidth={2}
-              />
-
-              Tambah User
-            </button>
-          </form>
-        </article>
-
-
-        <article className="um-card um-list-card">
-          <div className="um-card-heading um-list-heading">
-            <div>
-              <h2>
-                User Terdaftar
-              </h2>
-
-              <p>
-                Kelola role, aktivasi,
-                dan password user.
-              </p>
-            </div>
 
             <span className="um-user-count">
-              {users.length} akun
+              {users.length}
+              {' '}
+              akun
             </span>
           </div>
+        </div>
 
 
-          {
-            loading
+        {
+          loading
+            ? (
+                <div className="um-empty">
+                  <div className="um-loading-dot" />
+
+                  <span>
+                    Memuat daftar user...
+                  </span>
+                </div>
+              )
+
+            : users.length === 0
               ? (
                   <div className="um-empty">
-                    Memuat daftar user...
+                    Belum ada user terdaftar.
                   </div>
                 )
 
-              : users.length === 0
-                ? (
-                    <div className="um-empty">
-                      Belum ada user terdaftar.
-                    </div>
-                  )
+              : (
+                  <div className="um-table-wrap">
+                    <table className="um-table">
+                      <thead>
+                        <tr>
+                          <th>
+                            User
+                          </th>
 
-                : (
-                    <div className="um-table-wrap">
-                      <table className="um-table">
-                        <thead>
-                          <tr>
-                            <th>
-                              User
-                            </th>
+                          <th>
+                            Role
+                          </th>
 
-                            <th>
-                              Role
-                            </th>
+                          <th>
+                            Status
+                          </th>
 
-                            <th>
-                              Status
-                            </th>
-
-                            <th>
-                              Aksi
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {
-                            users.map(
-                              (target) => {
-                                const isCurrentUser =
-                                  target.userId
-                                  === user.userId
+                          <th>
+                            Aksi
+                          </th>
+                        </tr>
+                      </thead>
 
 
-                                return (
-                                  <tr
-                                    key={
-                                      target.userId
-                                    }
-                                  >
-                                    <td>
-                                      <div className="um-identity">
-                                        <div className="um-avatar">
-                                          {
-                                            target
-                                              .displayName
-                                              .slice(
-                                                0,
-                                                1,
-                                              )
-                                              .toUpperCase()
-                                          }
-                                        </div>
-
-                                        <div className="um-identity-copy">
-                                          <strong>
-                                            {
-                                              target.displayName
-                                            }
-
-                                            {
-                                              isCurrentUser
-                                              && (
-                                                <span className="um-you">
-                                                  Anda
-                                                </span>
-                                              )
-                                            }
-                                          </strong>
-
-                                          <small>
-                                            @{target.username}
-                                          </small>
-                                        </div>
-                                      </div>
-                                    </td>
+                      <tbody>
+                        {
+                          users.map(
+                            (target) => {
+                              const isCurrentUser =
+                                target.userId
+                                === user.userId
 
 
-                                    <td>
-                                      <select
-                                        className="um-role-select"
-                                        value={
-                                          target.role
+                              return (
+                                <tr
+                                  key={
+                                    target.userId
+                                  }
+                                >
+                                  <td>
+                                    <div className="um-identity">
+                                      <div className="um-avatar">
+                                        {
+                                          target
+                                            .displayName
+                                            .slice(
+                                              0,
+                                              1,
+                                            )
+                                            .toUpperCase()
                                         }
+                                      </div>
+
+
+                                      <div className="um-identity-copy">
+                                        <strong>
+                                          {
+                                            target.displayName
+                                          }
+
+                                          {
+                                            isCurrentUser
+                                            && (
+                                              <span className="um-you">
+                                                Anda
+                                              </span>
+                                            )
+                                          }
+                                        </strong>
+
+                                        <small>
+                                          @{target.username}
+                                        </small>
+                                      </div>
+                                    </div>
+                                  </td>
+
+
+                                  <td>
+                                    <select
+                                      className="um-role-select"
+                                      value={
+                                        target.role
+                                      }
+                                      disabled={
+                                        isCurrentUser
+                                      }
+                                      aria-label={
+                                        `Role ${target.username}`
+                                      }
+                                      onChange={(event) => {
+                                        const role:
+                                        AppRole =
+                                          event.target.value
+                                          === 'admin'
+                                            ? 'admin'
+                                            : 'operator'
+
+
+                                        void changeRole(
+                                          target,
+                                          role,
+                                        )
+                                      }}
+                                    >
+                                      <option value="operator">
+                                        Operator
+                                      </option>
+
+                                      <option value="admin">
+                                        Admin
+                                      </option>
+                                    </select>
+                                  </td>
+
+
+                                  <td>
+                                    <span
+                                      className={
+                                        target.enabled
+                                          ? 'um-status um-status--active'
+                                          : 'um-status um-status--pending'
+                                      }
+                                    >
+                                      {
+                                        target.enabled
+                                          ? 'Aktif'
+                                          : 'Menunggu Aktivasi'
+                                      }
+                                    </span>
+                                  </td>
+
+
+                                  <td>
+                                    <div className="um-actions">
+                                      <button
+                                        className={
+                                          target.enabled
+                                            ? 'um-button um-button--danger-soft'
+                                            : 'um-button um-button--success-soft'
+                                        }
+                                        type="button"
                                         disabled={
                                           isCurrentUser
                                         }
-                                        aria-label={
-                                          `Role ${target.username}`
-                                        }
-                                        onChange={(event) => {
-                                          const role:
-                                          AppRole =
-                                            event.target.value
-                                            === 'admin'
-                                              ? 'admin'
-                                              : 'operator'
-
-
-                                          void changeRole(
+                                        onClick={() =>
+                                          void toggleEnabled(
                                             target,
-                                            role,
                                           )
-                                        }}
-                                      >
-                                        <option value="operator">
-                                          Operator
-                                        </option>
-
-                                        <option value="admin">
-                                          Admin
-                                        </option>
-                                      </select>
-                                    </td>
-
-
-                                    <td>
-                                      <span
-                                        className={
-                                          target.enabled
-                                            ? 'um-status um-status--active'
-                                            : 'um-status um-status--pending'
                                         }
                                       >
                                         {
                                           target.enabled
-                                            ? 'Aktif'
-                                            : 'Menunggu Aktivasi'
+                                            ? (
+                                                <>
+                                                  <UserX
+                                                    size={15}
+                                                    strokeWidth={1.8}
+                                                    aria-hidden="true"
+                                                  />
+
+                                                  Nonaktifkan
+                                                </>
+                                              )
+
+                                            : (
+                                                <>
+                                                  <UserCheck
+                                                    size={15}
+                                                    strokeWidth={1.8}
+                                                    aria-hidden="true"
+                                                  />
+
+                                                  Aktifkan
+                                                </>
+                                              )
                                         }
-                                      </span>
-                                    </td>
+                                      </button>
 
 
-                                    <td>
-                                      <div className="um-actions">
-                                        <button
-                                          className={
-                                            target.enabled
-                                              ? 'um-button um-button--danger-soft'
-                                              : 'um-button um-button--success-soft'
-                                          }
-                                          type="button"
-                                          disabled={
-                                            isCurrentUser
-                                          }
-                                          onClick={() =>
-                                            void toggleEnabled(
-                                              target,
-                                            )
-                                          }
-                                        >
-                                          {
-                                            target.enabled
-                                              ? (
-                                                  <>
-                                                    <UserX
-                                                      size={15}
-                                                    />
+                                      <button
+                                        className="um-button um-button--outline"
+                                        type="button"
+                                        onClick={() => {
+                                          setPasswordTarget(
+                                            target,
+                                          )
 
-                                                    Nonaktifkan
-                                                  </>
-                                                )
+                                          setNewPassword(
+                                            '',
+                                          )
+                                        }}
+                                      >
+                                        <KeyRound
+                                          size={15}
+                                          strokeWidth={1.8}
+                                          aria-hidden="true"
+                                        />
 
-                                              : (
-                                                  <>
-                                                    <UserCheck
-                                                      size={15}
-                                                    />
-
-                                                    Aktifkan
-                                                  </>
-                                                )
-                                          }
-                                        </button>
-
-
-                                        <button
-                                          className="um-button um-button--outline"
-                                          type="button"
-                                          onClick={() => {
-                                            setPasswordTarget(
-                                              target,
-                                            )
-
-                                            setNewPassword('')
-                                          }}
-                                        >
-                                          <KeyRound
-                                            size={15}
-                                          />
-
-                                          Password
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )
-                              },
-                            )
-                          }
-                        </tbody>
-                      </table>
-                    </div>
-                  )
-          }
-        </article>
-      </div>
+                                        Password
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )
+                            },
+                          )
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                )
+        }
+      </article>
 
 
       {
@@ -979,18 +775,27 @@ export function UserManagementPage() {
             <div className="um-password-heading">
               <div className="um-heading-icon">
                 <UserRoundCog
-                  size={19}
+                  size={20}
                   strokeWidth={1.8}
+                  aria-hidden="true"
                 />
               </div>
 
               <div>
+                <span className="um-section-eyebrow">
+                  Keamanan akun
+                </span>
+
                 <h3>
                   Reset Password
                 </h3>
 
                 <p>
-                  @{passwordTarget.username}
+                  Ubah password untuk
+                  {' '}
+                  <strong>
+                    @{passwordTarget.username}
+                  </strong>
                 </p>
               </div>
             </div>
@@ -1024,8 +829,13 @@ export function UserManagementPage() {
                 className="um-button um-button--outline"
                 type="button"
                 onClick={() => {
-                  setPasswordTarget(null)
-                  setNewPassword('')
+                  setPasswordTarget(
+                    null,
+                  )
+
+                  setNewPassword(
+                    '',
+                  )
                 }}
               >
                 Batal
