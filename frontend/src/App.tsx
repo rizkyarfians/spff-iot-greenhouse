@@ -1014,7 +1014,64 @@ function App() {
             sensor.key === key,
         ) as SensorData,
     )
+const soilNpkGroups =
+  [
+    {
+      soil: 'Tanah 1',
 
+      sensors: [
+        {
+          label: 'N',
+          key: 'soil_1_n',
+        },
+        {
+          label: 'P',
+          key: 'soil_1_p',
+        },
+        {
+          label: 'K',
+          key: 'soil_1_k',
+        },
+      ],
+    },
+
+    {
+      soil: 'Tanah 2',
+
+      sensors: [
+        {
+          label: 'N',
+          key: 'soil_2_n',
+        },
+        {
+          label: 'P',
+          key: 'soil_2_p',
+        },
+        {
+          label: 'K',
+          key: 'soil_2_k',
+        },
+      ],
+    },
+  ].map(
+    (group) => ({
+      ...group,
+
+      sensors:
+        group.sensors.map(
+          (item) => ({
+            ...item,
+
+            sensor:
+              mergedSensorData.find(
+                (sensor) =>
+                  sensor.key ===
+                  item.key,
+              ),
+          }),
+        ),
+    }),
+  )
 
   const primaryDevice =
     backendData?.devices[0]
@@ -1795,6 +1852,77 @@ function App() {
                           }
                         </div>
                       </div>
+                      <div
+  className="hero-npk-groups"
+  aria-label="NPK tanah"
+>
+  {
+    soilNpkGroups.map(
+      (group) => (
+        <div
+          className="hero-npk-card"
+          key={group.soil}
+        >
+          <div className="hero-npk-title">
+            <Sprout
+              size={12}
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+
+            <span>
+              {group.soil}
+            </span>
+          </div>
+
+          <div className="hero-npk-values">
+            {
+              group.sensors.map(
+                ({
+                  label,
+                  key,
+                  sensor,
+                }) => (
+                  <button
+                    type="button"
+                    className="hero-npk-item"
+                    key={key}
+                    onClick={() =>
+                      setSelectedSensor(
+                        key,
+                      )
+                    }
+                    title={
+                      sensor?.label
+                      ?? label
+                    }
+                  >
+                    <span>
+                      {label}
+                    </span>
+
+                    <strong>
+                      {
+                        formatSensorValue(
+                          sensor?.value
+                          ?? null,
+                        )
+                      }
+                    </strong>
+
+                    <small>
+                      mg/kg
+                    </small>
+                  </button>
+                ),
+              )
+            }
+          </div>
+        </div>
+      ),
+    )
+  }
+</div>
                     </article>
 
 
