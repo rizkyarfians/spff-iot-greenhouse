@@ -1583,7 +1583,7 @@ input:focus-visible {
 .metric-label {
   display: block;
 
-  margin-top: 13px;
+  margin-top: 14px;
 
   color: #303733;
 
@@ -1595,22 +1595,27 @@ input:focus-visible {
   line-height: 1.35;
 }
 
-.metric-reading-row {
+.metric-reading-row,
+.metric-reading {
   display: flex;
 
   min-width: 0;
 
   align-items: baseline;
 
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 
-  gap: 6px;
+  gap: 5px;
 
   margin-top: 5px;
 }
 
-.metric-value {
-  display: block;
+.metric-value,
+.metric-reading-row > strong,
+.metric-reading > strong {
+  display: inline-block;
+  flex: 0 0 auto;
+  white-space: nowrap;
 
   margin: 0;
 
@@ -1618,38 +1623,42 @@ input:focus-visible {
 
   font-family: inherit;
 
-  font-size:
-    clamp(
-      23px,
-      1.7vw,
-      30px
-    );
-
-  font-weight: 760;
+  /*
+   * Disamakan dengan style nilai
+   * pada hero sensor (28,4 °C).
+   */
+  font-size: 22px;
+  font-weight: 750;
 
   line-height: 1;
 
-  letter-spacing:
-    -1.25px;
+  letter-spacing: 0;
 
   font-variant-numeric:
     tabular-nums;
 }
 
-.metric-unit {
-  color:
-    #59625d;
+.metric-unit,
+.metric-reading-row > small,
+.metric-reading > small {
+  flex: 0 0 auto;
+  white-space: nowrap;
+
+  color: #59625d;
 
   font-family: inherit;
 
-  font-size: 9px;
-  font-weight: 550;
+  font-size: 12px;
+  font-weight: 600;
 
   line-height: 1;
 }
 
 .metric-reading-row
+.good-badge,
+.metric-reading
 .good-badge {
+  flex: 0 0 auto;
   margin-left: auto;
 }
 
@@ -1661,6 +1670,81 @@ input:focus-visible {
     #7d8782;
 }
 
+.metric-sync-status {
+  display: inline-flex;
+
+  width: max-content;
+  max-width: 100%;
+
+  align-items: center;
+
+  gap: 5px;
+
+  margin-top: auto;
+
+  padding-top: 8px;
+
+  color: #819089;
+}
+
+.metric-sync-status small {
+  overflow: hidden;
+
+  color: inherit;
+
+  font-family: inherit;
+
+  font-size: 8px;
+  font-weight: 600;
+
+  line-height: 1.2;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.metric-sync-dot {
+  width: 6px;
+  height: 6px;
+
+  flex: 0 0 6px;
+
+  border-radius: 50%;
+}
+
+.metric-sync-status.is-synced {
+  color: #5f8e78;
+}
+
+.metric-sync-status.is-synced
+.metric-sync-dot {
+  background:
+    var(--green);
+
+  box-shadow:
+    0 0 0 3px
+    rgb(39 173 120 / 10%);
+}
+
+.metric-sync-status.is-waiting {
+  color: #969f9a;
+}
+
+.metric-sync-status.is-waiting
+.metric-sync-dot {
+  background:
+    #aeb5b1;
+
+  box-shadow:
+    0 0 0 3px
+    rgb(174 181 177 / 12%);
+}
+
+/*
+ * Fallback sementara kalau App.tsx lama
+ * masih merender .metric-update.
+ */
 .metric-update {
   display: block;
 
@@ -1668,8 +1752,7 @@ input:focus-visible {
 
   overflow: hidden;
 
-  color:
-    #98a09c;
+  color: #98a09c;
 
   font-family: inherit;
 
@@ -2117,13 +2200,16 @@ input:focus-visible {
     min-height: 158px;
   }
 
-  .metric-reading-row {
-    flex-wrap: wrap;
+  .metric-reading-row,
+  .metric-reading {
+    flex-wrap: nowrap;
   }
 
   .metric-reading-row
+  .good-badge,
+  .metric-reading
   .good-badge {
-    margin-left: 0;
+    margin-left: auto;
   }
 }
 
@@ -2182,7 +2268,7 @@ input:focus-visible {
 
   .page-shell-header h1 {
     font-size:
-      23px;
+      32px;
   }
 
   .page-shell-header p {
@@ -2507,12 +2593,19 @@ input:focus-visible {
       14px 13px 12px;
   }
 
-  .metric-reading-row {
-    gap: 5px;
+  .metric-reading-row,
+  .metric-reading {
+    flex-wrap: nowrap;
+    gap: 4px;
   }
 
-  .metric-value {
-    font-size: 26px;
+  .metric-value,
+  .metric-reading-row > strong,
+  .metric-reading > strong {
+    font-size: 20px;
+    font-weight: 750;
+    line-height: 1;
+    letter-spacing: 0;
   }
 
   .metric-reading-row
@@ -2522,7 +2615,8 @@ input:focus-visible {
     font-size: 7px;
   }
 
-  .metric-update {
+  .metric-update,
+  .metric-sync-status small {
     font-size: 7px;
   }
 

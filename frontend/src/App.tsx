@@ -2110,13 +2110,13 @@ const soilNpkGroups =
 
 
                               <span className="metric-reading">
-                                <strong>
+                                <h2>
                                   {
                                     formatSensorValue(
                                       sensor.value,
                                     )
                                   }
-                                </strong>
+                                </h2>
 
                                 {
                                   sensor.unit
@@ -2139,17 +2139,26 @@ const soilNpkGroups =
                               </span>
 
 
-                              <small className="metric-update">
-                                {
-                                  sensor.key
-                                }
-                                {' · '}
-                                {
-                                  sensor.value === null
-                                    ? 'menunggu telemetry'
-                                    : 'data PostgreSQL'
-                                }
-                              </small>
+                              <div
+  className={
+    sensor.value === null
+      ? 'metric-sync-status is-waiting'
+      : 'metric-sync-status is-synced'
+  }
+>
+  <span
+    className="metric-sync-dot"
+    aria-hidden="true"
+  />
+
+  <small>
+    {
+      sensor.value === null
+        ? 'Menunggu Data'
+        : 'Tersimpan'
+    }
+  </small>
+</div>
                             </button>
                           ),
                         )
