@@ -33,11 +33,8 @@ import './UserManagementPage.css'
 
 
 export function UserManagementPage() {
-  const {
-    user,
-  } =
+  const { user } =
     useAuth()
-
 
   const [
     users,
@@ -45,13 +42,11 @@ export function UserManagementPage() {
   ] =
     useState<ManagedUser[]>([])
 
-
   const [
     loading,
     setLoading,
   ] =
     useState(true)
-
 
   const [
     notice,
@@ -59,15 +54,13 @@ export function UserManagementPage() {
   ] =
     useState('')
 
-
   const [
     passwordTarget,
     setPasswordTarget,
   ] =
-    useState<
-      ManagedUser | null
-    >(null)
-
+    useState<ManagedUser | null>(
+      null,
+    )
 
   const [
     newPassword,
@@ -86,9 +79,7 @@ export function UserManagementPage() {
           const result =
             await fetchUsers()
 
-          setUsers(
-            result,
-          )
+          setUsers(result)
         } catch (error) {
           setNotice(
             error instanceof Error
@@ -122,11 +113,8 @@ export function UserManagementPage() {
 
   const changeRole =
     async (
-      target:
-        ManagedUser,
-
-      role:
-        AppRole,
+      target: ManagedUser,
+      role: AppRole,
     ) => {
       if (
         target.userId
@@ -139,9 +127,7 @@ export function UserManagementPage() {
         return
       }
 
-
       setNotice('')
-
 
       try {
         await updateUser(
@@ -151,11 +137,9 @@ export function UserManagementPage() {
           },
         )
 
-
         setNotice(
           `Role ${target.username} berhasil diperbarui.`,
         )
-
 
         await loadUsers()
       } catch (error) {
@@ -170,8 +154,7 @@ export function UserManagementPage() {
 
   const toggleEnabled =
     async (
-      target:
-        ManagedUser,
+      target: ManagedUser,
     ) => {
       if (
         target.userId
@@ -184,9 +167,7 @@ export function UserManagementPage() {
         return
       }
 
-
       setNotice('')
-
 
       try {
         await updateUser(
@@ -197,13 +178,11 @@ export function UserManagementPage() {
           },
         )
 
-
         setNotice(
           target.enabled
             ? `${target.username} dinonaktifkan.`
             : `${target.username} berhasil diaktifkan.`,
         )
-
 
         await loadUsers()
       } catch (error) {
@@ -223,13 +202,9 @@ export function UserManagementPage() {
     ) => {
       event.preventDefault()
 
-
-      if (
-        !passwordTarget
-      ) {
+      if (!passwordTarget) {
         return
       }
-
 
       if (
         newPassword.length < 12
@@ -242,9 +217,7 @@ export function UserManagementPage() {
         return
       }
 
-
       setNotice('')
-
 
       try {
         await updateUser(
@@ -255,20 +228,12 @@ export function UserManagementPage() {
           },
         )
 
-
         setNotice(
           `Password ${passwordTarget.username} berhasil diperbarui.`,
         )
 
-
-        setPasswordTarget(
-          null,
-        )
-
-        setNewPassword(
-          '',
-        )
-
+        setPasswordTarget(null)
+        setNewPassword('')
 
         await loadUsers()
       } catch (error) {
@@ -315,14 +280,12 @@ export function UserManagementPage() {
         !target.enabled,
     ).length
 
-
   const adminCount =
     users.filter(
       (target) =>
         target.enabled
         && target.role === 'admin',
     ).length
-
 
   const operatorCount =
     users.filter(
@@ -333,45 +296,10 @@ export function UserManagementPage() {
 
 
   return (
-    <section className="um-page">
-      <header className="um-page-header">
-        <div>
-          <span className="um-eyebrow">
-            Administrasi
-          </span>
-
-          <h1>
-            Manajemen User
-          </h1>
-
-          <p>
-            Kelola akses admin dan operator
-            dashboard lokal SPFF.
-          </p>
-        </div>
-
-
-        <button
-          className="um-button um-button--outline um-refresh-button"
-          type="button"
-          disabled={
-            loading
-          }
-          onClick={() =>
-            void loadUsers()
-          }
-        >
-          <RefreshCw
-            size={16}
-            strokeWidth={1.9}
-            aria-hidden="true"
-          />
-
-          Refresh
-        </button>
-      </header>
-
-
+    <section
+      className="um-page"
+      aria-label="Manajemen user"
+    >
       <div className="um-summary-grid">
         <article className="um-summary-card">
           <div className="um-summary-icon">
@@ -449,12 +377,7 @@ export function UserManagementPage() {
 
 
         <article className="um-summary-card">
-          <div
-            className="
-              um-summary-icon
-              um-summary-icon--pending
-            "
-          >
+          <div className="um-summary-icon um-summary-icon--pending">
             <UserX
               size={22}
               strokeWidth={1.8}
@@ -495,9 +418,6 @@ export function UserManagementPage() {
       <article className="um-card um-list-card">
         <div className="um-list-heading">
           <div>
-            <span className="um-section-eyebrow">
-              Daftar akun
-            </span>
 
             <h2>
               User Terdaftar
@@ -529,6 +449,23 @@ export function UserManagementPage() {
               {' '}
               akun
             </span>
+
+            <button
+              className="um-button um-button--outline"
+              type="button"
+              disabled={loading}
+              onClick={() =>
+                void loadUsers()
+              }
+            >
+              <RefreshCw
+                size={14}
+                strokeWidth={1.9}
+                aria-hidden="true"
+              />
+
+              Refresh
+            </button>
           </div>
         </div>
 
@@ -557,24 +494,12 @@ export function UserManagementPage() {
                     <table className="um-table">
                       <thead>
                         <tr>
-                          <th>
-                            User
-                          </th>
-
-                          <th>
-                            Role
-                          </th>
-
-                          <th>
-                            Status
-                          </th>
-
-                          <th>
-                            Aksi
-                          </th>
+                          <th>User</th>
+                          <th>Role</th>
+                          <th>Status</th>
+                          <th>Aksi</th>
                         </tr>
                       </thead>
-
 
                       <tbody>
                         {
@@ -583,7 +508,6 @@ export function UserManagementPage() {
                               const isCurrentUser =
                                 target.userId
                                 === user.userId
-
 
                               return (
                                 <tr
@@ -604,7 +528,6 @@ export function UserManagementPage() {
                                             .toUpperCase()
                                         }
                                       </div>
-
 
                                       <div className="um-identity-copy">
                                         <strong>
@@ -629,7 +552,6 @@ export function UserManagementPage() {
                                     </div>
                                   </td>
 
-
                                   <td>
                                     <select
                                       className="um-role-select"
@@ -650,7 +572,6 @@ export function UserManagementPage() {
                                             ? 'admin'
                                             : 'operator'
 
-
                                         void changeRole(
                                           target,
                                           role,
@@ -667,7 +588,6 @@ export function UserManagementPage() {
                                     </select>
                                   </td>
 
-
                                   <td>
                                     <span
                                       className={
@@ -683,7 +603,6 @@ export function UserManagementPage() {
                                       }
                                     </span>
                                   </td>
-
 
                                   <td>
                                     <div className="um-actions">
@@ -716,7 +635,6 @@ export function UserManagementPage() {
                                                   Nonaktifkan
                                                 </>
                                               )
-
                                             : (
                                                 <>
                                                   <UserCheck
@@ -731,7 +649,6 @@ export function UserManagementPage() {
                                         }
                                       </button>
 
-
                                       <button
                                         className="um-button um-button--outline"
                                         type="button"
@@ -740,9 +657,7 @@ export function UserManagementPage() {
                                             target,
                                           )
 
-                                          setNewPassword(
-                                            '',
-                                          )
+                                          setNewPassword('')
                                         }}
                                       >
                                         <KeyRound
@@ -800,7 +715,6 @@ export function UserManagementPage() {
               </div>
             </div>
 
-
             <form
               className="um-password-form"
               onSubmit={
@@ -824,23 +738,16 @@ export function UserManagementPage() {
                 required
               />
 
-
               <button
                 className="um-button um-button--outline"
                 type="button"
                 onClick={() => {
-                  setPasswordTarget(
-                    null,
-                  )
-
-                  setNewPassword(
-                    '',
-                  )
+                  setPasswordTarget(null)
+                  setNewPassword('')
                 }}
               >
                 Batal
               </button>
-
 
               <button
                 className="um-button um-button--primary"

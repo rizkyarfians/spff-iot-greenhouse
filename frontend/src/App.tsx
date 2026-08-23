@@ -38,6 +38,8 @@ import {
 } from './SecondaryPages'
 
 import {
+  pageDescriptions,
+  pageTitles,
   type PageKey,
 } from './pageConfig'
 
@@ -1720,6 +1722,27 @@ const soilNpkGroups =
 
 
       <main className="app-main">
+        <header className="page-shell-header">
+          <div className="page-shell-header-copy">
+            <h1>
+              {
+                pageTitles[
+                  activePage
+                ]
+              }
+            </h1>
+
+            <p>
+              {
+                pageDescriptions[
+                  activePage
+                ]
+              }
+            </p>
+          </div>
+        </header>
+
+
         {
           activePage === 'dashboard'
             ? (
@@ -1727,11 +1750,6 @@ const soilNpkGroups =
                   className="dashboard-home"
                   aria-label="Dashboard smart greenhouse"
                 >
-                  <h1 className="sr-only">
-                    Dashboard Smart Greenhouse
-                  </h1>
-
-
                   <div className="overview-grid">
                     <article className="hero-card">
                       <div className="hero-shade" />
@@ -1842,9 +1860,9 @@ const soilNpkGroups =
               aria-hidden="true"
             />
 
-            <span>
+            <h3>
               {group.soil}
-            </span>
+            </h3>
           </div>
 
           <div className="hero-npk-values">
@@ -1857,8 +1875,17 @@ const soilNpkGroups =
                 }) => (
                   <button
                     type="button"
-                    className="hero-npk-item"
+                    className={
+                      `hero-npk-item ${
+                        selectedSensor === key
+                          ? 'is-selected'
+                          : ''
+                      }`
+                    }
                     key={key}
+                    aria-pressed={
+                      selectedSensor === key
+                    }
                     onClick={() =>
                       setSelectedSensor(
                         key,
@@ -1904,18 +1931,16 @@ const soilNpkGroups =
                     >
                       <div className="schedule-head">
                         <div>
-                          <span className="eyebrow">
-                            Otomasi hari ini
-                          </span>
+                          
 
                           <h2>
                             Jadwal
                           </h2>
                         </div>
 
-                        <span className="today-chip">
+                        <h3 className="today-chip">
                           Hari ini
-                        </span>
+                        </h3>
                       </div>
 
 
@@ -2077,11 +2102,11 @@ const soilNpkGroups =
                               </span>
 
 
-                              <span className="metric-label">
+                              <h3 className="metric-label">
                                 {
                                   sensor.label
                                 }
-                              </span>
+                              </h3>
 
 
                               <span className="metric-reading">

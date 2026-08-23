@@ -797,10 +797,85 @@ input:focus-visible {
    ========================= */
 
 .app-main {
+  --account-dock-clearance: 78px;
+
   min-height: 100svh;
+
+  padding-top:
+    var(--account-dock-clearance);
 
   background:
     var(--page);
+
+  overflow:
+    flow-root;
+}
+
+
+/* =========================
+   PAGE HEADER
+   ========================= */
+
+.page-shell-header {
+  display: flex;
+
+  width:
+    min(
+      1540px,
+      calc(100% - 48px)
+    );
+
+  min-width: 0;
+
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 24px;
+
+  margin:
+    0 auto 22px;
+}
+
+.page-shell-header-copy {
+  min-width: 0;
+}
+
+.page-shell-header h1 {
+  margin: 0;
+
+  color: #17392d;
+
+  font-family: inherit;
+
+  font-size:
+    clamp(
+      24px,
+      2vw,
+      30px
+    );
+
+  font-weight: 760;
+
+  line-height: 1.1;
+
+  letter-spacing:
+    -0.75px;
+}
+
+.page-shell-header p {
+  max-width: 650px;
+
+  margin:
+    7px 0 0;
+
+  color:
+    var(--muted);
+
+  font-family: inherit;
+
+  font-size: 11px;
+
+  line-height: 1.55;
 }
 
 
@@ -808,7 +883,8 @@ input:focus-visible {
    DASHBOARD
    ========================= */
 
-.dashboard-home {
+.app-main
+> .dashboard-home {
   width:
     min(
       100%,
@@ -819,7 +895,7 @@ input:focus-visible {
     0 auto;
 
   padding:
-    82px 24px 44px;
+    0 24px 44px;
 }
 
 .overview-grid,
@@ -1067,9 +1143,24 @@ input:focus-visible {
 
   color:
     rgb(255 255 255 / 90%);
+}
+
+.hero-npk-title svg {
+  flex:
+    0 0 auto;
+}
+
+.hero-npk-title h3 {
+  margin: 0;
+
+  color: inherit;
+
+  font: inherit;
 
   font-size: 9px;
   font-weight: 700;
+
+  line-height: 1.2;
 }
 
 .hero-npk-values {
@@ -1087,7 +1178,8 @@ input:focus-visible {
 .hero-npk-item {
   min-width: 0;
 
-  border: 0;
+  border:
+    1px solid transparent;
 
   border-radius: 7px;
 
@@ -1104,12 +1196,32 @@ input:focus-visible {
   cursor: pointer;
 
   transition:
-    background 150ms ease;
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
 }
 
 .hero-npk-item:hover {
   background:
     rgb(39 173 120 / 48%);
+}
+
+.hero-npk-item.is-selected {
+  border-color:
+    rgb(255 255 255 / 86%);
+
+  background:
+    rgb(39 173 120 / 78%);
+
+  box-shadow:
+    0 0 0 1px
+    rgb(255 255 255 / 16%),
+    0 5px 14px
+    rgb(0 0 0 / 16%);
+
+  transform:
+    translateY(-1px);
 }
 
 .hero-npk-item > span,
@@ -1227,11 +1339,17 @@ input:focus-visible {
 }
 
 .today-chip {
+  margin: 0;
+
   background:
     var(--green-soft);
 
   color:
     var(--green-dark);
+
+  font-family: inherit;
+
+  line-height: 1.2;
 }
 
 .schedule-list {
@@ -1405,7 +1523,20 @@ input:focus-visible {
 
 .metric-card.is-selected {
   border-color:
-    var(--sensor-color);
+    #d7dcda;
+
+  border-bottom-color:
+    #d7dcda;
+
+  background:
+    #fff;
+
+  box-shadow:
+    0 8px 22px
+    rgb(31 48 39 / 10%);
+
+  transform:
+    translateY(-2px);
 }
 
 .metric-card-head {
@@ -1450,12 +1581,21 @@ input:focus-visible {
 }
 
 .metric-label {
+  display: block;
+
   margin-top: 13px;
 
+  color: #303733;
+
+  font-family: inherit;
+
   font-size: 10px;
+  font-weight: 650;
+
+  line-height: 1.35;
 }
 
-.metric-reading {
+.metric-reading-row {
   display: flex;
 
   min-width: 0;
@@ -1466,10 +1606,18 @@ input:focus-visible {
 
   gap: 6px;
 
-  margin-top: 4px;
+  margin-top: 5px;
 }
 
-.metric-reading > strong {
+.metric-value {
+  display: block;
+
+  margin: 0;
+
+  color: #111714;
+
+  font-family: inherit;
+
   font-size:
     clamp(
       23px,
@@ -1477,31 +1625,61 @@ input:focus-visible {
       30px
     );
 
+  font-weight: 760;
+
   line-height: 1;
 
   letter-spacing:
-    -1.4px;
+    -1.25px;
+
+  font-variant-numeric:
+    tabular-nums;
 }
 
-.metric-reading > small {
+.metric-unit {
   color:
     #59625d;
 
+  font-family: inherit;
+
   font-size: 9px;
+  font-weight: 550;
+
+  line-height: 1;
 }
 
-.metric-reading
+.metric-reading-row
 .good-badge {
   margin-left: auto;
 }
 
+.good-badge.is-no-data {
+  background:
+    #eef1ef;
+
+  color:
+    #7d8782;
+}
+
 .metric-update {
+  display: block;
+
   margin-top: auto;
+
+  overflow: hidden;
 
   color:
     #98a09c;
 
+  font-family: inherit;
+
   font-size: 8px;
+
+  line-height: 1.3;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
 }
 
 
@@ -1777,7 +1955,8 @@ input:focus-visible {
    SECONDARY PAGES
    ========================= */
 
-.secondary-page {
+.app-main
+> .secondary-page {
   width:
     min(
       1540px,
@@ -1785,7 +1964,28 @@ input:focus-visible {
     );
 
   margin:
-    82px auto 44px;
+    0 auto 44px;
+
+  padding-top: 0;
+}
+
+
+/* =========================
+   USER MANAGEMENT
+   ========================= */
+
+.app-main
+> .um-page {
+  width:
+    min(
+      1540px,
+      calc(100% - 48px)
+    );
+
+  margin:
+    0 auto 44px;
+
+  padding: 0;
 }
 
 
@@ -1917,17 +2117,13 @@ input:focus-visible {
     min-height: 158px;
   }
 
-  .metric-reading {
+  .metric-reading-row {
     flex-wrap: wrap;
   }
 
-  .metric-reading
+  .metric-reading-row
   .good-badge {
     margin-left: 0;
-  }
-
-  .secondary-page {
-    margin-top: 76px;
   }
 }
 
@@ -1957,6 +2153,11 @@ input:focus-visible {
 @media (
   max-width: 760px
 ) {
+  .app-main {
+    --account-dock-clearance:
+      68px;
+  }
+
   .compact-account-dock {
     top: 10px;
     right: 12px;
@@ -1969,19 +2170,60 @@ input:focus-visible {
       4px 5px;
   }
 
-  .dashboard-home {
-    padding:
-      70px 14px 28px;
+  .page-shell-header {
+    width:
+      calc(
+        100% - 28px
+      );
+
+    margin-bottom:
+      16px;
   }
 
-  .secondary-page {
+  .page-shell-header h1 {
+    font-size:
+      23px;
+  }
+
+  .page-shell-header p {
+    margin-top:
+      5px;
+
+    font-size:
+      10px;
+  }
+
+  .app-main
+  > .dashboard-home {
+    padding:
+      0 14px 28px;
+  }
+
+  .app-main
+  > .secondary-page {
     width:
       calc(
         100% - 28px
       );
 
     margin:
-      70px auto 28px;
+      0 auto 28px;
+
+    padding-top:
+      0;
+  }
+
+  .app-main
+  > .um-page {
+    width:
+      calc(
+        100% - 28px
+      );
+
+    margin:
+      0 auto 28px;
+
+    padding: 0;
   }
 
   .overview-grid,
@@ -2136,6 +2378,11 @@ input:focus-visible {
 @media (
   max-width: 500px
 ) {
+  .app-main {
+    --account-dock-clearance:
+      62px;
+  }
+
   .compact-account-dock {
     top: 9px;
     right: 10px;
@@ -2178,17 +2425,50 @@ input:focus-visible {
     width: auto;
   }
 
-  .dashboard-home {
-    padding:
-      64px 10px 28px;
+  .page-shell-header {
+    width:
+      calc(
+        100% - 20px
+      );
+
+    margin-bottom:
+      14px;
   }
 
-  .secondary-page {
+  .page-shell-header h1 {
+    font-size:
+      21px;
+  }
+
+  .app-main
+  > .dashboard-home {
+    padding:
+      0 10px 28px;
+  }
+
+  .app-main
+  > .secondary-page {
     width:
       calc(100% - 20px);
 
     margin:
-      64px auto 28px;
+      0 auto 28px;
+
+    padding-top:
+      0;
+  }
+
+  .app-main
+  > .um-page {
+    width:
+      calc(
+        100% - 20px
+      );
+
+    margin:
+      0 auto 28px;
+
+    padding: 0;
   }
 
   .hero-card {
@@ -2227,15 +2507,15 @@ input:focus-visible {
       14px 13px 12px;
   }
 
-  .metric-reading {
+  .metric-reading-row {
     gap: 5px;
   }
 
-  .metric-reading > strong {
+  .metric-value {
     font-size: 26px;
   }
 
-  .metric-reading
+  .metric-reading-row
   .good-badge {
     padding-inline: 7px;
 
@@ -2293,7 +2573,8 @@ input:focus-visible {
     margin-top: 40px;
   }
 
-  .dashboard-home {
+  .app-main
+  > .dashboard-home {
     padding-inline:
       clamp(
         18px,
@@ -2302,7 +2583,19 @@ input:focus-visible {
       );
   }
 
-  .secondary-page {
+  .app-main
+  > .secondary-page {
+    width:
+      min(
+        1540px,
+        calc(
+          100% - 48px
+        )
+      );
+  }
+
+  .app-main
+  > .um-page {
     width:
       min(
         1540px,

@@ -10,9 +10,12 @@ export type PageKey =
 
 
 export const pageTitles:
-Record<PageKey, string> = {
+Record<
+  PageKey,
+  string
+> = {
   dashboard:
-    'Monitoring Sensor',
+    'Dashboard',
 
   plants:
     'Status Tanaman',
@@ -34,4 +37,35 @@ Record<PageKey, string> = {
 
   users:
     'Manajemen User',
+}
+
+
+export const pageDescriptions:
+Record<
+  PageKey,
+  string
+> = {
+  dashboard:
+    'Pantau kondisi greenhouse, sensor, jadwal, dan telemetry terbaru.',
+
+  plants:
+    'Pantau kondisi zona tanam berdasarkan telemetry sensor terbaru.',
+
+  controls:
+    'Kelola aktuator dan jadwal lokal berdasarkan actual state dari ESP32.',
+
+  logs:
+    'Lihat histori telemetry yang tersimpan di PostgreSQL lokal.',
+
+  alarms:
+    'Pantau alarm aktif, acknowledgement, dan status penyelesaian.',
+
+  devices:
+    'Pantau konektivitas, last seen, firmware, dan kondisi perangkat.',
+
+  settings:
+    'Kelola konfigurasi greenhouse yang tersimpan di PostgreSQL lokal.',
+
+  users:
+    'Kelola akses admin dan operator dashboard lokal SPFF.',
 }

@@ -778,7 +778,7 @@ export function AuthGate({
                       <>
                         <div className="auth-heading">
                           <span className="auth-eyebrow">
-                            <h2>Selamat datang kembali</h2>
+                            Selamat datang kembali
                           </span>
 
                           <h1>
