@@ -1,5 +1,5 @@
 :root {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: #151817;
   background: #fbfcfb;
   font-synthesis: none;
@@ -11,18 +11,32 @@
 html {
   min-width: 320px;
   background: #fbfcfb;
+  font-family: inherit;
 }
 
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  font-family: inherit;
 }
 
-body,
+#root,
 button,
-select {
+input,
+select,
+textarea,
+option {
   font-family: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }
 
 button,

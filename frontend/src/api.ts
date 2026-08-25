@@ -1,7 +1,8 @@
 import type {
   ApiActuator,
   ApiAlarmActionResult,
-  ApiHistoryPoint,
+  ApiHistorySeries,
+  HistoryBucket,
   ApiPumpCommandRequest,
   ApiScheduleCreateRequest,
   ApiScheduleEnabledRequest,
@@ -29,6 +30,7 @@ export type {
   ApiAlarm,
   ApiDevice,
   ApiHistoryPoint,
+  ApiHistorySeries,
   ApiSchedule,
   ApiSensor,
   ApiSensorDefinition,
@@ -358,10 +360,39 @@ export function fetchBootstrap(
 export function fetchSensorHistory(
   sensorKey: string,
   signal?: AbortSignal,
+  options: {
+    to?: Date
+    hours?: number
+    bucket?: HistoryBucket
+  } = {},
 ) {
+  const params =
+    new URLSearchParams({
+      type:
+        sensorKey,
 
-  return request<ApiHistoryPoint[]>(
-    `/sensors/history?type=${encodeURIComponent(sensorKey)}`,
+      bucket:
+        options.bucket
+        ?? '5m',
+
+      hours:
+        String(
+          options.hours
+          ?? 6,
+        ),
+    })
+
+
+  if (options.to) {
+    params.set(
+      'to',
+      options.to.toISOString(),
+    )
+  }
+
+
+  return request<ApiHistorySeries>(
+    `/sensors/history?${params.toString()}`,
     {
       signal,
     },

@@ -49,7 +49,7 @@ import {
 } from './api'
 
 import type {
-  ApiHistoryPoint,
+  ApiHistorySeries,
   BootstrapData,
   ConnectionState,
 } from './api'
@@ -562,6 +562,37 @@ function formatScheduleDate(
 }
 
 
+function formatHistoryTimestamp(
+  value: string,
+) {
+  return new Intl.DateTimeFormat(
+    'id-ID',
+    {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Jakarta',
+    },
+  ).format(
+    new Date(value),
+  )
+}
+
+
+const historyHourOptions =
+  Array.from(
+    {
+      length: 24,
+    },
+    (
+      _,
+      hour,
+    ) =>
+      `${String(hour).padStart(2, '0')}:00`,
+  )
+
+
 function App() {
   const {
     user,
@@ -593,6 +624,20 @@ function App() {
     useState<SensorKey>(
       'soil_1_moisture',
     )
+
+
+  const [
+    chartDate,
+    setChartDate,
+  ] =
+    useState('')
+
+
+  const [
+    chartHour,
+    setChartHour,
+  ] =
+    useState('')
 
 
   const [
@@ -650,7 +695,7 @@ function App() {
     useState<
       Record<
         string,
-        ApiHistoryPoint[]
+        ApiHistorySeries
       >
     >({})
 
@@ -821,18 +866,36 @@ function App() {
         new AbortController()
 
 
+      const filteredTo =
+        chartDate
+        && chartHour
+          ? new Date(
+              `${chartDate}T${chartHour}:00+07:00`,
+            )
+          : undefined
+
+
       void fetchSensorHistory(
         selectedSensor,
         controller.signal,
+        {
+          to:
+            filteredTo,
+
+          hours: 6,
+
+          bucket:
+            '5m',
+        },
       )
         .then(
-          (history) => {
+          (series) => {
             setHistoryBySensor(
               (current) => ({
                 ...current,
 
                 [selectedSensor]:
-                  history,
+                  series,
               }),
             )
           },
@@ -848,12 +911,19 @@ function App() {
 
 
             setHistoryBySensor(
-              (current) => ({
-                ...current,
+              (current) => {
+                const next = {
+                  ...current,
+                }
 
-                [selectedSensor]:
-                  [],
-              }),
+
+                delete next[
+                  selectedSensor
+                ]
+
+
+                return next
+              },
             )
           },
         )
@@ -865,6 +935,8 @@ function App() {
     [
       selectedSensor,
       connectionState,
+      chartDate,
+      chartHour,
       backendData
         ?.latestTelemetry
         ?.recordedAt,
@@ -973,6 +1045,7 @@ function App() {
                   historyBySensor[
                     sensor.key
                   ]
+                    ?.points
                   ?? []
                 ).map(
                   (point) =>
@@ -1092,17 +1165,28 @@ const soilNpkGroups =
       !== undefined
 
 
+  const currentHistorySeries =
+    historyBySensor[
+      selectedSensor
+    ] ?? null
+
+
   const currentHistory =
     useMemo(
       () =>
-        historyBySensor[
-          selectedSensor
-        ] ?? [],
+        currentHistorySeries
+          ?.points
+        ?? [],
       [
-        historyBySensor,
-        selectedSensor,
+        currentHistorySeries,
       ],
     )
+
+
+  const historyWindowLabel =
+    currentHistorySeries
+      ? `${formatHistoryTimestamp(currentHistorySeries.from)} – ${formatHistoryTimestamp(currentHistorySeries.to)} · rata-rata ${currentHistorySeries.bucketMinutes} menit`
+      : 'Memuat histori telemetry...'
 
 
   const homeSchedules =
@@ -1288,6 +1372,49 @@ const soilNpkGroups =
         currentHistory,
       ],
     )
+
+
+  const chartMarkerCount =
+    Math.min(
+      chartGeometry
+        .points
+        .length,
+      6,
+    )
+
+
+  const chartMarkerIndexes =
+    chartMarkerCount === 0
+      ? []
+      : (
+          chartMarkerCount === 1
+            ? [
+                0,
+              ]
+            : Array.from(
+                {
+                  length:
+                    chartMarkerCount,
+                },
+                (
+                  _,
+                  markerIndex,
+                ) =>
+                  Math.round(
+                    markerIndex
+                    * (
+                      chartGeometry
+                        .points
+                        .length
+                      - 1
+                    )
+                    / (
+                      chartMarkerCount
+                      - 1
+                    ),
+                  ),
+              )
+        )
 
 
   const clockLabel =
@@ -2176,48 +2303,138 @@ const soilNpkGroups =
                           <small className="metric-update">
                             {
                               hasTelemetry
-                                ? 'Data terbaru dari PostgreSQL'
+                                ? historyWindowLabel
                                 : 'Belum ada telemetry tersimpan'
                             }
                           </small>
                         </div>
 
 
-                        <label className="chart-select">
-                          <span className="sr-only">
-                            Pilih sensor untuk grafik
-                          </span>
+                        <div className="chart-filters">
+                          <label className="chart-select chart-sensor-select">
+                            <span className="sr-only">
+                              Pilih sensor untuk grafik
+                            </span>
 
-                          <select
-                            value={
-                              selectedSensor
+                            <select
+                              value={
+                                selectedSensor
+                              }
+                              onChange={(event) =>
+                                setSelectedSensor(
+                                  event.target.value,
+                                )
+                              }
+                            >
+                              {
+                                mergedSensorData.map(
+                                  (sensor) => (
+                                    <option
+                                      value={
+                                        sensor.key
+                                      }
+                                      key={
+                                        sensor.key
+                                      }
+                                    >
+                                      {
+                                        sensor.label
+                                      }
+                                    </option>
+                                  ),
+                                )
+                              }
+                            </select>
+                          </label>
+
+
+                          <label className="chart-date-field">
+                            <span className="sr-only">
+                              Tanggal akhir grafik
+                            </span>
+
+                            <input
+                              type="date"
+                              value={
+                                chartDate
+                              }
+                              onChange={(event) => {
+                                const nextDate =
+                                  event.target.value
+
+
+                                setChartDate(
+                                  nextDate,
+                                )
+
+
+                                if (!nextDate) {
+                                  setChartHour('')
+                                } else if (!chartHour) {
+                                  setChartHour('23:00')
+                                }
+                              }}
+                            />
+                          </label>
+
+
+                          <label className="chart-select chart-hour-select">
+                            <span className="sr-only">
+                              Jam akhir grafik
+                            </span>
+
+                            <select
+                              value={
+                                chartHour
+                              }
+                              disabled={
+                                !chartDate
+                              }
+                              onChange={(event) =>
+                                setChartHour(
+                                  event.target.value,
+                                )
+                              }
+                            >
+                              <option value="">
+                                Jam
+                              </option>
+
+                              {
+                                historyHourOptions.map(
+                                  (hour) => (
+                                    <option
+                                      value={
+                                        hour
+                                      }
+                                      key={
+                                        hour
+                                      }
+                                    >
+                                      {hour}
+                                    </option>
+                                  ),
+                                )
+                              }
+                            </select>
+                          </label>
+
+
+                          <button
+                            className="chart-latest-button"
+                            type="button"
+                            disabled={
+                              !chartDate
+                              && !chartHour
                             }
-                            onChange={(event) =>
-                              setSelectedSensor(
-                                event.target.value,
-                              )
-                            }
+                            onClick={() => {
+                              setChartDate('')
+                              setChartHour('')
+                            }}
                           >
-                            {
-                              mergedSensorData.map(
-                                (sensor) => (
-                                  <option
-                                    value={
-                                      sensor.key
-                                    }
-                                    key={
-                                      sensor.key
-                                    }
-                                  >
-                                    {
-                                      sensor.label
-                                    }
-                                  </option>
-                                ),
-                              )
-                            }
-                          </select>
-                        </label>
+                            Terbaru
+                          </button>
+                        </div>
                       </div>
 
 
@@ -2308,60 +2525,101 @@ const soilNpkGroups =
 
 
                                   {
-                                    chartGeometry.points.map(
+                                    chartMarkerIndexes.map(
                                       (
-                                        point,
-                                        index,
-                                      ) => (
-                                        <g
-                                          key={
-                                            `${selectedSensor}-${index}`
-                                          }
-                                        >
-                                          <line
-                                            className="chart-guide"
-                                            x1={
-                                              point.x
-                                            }
-                                            y1={
-                                              point.y
-                                            }
-                                            x2={
-                                              point.x
-                                            }
-                                            y2={
-                                              chartGeometry.plotBottom
-                                            }
-                                          />
+                                        historyIndex,
+                                      ) => {
+                                        const point =
+                                          chartGeometry
+                                            .points[
+                                              historyIndex
+                                            ]
 
-                                          <circle
-                                            className="chart-point"
-                                            cx={
-                                              point.x
-                                            }
-                                            cy={
-                                              point.y
-                                            }
-                                            r="4.5"
-                                          />
 
-                                          <text
-                                            className="chart-time-label"
-                                            x={
-                                              point.x
+                                        const historyPoint =
+                                          currentHistory[
+                                            historyIndex
+                                          ]
+
+
+                                        return (
+                                          <g
+                                            key={
+                                              `${selectedSensor}-${historyIndex}`
                                             }
-                                            y="226"
-                                            textAnchor="middle"
                                           >
-                                            {
-                                              currentHistory[
-                                                index
-                                              ]?.time
-                                              ?? ''
-                                            }
-                                          </text>
-                                        </g>
-                                      ),
+                                            <title>
+                                              {
+                                                historyPoint
+                                                  ? [
+                                                      historyPoint.time,
+                                                      ': rata-rata ',
+                                                      formatSensorValue(
+                                                        historyPoint.average,
+                                                      ),
+                                                      ' ',
+                                                      currentSensor.unit,
+                                                      ', min ',
+                                                      formatSensorValue(
+                                                        historyPoint.min,
+                                                      ),
+                                                      ', max ',
+                                                      formatSensorValue(
+                                                        historyPoint.max,
+                                                      ),
+                                                      ', ',
+                                                      historyPoint.samples,
+                                                      ' sampel',
+                                                    ].join('')
+                                                  : ''
+                                              }
+                                            </title>
+
+                                            <line
+                                              className="chart-guide"
+                                              x1={
+                                                point.x
+                                              }
+                                              y1={
+                                                point.y
+                                              }
+                                              x2={
+                                                point.x
+                                              }
+                                              y2={
+                                                chartGeometry.plotBottom
+                                              }
+                                            />
+
+                                            <circle
+                                              className="chart-point"
+                                              cx={
+                                                point.x
+                                              }
+                                              cy={
+                                                point.y
+                                              }
+                                              r="4.5"
+                                            />
+
+                                            <text
+                                              className="chart-time-label"
+                                              x={
+                                                point.x
+                                              }
+                                              y="226"
+                                              textAnchor="middle"
+                                            >
+                                              {
+                                                currentHistory[
+                                                  historyIndex
+                                                ]?.time
+                                                ?? ''
+                                              }
+                                            </text>
+                                          </g>
+                                        )
+                                      },
                                     )
                                   }
                                 </svg>

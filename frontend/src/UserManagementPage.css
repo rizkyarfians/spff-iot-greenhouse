@@ -709,3 +709,51 @@
     animation: none;
   }
 }
+
+
+/* =========================
+   READABILITY & CONTROLS
+   ========================= */
+
+.um-summary-copy > span,
+.um-notice,
+.um-list-heading p,
+.um-identity-copy strong,
+.um-empty,
+.um-password-heading p,
+.um-denied p {
+  font-size: var(--font-size-body);
+}
+
+.um-summary-copy > small,
+.um-section-eyebrow,
+.um-user-count,
+.um-pending-chip,
+.um-table th,
+.um-identity-copy small {
+  font-size: var(--font-size-label);
+  line-height: 1.4;
+}
+
+.um-you,
+.um-status {
+  font-size: var(--font-size-meta);
+  line-height: 1.2;
+}
+
+.um-button {
+  min-height: var(--control-height);
+  font-size: var(--font-size-body);
+}
+
+.um-role-select,
+.um-password-form input {
+  height: var(--control-height);
+  border-radius: var(--control-radius);
+  font-size: var(--font-size-body);
+  line-height: 1.2;
+}
+
+.um-table td {
+  font-size: var(--font-size-body);
+}

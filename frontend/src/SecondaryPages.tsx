@@ -1713,6 +1713,15 @@ function LogsPage({
     )
 
 
+  const [
+    currentPage,
+    setCurrentPage,
+  ] =
+    useState(
+      1,
+    )
+
+
   const sensorNames =
     data?.sensorDefinitions
       .map(
@@ -1765,6 +1774,93 @@ function LogsPage({
           (row) =>
             row[1] === sensor,
         )
+
+
+  const rowsPerPage =
+    10
+
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        rows.length
+        / rowsPerPage,
+      ),
+    )
+
+
+  useEffect(
+    () => {
+      setCurrentPage(
+        (page) =>
+          Math.min(
+            page,
+            totalPages,
+          ),
+      )
+    },
+    [
+      totalPages,
+    ],
+  )
+
+
+  const pageStart =
+    (
+      currentPage
+      - 1
+    )
+    * rowsPerPage
+
+
+  const visibleRows =
+    rows.slice(
+      pageStart,
+      pageStart
+      + rowsPerPage,
+    )
+
+
+  const visiblePageCount =
+    Math.min(
+      totalPages,
+      5,
+    )
+
+
+  const pageWindowStart =
+    Math.min(
+      Math.max(
+        currentPage
+        - Math.floor(
+            visiblePageCount
+            / 2,
+          ),
+        1,
+      ),
+      Math.max(
+        totalPages
+        - visiblePageCount
+        + 1,
+        1,
+      ),
+    )
+
+
+  const visiblePages =
+    Array.from(
+      {
+        length:
+          visiblePageCount,
+      },
+      (
+        _,
+        index,
+      ) =>
+        pageWindowStart
+        + index,
+    )
 
 
   const exportCsv =
@@ -1856,6 +1952,10 @@ function LogsPage({
       setRange(
         'Hari Ini',
       )
+
+      setCurrentPage(
+        1,
+      )
     }
 
 
@@ -1887,11 +1987,15 @@ function LogsPage({
 
               <select
                 value={sensor}
-                onChange={(event) =>
+                onChange={(event) => {
                   setSensor(
                     event.target.value,
                   )
-                }
+
+                  setCurrentPage(
+                    1,
+                  )
+                }}
               >
                 <option>
                   Semua Sensor
@@ -1917,11 +2021,15 @@ function LogsPage({
 
               <select
                 value={range}
-                onChange={(event) =>
+                onChange={(event) => {
                   setRange(
                     event.target.value,
                   )
-                }
+
+                  setCurrentPage(
+                    1,
+                  )
+                }}
               >
                 <option>
                   Hari Ini
@@ -1986,14 +2094,14 @@ function LogsPage({
 
             <tbody>
               {
-                rows.map(
+                visibleRows.map(
                   (
                     row,
                     index,
                   ) => (
                     <tr
                       key={
-                        `${row[0]}-${row[1]}-${index}`
+                        `${row[0]}-${row[1]}-${pageStart + index}`
                       }
                     >
                       <td>
@@ -2031,14 +2139,103 @@ function LogsPage({
         </div>
 
 
-        <p className="table-caption">
-          {
-            connectionState
-            === 'connected'
-              ? `Menampilkan ${rows.length} data telemetry terbaru.`
-              : 'Backend SPFF belum terhubung.'
-          }
-        </p>
+        <div className="data-table-footer">
+          <p className="table-caption">
+            {
+              connectionState
+              === 'connected'
+                ? (
+                    rows.length > 0
+                      ? `Menampilkan ${pageStart + 1}–${pageStart + visibleRows.length} dari ${rows.length} data telemetry.`
+                      : 'Belum ada data telemetry untuk filter ini.'
+                  )
+                : 'Backend SPFF belum terhubung.'
+            }
+          </p>
+
+
+          <nav
+            className="data-pagination"
+            aria-label="Navigasi halaman datalog"
+          >
+            <button
+              className="data-pagination-step"
+              type="button"
+              disabled={
+                currentPage
+                <= 1
+              }
+              onClick={() =>
+                setCurrentPage(
+                  (page) =>
+                    Math.max(
+                      1,
+                      page - 1,
+                    ),
+                )
+              }
+            >
+              Sebelumnya
+            </button>
+
+
+            <div className="data-pagination-pages">
+              {
+                visiblePages.map(
+                  (page) => (
+                    <button
+                      className={
+                        page
+                        === currentPage
+                          ? 'data-pagination-page is-active'
+                          : 'data-pagination-page'
+                      }
+                      type="button"
+                      key={page}
+                      aria-label={
+                        `Buka halaman ${page}`
+                      }
+                      aria-current={
+                        page
+                        === currentPage
+                          ? 'page'
+                          : undefined
+                      }
+                      onClick={() =>
+                        setCurrentPage(
+                          page,
+                        )
+                      }
+                    >
+                      {page}
+                    </button>
+                  ),
+                )
+              }
+            </div>
+
+
+            <button
+              className="data-pagination-step"
+              type="button"
+              disabled={
+                currentPage
+                >= totalPages
+              }
+              onClick={() =>
+                setCurrentPage(
+                  (page) =>
+                    Math.min(
+                      totalPages,
+                      page + 1,
+                    ),
+                )
+              }
+            >
+              Berikutnya
+            </button>
+          </nav>
+        </div>
       </div>
     </section>
   )

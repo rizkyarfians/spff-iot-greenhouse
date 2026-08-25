@@ -284,10 +284,32 @@ export interface ApiSensorDefinition {
   enabled: boolean;
 }
 
+export type HistoryBucket =
+  | '1m'
+  | '5m'
+  | '15m'
+  | '1h'
+  | '6h';
+
 export interface ApiHistoryPoint {
   time: string;
   value: number;
+  average: number;
+  min: number;
+  max: number;
+  samples: number;
   recordedAt: string;
+}
+
+export interface ApiHistorySeries {
+  sensorKey: string;
+  unit: string;
+  from: string;
+  to: string;
+  bucket: HistoryBucket;
+  bucketMinutes: number;
+  aggregate: 'avg';
+  points: ApiHistoryPoint[];
 }
 
 export interface ApiActuator {

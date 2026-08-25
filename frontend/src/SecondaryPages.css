@@ -883,6 +883,71 @@
   font-size: 9px;
 }
 
+.data-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  border-top: 1px solid #e8ebe9;
+  padding-top: 14px;
+}
+
+.data-table-footer .table-caption {
+  margin: 0;
+}
+
+.data-pagination,
+.data-pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.data-pagination button {
+  display: inline-flex;
+  min-width: 38px;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d7dfdb;
+  border-radius: 9px;
+  background: #fff;
+  color: #405149;
+  padding: 0 11px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.data-pagination button:hover:not(:disabled) {
+  border-color: #9fcab6;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.data-pagination button:focus-visible {
+  outline: 3px solid rgb(36 174 115 / 22%);
+  outline-offset: 2px;
+}
+
+.data-pagination-page.is-active {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.data-pagination button:disabled {
+  background: #f5f7f6;
+  color: #a1aaa5;
+  cursor: not-allowed;
+}
+
 .device-page-header {
   padding-block: 18px;
 }
@@ -1530,11 +1595,34 @@
   .settings-actions p {
     width: 100%;
   }
+
+  .data-table-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .data-pagination {
+    justify-content: space-between;
+  }
 }
 
 @media (max-width: 480px) {
   .log-actions {
     grid-template-columns: 1fr;
+  }
+
+  .data-pagination {
+    flex-wrap: wrap;
+  }
+
+  .data-pagination-pages {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .data-pagination-step {
+    flex: 1;
   }
 }
 
@@ -1547,4 +1635,102 @@
   font-weight: 700;
   background: #fff4d7;
   color: #8a641b;
+}
+
+
+/* =========================
+   READABILITY & CONTROLS
+   ========================= */
+
+.secondary-page p,
+.secondary-page small,
+.secondary-page dt,
+.secondary-page dd,
+.secondary-page time {
+  font-size: var(--font-size-body);
+  line-height: 1.45;
+}
+
+.page-select > span,
+.field-label > span,
+.schedule-field > span,
+.log-actions .page-select > span {
+  font-size: var(--font-size-label);
+  line-height: 1.3;
+}
+
+.zone-badge,
+.status-chip,
+.online-status,
+.offline-status,
+.device-active,
+.device-inactive,
+.table-status,
+.schedule-state,
+.alarm-list-heading span,
+.alarm-status,
+.alarm-severity-chip {
+  font-size: var(--font-size-meta);
+  line-height: 1.2;
+}
+
+.page-select select,
+.field-label input,
+.schedule-field input,
+.schedule-field select,
+.alarm-search input {
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
+  font-size: var(--font-size-body);
+  line-height: 1.2;
+}
+
+.field-label input,
+.schedule-field input,
+.alarm-search input {
+  padding-inline: 12px;
+}
+
+.alarm-search input {
+  padding-left: 36px;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.inline-detail button,
+.segmented-control button,
+.log-actions .primary-button,
+.log-actions .secondary-button {
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
+  font-size: var(--font-size-body);
+  line-height: 1.2;
+}
+
+.data-table th {
+  font-size: var(--font-size-label);
+}
+
+.data-table td,
+.alarm-item-top strong,
+.alarm-empty strong,
+.alarm-detail-grid dd,
+.alarm-recommendation strong,
+.alarm-activity h4 {
+  font-size: var(--font-size-body);
+}
+
+.schedule-summary small,
+.schedule-item-copy small,
+.schedule-time-block small,
+.alarm-item-copy > small,
+.alarm-item-copy > time,
+.alarm-empty span,
+.alarm-detail-title > div > span,
+.alarm-detail-grid dt,
+.alarm-recommendation p,
+.alarm-activity strong,
+.alarm-activity small {
+  font-size: var(--font-size-meta);
 }

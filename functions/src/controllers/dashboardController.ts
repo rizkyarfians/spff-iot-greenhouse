@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { ScheduleRepeatRule } from '@spff/contracts';
+import type { HistoryBucket, ScheduleRepeatRule } from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
 import {
   ActuatorBusyError,
@@ -27,6 +27,24 @@ const isTime = (value: unknown): value is string =>
 
 const isDate = (value: unknown): value is string =>
   typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`));
+
+const historyBucketMinutes: Record<HistoryBucket, number> = {
+  '1m': 1,
+  '5m': 5,
+  '15m': 15,
+  '1h': 60,
+  '6h': 360,
+};
+
+const isHistoryBucket = (value: string): value is HistoryBucket =>
+  Object.hasOwn(historyBucketMinutes, value);
+
+const optionalQueryDate = (value: unknown) => {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+};
 
 const asNullableNumber = (value: unknown) => {
   if (value === null || value === undefined || value === '') return null;
@@ -58,7 +76,63 @@ export const getSensors = run(async (_req, res) => {
 
 export const getHistory = run(async (req, res) => {
   const type = String(req.query.type ?? 'soil_1_moisture');
-  const data = await repository.history(type);
+  const bucket = String(req.query.bucket ?? '5m');
+  if (!isHistoryBucket(bucket)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Bucket history tidak didukung.',
+      errors: ['bucket'],
+    });
+  }
+
+  const requestedHours = Number(req.query.hours ?? 6);
+  const hours = Number.isInteger(requestedHours) ? requestedHours : Number.NaN;
+  const requestedTo = optionalQueryDate(req.query.to);
+  const requestedFrom = optionalQueryDate(req.query.from);
+  if (
+    requestedTo === null ||
+    requestedFrom === null ||
+    !Number.isFinite(hours) ||
+    hours < 1 ||
+    hours > 168 ||
+    (requestedFrom !== undefined && requestedTo === undefined)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Filter tanggal, jam, atau durasi history tidak valid.',
+      errors: ['from', 'to', 'hours'],
+    });
+  }
+
+  const to = requestedTo;
+  const from = requestedFrom
+    ?? (to ? new Date(to.getTime() - (hours * 60 * 60 * 1000)) : undefined);
+  const bucketMinutes = historyBucketMinutes[bucket];
+  const rangeMs = from && to
+    ? to.getTime() - from.getTime()
+    : hours * 60 * 60 * 1000;
+  const pointCount = rangeMs / (bucketMinutes * 60 * 1000);
+
+  if (
+    !Number.isFinite(rangeMs) ||
+    rangeMs <= 0 ||
+    rangeMs > 31 * 24 * 60 * 60 * 1000 ||
+    pointCount > 500
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Range history tidak valid atau menghasilkan terlalu banyak titik.',
+      errors: ['from', 'to', 'bucket'],
+    });
+  }
+
+  const data = await repository.history(type, {
+    from,
+    to,
+    hours,
+    bucket,
+    bucketMinutes,
+  });
   if (!data) {
     return res.status(400).json({
       success: false,

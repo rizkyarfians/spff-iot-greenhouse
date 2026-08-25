@@ -5,10 +5,12 @@ import type {
   ApiActuator,
   ApiAlarm,
   ApiDevice,
+  ApiHistorySeries,
   ApiSensor,
   ApiSettings,
   ApiSystemLog,
   BootstrapData,
+  HistoryBucket,
   ScheduleRepeatRule,
 } from '@spff/contracts';
 
@@ -60,6 +62,14 @@ export type CreateScheduleInput = {
 };
 
 export type SiteSettingsInput = ApiSettings;
+
+export type HistoryQuery = {
+  from?: Date;
+  to?: Date;
+  hours: number;
+  bucket: HistoryBucket;
+  bucketMinutes: number;
+};
 
 export class ActuatorBusyError extends Error {
   constructor(public readonly commandId: string) {
@@ -207,10 +217,13 @@ async function sensors() {
   });
 }
 
-async function history(sensorType: string) {
+async function history(
+  sensorType: string,
+  query: HistoryQuery,
+): Promise<ApiHistorySeries | null> {
   const sensorKey = sensorType;
   const definition = await pool.query(
-    `SELECT sensor_key
+    `SELECT sensor_key, unit
      FROM spff.sensor_definitions
      WHERE sensor_key = $1 AND enabled = true`,
     [sensorKey],
@@ -218,23 +231,82 @@ async function history(sensorType: string) {
   if (!definition.rows[0]) return null;
 
   const safeColumn = `"${String(definition.rows[0].sensor_key).replaceAll('"', '""')}"`;
+  let rangeTo = query.to;
+  if (!rangeTo) {
+    const latest = await pool.query(
+      `SELECT max(recorded_at) AS recorded_at
+       FROM spff.telemetry_samples
+       WHERE site_id = $1
+         AND ${safeColumn} IS NOT NULL`,
+      [siteId],
+    );
+    rangeTo = latest.rows[0]?.recorded_at
+      ? new Date(latest.rows[0].recorded_at)
+      : new Date();
+  }
+  const rangeFrom = query.from
+    ?? new Date(rangeTo.getTime() - (query.hours * 60 * 60 * 1000));
   const result = await pool.query(
-    `SELECT recorded_at, ${safeColumn} AS value
-     FROM spff.telemetry_samples
-     WHERE site_id = $1 AND ${safeColumn} IS NOT NULL
-     ORDER BY recorded_at DESC
-     LIMIT 48`,
-    [siteId],
+    `WITH bucketed AS (
+       SELECT
+         to_timestamp(
+           floor(
+             extract(epoch FROM recorded_at)
+             / ($4::integer * 60)
+           )
+           * ($4::integer * 60)
+         ) AS bucket_start,
+         ${safeColumn}::double precision AS value
+       FROM spff.telemetry_samples
+       WHERE site_id = $1
+         AND recorded_at >= $2::timestamptz
+         AND recorded_at <= $3::timestamptz
+         AND ${safeColumn} IS NOT NULL
+     )
+     SELECT
+       bucket_start,
+       round(avg(value)::numeric, 3)::double precision AS average_value,
+       round(min(value)::numeric, 3)::double precision AS min_value,
+       round(max(value)::numeric, 3)::double precision AS max_value,
+       count(*)::integer AS samples
+     FROM bucketed
+     GROUP BY bucket_start
+     ORDER BY bucket_start`,
+    [
+      siteId,
+      rangeFrom.toISOString(),
+      rangeTo.toISOString(),
+      query.bucketMinutes,
+    ],
   );
-  return result.rows.reverse().map((row) => ({
-    time: new Date(row.recorded_at).toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Jakarta',
-    }),
-    value: Number(row.value),
-    recordedAt: toIso(row.recorded_at),
-  }));
+
+  const points = result.rows.map((row) => {
+    const average = Number(row.average_value);
+    return {
+      time: new Date(row.bucket_start).toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Jakarta',
+      }),
+      value: average,
+      average,
+      min: Number(row.min_value),
+      max: Number(row.max_value),
+      samples: Number(row.samples),
+      recordedAt: toRequiredIso(row.bucket_start, 'history.bucket_start'),
+    };
+  });
+
+  return {
+    sensorKey,
+    unit: String(definition.rows[0].unit),
+    from: rangeFrom.toISOString(),
+    to: rangeTo.toISOString(),
+    bucket: query.bucket,
+    bucketMinutes: query.bucketMinutes,
+    aggregate: 'avg',
+    points,
+  };
 }
 
 async function pumps() {

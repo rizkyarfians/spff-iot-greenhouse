@@ -12,6 +12,14 @@
 
   --surface: #ffffff;
   --page: #efefef;
+
+  --font-size-meta: 10px;
+  --font-size-label: 11px;
+  --font-size-body: 12px;
+
+  --control-height: 40px;
+  --control-radius: 10px;
+  --control-border: #d7dfdb;
 }
 
 
@@ -2748,5 +2756,358 @@ and (
 
     transition-duration:
       0.01ms !important;
+  }
+}
+
+
+/* =========================
+   READABILITY & CONTROLS
+   ========================= */
+
+:root .app-shell select {
+  min-height: var(--control-height);
+  appearance: none;
+  border: 1px solid var(--control-border);
+  border-radius: var(--control-radius);
+  background-color: #fff;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='m3.5 5.25 3.5 3.5 3.5-3.5' stroke='%2352635b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+  color: #24372f;
+  padding: 0 36px 0 12px;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+:root .app-shell select:hover:not(:disabled) {
+  border-color: #aebfb6;
+  background-color: #fbfdfc;
+}
+
+:root .app-shell select:focus,
+:root .app-shell select:focus-visible {
+  border-color: var(--green);
+  outline: none;
+  box-shadow:
+    0 0 0 3px
+    rgb(39 173 120 / 14%);
+}
+
+:root .app-shell select:disabled {
+  background-color: #f4f7f5;
+  color: #7b8781;
+  cursor: not-allowed;
+}
+
+.compact-user-copy span,
+.compact-user-copy strong,
+.notification-list b,
+.notification-empty,
+.mark-read-button,
+.drawer-device-card strong,
+.drawer-profile strong,
+.page-shell-header p,
+.hero-content > p,
+.hero-sensor > span,
+.schedule-copy strong,
+.schedule-list time,
+.see-more-button,
+.metric-label,
+.chart-summary > span {
+  font-size: var(--font-size-body);
+}
+
+.drawer-brand small,
+.drawer-device-card small,
+.notification-list small {
+  font-size: var(--font-size-label);
+  line-height: 1.4;
+}
+
+.notification-panel-head span,
+.drawer-device-card span,
+.drawer-profile small,
+.hero-npk-title h3,
+.hero-npk-item > span,
+.hero-npk-item > small,
+.eyebrow,
+.today-chip,
+.good-badge,
+.schedule-copy small,
+.metric-sync-status small,
+.metric-update,
+.chart-summary > strong small,
+.chart-summary p,
+.chart-time-label {
+  font-size: var(--font-size-meta);
+  line-height: 1.35;
+}
+
+.chart-select select {
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
+  background-color: #fff;
+  font-size: var(--font-size-body);
+}
+
+.chart-filters {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.chart-head {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chart-head > div {
+  width: 100%;
+}
+
+.chart-sensor-select select {
+  width: 164px;
+  min-width: 0;
+}
+
+.chart-date-field input {
+  width: 130px;
+  min-height: var(--control-height);
+  border: 1px solid var(--control-border);
+  border-radius: var(--control-radius);
+  background: #fff;
+  color: #24372f;
+  padding: 0 8px 0 10px;
+  font: inherit;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.chart-date-field input:hover {
+  border-color: #aebfb6;
+  background-color: #fbfdfc;
+}
+
+.chart-date-field input:focus,
+.chart-date-field input:focus-visible {
+  border-color: var(--green);
+  outline: none;
+  box-shadow:
+    0 0 0 3px
+    rgb(39 173 120 / 14%);
+}
+
+.chart-hour-select select {
+  width: 86px;
+  min-width: 0;
+}
+
+.chart-latest-button {
+  min-height: var(--control-height);
+  border: 1px solid #b9d7ca;
+  border-radius: var(--control-radius);
+  background: #eef8f3;
+  color: var(--green-dark);
+  padding: 0 11px;
+  font: inherit;
+  font-size: var(--font-size-label);
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.chart-latest-button:hover:not(:disabled) {
+  border-color: var(--green);
+  background: #e2f4ec;
+}
+
+.chart-latest-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px
+    rgb(39 173 120 / 14%);
+}
+
+.chart-latest-button:disabled {
+  border-color: #dde6e1;
+  background: #f5f7f6;
+  color: #8b9690;
+  cursor: default;
+}
+
+@media (
+  max-width: 760px
+) {
+  .chart-head {
+    flex-direction: column;
+  }
+
+  .chart-filters {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .chart-sensor-select {
+    flex: 1 1 180px;
+  }
+
+  .chart-sensor-select select {
+    width: 100%;
+  }
+}
+
+
+/* =========================
+   DESKTOP ONE-PAGE DASHBOARD
+   ========================= */
+
+@media (
+  min-width: 1280px
+)
+and (
+  min-height: 800px
+) {
+  .app-main {
+    --account-dock-clearance: 66px;
+  }
+
+  .page-shell-header {
+    gap: 18px;
+    margin-bottom: 14px;
+  }
+
+  .page-shell-header p {
+    margin-top: 4px;
+  }
+
+  .app-main
+  > .dashboard-home {
+    padding-bottom: 20px;
+  }
+
+  .overview-grid,
+  .monitoring-grid {
+    gap: 16px;
+  }
+
+  .hero-card,
+  .schedule-card {
+    min-height: 300px;
+  }
+
+  .hero-card {
+    border-radius: 30px;
+  }
+
+  .hero-content {
+    bottom: 18px;
+    left: 20px;
+  }
+
+  .hero-content > time {
+    font-size:
+      clamp(
+        42px,
+        3vw,
+        50px
+      );
+  }
+
+  .hero-content > p {
+    margin:
+      8px 0 10px;
+  }
+
+  .hero-sensor {
+    min-width: 118px;
+    padding:
+      8px 12px;
+  }
+
+  .hero-npk-groups {
+    right: 18px;
+    bottom: 18px;
+  }
+
+  .hero-npk-card {
+    width: 158px;
+    padding:
+      7px 8px 8px;
+  }
+
+  .schedule-card {
+    border-radius: 24px;
+    padding:
+      18px 22px 12px;
+  }
+
+  .schedule-list {
+    margin-top: 10px;
+  }
+
+  .schedule-list > button {
+    min-height: 50px;
+    padding:
+      6px 0;
+  }
+
+  .monitoring-grid {
+    margin-top: 16px;
+  }
+
+  .sensor-panel {
+    gap: 10px;
+  }
+
+  .metric-card {
+    min-height: 140px;
+    padding:
+      13px 15px 11px;
+  }
+
+  .metric-label {
+    margin-top: 10px;
+  }
+
+  .metric-reading-row,
+  .metric-reading {
+    margin-top: 4px;
+  }
+
+  .metric-sync-status {
+    padding-top: 5px;
+  }
+
+  .chart-card {
+    min-height: 330px;
+    padding:
+      18px 22px 12px;
+  }
+
+  .chart-summary {
+    min-height: 40px;
+  }
+
+  .chart-visual {
+    height: 180px;
   }
 }
