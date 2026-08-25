@@ -83,7 +83,7 @@ Site/device/actuator bukan data dummy dashboard. Registrasikan hanya hardware ya
 
 ```sql
 INSERT INTO spff.sites (site_id, name)
-VALUES ('greenhouse-01', 'Greenhouse 01')
+VALUES ('greenhouse-01', 'Lokasi Utama')
 ON CONFLICT (site_id) DO NOTHING;
 
 INSERT INTO spff.devices (site_id, device_id, display_name, hardware_model)

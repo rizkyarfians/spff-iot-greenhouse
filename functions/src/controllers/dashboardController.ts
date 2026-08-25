@@ -63,7 +63,7 @@ export const readiness = run(async (_req, res) => {
 });
 
 export const bootstrap = run(async (_req, res) => {
-  return ok(res, await repository.bootstrap(), 'Data awal greenhouse berhasil dimuat.');
+  return ok(res, await repository.bootstrap(), 'Data awal fertigasi berhasil dimuat.');
 });
 
 export const dashboard = run(async (_req, res) => {

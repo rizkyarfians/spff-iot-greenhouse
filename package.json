@@ -1,5 +1,5 @@
 {
-  "name": "iot-greenhouse-dashboard",
+  "name": "smart-fertigasi-platform",
   "private": true,
   "workspaces": [
     "frontend",

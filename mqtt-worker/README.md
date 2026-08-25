@@ -1,6 +1,6 @@
 # SPFF MQTT Worker
 
-Local MQTT worker for the SPFF greenhouse.
+Local MQTT worker for SPFF Smart Fertigasi.
 
 ## Responsibilities
 

@@ -1,6 +1,6 @@
 # Panduan Integrasi Hardware SPFF
 
-**Target:** ESP32-S3, sensor/aktuator greenhouse, Orange Pi 4A, Edge Gateway, dan MQTT lokal  
+**Target:** ESP32-S3, sensor/aktuator Smart Fertigasi, Orange Pi 4A, Edge Gateway, dan MQTT lokal
 **Versi kontrak:** `spff/v1`, `schemaVersion: 1`  
 **Status:** Draft integrasi berdasarkan implementasi repository per 31 Juli 2026
 

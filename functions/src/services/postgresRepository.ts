@@ -864,7 +864,7 @@ async function dashboard() {
   ]);
   return {
     weather: {
-      location: siteData?.name ?? 'Smart Greenhouse',
+      location: siteData?.name ?? 'Lokasi Utama',
       temperature: sensorData.find((sensor) => sensor.id === 'air_temp')?.value ?? null,
       condition: sensorData.some((sensor) => sensor.status === 'good') ? 'Terhubung' : 'Menunggu telemetry',
       date: new Date().toISOString(),

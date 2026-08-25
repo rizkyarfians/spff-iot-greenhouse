@@ -1,6 +1,6 @@
-# SPFF IoT Greenhouse Platform
+# SPFF Smart Fertigasi Platform
 
-SPFF adalah platform greenhouse local-first. PostgreSQL lokal di Orange Pi adalah source of truth; Firebase hanya replica opsional untuk akses remote.
+SPFF adalah platform Smart Fertigasi local-first. PostgreSQL lokal di Orange Pi adalah source of truth; Firebase hanya replica opsional untuk akses remote.
 
 ## Workspace
 

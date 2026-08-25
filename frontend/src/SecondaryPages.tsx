@@ -1915,7 +1915,7 @@ function LogsPage({
 
 
       link.download =
-        `greenhouse-datalog-${
+        `fertigasi-datalog-${
           range
             .toLowerCase()
             .replaceAll(
@@ -3020,7 +3020,7 @@ function AlarmPage({
                           </strong>
 
                           <small>
-                            Operator greenhouse
+                            Operator fertigasi
                           </small>
                         </span>
                       </div>
@@ -3593,7 +3593,7 @@ function SettingsPage({
           <div className="page-card-header">
             <div>
               <h2>
-                Profil Greenhouse
+                Profil Lokasi
               </h2>
 
               <p>
@@ -3606,7 +3606,7 @@ function SettingsPage({
 
           <label className="field-label">
             <span>
-              Nama Greenhouse
+              Nama Lokasi
             </span>
 
             <input

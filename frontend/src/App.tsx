@@ -1455,11 +1455,11 @@ const soilNpkGroups =
 
           <div>
             <strong>
-              GREENHOUSE
+              SMART FERTIGASI
             </strong>
 
             <small>
-              Smart farming panel
+              Panel kontrol fertigasi
             </small>
           </div>
         </div>
@@ -1875,7 +1875,7 @@ const soilNpkGroups =
             ? (
                 <section
                   className="dashboard-home"
-                  aria-label="Dashboard smart greenhouse"
+                  aria-label="Dashboard Smart Fertigasi"
                 >
                   <div className="overview-grid">
                     <article className="hero-card">
@@ -1906,7 +1906,7 @@ const soilNpkGroups =
                             backendData
                               ?.site
                               ?.name
-                            ?? 'Smart Greenhouse'
+                            ?? 'Lokasi Utama'
                           }
                         </p>
 

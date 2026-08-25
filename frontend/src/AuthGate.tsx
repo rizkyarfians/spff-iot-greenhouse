@@ -85,7 +85,7 @@ function AuthVisual() {
   return (
     <aside
       className="auth-visual"
-      aria-label="Smart Greenhouse"
+      aria-label="Smart Fertigasi"
     >
       <div
         className="auth-visual-background"
@@ -157,7 +157,7 @@ function AuthVisual() {
 
               <span>
                 Data lokal terintegrasi
-                dengan kontrol greenhouse.
+                dengan kontrol fertigasi.
               </span>
             </div>
           </div>
@@ -688,11 +688,11 @@ export function AuthGate({
 
               <div className="auth-brand-copy">
                 <strong>
-                  GREENHOUSE
+                  SMART FERTIGASI
                 </strong>
 
                 <small>
-                  Smart farming panel
+                  Panel kontrol fertigasi
                 </small>
               </div>
             </div>
@@ -714,7 +714,7 @@ export function AuthGate({
               <p>
                 Memeriksa session dan
                 menghubungkan ke server
-                greenhouse lokal.
+                fertigasi lokal.
               </p>
 
               <div
@@ -731,7 +731,7 @@ export function AuthGate({
             <footer className="auth-footer">
               © {new Date().getFullYear()}
               {' '}
-              SPFF · Smart Greenhouse
+              SPFF · Smart Fertigasi
             </footer>
           </section>
 
@@ -761,11 +761,11 @@ export function AuthGate({
 
               <div className="auth-brand-copy">
                 <strong>
-                  GREENHOUSE
+                  SMART FERTIGASI
                 </strong>
 
                 <small>
-                  Smart farming panel
+                  Panel kontrol fertigasi
                 </small>
               </div>
             </div>
@@ -789,7 +789,7 @@ export function AuthGate({
                             Gunakan akun
                             anda untuk mengakses
                             monitoring, datalog,
-                            dan kontrol greenhouse.
+                            dan kontrol fertigasi.
                           </p>
                         </div>
 
@@ -1326,7 +1326,7 @@ export function AuthGate({
             <footer className="auth-footer">
               © {new Date().getFullYear()}
               {' '}
-              SPFF · Smart Greenhouse
+              SPFF · Smart Fertigasi
             </footer>
           </section>
 
