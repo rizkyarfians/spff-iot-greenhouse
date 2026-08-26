@@ -695,6 +695,21 @@ input:focus-visible {
   font-weight: 750;
 }
 
+.drawer-device-card .device-status.is-stale {
+  background: #fff2d6;
+  color: #956411;
+}
+
+.drawer-device-card .device-status.is-offline {
+  background: #fdebea;
+  color: #a64540;
+}
+
+.drawer-device-card .device-status.is-loading {
+  background: #eef1ef;
+  color: #6f7b75;
+}
+
 .drawer-device-card small {
   color:
     var(--muted);
@@ -1670,12 +1685,23 @@ input:focus-visible {
   margin-left: auto;
 }
 
-.good-badge.is-no-data {
+.good-badge.is-no-data,
+.good-badge.is-waiting {
   background:
     #eef1ef;
 
   color:
     #7d8782;
+}
+
+.good-badge.is-stale {
+  background: #fff2d6;
+  color: #956411;
+}
+
+.good-badge.is-expired {
+  background: #fff0e5;
+  color: #a85820;
 }
 
 .metric-sync-status {
@@ -1747,6 +1773,42 @@ input:focus-visible {
   box-shadow:
     0 0 0 3px
     rgb(174 181 177 / 12%);
+}
+
+.metric-sync-status.is-fresh {
+  color: #5f8e78;
+}
+
+.metric-sync-status.is-fresh
+.metric-sync-dot {
+  background: var(--green);
+  box-shadow:
+    0 0 0 3px
+    rgb(39 173 120 / 10%);
+}
+
+.metric-sync-status.is-stale {
+  color: #956411;
+}
+
+.metric-sync-status.is-stale
+.metric-sync-dot {
+  background: #d49a2d;
+  box-shadow:
+    0 0 0 3px
+    rgb(212 154 45 / 12%);
+}
+
+.metric-sync-status.is-expired {
+  color: #a85820;
+}
+
+.metric-sync-status.is-expired
+.metric-sync-dot {
+  background: #cc7a3a;
+  box-shadow:
+    0 0 0 3px
+    rgb(204 122 58 / 12%);
 }
 
 /*

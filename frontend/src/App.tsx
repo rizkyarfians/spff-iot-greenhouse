@@ -44,6 +44,12 @@ import {
 } from './pageConfig'
 
 import {
+  formatTelemetryAge,
+  getTelemetryFreshness,
+  type TelemetryFreshness,
+} from './telemetryStatus'
+
+import {
   fetchBootstrap,
   fetchSensorHistory,
 } from './api'
@@ -74,13 +80,14 @@ type SensorData = {
   softColor: string
   history: number[]
   ideal: string
+  telemetryFreshness: TelemetryFreshness
 }
 
 
 type SensorDefinition =
   Omit<
     SensorData,
-    'history' | 'value'
+    'history' | 'telemetryFreshness' | 'value'
   >
 
 
@@ -354,6 +361,7 @@ SensorData[] =
       softColor: sensor.softColor,
       history: [],
       ideal: sensor.ideal,
+      telemetryFreshness: 'waiting',
     }),
   )
 
@@ -996,6 +1004,30 @@ function App() {
     }
 
 
+  const latestTelemetry =
+    backendData?.latestTelemetry
+    ?? null
+
+
+  const hasTelemetry =
+    latestTelemetry !== null
+
+
+  const telemetryFreshness =
+    getTelemetryFreshness(
+      latestTelemetry?.recordedAt,
+      hasTelemetry,
+      clock.getTime(),
+    )
+
+
+  const telemetryAgeLabel =
+    formatTelemetryAge(
+      latestTelemetry?.recordedAt,
+      clock.getTime(),
+    )
+
+
   const mergedSensorData =
     useMemo(
       () => {
@@ -1040,6 +1072,12 @@ function App() {
                 source?.value
                 ?? null,
 
+              telemetryFreshness:
+                source?.value === null
+                || source?.value === undefined
+                  ? 'waiting'
+                  : telemetryFreshness,
+
               history:
                 (
                   historyBySensor[
@@ -1058,6 +1096,7 @@ function App() {
       [
         backendData,
         historyBySensor,
+        telemetryFreshness,
       ],
     )
 
@@ -1156,13 +1195,6 @@ const soilNpkGroups =
       (alarm) =>
         alarm.status !== 'resolved',
     ) ?? []
-
-
-  const hasTelemetry =
-    backendData?.latestTelemetry
-      !== null
-    && backendData?.latestTelemetry
-      !== undefined
 
 
   const currentHistorySeries =
@@ -1528,7 +1560,19 @@ const soilNpkGroups =
               }
             </strong>
 
-            <span>
+            <span
+              className={
+                `device-status is-${
+                  connectionState === 'loading'
+                    ? 'loading'
+                    : connectionState === 'unavailable'
+                      ? 'offline'
+                      : primaryDevice
+                        ?.connectionStatus
+                        ?? 'offline'
+                }`
+              }
+            >
               {
                 connectionState === 'loading'
                   ? 'Menghubungkan'
@@ -1554,20 +1598,18 @@ const soilNpkGroups =
             {
               connectionState === 'connected'
                 ? (
-                    hasTelemetry
-                      ? `${
+                    telemetryFreshness === 'fresh'
+                      ? `Telemetry ${telemetryAgeLabel ?? 'baru saja'}`
+                      : telemetryFreshness === 'stale'
+                        ? `Telemetry terlambat · ${telemetryAgeLabel ?? '-'}`
+                        : telemetryFreshness === 'expired'
+                          ? `Menunggu telemetry baru · terakhir ${telemetryAgeLabel ?? '-'}`
+                          : `${
                           backendData
                             ?.sensorDefinitions
                             .length
                           ?? 0
-                        } sensor menerima telemetry`
-
-                      : `${
-                          backendData
-                            ?.sensorDefinitions
-                            .length
-                          ?? 0
-                        } sensor terdaftar, menunggu telemetry`
+                        } sensor terdaftar · menunggu telemetry`
                   )
 
                 : 'Backend SPFF belum terhubung'
@@ -2256,11 +2298,19 @@ const soilNpkGroups =
                                   )
                                 }
 
-                                <span className="good-badge">
+                                <span
+                                  className={
+                                    `good-badge is-${sensor.telemetryFreshness}`
+                                  }
+                                >
                                   {
-                                    sensor.value === null
-                                      ? 'No Data'
-                                      : 'Good'
+                                    sensor.telemetryFreshness === 'fresh'
+                                      ? 'Terbaru'
+                                      : sensor.telemetryFreshness === 'stale'
+                                        ? 'Terlambat'
+                                        : sensor.telemetryFreshness === 'expired'
+                                          ? 'Data Lama'
+                                          : 'Belum Ada'
                                   }
                                 </span>
                               </span>
@@ -2268,9 +2318,7 @@ const soilNpkGroups =
 
                               <div
   className={
-    sensor.value === null
-      ? 'metric-sync-status is-waiting'
-      : 'metric-sync-status is-synced'
+    `metric-sync-status is-${sensor.telemetryFreshness}`
   }
 >
   <span
@@ -2280,9 +2328,13 @@ const soilNpkGroups =
 
   <small>
     {
-      sensor.value === null
-        ? 'Menunggu Data'
-        : 'Tersimpan'
+      sensor.telemetryFreshness === 'fresh'
+        ? 'Data terbaru'
+        : sensor.telemetryFreshness === 'stale'
+          ? `Telemetry ${telemetryAgeLabel ?? 'terlambat'}`
+          : sensor.telemetryFreshness === 'expired'
+            ? 'Menunggu telemetry baru'
+            : 'Menunggu telemetry'
     }
   </small>
 </div>

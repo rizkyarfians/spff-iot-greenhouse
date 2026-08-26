@@ -50,6 +50,11 @@ import type {
 } from './pageConfig'
 
 import {
+  formatTelemetryAge,
+  getTelemetryFreshness,
+} from './telemetryStatus'
+
+import {
   UserManagementPage,
 } from './UserManagementPage'
 
@@ -88,6 +93,22 @@ function PlantStatusPage({
 
   const [selectedPlant, setSelectedPlant] =
     useState<string | null>(null)
+
+
+  const telemetryFreshness =
+    getTelemetryFreshness(
+      data?.latestTelemetry
+        ?.recordedAt,
+      data?.latestTelemetry !== null
+      && data?.latestTelemetry !== undefined,
+    )
+
+
+  const telemetryAgeLabel =
+    formatTelemetryAge(
+      data?.latestTelemetry
+        ?.recordedAt,
+    )
 
 
   const databaseZones =
@@ -205,14 +226,28 @@ function PlantStatusPage({
 
           <strong>
             {
-              data?.latestTelemetry
+              telemetryFreshness === 'fresh'
                 ? 'Aktif'
-                : 'Belum Ada'
+                : telemetryFreshness === 'stale'
+                  ? 'Terlambat'
+                  : telemetryFreshness === 'expired'
+                    ? 'Tidak Terbaru'
+                    : 'Menunggu'
             }
           </strong>
 
-          <small className="positive-copy">
-            Status data PostgreSQL
+          <small
+            className={
+              telemetryFreshness === 'fresh'
+                ? 'positive-copy'
+                : undefined
+            }
+          >
+            {
+              telemetryFreshness === 'waiting'
+                ? 'Belum ada telemetry tersimpan'
+                : `Telemetry ${telemetryAgeLabel ?? '-'}`
+            }
           </small>
         </article>
 
