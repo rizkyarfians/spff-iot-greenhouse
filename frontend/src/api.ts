@@ -9,6 +9,7 @@ import type {
   ApiResponse,
   ApiSchedule,
   ApiSettings,
+  ApiTelemetrySnapshot,
   AuditLogEntry,
   AuthUser,
   BootstrapData,
@@ -161,6 +162,14 @@ async function request<T>(
       '/api' + path,
       {
         ...init,
+
+        cache:
+          init.cache
+          ?? (
+            method === 'GET'
+              ? 'no-store'
+              : undefined
+          ),
 
         headers,
 
@@ -350,6 +359,19 @@ export function fetchBootstrap(
 
   return request<BootstrapData>(
     '/bootstrap',
+    {
+      signal,
+    },
+  )
+}
+
+
+export function fetchLatestTelemetry(
+  signal?: AbortSignal,
+) {
+
+  return request<ApiTelemetrySnapshot>(
+    '/telemetry/latest',
     {
       signal,
     },

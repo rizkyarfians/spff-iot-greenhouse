@@ -12,6 +12,10 @@ Jalankan berurutan dan berhenti pada error:
 psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/001_initial_schema.sql
 psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/002_production_readiness.sql
 psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/003_transactional_outbox.sql
+psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/004_local_auth_rbac.sql
+psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/005_latest_telemetry_last_known.sql
+psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/006_history_bucket_index.sql
+psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/007_realtime_notifications.sql
 ```
 
 Untuk database yang sudah memiliki migration `001`, **jangan jalankan ulang 001**. Jalankan hanya migration yang belum pernah diterapkan. Karena repository belum memakai migration ledger, cek relation terlebih dahulu dengan `\dt spff.*` / `\dv spff.*` dan simpan catatan deployment.
@@ -76,6 +80,10 @@ Views:
 ## Transactional outbox
 
 Trigger migration `003` membuat event outbox dalam transaksi yang sama dengan telemetry/command/status/alarm/schedule/settings. Sync Worker hanya membaca/update `cloud_outbox`; kegagalan Firebase tidak memblokir PostgreSQL, API, ingestion, atau dashboard lokal.
+
+## Realtime dashboard
+
+Migration `007` menambahkan trigger `pg_notify` setelah insert telemetry dan device status berhasil. Payload notification hanya berisi identity/timestamp; PostgreSQL tetap source of truth dan API membaca ulang snapshot terbaru sebelum memperbarui frontend melalui SSE.
 
 ## Seed identitas hardware
 

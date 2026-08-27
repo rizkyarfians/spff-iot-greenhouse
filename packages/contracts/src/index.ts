@@ -410,17 +410,25 @@ export interface ApiSettings {
   autoSchedule: boolean;
 }
 
+export interface ApiLatestTelemetry {
+  deviceId: string;
+  recordedAt: string;
+  receivedAt: string;
+  values: Record<string, number | null>;
+}
+
+export interface ApiTelemetrySnapshot {
+  sensors: ApiSensor[];
+  latestTelemetry: ApiLatestTelemetry | null;
+  devices: ApiDevice[];
+}
+
 export interface BootstrapData {
   database: { database: string; schema: string };
   site: { siteId: string; name: string; timezone: string } | null;
   sensors: ApiSensor[];
   sensorDefinitions: ApiSensorDefinition[];
-  latestTelemetry: {
-    deviceId: string;
-    recordedAt: string;
-    receivedAt: string;
-    values: Record<string, number | null>;
-  } | null;
+  latestTelemetry: ApiLatestTelemetry | null;
   actuators: ApiActuator[];
   alarms: ApiAlarm[];
   devices: ApiDevice[];

@@ -63,6 +63,18 @@ Audit schema dari environment API:
 npm run db:check
 ```
 
+Status operasional dari source of truth PostgreSQL:
+
+```bash
+npm run logs             # ringkasan ESP, telemetry, dan aktuator
+npm run logs:esp         # heartbeat/status ESP
+npm run logs:telemetry   # data terakhir yang benar-benar masuk ke DB
+npm run logs:actuators   # actual state, command, dan ACK terakhir
+npm run logs:watch       # refresh ringkasan tiap 5 detik; berhenti dengan Ctrl+C
+```
+
+Status ESP dan telemetry sengaja dipisahkan. ESP tetap dapat berstatus `ONLINE` selama heartbeat masuk meskipun telemetry sedang `STALE` atau `STOPPED`. Semua command memakai koneksi PostgreSQL dari `functions/.env` dan site dari `SPFF_SITE_ID`.
+
 Endpoint operasional:
 
 - `GET /api/health` — liveness API.

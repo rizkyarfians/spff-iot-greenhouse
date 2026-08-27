@@ -6,16 +6,19 @@ import type {
   ApiAlarm,
   ApiDevice,
   ApiHistorySeries,
+  ApiLatestTelemetry,
   ApiSensor,
   ApiSettings,
   ApiSystemLog,
+  ApiTelemetrySnapshot,
   BootstrapData,
   HistoryBucket,
   ScheduleRepeatRule,
 } from '@spff/contracts';
 
 const { Pool } = pg;
-const siteId = process.env.SPFF_SITE_ID ?? 'greenhouse-01';
+export const configuredSiteId = process.env.SPFF_SITE_ID ?? 'greenhouse-01';
+const siteId = configuredSiteId;
 
 const positiveNumberFromEnvironment = (name: string, fallback: number) => {
   const value = Number(process.env[name] ?? fallback);
@@ -35,7 +38,7 @@ if (telemetryOfflineAfterSeconds <= telemetryStaleAfterSeconds) {
   throw new Error('TELEMETRY_OFFLINE_AFTER_SECONDS must be greater than TELEMETRY_STALE_AFTER_SECONDS.');
 }
 
-const pool = new Pool({
+export const pool = new Pool({
   host: process.env.PGHOST ?? '127.0.0.1',
   port: Number(process.env.PGPORT ?? 5432),
   database: process.env.PGDATABASE ?? 'spff',
@@ -129,7 +132,20 @@ async function readiness() {
             to_regclass('spff.latest_device_status') IS NOT NULL AS device_view_ready,
             to_regclass('spff.actuator_schedules') IS NOT NULL AS schedules_ready,
             to_regclass('spff.site_settings') IS NOT NULL AS settings_ready,
-            to_regclass('spff.cloud_outbox') IS NOT NULL AS outbox_ready`,
+            to_regclass('spff.cloud_outbox') IS NOT NULL AS outbox_ready,
+            to_regprocedure('spff.notify_realtime_event()') IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                FROM pg_trigger
+                WHERE tgname = 'telemetry_realtime_notify_trg'
+                  AND NOT tgisinternal
+              )
+              AND EXISTS (
+                SELECT 1
+                FROM pg_trigger
+                WHERE tgname = 'device_status_realtime_notify_trg'
+                  AND NOT tgisinternal
+              ) AS realtime_ready`,
   );
   const row = result.rows[0];
   const checks = {
@@ -142,6 +158,7 @@ async function readiness() {
     schedules: Boolean(row.schedules_ready),
     settings: Boolean(row.settings_ready),
     transactionalOutbox: Boolean(row.outbox_ready),
+    realtimeNotifications: Boolean(row.realtime_ready),
   };
   return {
     ready: Object.values(checks).every(Boolean),
@@ -192,9 +209,26 @@ async function latestTelemetry() {
   return result.rows[0] ?? null;
 }
 
-async function sensors() {
-  const [definitions, latest] = await Promise.all([sensorDefinitions(), latestTelemetry()]);
-  const telemetryAge = ageSeconds(latest?.recorded_at);
+const mapLatestTelemetry = (
+  definitions: Awaited<ReturnType<typeof sensorDefinitions>>,
+  latest: Record<string, unknown> | null,
+): ApiLatestTelemetry | null =>
+  latest
+    ? {
+        deviceId: latest.device_id as string,
+        recordedAt: toRequiredIso(latest.recorded_at as Date | string, 'latest_telemetry.recorded_at'),
+        receivedAt: toRequiredIso(latest.received_at as Date | string, 'latest_telemetry.received_at'),
+        values: Object.fromEntries(
+          definitions.map((definition) => [definition.sensorKey, toNumber(latest[definition.sensorKey])]),
+        ),
+      }
+    : null;
+
+const mapSensors = (
+  definitions: Awaited<ReturnType<typeof sensorDefinitions>>,
+  latest: Record<string, unknown> | null,
+): ApiSensor[] => {
+  const telemetryAge = ageSeconds(latest?.recorded_at as Date | string | undefined);
   return definitions.map((definition) => {
     const value = latest ? toNumber(latest[definition.sensorKey]) : null;
     const status: ApiSensor['status'] = value === null || telemetryAge >= telemetryOfflineAfterSeconds
@@ -212,9 +246,14 @@ async function sensors() {
       value,
       unit: definition.unit,
       status,
-      updatedAt: toIso(latest?.recorded_at),
+      updatedAt: toIso(latest?.recorded_at as Date | string | undefined),
     };
   });
+};
+
+async function sensors() {
+  const [definitions, latest] = await Promise.all([sensorDefinitions(), latestTelemetry()]);
+  return mapSensors(definitions, latest);
 }
 
 async function history(
@@ -802,6 +841,20 @@ async function updateSettings(input: SiteSettingsInput) {
   }
 }
 
+async function telemetrySnapshot(): Promise<ApiTelemetrySnapshot> {
+  const [definitions, latest, deviceData] = await Promise.all([
+    sensorDefinitions(),
+    latestTelemetry(),
+    devices(),
+  ]);
+
+  return {
+    sensors: mapSensors(definitions, latest),
+    latestTelemetry: mapLatestTelemetry(definitions, latest),
+    devices: deviceData,
+  };
+}
+
 async function bootstrap(): Promise<BootstrapData> {
   const [
     siteData,
@@ -834,16 +887,7 @@ async function bootstrap(): Promise<BootstrapData> {
     site: siteData,
     sensors: sensorData,
     sensorDefinitions: definitions,
-    latestTelemetry: latest
-      ? {
-          deviceId: latest.device_id as string,
-          recordedAt: toRequiredIso(latest.recorded_at, 'latest_telemetry.recorded_at'),
-          receivedAt: toRequiredIso(latest.received_at, 'latest_telemetry.received_at'),
-          values: Object.fromEntries(
-            definitions.map((definition) => [definition.sensorKey, toNumber(latest[definition.sensorKey])]),
-          ),
-        }
-      : null,
+    latestTelemetry: mapLatestTelemetry(definitions, latest),
     actuators: pumpData,
     alarms: alarmData,
     devices: deviceData,
@@ -881,6 +925,7 @@ export const repository = {
   bootstrap,
   dashboard,
   sensors,
+  telemetrySnapshot,
   history,
   pumps,
   updatePump,

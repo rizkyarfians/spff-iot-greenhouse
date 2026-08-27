@@ -30,6 +30,7 @@ import {
   getAlarms,
   getDevices,
   getHistory,
+  getLatestTelemetry,
   getLogs,
   getPumps,
   getSchedules,
@@ -38,6 +39,7 @@ import {
   readiness,
   resolveAlarm,
   setScheduleEnabled,
+  streamEvents,
   updatePump,
   updateSettings,
 } from '../controllers/dashboardController.js';
@@ -137,6 +139,18 @@ apiRouter.post(
 apiRouter.get(
   '/bootstrap',
   bootstrap,
+);
+
+
+apiRouter.get(
+  '/telemetry/latest',
+  getLatestTelemetry,
+);
+
+
+apiRouter.get(
+  '/events',
+  streamEvents,
 );
 
 

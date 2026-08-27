@@ -4,9 +4,13 @@ import { requestActor } from '../middleware/operatorAuth.js';
 import {
   ActuatorBusyError,
   CommandIdConflictError,
+  configuredSiteId,
   repository,
   type SiteSettingsInput,
 } from '../services/postgresRepository.js';
+import {
+  subscribeRealtimeEvents,
+} from '../services/realtimeEventHub.js';
 
 type AsyncController = (req: Request, res: Response) => Promise<Response | void>;
 
@@ -64,6 +68,53 @@ export const readiness = run(async (_req, res) => {
 
 export const bootstrap = run(async (_req, res) => {
   return ok(res, await repository.bootstrap(), 'Data awal fertigasi berhasil dimuat.');
+});
+
+export const getLatestTelemetry = run(async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return ok(
+    res,
+    await repository.telemetrySnapshot(),
+    'Snapshot telemetry terbaru berhasil dimuat dari PostgreSQL.',
+  );
+});
+
+export const streamEvents = run(async (_req, res) => {
+  res.status(200);
+  res.set({
+    'Cache-Control': 'private, no-cache, no-transform',
+    Connection: 'keep-alive',
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders();
+  res.write('retry: 5000\n\n');
+  res.write(`event: connected\ndata: ${JSON.stringify({ connectedAt: new Date().toISOString() })}\n\n`);
+
+  const unsubscribe = subscribeRealtimeEvents((event) => {
+    if (
+      event.siteId !== configuredSiteId
+      || res.writableEnded
+      || res.destroyed
+    ) return;
+    res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+  });
+
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded && !res.destroyed) res.write(': keep-alive\n\n');
+  }, 15_000);
+  heartbeat.unref();
+
+  let closed = false;
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    clearInterval(heartbeat);
+    unsubscribe();
+  };
+
+  res.once('close', cleanup);
+  res.once('error', cleanup);
 });
 
 export const dashboard = run(async (_req, res) => {

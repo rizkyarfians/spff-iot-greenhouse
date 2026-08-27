@@ -51,6 +51,7 @@ import {
 
 import {
   fetchBootstrap,
+  fetchLatestTelemetry,
   fetchSensorHistory,
 } from './api'
 
@@ -835,11 +836,150 @@ function App() {
       void load()
 
 
-      const timer =
-        window.setInterval(
-          load,
-          30_000,
+      return () => {
+        active =
+          false
+
+
+        controller.abort()
+      }
+    },
+    [
+      refreshVersion,
+    ],
+  )
+
+
+  useEffect(
+    () => {
+      if (
+        connectionState !== 'connected'
+      ) {
+        return
+      }
+
+
+      let active =
+        true
+
+
+      let loading =
+        false
+
+
+      let queued =
+        false
+
+
+      const controller =
+        new AbortController()
+
+
+      const loadLatest =
+        async () => {
+          if (loading) {
+            queued =
+              true
+
+
+            return
+          }
+
+
+          loading =
+            true
+
+
+          do {
+            queued =
+              false
+
+
+            try {
+              const snapshot =
+                await fetchLatestTelemetry(
+                  controller.signal,
+                )
+
+
+              if (!active) {
+                return
+              }
+
+
+              setBackendData(
+                (current) =>
+                  current
+                    ? {
+                        ...current,
+
+                        sensors:
+                          snapshot.sensors,
+
+                        latestTelemetry:
+                          snapshot.latestTelemetry,
+
+                        devices:
+                          snapshot.devices,
+                      }
+                    : current,
+              )
+            } catch (error) {
+              if (
+                !active
+                || (
+                  error instanceof DOMException
+                  && error.name === 'AbortError'
+                )
+              ) {
+                return
+              }
+
+
+              console.error(
+                'Latest telemetry refresh failed.',
+                error,
+              )
+            }
+          } while (
+            active
+            && queued
+          )
+
+
+          loading =
+            false
+        }
+
+
+      const events =
+        new EventSource(
+          '/api/events',
         )
+
+
+      const refreshLatest =
+        () => {
+          void loadLatest()
+        }
+
+
+      events.addEventListener(
+        'telemetry.updated',
+        refreshLatest,
+      )
+
+
+      events.addEventListener(
+        'device_status.updated',
+        refreshLatest,
+      )
+
+
+      events.addEventListener(
+        'open',
+        refreshLatest,
+      )
 
 
       return () => {
@@ -850,13 +990,11 @@ function App() {
         controller.abort()
 
 
-        window.clearInterval(
-          timer,
-        )
+        events.close()
       }
     },
     [
-      refreshVersion,
+      connectionState,
     ],
   )
 

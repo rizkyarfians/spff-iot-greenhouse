@@ -3173,3 +3173,316 @@ and (
     height: 180px;
   }
 }
+
+
+/* =========================
+   HIGH-RESOLUTION DESKTOP
+   ========================= */
+
+/*
+ * FHD is the visual baseline. Larger desktop layouts scale from viewport
+ * height, so 2K/4K displays grow evenly without ultra-wide screens stretching
+ * the cards only because more horizontal space is available.
+ */
+@media (
+  min-width: 1900px
+)
+and (
+  min-height: 1000px
+) {
+  :root {
+    --desktop-sidebar: clamp(290px, 26.85vmin, 500px);
+    --font-size-meta: clamp(10px, 0.926vmin, 16px);
+    --font-size-label: clamp(11px, 1.019vmin, 18px);
+    --font-size-body: clamp(12px, 1.111vmin, 20px);
+    --control-height: clamp(40px, 3.704vmin, 64px);
+    --control-radius: clamp(10px, 0.926vmin, 16px);
+    --desktop-dashboard-max: clamp(1588px, 147.04vmin, 3048px);
+    --desktop-page-max: clamp(1540px, 142.59vmin, 2984px);
+    --desktop-gutter: clamp(24px, 2.222vmin, 42px);
+    --desktop-grid-gap: clamp(16px, 1.481vmin, 28px);
+  }
+
+  .side-drawer {
+    padding:
+      clamp(24px, 2.222vmin, 40px)
+      clamp(20px, 1.852vmin, 34px);
+  }
+
+  .drawer-brand {
+    gap: clamp(11px, 1.019vmin, 18px);
+    padding-bottom: clamp(27px, 2.5vmin, 45px);
+  }
+
+  .brand-mark {
+    width: clamp(42px, 3.889vmin, 68px);
+    height: clamp(42px, 3.889vmin, 68px);
+  }
+
+  .brand-mark svg {
+    width: clamp(21px, 1.944vmin, 34px);
+    height: clamp(21px, 1.944vmin, 34px);
+  }
+
+  .drawer-brand strong {
+    font-size: clamp(14px, 1.296vmin, 22px);
+  }
+
+  .drawer-brand small {
+    font-size: var(--font-size-label);
+  }
+
+  .drawer-nav {
+    gap: clamp(6px, 0.556vmin, 10px);
+  }
+
+  .drawer-nav-item {
+    min-height: clamp(46px, 4.259vmin, 72px);
+    gap: clamp(12px, 1.111vmin, 19px);
+    border-radius: clamp(11px, 1.019vmin, 18px);
+    padding-inline: clamp(13px, 1.204vmin, 21px);
+  }
+
+  .drawer-nav-icon {
+    width: clamp(27px, 2.5vmin, 43px);
+    height: clamp(27px, 2.5vmin, 43px);
+  }
+
+  .drawer-nav-icon svg {
+    width: clamp(17px, 1.574vmin, 27px);
+    height: clamp(17px, 1.574vmin, 27px);
+  }
+
+  .drawer-nav-item
+  > span:last-child {
+    font-size: var(--font-size-body);
+  }
+
+  .drawer-device-card,
+  .drawer-profile {
+    border-radius: clamp(14px, 1.296vmin, 22px);
+    padding: clamp(14px, 1.296vmin, 22px);
+  }
+
+  .app-main {
+    --account-dock-clearance: clamp(66px, 6.111vmin, 104px);
+  }
+
+  .compact-account-dock {
+    top: clamp(16px, 1.481vmin, 25px);
+    right: clamp(22px, 2.037vmin, 35px);
+    min-height: clamp(46px, 4.259vmin, 72px);
+    border-radius: clamp(16px, 1.481vmin, 25px);
+  }
+
+  .compact-icon-button,
+  .compact-avatar-button {
+    width: clamp(34px, 3.148vmin, 52px);
+    height: clamp(34px, 3.148vmin, 52px);
+    flex-basis: clamp(34px, 3.148vmin, 52px);
+  }
+
+  .compact-avatar {
+    width: clamp(30px, 2.778vmin, 46px);
+    height: clamp(30px, 2.778vmin, 46px);
+  }
+
+  .compact-icon-button svg,
+  .compact-avatar svg {
+    width: clamp(16px, 1.481vmin, 25px);
+    height: clamp(16px, 1.481vmin, 25px);
+  }
+
+  .page-shell-header,
+  .app-main
+  > .secondary-page,
+  .app-main
+  > .um-page {
+    width:
+      min(
+        var(--desktop-page-max),
+        calc(100% - 48px)
+      );
+  }
+
+  .page-shell-header {
+    margin-bottom: clamp(14px, 1.296vmin, 22px);
+  }
+
+  .page-shell-header h1 {
+    font-size: clamp(30px, 2.778vmin, 46px);
+  }
+
+  .page-shell-header p {
+    max-width: clamp(650px, 60.185vmin, 1020px);
+  }
+
+  .app-main
+  > .dashboard-home {
+    width:
+      min(
+        100%,
+        var(--desktop-dashboard-max)
+      );
+
+    padding-inline: var(--desktop-gutter);
+  }
+
+  .overview-grid,
+  .monitoring-grid {
+    gap: var(--desktop-grid-gap);
+  }
+
+  .hero-card,
+  .schedule-card {
+    min-height: clamp(300px, 27.778vmin, 525px);
+  }
+
+  .hero-card {
+    border-radius: clamp(30px, 2.778vmin, 48px);
+  }
+
+  .hero-content {
+    bottom: clamp(18px, 1.667vmin, 30px);
+    left: clamp(20px, 1.852vmin, 32px);
+  }
+
+  .hero-content > time {
+    font-size: clamp(50px, 4.63vmin, 82px);
+  }
+
+  .hero-sensors,
+  .hero-npk-groups {
+    gap: clamp(8px, 0.741vmin, 13px);
+  }
+
+  .hero-sensor {
+    min-width: clamp(118px, 10.926vmin, 190px);
+    border-radius: clamp(14px, 1.296vmin, 22px);
+    padding:
+      clamp(8px, 0.741vmin, 13px)
+      clamp(12px, 1.111vmin, 19px);
+  }
+
+  .hero-sensor strong,
+  .metric-value,
+  .metric-reading-row > strong,
+  .metric-reading > strong {
+    font-size: clamp(22px, 2.037vmin, 36px);
+  }
+
+  .hero-npk-groups {
+    right: clamp(18px, 1.667vmin, 30px);
+    bottom: clamp(18px, 1.667vmin, 30px);
+  }
+
+  .hero-npk-card {
+    width: clamp(158px, 14.63vmin, 252px);
+    border-radius: clamp(12px, 1.111vmin, 19px);
+    padding:
+      clamp(7px, 0.648vmin, 11px)
+      clamp(8px, 0.741vmin, 13px);
+  }
+
+  .hero-npk-item > strong {
+    font-size: clamp(13px, 1.204vmin, 21px);
+  }
+
+  .schedule-card {
+    border-radius: clamp(24px, 2.222vmin, 38px);
+    padding:
+      clamp(18px, 1.667vmin, 29px)
+      clamp(22px, 2.037vmin, 35px);
+  }
+
+  .schedule-head h2,
+  .chart-head h2 {
+    font-size: clamp(21px, 1.944vmin, 34px);
+  }
+
+  .schedule-list > button {
+    min-height: clamp(50px, 4.63vmin, 80px);
+    gap: clamp(12px, 1.111vmin, 19px);
+  }
+
+  .monitoring-grid {
+    margin-top: var(--desktop-grid-gap);
+  }
+
+  .sensor-panel {
+    gap: clamp(10px, 0.926vmin, 16px);
+  }
+
+  .metric-card {
+    min-height: clamp(140px, 12.963vmin, 235px);
+    border-radius: clamp(13px, 1.204vmin, 21px);
+    padding:
+      clamp(13px, 1.204vmin, 21px)
+      clamp(15px, 1.389vmin, 24px);
+  }
+
+  .metric-icon {
+    width: clamp(30px, 2.778vmin, 47px);
+    height: clamp(30px, 2.778vmin, 47px);
+  }
+
+  .metric-icon svg,
+  .metric-arrow svg {
+    width: clamp(16px, 1.481vmin, 25px);
+    height: clamp(16px, 1.481vmin, 25px);
+  }
+
+  .metric-unit,
+  .metric-reading-row > small,
+  .metric-reading > small {
+    font-size: var(--font-size-body);
+  }
+
+  .chart-card {
+    min-height: clamp(330px, 30.556vmin, 560px);
+    border-radius: clamp(18px, 1.667vmin, 29px);
+    padding:
+      clamp(18px, 1.667vmin, 29px)
+      clamp(22px, 2.037vmin, 35px);
+  }
+
+  .chart-summary {
+    min-height: clamp(40px, 3.704vmin, 64px);
+  }
+
+  .chart-summary > strong {
+    font-size: clamp(24px, 2.222vmin, 38px);
+  }
+
+  .chart-visual {
+    height: clamp(180px, 16.667vmin, 300px);
+  }
+
+  .secondary-page {
+    gap: clamp(16px, 1.481vmin, 26px);
+  }
+
+  .secondary-page .page-card {
+    border-radius: clamp(18px, 1.667vmin, 29px);
+    padding: clamp(24px, 2.222vmin, 38px);
+  }
+
+  .secondary-page .summary-card {
+    border-radius: clamp(14px, 1.296vmin, 22px);
+    padding: clamp(20px, 1.852vmin, 32px);
+  }
+
+  .secondary-page .page-summary-grid {
+    gap: clamp(12px, 1.111vmin, 19px);
+  }
+
+  .secondary-page .summary-card strong {
+    font-size: clamp(28px, 2.593vmin, 44px);
+  }
+
+  .page-card-header h2,
+  .device-page-header h2,
+  .control-toolbar h2 {
+    font-size: clamp(20px, 1.852vmin, 32px);
+  }
+}
