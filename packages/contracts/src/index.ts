@@ -421,6 +421,7 @@ export interface ApiTelemetrySnapshot {
   sensors: ApiSensor[];
   latestTelemetry: ApiLatestTelemetry | null;
   devices: ApiDevice[];
+  telemetryLog: ApiTelemetryLog[];
 }
 
 export interface BootstrapData {

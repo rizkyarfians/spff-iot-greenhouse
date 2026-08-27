@@ -921,6 +921,9 @@ function App() {
 
                         devices:
                           snapshot.devices,
+
+                        telemetryLog:
+                          snapshot.telemetryLog,
                       }
                     : current,
               )

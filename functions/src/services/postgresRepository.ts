@@ -842,16 +842,18 @@ async function updateSettings(input: SiteSettingsInput) {
 }
 
 async function telemetrySnapshot(): Promise<ApiTelemetrySnapshot> {
-  const [definitions, latest, deviceData] = await Promise.all([
+  const [definitions, latest, deviceData, telemetryRows] = await Promise.all([
     sensorDefinitions(),
     latestTelemetry(),
     devices(),
+    telemetryLog(),
   ]);
 
   return {
     sensors: mapSensors(definitions, latest),
     latestTelemetry: mapLatestTelemetry(definitions, latest),
     devices: deviceData,
+    telemetryLog: telemetryRows,
   };
 }
 
