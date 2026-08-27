@@ -1268,6 +1268,30 @@ function App() {
             sensor.key === key,
         ) as SensorData,
     )
+
+
+  const chartSensorOptions =
+    backendData
+      ?.sensorDefinitions
+      ?.length
+      ? backendData.sensorDefinitions.map(
+          (definition) => ({
+            key:
+              definition.sensorKey,
+
+            label:
+              definition.displayName,
+          }),
+        )
+      : sensorDefinitions.map(
+          (definition) => ({
+            key:
+              definition.key,
+
+            label:
+              definition.label,
+          }),
+        )
 const soilNpkGroups =
   [
     {
@@ -2520,7 +2544,7 @@ const soilNpkGroups =
                               }
                             >
                               {
-                                mergedSensorData.map(
+                                chartSensorOptions.map(
                                   (sensor) => (
                                     <option
                                       value={

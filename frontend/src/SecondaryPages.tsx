@@ -1735,7 +1735,7 @@ function LogsPage({
     setSensor,
   ] =
     useState(
-      'Semua Sensor',
+      'all',
     )
 
 
@@ -1757,12 +1757,59 @@ function LogsPage({
     )
 
 
-  const sensorNames =
-    data?.sensorDefinitions
-      .map(
-        (definition) =>
-          definition.displayName,
-      ) ?? []
+  const sensorGroups =
+    useMemo(
+      () => {
+        const groups =
+          new Map<
+            string,
+            BootstrapData[
+              'sensorDefinitions'
+            ]
+          >()
+
+
+        for (
+          const definition
+          of data
+            ?.sensorDefinitions
+            ?? []
+        ) {
+          const definitions =
+            groups.get(
+              definition.groupName,
+            )
+            ?? []
+
+
+          definitions.push(
+            definition,
+          )
+
+
+          groups.set(
+            definition.groupName,
+            definitions,
+          )
+        }
+
+
+        return Array.from(
+          groups,
+          ([
+            groupName,
+            definitions,
+          ]) => ({
+            groupName,
+            definitions,
+          }),
+        )
+      },
+      [
+        data
+          ?.sensorDefinitions,
+      ],
+    )
 
 
   const databaseRows =
@@ -1798,16 +1845,18 @@ function LogsPage({
           .trim(),
 
         'Tersimpan',
+
+        row.sensorKey,
       ],
     )
 
 
   const rows =
-    sensor === 'Semua Sensor'
+    sensor === 'all'
       ? databaseRows
       : databaseRows.filter(
           (row) =>
-            row[1] === sensor,
+            row[4] === sensor,
         )
 
 
@@ -1908,7 +1957,13 @@ function LogsPage({
             'Nilai',
             'Status',
           ],
-          ...rows,
+          ...rows.map(
+            (row) =>
+              row.slice(
+                0,
+                4,
+              ),
+          ),
         ]
           .map(
             (row) =>
@@ -1981,7 +2036,7 @@ function LogsPage({
   const resetFilters =
     () => {
       setSensor(
-        'Semua Sensor',
+        'all',
       )
 
       setRange(
@@ -2032,16 +2087,44 @@ function LogsPage({
                   )
                 }}
               >
-                <option>
+                <option value="all">
                   Semua Sensor
                 </option>
 
                 {
-                  sensorNames.map(
-                    (name) => (
-                      <option key={name}>
-                        {name}
-                      </option>
+                  sensorGroups.map(
+                    (group) => (
+                      <optgroup
+                        key={
+                          group.groupName
+                        }
+                        label={
+                          group.groupName
+                        }
+                      >
+                        {
+                          group.definitions.map(
+                            (definition) => (
+                              <option
+                                key={
+                                  definition.sensorKey
+                                }
+                                value={
+                                  definition.sensorKey
+                                }
+                              >
+                                {
+                                  definition.displayName
+                                }
+                                {' · '}
+                                {
+                                  definition.unit
+                                }
+                              </option>
+                            ),
+                          )
+                        }
+                      </optgroup>
                     ),
                   )
                 }
