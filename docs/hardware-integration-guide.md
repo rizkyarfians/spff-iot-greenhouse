@@ -310,7 +310,7 @@ ACK final setelah command berhasil:
   "commandId": "cmd-01JXYZ789",
   "acknowledgedAt": "2026-07-31T12:00:02.000Z",
   "status": "completed",
-  "targetId": "pump-watering",
+  "targetId": "pump_water",
   "actualState": {
     "isActive": true
   }
@@ -328,7 +328,7 @@ ACK ketika ditolak oleh interlock:
   "commandId": "cmd-01JXYZ789",
   "acknowledgedAt": "2026-07-31T12:00:02.000Z",
   "status": "rejected",
-  "targetId": "pump-watering",
+  "targetId": "pump_water",
   "actualState": {
     "isActive": false
   },
@@ -362,7 +362,7 @@ Edge mengirim JSON Lines berikut ke serial:
   "expiresAt": "2026-07-31T12:00:30.000Z",
   "requestedBy": "operator@example.com",
   "type": "set_pump",
-  "targetId": "pump-watering",
+  "targetId": "pump_water",
   "params": {
     "isActive": true
   }
@@ -382,13 +382,69 @@ Firmware wajib menjalankan urutan:
 
 Edge menolak command dengan `expiresAt` invalid atau sudah lewat. Command tersebut tidak akan sampai ke ESP32.
 
-### 9.2 Mapping aktuator
+### 9.2 Sinkronisasi jadwal lokal
+
+Orange Pi mengirim snapshot penuh melalui Serial JSON Lines. Snapshot bersifat atomic replace: firmware hanya mengganti jadwal NVS lama setelah seluruh payload valid dan snapshot baru berhasil disimpan.
+
+```json
+{
+  "kind": "schedule_sync",
+  "schemaVersion": 1,
+  "siteId": "greenhouse-01",
+  "deviceId": "esp32-s3-01",
+  "revision": 4,
+  "generatedAt": "2026-08-28T15:20:00.000Z",
+  "executionAuthority": "server",
+  "schedules": [
+    {
+      "scheduleId": "schedule-water-01",
+      "targetId": "pump_water",
+      "onTime": "07:00:00",
+      "offTime": "07:10:00",
+      "repeatRule": "daily",
+      "runDate": null,
+      "timezone": "Asia/Jakarta",
+      "enabled": true
+    }
+  ]
+}
+```
+
+Aturan firmware:
+
+- Simpan snapshot ke NVS sebelum mengirim ACK `applied`.
+- Abaikan revision lebih lama. Untuk revision sama, kirim ulang ACK tanpa menulis ulang flash. Backend selalu membuat revision baru ketika execution authority berubah.
+- Maksimal 64 schedule per snapshot.
+- Authority `server` berarti simpan tetapi jangan eksekusi lokal.
+- Authority `device` berarti ESP32 menjadi satu-satunya executor jadwal.
+- Jangan mengeksekusi jadwal jika RTC/NTP belum valid.
+- Snapshot kosong berarti hapus seluruh jadwal lokal untuk device tersebut.
+
+ACK setelah snapshot tersimpan:
+
+```json
+{
+  "kind": "schedule_sync_ack",
+  "schemaVersion": 1,
+  "siteId": "greenhouse-01",
+  "deviceId": "esp32-s3-01",
+  "revision": 4,
+  "acknowledgedAt": "2026-08-28T15:20:01.000Z",
+  "status": "applied",
+  "storedScheduleCount": 1
+}
+```
+
+Jika validasi atau penyimpanan gagal, kirim status `rejected`, pertahankan snapshot lama, dan isi `reason`. Jangan meninggalkan NVS dalam kondisi parsial.
+
+### 9.3 Mapping aktuator
 
 Mapping final harus disetujui kedua tim:
 
 | `targetId`         | Aktuator fisik | Output/driver | Feedback actual state | Interlock | Max runtime |
 | ------------------ | -------------- | ------------- | --------------------- | --------- | ----------- |
-| `pump-watering`    | TBD            | TBD           | TBD                   | TBD       | TBD         |
+| `pump_water`       | Pompa Air      | TBD           | TBD                   | TBD       | TBD         |
+| `pump_fert`        | Pompa Pupuk    | TBD           | TBD                   | TBD       | TBD         |
 | `pump-nutrient`    | TBD            | TBD           | TBD                   | TBD       | TBD         |
 | `pump-nutrient-mc` | TBD            | TBD           | TBD                   | TBD       | TBD         |
 

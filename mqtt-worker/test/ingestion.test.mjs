@@ -9,6 +9,7 @@ function repositorySpy() {
     saveTelemetry: async (message) => calls.push(['telemetry', message]),
     saveActuatorState: async (message) => calls.push(['state', message]),
     saveAcknowledgement: async (message) => calls.push(['ack', message]),
+    saveScheduleSyncAck: async (message) => calls.push(['schedule_ack', message]),
     saveDeviceStatus: async (message) => calls.push(['status', message]),
   };
 }
@@ -40,4 +41,28 @@ test('topic identity mismatch is rejected', async () => {
   }));
   await assert.rejects(() => service.process('spff/v1/greenhouse-01/esp32-s3-01/status', payload));
   assert.equal(repository.calls.length, 0);
+});
+
+test('schedule sync acknowledgement is validated and stored', async () => {
+  const repository = repositorySpy();
+  const service = new IngestionService(repository);
+  const payload = Buffer.from(JSON.stringify({
+    kind: 'schedule_sync_ack',
+    schemaVersion: 1,
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    revision: 7,
+    acknowledgedAt: '2026-08-28T15:20:00.000Z',
+    status: 'applied',
+    storedScheduleCount: 2,
+  }));
+
+  await service.process(
+    'spff/v1/greenhouse-01/esp32-s3-01/ack',
+    payload,
+  );
+
+  assert.equal(repository.calls.length, 1);
+  assert.equal(repository.calls[0][0], 'schedule_ack');
+  assert.equal(repository.calls[0][1].revision, 7);
 });

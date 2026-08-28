@@ -16,6 +16,7 @@ const topics = {
   telemetry: `spff/v1/${siteId}/${deviceId}/telemetry`,
   commands: `spff/v1/${siteId}/${deviceId}/commands`,
   acknowledgements: `spff/v1/${siteId}/${deviceId}/ack`,
+  schedules: `spff/v1/${siteId}/${deviceId}/schedules`,
   status: `spff/v1/${siteId}/${deviceId}/status`,
 };
 
@@ -108,6 +109,7 @@ let edgeClient;
 let workerClient;
 let commandClient;
 let retainedObserver;
+let retainedScheduleObserver;
 
 try {
   [edgeClient, workerClient, commandClient] = await Promise.all([
@@ -130,6 +132,7 @@ try {
 
   await Promise.all([
     subscribe(edgeClient, topics.commands),
+    subscribe(edgeClient, topics.schedules),
     subscribe(workerClient, topics.telemetry),
     subscribe(workerClient, topics.status),
     subscribe(commandClient, topics.acknowledgements),
@@ -137,6 +140,7 @@ try {
 
   const messageId = randomUUID();
   const commandId = randomUUID();
+  const scheduleId = randomUUID();
   const telemetryReceived = waitForMessage(
     workerClient,
     topics.telemetry,
@@ -154,6 +158,12 @@ try {
     topics.acknowledgements,
     (payload) => payload.commandId === commandId,
     "command acknowledgement",
+  );
+  const scheduleReceived = waitForMessage(
+    edgeClient,
+    topics.schedules,
+    (payload) => payload.schedules?.[0]?.scheduleId === scheduleId,
+    "edge schedule snapshot",
   );
 
   const now = new Date();
@@ -191,11 +201,38 @@ try {
     targetId: "pump-01",
     actualState: { isActive: true },
   });
+  await publish(
+    workerClient,
+    topics.schedules,
+    {
+      kind: "schedule_sync",
+      schemaVersion: 1,
+      siteId,
+      deviceId,
+      revision: 1,
+      generatedAt: new Date().toISOString(),
+      executionAuthority: "server",
+      schedules: [
+        {
+          scheduleId,
+          targetId: "pump_water",
+          onTime: "07:00:00",
+          offTime: "07:10:00",
+          repeatRule: "daily",
+          runDate: null,
+          timezone: "Asia/Jakarta",
+          enabled: true,
+        },
+      ],
+    },
+    true,
+  );
 
   await Promise.all([
     telemetryReceived,
     commandReceived,
     acknowledgementReceived,
+    scheduleReceived,
   ]);
 
   await publish(
@@ -232,8 +269,27 @@ try {
     "Status must be retained by the broker.",
   );
 
+  retainedScheduleObserver = await connectClient(
+    "retained-schedule-observer",
+    required("MQTT_EDGE_USERNAME"),
+    required("MQTT_EDGE_PASSWORD"),
+  );
+  const retainedSchedule = waitForMessage(
+    retainedScheduleObserver,
+    topics.schedules,
+    (payload) => payload.schedules?.[0]?.scheduleId === scheduleId,
+    "retained schedule snapshot",
+  );
+  await subscribe(retainedScheduleObserver, topics.schedules);
+  const retainedScheduleResult = await retainedSchedule;
+  assert.equal(
+    retainedScheduleResult.packet.retain,
+    true,
+    "Schedule snapshot must be retained by the broker.",
+  );
+
   console.log(
-    "[mqtt-smoke] PASS: authenticated QoS 1 telemetry, command, ACK, and retained status paths work.",
+    "[mqtt-smoke] PASS: authenticated QoS 1 telemetry, command, ACK, retained status, and retained schedule paths work.",
   );
 } finally {
   await Promise.all([
@@ -241,5 +297,6 @@ try {
     endClient(workerClient),
     endClient(commandClient),
     endClient(retainedObserver),
+    endClient(retainedScheduleObserver),
   ]);
 }

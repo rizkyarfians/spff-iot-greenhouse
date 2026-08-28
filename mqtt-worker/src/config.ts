@@ -24,6 +24,12 @@ const numberFromEnvironment = (name: string, fallback: number) => {
 
 const optional = (name: string) => process.env[name]?.trim() || undefined;
 
+const scheduleExecutionMode = () => {
+  const value = process.env.SCHEDULE_EXECUTION_MODE ?? "server";
+  if (value === "server" || value === "device") return value;
+  throw new Error("SCHEDULE_EXECUTION_MODE must be server or device.");
+};
+
 const mqttCredentials = () => {
   const username = optional("MQTT_USERNAME");
   const password = optional("MQTT_PASSWORD");
@@ -74,7 +80,12 @@ export const config = {
     batchSize: numberFromEnvironment("COMMAND_BATCH_SIZE", 20),
   },
   schedule: {
+    executionMode: scheduleExecutionMode(),
     pollIntervalMs: numberFromEnvironment("SCHEDULE_POLL_INTERVAL_MS", 1_000),
+    syncPollIntervalMs: numberFromEnvironment(
+      "SCHEDULE_SYNC_POLL_INTERVAL_MS",
+      1_000,
+    ),
     lookbackSeconds: numberFromEnvironment("SCHEDULE_LOOKBACK_SECONDS", 120),
     commandExpirySeconds: numberFromEnvironment("COMMAND_EXPIRY_SECONDS", 30),
   },

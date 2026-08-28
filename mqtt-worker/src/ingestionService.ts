@@ -3,6 +3,7 @@ import {
   isActuatorStateMessage,
   isCommandAckMessage,
   isDeviceStatusMessage,
+  isScheduleSyncAckMessage,
   isTelemetryMessage,
   isTelemetryPersistedAckMessage,
   parseMqttTopic,
@@ -58,6 +59,15 @@ export class IngestionService {
       matchesTopic(message)
     ) {
       await this.repository.saveAcknowledgement(message);
+      return null;
+    }
+
+    if (
+      topicParts.channel === 'ack' &&
+      isScheduleSyncAckMessage(message) &&
+      matchesTopic(message)
+    ) {
+      await this.repository.saveScheduleSyncAck(message);
       return null;
     }
 

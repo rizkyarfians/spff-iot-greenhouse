@@ -2,6 +2,9 @@ import type {
   ActuatorStateMessage,
   CommandAckMessage,
   DeviceStatusMessage,
+  ScheduleExecutionAuthority,
+  ScheduleSyncAckMessage,
+  ScheduleSyncMessage,
   TelemetryMessage,
 } from "@spff/contracts";
 import { Pool, type PoolClient } from "pg";
@@ -10,6 +13,7 @@ import { config } from "./config.js";
 export interface IngestionRepository {
   saveTelemetry(message: TelemetryMessage): Promise<void>;
   saveAcknowledgement(message: CommandAckMessage): Promise<void>;
+  saveScheduleSyncAck(message: ScheduleSyncAckMessage): Promise<void>;
   saveActuatorState(message: ActuatorStateMessage): Promise<void>;
   saveDeviceStatus(message: DeviceStatusMessage): Promise<void>;
 }
@@ -66,6 +70,20 @@ export interface ScheduledCommandRequest {
 export interface ScheduleRepository {
   enabledSchedules(): Promise<ActuatorSchedule[]>;
   createScheduledCommand(request: ScheduledCommandRequest): Promise<boolean>;
+}
+
+export interface ScheduleSyncRepository {
+  scheduleSnapshots(
+    authority: ScheduleExecutionAuthority,
+    force: boolean,
+  ): Promise<ScheduleSyncMessage[]>;
+  markSchedulePublished(
+    siteId: string,
+    deviceId: string,
+    revision: number,
+    authority: ScheduleExecutionAuthority,
+    publishedAt: string,
+  ): Promise<void>;
 }
 
 type JsonObject = Record<string, unknown>;
@@ -474,6 +492,192 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
     }
 
     return schedules;
+  }
+
+  async scheduleSnapshots(
+    authority: ScheduleExecutionAuthority,
+    force: boolean,
+  ): Promise<ScheduleSyncMessage[]> {
+    const [syncResult, schedules] = await Promise.all([
+      this.pool.query<{
+        site_id: string;
+        device_id: string;
+        revision: string | number;
+      }>(
+        `
+          WITH authority_revision AS (
+            UPDATE spff.device_schedule_sync_state
+            SET
+              revision = revision + 1,
+              updated_at = now()
+            WHERE published_revision = revision
+              AND published_authority IS NOT NULL
+              AND published_authority IS DISTINCT FROM $1
+            RETURNING site_id, device_id
+          )
+          SELECT site_id, device_id, revision
+          FROM spff.device_schedule_sync_state
+          WHERE $2::boolean
+             OR published_revision IS DISTINCT FROM revision
+             OR published_authority IS DISTINCT FROM $1
+          ORDER BY site_id, device_id
+        `,
+        [
+          authority,
+          force,
+        ],
+      ),
+      this.enabledSchedules(),
+    ]);
+
+    const generatedAt = new Date().toISOString();
+
+    return syncResult.rows.map((sync) => {
+      const deviceSchedules = schedules
+        .filter(
+          (schedule) =>
+            schedule.siteId === sync.site_id &&
+            schedule.deviceId === sync.device_id &&
+            schedule.enabled &&
+            schedule.offTime !== null,
+        )
+        .map((schedule) => ({
+          scheduleId: schedule.scheduleId,
+          targetId: schedule.actuatorKey,
+          onTime: schedule.onTime,
+          offTime: schedule.offTime as string,
+          repeatRule: schedule.repeatRule,
+          runDate: schedule.onceDate,
+          timezone: schedule.timezone,
+          enabled: true,
+        }));
+
+      if (deviceSchedules.length > 64) {
+        throw new Error(
+          `Device ${sync.site_id}/${sync.device_id} has ${deviceSchedules.length} enabled schedules; maximum is 64.`,
+        );
+      }
+
+      return {
+        kind: "schedule_sync",
+        schemaVersion: 1,
+        siteId: sync.site_id,
+        deviceId: sync.device_id,
+        revision: Number(sync.revision),
+        generatedAt,
+        executionAuthority: authority,
+        schedules: deviceSchedules,
+      };
+    });
+  }
+
+  async markSchedulePublished(
+    siteId: string,
+    deviceId: string,
+    revision: number,
+    authority: ScheduleExecutionAuthority,
+    publishedAt: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `
+        UPDATE spff.device_schedule_sync_state
+        SET
+          published_revision = $3,
+          published_authority = $4,
+          published_at = $5::timestamptz,
+          updated_at = now()
+        WHERE site_id = $1
+          AND device_id = $2
+          AND revision = $3
+      `,
+      [
+        siteId,
+        deviceId,
+        revision,
+        authority,
+        publishedAt,
+      ],
+    );
+  }
+
+  async saveScheduleSyncAck(message: ScheduleSyncAckMessage): Promise<void> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+          INSERT INTO spff.schedule_sync_ack_events (
+            site_id,
+            device_id,
+            revision,
+            status,
+            stored_schedule_count,
+            reason,
+            acknowledged_at,
+            raw_payload
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::jsonb)
+          ON CONFLICT (
+            site_id,
+            device_id,
+            revision,
+            status,
+            acknowledged_at
+          ) DO NOTHING
+        `,
+        [
+          message.siteId,
+          message.deviceId,
+          message.revision,
+          message.status,
+          message.storedScheduleCount,
+          message.reason ?? null,
+          message.acknowledgedAt,
+          JSON.stringify(message),
+        ],
+      );
+
+      await client.query(
+        `
+          UPDATE spff.device_schedule_sync_state
+          SET
+            acknowledged_revision = $3,
+            acknowledgement_status = $4,
+            acknowledged_at = $5::timestamptz,
+            acknowledgement_reason = $6,
+            stored_schedule_count = $7,
+            updated_at = now()
+          WHERE site_id = $1
+            AND device_id = $2
+            AND $3 >= COALESCE(acknowledged_revision, 0)
+        `,
+        [
+          message.siteId,
+          message.deviceId,
+          message.revision,
+          message.status,
+          message.acknowledgedAt,
+          message.reason ?? null,
+          message.storedScheduleCount,
+        ],
+      );
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    console.log("[repository] schedule sync acknowledgement stored", {
+      siteId: message.siteId,
+      deviceId: message.deviceId,
+      revision: message.revision,
+      status: message.status,
+      storedScheduleCount: message.storedScheduleCount,
+    });
   }
 
   async createScheduledCommand(request: ScheduledCommandRequest): Promise<boolean> {

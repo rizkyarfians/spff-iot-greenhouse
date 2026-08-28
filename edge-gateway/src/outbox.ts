@@ -1,12 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { ActuatorStateMessage, CommandAckMessage, DeviceStatusMessage, TelemetryMessage } from '@spff/contracts';
+import type {
+  ActuatorStateMessage,
+  CommandAckMessage,
+  DeviceStatusMessage,
+  ScheduleSyncAckMessage,
+  TelemetryMessage,
+} from '@spff/contracts';
 
 export type OutboxRecord =
   | { kind: 'telemetry'; payload: TelemetryMessage }
   | { kind: 'state'; payload: ActuatorStateMessage }
   | { kind: 'ack'; payload: CommandAckMessage }
+  | { kind: 'schedule_ack'; payload: ScheduleSyncAckMessage }
   | { kind: 'status'; payload: DeviceStatusMessage };
 
 export class DurableOutbox {

@@ -80,6 +80,8 @@ GRANT SELECT ON
   spff.system_logs,
   spff.actuator_schedules,
   spff.schedule_executions,
+  spff.device_schedule_sync_state,
+  spff.schedule_sync_ack_events,
   spff.site_settings
 TO spff_api_role;
 
@@ -90,11 +92,14 @@ GRANT DELETE ON spff.actuator_schedules TO spff_api_role;
 
 -- MQTT worker: ingestion, command lifecycle, schedule execution.
 GRANT SELECT ON
+  spff.sites,
   spff.devices,
   spff.actuators,
   spff.control_commands,
   spff.actuator_schedules,
   spff.schedule_executions,
+  spff.device_schedule_sync_state,
+  spff.schedule_sync_ack_events,
   spff.site_settings
 TO spff_worker_role;
 GRANT INSERT ON
@@ -106,6 +111,8 @@ GRANT INSERT ON
   spff.schedule_executions
 TO spff_worker_role;
 GRANT UPDATE ON spff.control_commands, spff.schedule_executions TO spff_worker_role;
+GRANT UPDATE ON spff.device_schedule_sync_state TO spff_worker_role;
+GRANT INSERT ON spff.schedule_sync_ack_events TO spff_worker_role;
 GRANT UPDATE (firmware_version, updated_at) ON spff.devices TO spff_worker_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA spff TO spff_worker_role;
 

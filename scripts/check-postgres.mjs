@@ -25,6 +25,8 @@ const requiredRelations = [
   'spff.system_logs',
   'spff.actuator_schedules',
   'spff.schedule_executions',
+  'spff.device_schedule_sync_state',
+  'spff.schedule_sync_ack_events',
   'spff.site_settings',
   'spff.cloud_outbox',
   'spff.latest_telemetry',

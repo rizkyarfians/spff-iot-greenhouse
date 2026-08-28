@@ -1,11 +1,14 @@
 import {
   decodeJsonMessage,
   isPumpCommandMessage,
+  isScheduleSyncMessage,
   mqttTopics,
   type ActuatorStateMessage,
   type CommandAckMessage,
   type DeviceStatusMessage,
   type PumpCommandMessage,
+  type ScheduleSyncAckMessage,
+  type ScheduleSyncMessage,
   type TelemetryMessage,isTelemetryPersistedAckMessage,
 type TelemetryPersistedAckMessage,
 } from '@spff/contracts';
@@ -15,6 +18,7 @@ import type { EdgeConfig } from './config.js';
 export class MqttBridge {
   private client: MqttClient | null = null;
   private commandHandler: ((command: PumpCommandMessage) => Promise<void>) | null = null;
+  private scheduleHandler: ((message: ScheduleSyncMessage) => Promise<void>) | null = null;
   private connectedHandler: (() => Promise<void>) | null = null;
   private deviceAvailable = false;
   private lastStatus: DeviceStatusMessage | null = null;
@@ -28,6 +32,10 @@ private telemetryPersistedHandler:
 
   onCommand(handler: (command: PumpCommandMessage) => Promise<void>) {
     this.commandHandler = handler;
+  }
+
+  onSchedule(handler: (message: ScheduleSyncMessage) => Promise<void>) {
+    this.scheduleHandler = handler;
   }
 
   onConnected(handler: () => Promise<void>) {
@@ -87,6 +95,10 @@ onTelemetryPersisted(
     return this.publish(mqttTopics.acknowledgements(this.config.siteId, this.config.deviceId), message);
   }
 
+  publishScheduleAcknowledgement(message: ScheduleSyncAckMessage) {
+    return this.publish(mqttTopics.acknowledgements(this.config.siteId, this.config.deviceId), message);
+  }
+
   publishStatus(message: DeviceStatusMessage) {
     this.lastStatus = message;
     return this.publish(mqttTopics.status(this.config.siteId, this.config.deviceId), message, true);
@@ -136,12 +148,18 @@ onTelemetryPersisted(
           this.config.deviceId,
         ),
       ),
+      this.subscribe(
+        mqttTopics.schedules(
+          this.config.siteId,
+          this.config.deviceId,
+        ),
+      ),
     ]);
 
     await this.publishStatus(this.createStatus(this.deviceAvailable));
 
     console.log(`[mqtt] Connected as ${this.config.mqtt.clientId}.`);
-    console.log('[mqtt] Subscribed to command and persistence ACK topics.');
+    console.log('[mqtt] Subscribed to command, schedule, and persistence ACK topics.');
   }
 
 private async handleMessage(topic: string, payload: Buffer) {
@@ -170,6 +188,31 @@ private async handleMessage(topic: string, payload: Buffer) {
       }
 
       await this.commandHandler(message);
+      return;
+    }
+
+    if (
+      topic === mqttTopics.schedules(
+        this.config.siteId,
+        this.config.deviceId,
+      )
+    ) {
+      if (!this.scheduleHandler) return;
+
+      if (!isScheduleSyncMessage(message)) {
+        throw new Error(
+          'Schedule payload does not match the shared contract.',
+        );
+      }
+
+      if (
+        message.siteId !== this.config.siteId ||
+        message.deviceId !== this.config.deviceId
+      ) {
+        return;
+      }
+
+      await this.scheduleHandler(message);
       return;
     }
 

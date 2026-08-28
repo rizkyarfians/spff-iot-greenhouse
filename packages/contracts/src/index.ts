@@ -86,6 +86,8 @@ export interface CommandAckMessage extends MessageIdentity {
 }
 
 export type ActuatorReportedState = 'active' | 'inactive' | 'offline' | 'fault';
+export type ScheduleRepeatRule = 'daily' | 'weekdays' | 'weekends' | 'once';
+export type ScheduleExecutionAuthority = 'server' | 'device';
 
 export interface ActuatorStateMessage extends MessageIdentity {
   kind: 'actuator_state';
@@ -110,7 +112,40 @@ export interface DeviceStatusMessage extends MessageIdentity {
   sensorValid?: boolean;
 }
 
-export type DeviceUplinkMessage = TelemetryMessage | ActuatorStateMessage | CommandAckMessage | DeviceStatusMessage;
+export interface DeviceSchedule {
+  scheduleId: string;
+  targetId: string;
+  onTime: string;
+  offTime: string;
+  repeatRule: ScheduleRepeatRule;
+  runDate: string | null;
+  timezone: string;
+  enabled: boolean;
+}
+
+export interface ScheduleSyncMessage extends MessageIdentity {
+  kind: 'schedule_sync';
+  revision: number;
+  generatedAt: string;
+  executionAuthority: ScheduleExecutionAuthority;
+  schedules: DeviceSchedule[];
+}
+
+export interface ScheduleSyncAckMessage extends MessageIdentity {
+  kind: 'schedule_sync_ack';
+  revision: number;
+  acknowledgedAt: string;
+  status: 'applied' | 'rejected';
+  storedScheduleCount: number;
+  reason?: string;
+}
+
+export type DeviceUplinkMessage =
+  | TelemetryMessage
+  | ActuatorStateMessage
+  | CommandAckMessage
+  | ScheduleSyncAckMessage
+  | DeviceStatusMessage;
 
 const topicPrefix = 'spff/v1';
 const assertTopicPart = (value: string, field: string) => {
@@ -125,6 +160,8 @@ export const mqttTopics = {
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/state`,
   commands: (siteId: string, deviceId: string) =>
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/commands`,
+  schedules: (siteId: string, deviceId: string) =>
+    `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/schedules`,
   acknowledgements: (siteId: string, deviceId: string) =>
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/ack`,
   status: (siteId: string, deviceId: string) =>
@@ -138,13 +175,13 @@ export const mqttTopics = {
 export interface ParsedMqttTopic {
   siteId: string;
   deviceId: string;
-  channel: 'telemetry' | 'state' | 'commands' | 'ack' | 'status';
+  channel: 'telemetry' | 'state' | 'commands' | 'schedules' | 'ack' | 'status';
 }
 
 export function parseMqttTopic(topic: string): ParsedMqttTopic | null {
   const [namespace, version, siteId, deviceId, channel, extra] = topic.split('/');
   if (namespace !== 'spff' || version !== 'v1' || !siteId || !deviceId || extra) return null;
-  if (!['telemetry', 'state', 'commands', 'ack', 'status'].includes(channel)) return null;
+  if (!['telemetry', 'state', 'commands', 'schedules', 'ack', 'status'].includes(channel)) return null;
   return { siteId, deviceId, channel: channel as ParsedMqttTopic['channel'] };
 }
 
@@ -261,9 +298,75 @@ export function isDeviceStatusMessage(value: unknown): value is DeviceStatusMess
   );
 }
 
+const scheduleTimePattern = /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/;
+const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
+
+const isDeviceSchedule = (value: unknown): value is DeviceSchedule => {
+  if (!isRecord(value)) return false;
+  const repeatRule = String(value.repeatRule);
+  const runDateValid =
+    repeatRule === 'once'
+      ? typeof value.runDate === 'string' &&
+        dateOnlyPattern.test(value.runDate) &&
+        Number.isFinite(Date.parse(`${value.runDate}T00:00:00.000Z`))
+      : value.runDate === null;
+  return (
+    typeof value.scheduleId === 'string' &&
+    value.scheduleId.length > 0 &&
+    typeof value.targetId === 'string' &&
+    value.targetId.length > 0 &&
+    typeof value.onTime === 'string' &&
+    scheduleTimePattern.test(value.onTime) &&
+    typeof value.offTime === 'string' &&
+    scheduleTimePattern.test(value.offTime) &&
+    value.offTime > value.onTime &&
+    ['daily', 'weekdays', 'weekends', 'once'].includes(repeatRule) &&
+    runDateValid &&
+    typeof value.timezone === 'string' &&
+    value.timezone.length > 0 &&
+    typeof value.enabled === 'boolean'
+  );
+};
+
+export function isScheduleSyncMessage(value: unknown): value is ScheduleSyncMessage {
+  if (
+    !isRecord(value) ||
+    !hasIdentity(value) ||
+    value.kind !== 'schedule_sync' ||
+    !Array.isArray(value.schedules) ||
+    value.schedules.length > 64
+  ) {
+    return false;
+  }
+  const scheduleIds = new Set<string>();
+  return (
+    Number.isSafeInteger(value.revision) &&
+    (value.revision as number) >= 1 &&
+    isIsoDate(value.generatedAt) &&
+    (value.executionAuthority === 'server' || value.executionAuthority === 'device') &&
+    value.schedules.every((schedule) => {
+      if (!isDeviceSchedule(schedule) || scheduleIds.has(schedule.scheduleId)) return false;
+      scheduleIds.add(schedule.scheduleId);
+      return true;
+    })
+  );
+}
+
+export function isScheduleSyncAckMessage(value: unknown): value is ScheduleSyncAckMessage {
+  if (!isRecord(value) || !hasIdentity(value) || value.kind !== 'schedule_sync_ack') return false;
+  return (
+    Number.isSafeInteger(value.revision) &&
+    (value.revision as number) >= 1 &&
+    isIsoDate(value.acknowledgedAt) &&
+    (value.status === 'applied' || value.status === 'rejected') &&
+    Number.isSafeInteger(value.storedScheduleCount) &&
+    (value.storedScheduleCount as number) >= 0 &&
+    (value.reason === undefined || typeof value.reason === 'string')
+  );
+}
+
 export type ApiSensorStatus = 'good' | 'warning' | 'critical' | 'offline';
 export type DeviceConnectionStatus = 'online' | 'stale' | 'offline';
-export type ScheduleRepeatRule = 'daily' | 'weekdays' | 'weekends' | 'once';
 
 export interface ApiSensor {
   id: string;

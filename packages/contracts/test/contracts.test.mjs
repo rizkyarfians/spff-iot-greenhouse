@@ -4,7 +4,11 @@ import {
   isActuatorStateMessage,
   isCommandAckMessage,
   isPumpCommandMessage,
+  isScheduleSyncAckMessage,
+  isScheduleSyncMessage,
   isTelemetryMessage,
+  mqttTopics,
+  parseMqttTopic,
   telemetrySensorKeys,
 } from '../dist/index.js';
 
@@ -52,4 +56,61 @@ test('actuator state validates actual pump state for retained state topic', () =
   assert.equal(isActuatorStateMessage(state), true);
   assert.equal(isActuatorStateMessage({ ...state, isActive: false }), false);
   assert.equal(isActuatorStateMessage({ ...state, commandId: 123 }), false);
+});
+
+test('schedule sync validates atomic device snapshot and schedule topic', () => {
+  const message = {
+    kind: 'schedule_sync',
+    schemaVersion: 1,
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    revision: 3,
+    generatedAt: '2026-08-28T15:20:00.000Z',
+    executionAuthority: 'server',
+    schedules: [
+      {
+        scheduleId: 'schedule-water-01',
+        targetId: 'pump_water',
+        onTime: '07:00:00',
+        offTime: '07:10:00',
+        repeatRule: 'daily',
+        runDate: null,
+        timezone: 'Asia/Jakarta',
+        enabled: true,
+      },
+    ],
+  };
+
+  assert.equal(isScheduleSyncMessage(message), true);
+  assert.equal(isScheduleSyncMessage({
+    ...message,
+    schedules: [...message.schedules, message.schedules[0]],
+  }), false);
+  assert.deepEqual(
+    parseMqttTopic(mqttTopics.schedules('greenhouse-01', 'esp32-s3-01')),
+    {
+      siteId: 'greenhouse-01',
+      deviceId: 'esp32-s3-01',
+      channel: 'schedules',
+    },
+  );
+});
+
+test('schedule sync acknowledgement validates revision and stored count', () => {
+  const acknowledgement = {
+    kind: 'schedule_sync_ack',
+    schemaVersion: 1,
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    revision: 3,
+    acknowledgedAt: '2026-08-28T15:20:01.000Z',
+    status: 'applied',
+    storedScheduleCount: 1,
+  };
+
+  assert.equal(isScheduleSyncAckMessage(acknowledgement), true);
+  assert.equal(isScheduleSyncAckMessage({
+    ...acknowledgement,
+    storedScheduleCount: -1,
+  }), false);
 });

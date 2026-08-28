@@ -3,9 +3,12 @@ import {
   isActuatorStateMessage,
   isCommandAckMessage,
   isDeviceStatusMessage,
+  isScheduleSyncAckMessage,
   isTelemetryMessage,
   type CommandAckMessage,
   type PumpCommandMessage,
+  type ScheduleSyncAckMessage,
+  type ScheduleSyncMessage,
 } from '@spff/contracts';
 import { config } from './config.js';
 import { MqttBridge } from './mqttBridge.js';
@@ -25,6 +28,9 @@ const publishOutboxRecord = async (record: OutboxRecord) => {
   if (record.kind === 'telemetry') return mqttBridge.publishTelemetry(record.payload);
   if (record.kind === 'state') return mqttBridge.publishState(record.payload);
   if (record.kind === 'ack') return mqttBridge.publishAcknowledgement(record.payload);
+  if (record.kind === 'schedule_ack') {
+    return mqttBridge.publishScheduleAcknowledgement(record.payload);
+  }
   return mqttBridge.publishStatus(record.payload);
 };
 
@@ -56,6 +62,10 @@ const serialGateway = new SerialGateway(
     }
     if (isCommandAckMessage(message) && belongsToConfiguredDevice(message)) {
       await queue({ kind: 'ack', payload: message });
+      return;
+    }
+    if (isScheduleSyncAckMessage(message) && belongsToConfiguredDevice(message)) {
+      await queue({ kind: 'schedule_ack', payload: message });
       return;
     }
     if (isDeviceStatusMessage(message) && belongsToConfiguredDevice(message)) {
@@ -135,10 +145,41 @@ mqttBridge.onCommand(async (command: PumpCommandMessage) => {
   }
 });
 
+mqttBridge.onSchedule(async (message: ScheduleSyncMessage) => {
+  try {
+    await serialGateway.send(message);
+
+    console.log('[edge] Schedule snapshot forwarded to ESP32', {
+      revision: message.revision,
+      authority: message.executionAuthority,
+      schedules: message.schedules.length,
+    });
+  } catch (error) {
+    const acknowledgement: ScheduleSyncAckMessage = {
+      kind: 'schedule_sync_ack',
+      schemaVersion: 1,
+      siteId: message.siteId,
+      deviceId: message.deviceId,
+      revision: message.revision,
+      acknowledgedAt: new Date().toISOString(),
+      status: 'rejected',
+      storedScheduleCount: 0,
+      reason: error instanceof Error
+        ? error.message
+        : 'Serial transport failed.',
+    };
+
+    await queue({
+      kind: 'schedule_ack',
+      payload: acknowledgement,
+    });
+  }
+});
+
 async function start() {
   await outbox.start();
-  await mqttBridge.start();
   await serialGateway.start();
+  await mqttBridge.start();
   flushTimer = setInterval(() => void flushOutbox(), config.outbox.flushIntervalMs);
   console.log(`[edge] Gateway ready for ${config.siteId}/${config.deviceId}.`);
 }

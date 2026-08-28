@@ -15,6 +15,8 @@ const modeAliases = new Map([
   ["telemetry", "telemetry"],
   ["actuator", "actuators"],
   ["actuators", "actuators"],
+  ["schedule", "schedules"],
+  ["schedules", "schedules"],
 ]);
 const mode = modeAliases.get(requestedMode);
 const watch = args.includes("--watch");
@@ -40,10 +42,11 @@ Usage:
   npm run logs:esp
   npm run logs:telemetry
   npm run logs:actuators
+  npm run logs:schedules
   npm run logs:watch
 
 Direct options:
-  node --env-file=functions/.env scripts/system-status.mjs [all|esp|telemetry|actuators] [--watch] [--interval=5]
+  node --env-file=functions/.env scripts/system-status.mjs [all|esp|telemetry|actuators|schedules] [--watch] [--interval=5]
 `;
 
 if (help) {
@@ -305,6 +308,40 @@ async function queryActuators() {
   return result.rows;
 }
 
+async function queryScheduleSync() {
+  const result = await pool.query(
+    `SELECT device.device_id,
+            device.display_name,
+            sync.revision,
+            sync.published_revision,
+            sync.published_authority,
+            sync.published_at,
+            sync.acknowledged_revision,
+            sync.acknowledgement_status,
+            sync.acknowledged_at,
+            sync.acknowledgement_reason,
+            sync.stored_schedule_count,
+            count(schedule.schedule_id)
+              FILTER (WHERE schedule.enabled = true)::integer AS desired_schedule_count
+     FROM spff.devices device
+     LEFT JOIN spff.device_schedule_sync_state sync
+       ON sync.site_id = device.site_id
+      AND sync.device_id = device.device_id
+     LEFT JOIN spff.actuator_schedules schedule
+       ON schedule.site_id = device.site_id
+      AND schedule.device_id = device.device_id
+     WHERE device.site_id = $1
+     GROUP BY
+       device.device_id,
+       device.display_name,
+       sync.site_id,
+       sync.device_id
+     ORDER BY device.device_id`,
+    [siteId],
+  );
+  return result.rows;
+}
+
 const printDevices = (rows, timezone) => {
   printTable(
     "ESP / heartbeat",
@@ -378,6 +415,42 @@ const printActuators = (rows) => {
   );
 };
 
+const printScheduleSync = (rows, timezone) => {
+  printTable(
+    "Sinkronisasi jadwal ke ESP32",
+    rows.map((row) => {
+      const revision = toNumberOrNull(row.revision);
+      const publishedRevision = toNumberOrNull(row.published_revision);
+      const acknowledgedRevision = toNumberOrNull(row.acknowledged_revision);
+      const status =
+        revision === null
+          ? "NOT INITIALIZED"
+          : acknowledgedRevision === revision &&
+              row.acknowledgement_status === "applied"
+            ? "SYNCED"
+            : acknowledgedRevision === revision &&
+                row.acknowledgement_status === "rejected"
+              ? "REJECTED"
+              : publishedRevision === revision
+                ? "WAITING ACK"
+                : "PENDING PUBLISH";
+
+      return {
+        device: row.device_id,
+        status,
+        revision: revision ?? "-",
+        authority: row.published_authority ?? "-",
+        desired: Number(row.desired_schedule_count ?? 0),
+        stored: row.stored_schedule_count ?? "-",
+        published_at: formatTimestamp(row.published_at, timezone),
+        acknowledged_at: formatTimestamp(row.acknowledged_at, timezone),
+        reason: row.acknowledgement_reason ?? "-",
+      };
+    }),
+    `Belum ada device untuk site ${siteId}.`,
+  );
+};
+
 const printOverview = (devices, telemetry, actuators) => {
   const onlineDevices = devices.filter(
     (row) => deviceConnection(row) === "ONLINE",
@@ -406,7 +479,7 @@ const printOverview = (devices, telemetry, actuators) => {
 };
 
 async function render() {
-  const [identity, devices, telemetry, actuators] = await Promise.all([
+  const [identity, devices, telemetry, actuators, schedules] = await Promise.all([
     queryIdentityAndSite(),
     mode === "all" || mode === "esp" ? queryDevices() : Promise.resolve([]),
     mode === "all" || mode === "telemetry"
@@ -414,6 +487,9 @@ async function render() {
       : Promise.resolve([]),
     mode === "all" || mode === "actuators"
       ? queryActuators()
+      : Promise.resolve([]),
+    mode === "all" || mode === "schedules"
+      ? queryScheduleSync()
       : Promise.resolve([]),
   ]);
   const timezone = identity.timezone ?? "Asia/Jakarta";
@@ -432,6 +508,8 @@ async function render() {
   if (mode === "all" || mode === "telemetry")
     printTelemetry(telemetry, timezone);
   if (mode === "all" || mode === "actuators") printActuators(actuators);
+  if (mode === "all" || mode === "schedules")
+    printScheduleSync(schedules, timezone);
 }
 
 let stopping = false;

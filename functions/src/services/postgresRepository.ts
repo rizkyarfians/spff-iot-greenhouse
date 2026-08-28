@@ -132,6 +132,8 @@ async function readiness() {
             to_regclass('spff.latest_actuator_states') IS NOT NULL AS actuator_view_ready,
             to_regclass('spff.latest_device_status') IS NOT NULL AS device_view_ready,
             to_regclass('spff.actuator_schedules') IS NOT NULL AS schedules_ready,
+            to_regclass('spff.device_schedule_sync_state') IS NOT NULL AS schedule_sync_ready,
+            to_regclass('spff.schedule_sync_ack_events') IS NOT NULL AS schedule_sync_ack_ready,
             to_regclass('spff.site_settings') IS NOT NULL AS settings_ready,
             to_regclass('spff.cloud_outbox') IS NOT NULL AS outbox_ready,
             to_regprocedure('spff.notify_realtime_event()') IS NOT NULL
@@ -163,6 +165,8 @@ async function readiness() {
     latestActuatorStates: Boolean(row.actuator_view_ready),
     latestDeviceStatus: Boolean(row.device_view_ready),
     schedules: Boolean(row.schedules_ready),
+    scheduleSyncState: Boolean(row.schedule_sync_ready),
+    scheduleSyncAcknowledgements: Boolean(row.schedule_sync_ack_ready),
     settings: Boolean(row.settings_ready),
     transactionalOutbox: Boolean(row.outbox_ready),
     realtimeNotifications: Boolean(row.realtime_ready),

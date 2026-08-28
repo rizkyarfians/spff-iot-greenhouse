@@ -1,6 +1,7 @@
 import {
   mqttTopics,
   type PumpCommandMessage,
+  type ScheduleSyncMessage,
   type TelemetryPersistedAckMessage,
 } from '@spff/contracts';
 import { connect, type IClientOptions, type MqttClient } from "mqtt";
@@ -9,8 +10,13 @@ import type { IngestionService } from "./ingestionService.js";
 
 export class MqttWorker {
   private client: MqttClient | null = null;
+  private readonly connectedHandlers = new Set<() => Promise<void>>();
 
   constructor(private readonly ingestionService: IngestionService) {}
+
+  onConnected(handler: () => Promise<void>) {
+    this.connectedHandlers.add(handler);
+  }
 
   async start() {
     const options: IClientOptions = {
@@ -52,6 +58,11 @@ this.client.on('message', (topic, payload) => {
 });
     this.client.on("connect", () => {
       void this.restoreSubscriptions()
+        .then(() => {
+          return Promise.all(
+            [...this.connectedHandlers].map((handler) => handler()),
+          );
+        })
         .then(() => {
           if (!initialSessionSettled) {
             initialSessionSettled = true;
@@ -104,6 +115,26 @@ this.client.on('message', (topic, payload) => {
         topic,
         JSON.stringify(message),
         { qos: 1, retain: false },
+        (error) => (error ? reject(error) : resolve()),
+      );
+    });
+  }
+
+  async publishScheduleSync(message: ScheduleSyncMessage): Promise<void> {
+    const client = this.client;
+    if (!client?.connected) {
+      throw new Error("MQTT client is not connected.");
+    }
+
+    const topic = mqttTopics.schedules(message.siteId, message.deviceId);
+    await new Promise<void>((resolve, reject) => {
+      client.publish(
+        topic,
+        JSON.stringify(message),
+        {
+          qos: 1,
+          retain: true,
+        },
         (error) => (error ? reject(error) : resolve()),
       );
     });

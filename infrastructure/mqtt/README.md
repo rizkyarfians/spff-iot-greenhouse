@@ -35,12 +35,25 @@ Logout/login diperlukan setelah mengubah membership grup `dialout`.
 
 | Identity | Publish | Subscribe |
 |---|---|---|
-| Edge gateway | telemetry, state, ACK, status milik device | command milik device |
-| Ingestion worker | tidak ada | telemetry, state, ACK, status semua device |
-| Command API | command milik device | state, ACK, status milik device |
+| Edge gateway | telemetry, state, ACK, status milik device | command dan retained schedule milik device |
+| Ingestion worker | command dan retained schedule milik device | telemetry, state, ACK, status semua device |
+| Command API | command milik device | ACK milik device |
 | Health check | tidak ada | `$SYS/broker/uptime` |
 
-Anonymous connection dinonaktifkan. Telemetry, command, dan ACK menggunakan QoS 1. Status terakhir retained; telemetry tidak retained. Broker menyimpan session dan queued QoS messages pada Docker volume `spff-mqtt_mqtt-data`.
+Anonymous connection dinonaktifkan. Telemetry, command, schedule, dan ACK menggunakan QoS 1. Status terakhir serta snapshot schedule retained; telemetry tidak retained. Broker menyimpan session dan queued QoS messages pada Docker volume `spff-mqtt_mqtt-data`.
+
+## Rollout executor jadwal ESP32
+
+Gunakan `SCHEDULE_EXECUTION_MODE=server` selama firmware masih dikembangkan. Dalam mode ini snapshot tetap dikirim dan disimpan ESP32, tetapi hanya Schedule Evaluator Orange Pi yang boleh mengeksekusi.
+
+Setelah firmware berhasil mengirim `schedule_sync_ack: applied`, lakukan cutover pada maintenance window:
+
+1. Set `SCHEDULE_EXECUTION_MODE=device` di environment MQTT Worker.
+2. Restart `spff-mqtt-worker`.
+3. Worker menaikkan revision karena authority berubah dan memublikasikan snapshot retained baru.
+4. Pastikan log menunjukkan ACK `applied` untuk revision baru sebelum mengandalkan eksekusi offline ESP32.
+
+Jangan menjalankan evaluator server dan executor ESP32 untuk jadwal yang sama. Mode `device` otomatis menonaktifkan Schedule Evaluator Orange Pi; manual command tetap berjalan.
 
 ## Operasi
 

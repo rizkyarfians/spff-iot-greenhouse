@@ -48,6 +48,7 @@ services:
         printf '%s\n' \
           "user $$MQTT_EDGE_USERNAME" \
           "topic read spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/commands" \
+          "topic read spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/schedules" \
           "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/telemetry" \
           "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/state" \
           "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/ack" \
@@ -58,9 +59,12 @@ services:
           "topic read spff/v1/+/+/state" \
           "topic read spff/v1/+/+/ack" \
           "topic read spff/v1/+/+/status" \
+          "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/commands" \
+          "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/schedules" \
           "" \
           "user $$MQTT_COMMAND_USERNAME" \
           "topic write spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/commands" \
+          "topic read spff/v1/$$SPFF_SITE_ID/$$SPFF_DEVICE_ID/ack" \
           "" \
           "user $$MQTT_HEALTH_USERNAME" \
           'topic read $$SYS/broker/uptime' \
