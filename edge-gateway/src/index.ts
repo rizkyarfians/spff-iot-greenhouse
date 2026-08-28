@@ -113,6 +113,12 @@ mqttBridge.onCommand(async (command: PumpCommandMessage) => {
 
   try {
     await serialGateway.send(command);
+
+    console.log('[edge] Command forwarded to ESP32', {
+      commandId: command.commandId,
+      targetId: command.targetId,
+      isActive: command.params.isActive,
+    });
   } catch (error) {
     const acknowledgement: CommandAckMessage = {
       kind: 'command_ack',

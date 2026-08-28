@@ -123,15 +123,25 @@ onTelemetryPersisted(
   }
 
   private async restoreSession() {
-await this.subscribe(
-  mqttTopics.acknowledgements(
-    this.config.siteId,
-    this.config.deviceId,
-  ),
-);
+    await Promise.all([
+      this.subscribe(
+        mqttTopics.commands(
+          this.config.siteId,
+          this.config.deviceId,
+        ),
+      ),
+      this.subscribe(
+        mqttTopics.acknowledgements(
+          this.config.siteId,
+          this.config.deviceId,
+        ),
+      ),
+    ]);
+
     await this.publishStatus(this.createStatus(this.deviceAvailable));
 
     console.log(`[mqtt] Connected as ${this.config.mqtt.clientId}.`);
+    console.log('[mqtt] Subscribed to command and persistence ACK topics.');
   }
 
 private async handleMessage(topic: string, payload: Buffer) {
