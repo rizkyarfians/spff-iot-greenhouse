@@ -791,7 +791,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           recorded_at,
           raw_payload
         ) VALUES (
-          $1, $2, $3, $4, $5, 'system', $6, $7, $8, $9, $10::jsonb
+          $1, $2, $3, $4, $5, 'telemetry', $6, $7, $8, $9, $10::jsonb
         )
         ON CONFLICT (site_id, device_id, actuator_key, message_id)
           WHERE message_id IS NOT NULL

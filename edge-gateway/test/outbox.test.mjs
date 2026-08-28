@@ -19,7 +19,7 @@ const telemetry = {
   },
 };
 
-test('durable outbox keeps file until publish succeeds', async () => {
+test('durable outbox keeps telemetry until persistence acknowledgement', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'spff-outbox-'));
   try {
     const outbox = new DurableOutbox(dir, 10);
@@ -33,6 +33,9 @@ test('durable outbox keeps file until publish succeeds', async () => {
     let delivered = 0;
     await outbox.flush(async () => { delivered += 1; });
     assert.equal(delivered, 1);
+    assert.equal((await readdir(dir)).filter((name) => name.endsWith('.json')).length, 1);
+
+    assert.equal(await outbox.acknowledgeTelemetry('msg-1'), true);
     assert.equal((await readdir(dir)).filter((name) => name.endsWith('.json')).length, 0);
   } finally {
     await rm(dir, { recursive: true, force: true });

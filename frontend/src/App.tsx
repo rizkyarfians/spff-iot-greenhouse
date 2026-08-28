@@ -924,6 +924,12 @@ function App() {
 
                         telemetryLog:
                           snapshot.telemetryLog,
+
+                        actuators:
+                          snapshot.actuators,
+
+                        actuatorLog:
+                          snapshot.actuatorLog,
                       }
                     : current,
               )
@@ -975,6 +981,12 @@ function App() {
 
       events.addEventListener(
         'device_status.updated',
+        refreshLatest,
+      )
+
+
+      events.addEventListener(
+        'actuator_state.updated',
         refreshLatest,
       )
 

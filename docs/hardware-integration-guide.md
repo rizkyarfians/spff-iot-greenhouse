@@ -284,14 +284,18 @@ ESP32 adalah otoritas actual state. Kirim state setelah boot, setelah perubahan 
   "siteId": "greenhouse-01",
   "deviceId": "esp32-s3-01",
   "messageId": "state-01JXYZ456",
+  "commandId": "cmd-01JXYZ789",
   "recordedAt": "2026-07-31T12:00:01.000Z",
   "targetId": "pump_water",
   "state": "active",
-  "isActive": true
+  "isActive": true,
+  "reason": "scheduled"
 }
 ```
 
 Nilai `state`: `active`, `inactive`, `offline`, atau `fault`. Untuk `active`, `isActive` harus `true`; untuk `inactive`, harus `false`. Topic `/state` dipublish QoS 1 dan retained agar consumer yang baru reconnect memperoleh state terakhir, tetapi database tetap menyimpan histori event.
+
+Gunakan `messageId` baru untuk setiap event. Kirim satu event setelah boot dan setiap actual state berubah, bukan pada setiap iterasi loop. Jika perubahan terjadi karena command backend, sertakan `commandId` yang sama; untuk tombol lokal, automation internal, interlock, atau fault, `commandId` boleh dihilangkan dan penyebab ditulis pada `reason`. Setiap event yang lolos validasi dicatat beserta `recordedAt` ESP dan `receivedAt` server, lalu muncul pada Datalog **Aktivitas Pompa**.
 
 ### 8.4 Command acknowledgement
 

@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "test": "tsx --test test/**/*.test.ts"
+    "test": "npm run build && node --test test/*.test.mjs && tsx --test test/**/*.test.ts"
   },
   "dependencies": {
     "@spff/contracts": "1.0.0",

@@ -20,11 +20,13 @@ test('state topic is validated and sent to actuator state repository', async () 
     kind: 'actuator_state', schemaVersion: 1,
     siteId: 'greenhouse-01', deviceId: 'esp32-s3-01',
     messageId: 'state-1', recordedAt: '2026-08-17T06:00:00.000Z',
-    targetId: 'pump_water', state: 'inactive', isActive: false,
+    commandId: 'cmd-1', targetId: 'pump_water',
+    state: 'inactive', isActive: false,
   }));
   await service.process('spff/v1/greenhouse-01/esp32-s3-01/state', payload);
   assert.equal(repository.calls.length, 1);
   assert.equal(repository.calls[0][0], 'state');
+  assert.equal(repository.calls[0][1].commandId, 'cmd-1');
 });
 
 test('topic identity mismatch is rejected', async () => {

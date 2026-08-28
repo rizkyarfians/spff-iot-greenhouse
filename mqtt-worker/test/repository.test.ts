@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { TelemetryMessage } from "@spff/contracts";
+import type {
+  ActuatorStateMessage,
+  TelemetryMessage,
+} from "@spff/contracts";
 import {
   PostgresIngestionRepository,
   type DatabasePool,
@@ -73,4 +76,46 @@ test("saveTelemetry maps contract payload and uses message idempotency", async (
     messageId: string;
   };
   assert.equal(rawPayload.messageId, "test-message-001");
+});
+
+test("saveActuatorState stores ESP state as telemetry and keeps command correlation", async () => {
+  const captured: CapturedQuery[] = [];
+  const fakePool = {
+    async query(text: string, values: unknown[] = []) {
+      captured.push({ text, values });
+      return { rowCount: 1 };
+    },
+    async connect() {
+      throw new Error("connect is not expected in actuator state test");
+    },
+    async end() {},
+  } as unknown as DatabasePool;
+
+  const repository = new PostgresIngestionRepository(fakePool);
+  const message: ActuatorStateMessage = {
+    kind: "actuator_state",
+    schemaVersion: 1,
+    siteId: "greenhouse-01",
+    deviceId: "esp32-s3-01",
+    messageId: "pump-water-state-001",
+    commandId: "cmd-001",
+    recordedAt: "2026-08-27T12:30:00.000Z",
+    targetId: "pump_water",
+    state: "active",
+    isActive: true,
+    reason: "scheduled",
+  };
+
+  await repository.saveActuatorState(message);
+
+  assert.equal(captured.length, 1);
+  const [query] = captured;
+  assert.match(query.text, /INSERT INTO spff\.actuator_state_events/);
+  assert.match(query.text, /'telemetry'/);
+  assert.equal(query.values[2], "pump_water");
+  assert.equal(query.values[3], "pump-water-state-001");
+  assert.equal(query.values[4], "cmd-001");
+  assert.equal(query.values[5], "active");
+  assert.equal(query.values[6], true);
+  assert.equal(query.values[7], "scheduled");
 });

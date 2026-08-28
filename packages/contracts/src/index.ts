@@ -90,6 +90,7 @@ export type ActuatorReportedState = 'active' | 'inactive' | 'offline' | 'fault';
 export interface ActuatorStateMessage extends MessageIdentity {
   kind: 'actuator_state';
   messageId: string;
+  commandId?: string;
   recordedAt: string;
   targetId: string;
   state: ActuatorReportedState;
@@ -221,6 +222,7 @@ export function isActuatorStateMessage(value: unknown): value is ActuatorStateMe
     ((state === 'offline' || state === 'fault') && (isActive === null || typeof isActive === 'boolean'));
   return (
     typeof value.messageId === 'string' && value.messageId.length > 0 &&
+    (value.commandId === undefined || (typeof value.commandId === 'string' && value.commandId.length > 0)) &&
     isIsoDate(value.recordedAt) &&
     typeof value.targetId === 'string' && value.targetId.length > 0 &&
     ['active', 'inactive', 'offline', 'fault'].includes(state) &&
@@ -410,6 +412,20 @@ export interface ApiSettings {
   autoSchedule: boolean;
 }
 
+export interface ApiActuatorLog {
+  actuatorStateId: string;
+  recordedAt: string;
+  receivedAt: string;
+  deviceId: string;
+  actuatorKey: string;
+  displayName: string;
+  state: ApiActuator['state'];
+  isActive: boolean | null;
+  source: 'telemetry' | 'command_ack' | 'manual' | 'system';
+  reason: string | null;
+  commandId: string | null;
+}
+
 export interface ApiLatestTelemetry {
   deviceId: string;
   recordedAt: string;
@@ -422,6 +438,8 @@ export interface ApiTelemetrySnapshot {
   latestTelemetry: ApiLatestTelemetry | null;
   devices: ApiDevice[];
   telemetryLog: ApiTelemetryLog[];
+  actuators: ApiActuator[];
+  actuatorLog: ApiActuatorLog[];
 }
 
 export interface BootstrapData {
@@ -435,6 +453,7 @@ export interface BootstrapData {
   devices: ApiDevice[];
   logs: ApiSystemLog[];
   telemetryLog: ApiTelemetryLog[];
+  actuatorLog: ApiActuatorLog[];
   schedules: ApiSchedule[];
   settings: ApiSettings | null;
 }

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import type {
   ApiActuator,
+  ApiActuatorLog,
   ApiAlarm,
   ApiDevice,
   ApiHistorySeries,
@@ -144,6 +145,12 @@ async function readiness() {
                 SELECT 1
                 FROM pg_trigger
                 WHERE tgname = 'device_status_realtime_notify_trg'
+                  AND NOT tgisinternal
+              )
+              AND EXISTS (
+                SELECT 1
+                FROM pg_trigger
+                WHERE tgname = 'actuator_state_realtime_notify_trg'
                   AND NOT tgisinternal
               ) AS realtime_ready`,
   );
@@ -672,6 +679,49 @@ async function telemetryLog() {
   }));
 }
 
+async function actuatorLog(limit = 500): Promise<ApiActuatorLog[]> {
+  const safeLimit =
+    Math.max(
+      1,
+      Math.min(
+        limit,
+        1_000,
+      ),
+    );
+
+  const result = await pool.query(
+    `SELECT event.actuator_state_id, event.device_id, event.actuator_key,
+            actuator.display_name, event.state, event.is_active, event.source,
+            event.reason, event.command_id, event.recorded_at, event.received_at
+     FROM spff.actuator_state_events event
+     JOIN spff.actuators actuator
+       ON actuator.site_id = event.site_id
+      AND actuator.device_id = event.device_id
+      AND actuator.actuator_key = event.actuator_key
+     WHERE event.site_id = $1
+     ORDER BY event.recorded_at DESC, event.actuator_state_id DESC
+     LIMIT $2`,
+    [
+      siteId,
+      safeLimit,
+    ],
+  );
+
+  return result.rows.map((row) => ({
+    actuatorStateId: String(row.actuator_state_id),
+    recordedAt: toRequiredIso(row.recorded_at, 'actuator_state_events.recorded_at'),
+    receivedAt: toRequiredIso(row.received_at, 'actuator_state_events.received_at'),
+    deviceId: String(row.device_id),
+    actuatorKey: String(row.actuator_key),
+    displayName: String(row.display_name),
+    state: row.state as ApiActuatorLog['state'],
+    isActive: row.is_active === null ? null : Boolean(row.is_active),
+    source: row.source as ApiActuatorLog['source'],
+    reason: row.reason as string | null,
+    commandId: row.command_id as string | null,
+  }));
+}
+
 const scheduleSelect = `
   SELECT s.schedule_id, s.site_id, s.device_id, s.actuator_key, a.display_name,
          to_char(s.on_time, 'HH24:MI') AS on_time,
@@ -842,11 +892,20 @@ async function updateSettings(input: SiteSettingsInput) {
 }
 
 async function telemetrySnapshot(): Promise<ApiTelemetrySnapshot> {
-  const [definitions, latest, deviceData, telemetryRows] = await Promise.all([
+  const [
+    definitions,
+    latest,
+    deviceData,
+    telemetryRows,
+    pumpData,
+    actuatorRows,
+  ] = await Promise.all([
     sensorDefinitions(),
     latestTelemetry(),
     devices(),
     telemetryLog(),
+    pumps(),
+    actuatorLog(),
   ]);
 
   return {
@@ -854,6 +913,8 @@ async function telemetrySnapshot(): Promise<ApiTelemetrySnapshot> {
     latestTelemetry: mapLatestTelemetry(definitions, latest),
     devices: deviceData,
     telemetryLog: telemetryRows,
+    actuators: pumpData,
+    actuatorLog: actuatorRows,
   };
 }
 
@@ -867,6 +928,7 @@ async function bootstrap(): Promise<BootstrapData> {
     deviceData,
     logData,
     telemetryRows,
+    actuatorRows,
     latest,
     scheduleData,
     settingsData,
@@ -879,6 +941,7 @@ async function bootstrap(): Promise<BootstrapData> {
     devices(),
     logs(),
     telemetryLog(),
+    actuatorLog(),
     latestTelemetry(),
     schedules(),
     settings(),
@@ -895,6 +958,7 @@ async function bootstrap(): Promise<BootstrapData> {
     devices: deviceData,
     logs: logData,
     telemetryLog: telemetryRows,
+    actuatorLog: actuatorRows,
     schedules: scheduleData,
     settings: settingsData,
   };

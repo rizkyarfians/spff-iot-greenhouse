@@ -42,6 +42,21 @@ test('accepts a device status notification without a message id', () => {
 });
 
 
+test('accepts an actuator state notification', () => {
+  const event = parseRealtimeEvent(JSON.stringify({
+    type: 'actuator_state.updated',
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    messageId: 'pump-water-state-001',
+    recordedAt: '2026-08-27T11:21:28.000Z',
+    receivedAt: '2026-08-27T11:23:11.059Z',
+  }));
+
+  assert.equal(event?.type, 'actuator_state.updated');
+  assert.equal(event?.messageId, 'pump-water-state-001');
+});
+
+
 test('rejects malformed or unsupported notifications', () => {
   assert.equal(parseRealtimeEvent(undefined), null);
   assert.equal(parseRealtimeEvent('{invalid-json'), null);

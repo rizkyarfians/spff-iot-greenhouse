@@ -47,7 +47,9 @@ test('actuator state validates actual pump state for retained state topic', () =
     siteId: 'greenhouse-01', deviceId: 'esp32-s3-01',
     messageId: 'state-1', recordedAt: '2026-08-17T06:00:00.000Z',
     targetId: 'pump_water', state: 'active', isActive: true,
+    commandId: 'cmd-1',
   };
   assert.equal(isActuatorStateMessage(state), true);
   assert.equal(isActuatorStateMessage({ ...state, isActive: false }), false);
+  assert.equal(isActuatorStateMessage({ ...state, commandId: 123 }), false);
 });

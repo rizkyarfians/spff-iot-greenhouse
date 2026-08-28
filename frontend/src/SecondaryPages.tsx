@@ -1731,8 +1731,29 @@ function LogsPage({
   connectionState,
 }: ConnectedPageProps) {
   const [
+    logType,
+    setLogType,
+  ] =
+    useState<
+      'sensor'
+      | 'actuator'
+    >(
+      'sensor',
+    )
+
+
+  const [
     sensor,
     setSensor,
+  ] =
+    useState(
+      'all',
+    )
+
+
+  const [
+    actuator,
+    setActuator,
   ] =
     useState(
       'all',
@@ -1812,7 +1833,7 @@ function LogsPage({
     )
 
 
-  const databaseRows =
+  const sensorRows =
     (
       data?.telemetryLog ?? []
     ).map(
@@ -1827,6 +1848,9 @@ function LogsPage({
 
             month:
               '2-digit',
+
+            year:
+              'numeric',
 
             hour:
               '2-digit',
@@ -1847,17 +1871,150 @@ function LogsPage({
         'Tersimpan',
 
         row.sensorKey,
+
+        row.recordedAt,
       ],
     )
 
 
+  const actuatorRows =
+    (
+      data?.actuatorLog ?? []
+    ).map(
+      (row) => {
+        const stateLabel = {
+          active:
+            'Aktif',
+          inactive:
+            'Nonaktif',
+          processing:
+            'Diproses',
+          offline:
+            'Offline',
+          fault:
+            'Gangguan',
+        }[
+          row.state
+        ]
+
+
+        const sourceLabel = {
+          telemetry:
+            'Telemetry ESP',
+          command_ack:
+            'Konfirmasi perintah',
+          manual:
+            'Manual',
+          system:
+            'Sistem ESP',
+        }[
+          row.source
+        ]
+
+
+        return [
+          new Date(
+            row.recordedAt,
+          ).toLocaleString(
+            'id-ID',
+            {
+              day:
+                '2-digit',
+
+              month:
+                '2-digit',
+
+              year:
+                'numeric',
+
+              hour:
+                '2-digit',
+
+              minute:
+                '2-digit',
+
+              second:
+                '2-digit',
+            },
+          ),
+
+          row.displayName,
+
+          stateLabel,
+
+          row.reason
+            ? sourceLabel
+              + ' · '
+              + row.reason
+            : sourceLabel,
+
+          row.actuatorKey,
+
+          row.recordedAt,
+        ]
+      },
+    )
+
+
+  const databaseRows =
+    logType === 'sensor'
+      ? sensorRows
+      : actuatorRows
+
+
+  const selectedParameter =
+    logType === 'sensor'
+      ? sensor
+      : actuator
+
+
+  const rangeDays = {
+    'Hari Ini':
+      1,
+    '7 Hari':
+      7,
+    '30 Hari':
+      30,
+  }[
+    range
+  ] ?? 1
+
+
+  const rangeStart =
+    new Date()
+
+
+  rangeStart.setHours(
+    0,
+    0,
+    0,
+    0,
+  )
+
+
+  rangeStart.setDate(
+    rangeStart.getDate()
+    - (
+      rangeDays
+      - 1
+    ),
+  )
+
+
   const rows =
-    sensor === 'all'
-      ? databaseRows
-      : databaseRows.filter(
-          (row) =>
-            row[4] === sensor,
+    databaseRows.filter(
+      (row) =>
+        (
+          selectedParameter
+          === 'all'
+          || row[4]
+          === selectedParameter
         )
+        && Date.parse(
+          row[5],
+        )
+        >= rangeStart.getTime(),
+    )
 
 
   const rowsPerPage =
@@ -1953,9 +2110,11 @@ function LogsPage({
         [
           [
             'Waktu',
-            'Sensor',
+            'Parameter',
             'Nilai',
-            'Status',
+            logType === 'sensor'
+              ? 'Status'
+              : 'Sumber',
           ],
           ...rows.map(
             (row) =>
@@ -2035,7 +2194,15 @@ function LogsPage({
 
   const resetFilters =
     () => {
+      setLogType(
+        'sensor',
+      )
+
       setSensor(
+        'all',
+      )
+
+      setActuator(
         'all',
       )
 
@@ -2052,17 +2219,22 @@ function LogsPage({
   return (
     <section
       className="secondary-page"
-      aria-label="Datalog sensor"
+      aria-label="Datalog sensor dan pompa"
     >
       <div className="page-card">
         <div className="page-card-header logs-header">
           <div>
             <h2>
-              Riwayat Pembacaan
+              Riwayat Sensor & Pompa
             </h2>
 
             <p>
-              Data sensor tersimpan
+              {
+                logType
+                === 'sensor'
+                  ? 'Data sensor tersimpan'
+                  : 'Aktivitas ON/OFF pompa'
+              }
               untuk periode{' '}
               {range.toLowerCase()}.
             </p>
@@ -2072,14 +2244,18 @@ function LogsPage({
           <div className="log-actions">
             <label className="page-select compact-select">
               <span>
-                Sensor
+                Jenis Data
               </span>
 
               <select
-                value={sensor}
+                value={logType}
                 onChange={(event) => {
-                  setSensor(
-                    event.target.value,
+                  setLogType(
+                    event.target
+                      .value
+                    === 'actuator'
+                      ? 'actuator'
+                      : 'sensor',
                   )
 
                   setCurrentPage(
@@ -2087,46 +2263,106 @@ function LogsPage({
                   )
                 }}
               >
+                <option value="sensor">
+                  Sensor
+                </option>
+
+                <option value="actuator">
+                  Aktivitas Pompa
+                </option>
+              </select>
+            </label>
+
+
+            <label className="page-select compact-select">
+              <span>
+                Parameter
+              </span>
+
+              <select
+                value={
+                  selectedParameter
+                }
+                onChange={(event) => {
+                  if (
+                    logType
+                    === 'sensor'
+                  ) {
+                    setSensor(
+                      event.target.value,
+                    )
+                  } else {
+                    setActuator(
+                      event.target.value,
+                    )
+                  }
+
+                  setCurrentPage(
+                    1,
+                  )
+                }}
+              >
                 <option value="all">
-                  Semua Sensor
+                  {
+                    logType
+                    === 'sensor'
+                      ? 'Semua Sensor'
+                      : 'Semua Pompa'
+                  }
                 </option>
 
                 {
-                  sensorGroups.map(
-                    (group) => (
-                      <optgroup
-                        key={
-                          group.groupName
-                        }
-                        label={
-                          group.groupName
-                        }
-                      >
-                        {
-                          group.definitions.map(
-                            (definition) => (
-                              <option
-                                key={
-                                  definition.sensorKey
-                                }
-                                value={
-                                  definition.sensorKey
-                                }
-                              >
-                                {
-                                  definition.displayName
-                                }
-                                {' · '}
-                                {
-                                  definition.unit
-                                }
-                              </option>
-                            ),
-                          )
-                        }
-                      </optgroup>
-                    ),
-                  )
+                  logType
+                  === 'sensor'
+                    ? sensorGroups.map(
+                        (group) => (
+                          <optgroup
+                            key={
+                              group.groupName
+                            }
+                            label={
+                              group.groupName
+                            }
+                          >
+                            {
+                              group.definitions.map(
+                                (definition) => (
+                                  <option
+                                    key={
+                                      definition.sensorKey
+                                    }
+                                    value={
+                                      definition.sensorKey
+                                    }
+                                  >
+                                    {
+                                      definition.displayName
+                                    }
+                                    {' · '}
+                                    {
+                                      definition.unit
+                                    }
+                                  </option>
+                                ),
+                              )
+                            }
+                          </optgroup>
+                        ),
+                      )
+                    : (
+                        data
+                          ?.actuators
+                          ?? []
+                      ).map(
+                        (pump) => (
+                          <option
+                            key={pump.id}
+                            value={pump.id}
+                          >
+                            {pump.name}
+                          </option>
+                        ),
+                      )
                 }
               </select>
             </label>
@@ -2197,7 +2433,7 @@ function LogsPage({
                 </th>
 
                 <th>
-                  Sensor
+                  Parameter
                 </th>
 
                 <th>
@@ -2205,7 +2441,12 @@ function LogsPage({
                 </th>
 
                 <th>
-                  Status
+                  {
+                    logType
+                    === 'sensor'
+                      ? 'Status'
+                      : 'Sumber'
+                  }
                 </th>
               </tr>
             </thead>
@@ -2241,6 +2482,8 @@ function LogsPage({
                           className={
                             row[3]
                             === 'Tersimpan'
+                            || row[2]
+                            === 'Aktif'
                               ? 'table-status'
                               : 'table-status table-status--watch'
                           }
@@ -2264,8 +2507,32 @@ function LogsPage({
               === 'connected'
                 ? (
                     rows.length > 0
-                      ? `Menampilkan ${pageStart + 1}–${pageStart + visibleRows.length} dari ${rows.length} data telemetry.`
-                      : 'Belum ada data telemetry untuk filter ini.'
+                      ? (
+                          'Menampilkan '
+                          + (
+                            pageStart
+                            + 1
+                          )
+                          + '–'
+                          + (
+                            pageStart
+                            + visibleRows.length
+                          )
+                          + ' dari '
+                          + rows.length
+                          + (
+                            logType
+                            === 'sensor'
+                              ? ' data telemetry.'
+                              : ' aktivitas pompa.'
+                          )
+                        )
+                      : (
+                          logType
+                          === 'sensor'
+                            ? 'Belum ada data telemetry untuk filter ini.'
+                            : 'Belum ada aktivitas pompa untuk filter ini.'
+                        )
                   )
                 : 'Backend SPFF belum terhubung.'
             }

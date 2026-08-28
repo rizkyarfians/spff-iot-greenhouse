@@ -18,7 +18,8 @@ const reconnectDelayMs =
 export type RealtimeDatabaseEvent = {
   type:
     | 'telemetry.updated'
-    | 'device_status.updated';
+    | 'device_status.updated'
+    | 'actuator_state.updated';
   siteId: string;
   deviceId: string;
   messageId: string | null;
@@ -76,6 +77,7 @@ export function parseRealtimeEvent(
     || ![
       'telemetry.updated',
       'device_status.updated',
+      'actuator_state.updated',
     ].includes(
       String(value.type),
     )

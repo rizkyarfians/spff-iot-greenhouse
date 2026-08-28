@@ -17,6 +17,7 @@ psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migration
 psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/006_history_bucket_index.sql
 psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/007_realtime_notifications.sql
 psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/008_sync_sensor_catalog.sql
+psql -U spff_app -d spff -v ON_ERROR_STOP=1 -f infrastructure/postgres/migrations/009_actuator_state_realtime.sql
 ```
 
 Untuk database yang sudah memiliki migration `001`, **jangan jalankan ulang 001**. Jalankan hanya migration yang belum pernah diterapkan. Karena repository belum memakai migration ledger, cek relation terlebih dahulu dengan `\dt spff.*` / `\dv spff.*` dan simpan catatan deployment.
@@ -87,6 +88,8 @@ Trigger migration `003` membuat event outbox dalam transaksi yang sama dengan te
 Migration `007` menambahkan trigger `pg_notify` setelah insert telemetry dan device status berhasil. Payload notification hanya berisi identity/timestamp; PostgreSQL tetap source of truth dan API membaca ulang snapshot terbaru sebelum memperbarui frontend melalui SSE.
 
 Migration `008` menyinkronkan 28 parameter sensor canonical, label, unit, grup, dan urutannya pada `spff.sensor_definitions`. Dropdown grafik dan Datalog memakai katalog ini dengan `sensor_key` sebagai value stabil.
+
+Migration `009` menambahkan indeks histori aktuator dan sinyal realtime `actuator_state.updated`. Setiap event ON/OFF yang berhasil disimpan dari ESP32 akan memicu API membaca ulang snapshot, sehingga status kontrol dan Datalog aktivitas pompa diperbarui tanpa polling.
 
 ## Seed identitas hardware
 
