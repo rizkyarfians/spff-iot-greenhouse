@@ -5,9 +5,14 @@ import { PostgresIngestionRepository } from "./repository.js";
 import { ScheduleEvaluator } from "./scheduleEvaluator.js";
 import { ScheduleSyncService } from "./scheduleSyncService.js";
 import { config } from "./config.js";
+import { AlarmEvaluator } from "./alarmEvaluator.js";
 
 const repository = new PostgresIngestionRepository();
-const ingestionService = new IngestionService(repository);
+const alarmEvaluator = new AlarmEvaluator(
+  repository,
+  config.alarm.pollIntervalMs,
+);
+const ingestionService = new IngestionService(repository, alarmEvaluator);
 const worker = new MqttWorker(ingestionService);
 const commandDispatcher = new CommandDispatchService(repository, worker);
 const scheduleEvaluator = new ScheduleEvaluator(repository);
@@ -28,6 +33,7 @@ async function shutdown(signal: string) {
   scheduleEvaluator.stop();
   scheduleSyncService.stop();
   commandDispatcher.stop();
+  alarmEvaluator.stop();
   try {
     await worker.stop();
   } finally {
@@ -66,6 +72,7 @@ void repository
       );
     }
     commandDispatcher.start();
+    alarmEvaluator.start();
   })
   .catch(async (error: unknown) => {
     console.error("[mqtt-worker] Startup failed", error);

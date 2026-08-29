@@ -1122,6 +1122,17 @@
   overflow-y: auto;
 }
 
+.alarm-list > .data-pagination {
+  border-top: 1px solid #e7eae8;
+  padding: 10px 12px;
+}
+
+.alarm-page-indicator {
+  color: var(--muted);
+  font-size: var(--font-size-meta);
+  font-weight: 650;
+}
+
 .alarm-list-item {
   display: grid;
   width: 100%;
@@ -1410,6 +1421,42 @@
 .alarm-activity small {
   color: var(--muted);
   font-size: 8px;
+}
+
+.alarm-action-note {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.alarm-action-note > span {
+  color: #4b5751;
+  font-size: var(--font-size-label);
+  font-weight: 700;
+}
+
+.alarm-action-note textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #d9dcda;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--font-size-body);
+  line-height: 1.45;
+  padding: 10px 11px;
+}
+
+.alarm-action-note textarea:focus-visible {
+  outline: 3px solid rgb(36 174 115 / 22%);
+  outline-offset: 1px;
+}
+
+.alarm-action-error {
+  margin: 8px 0 0;
+  color: #b83e38;
+  font-size: var(--font-size-meta);
 }
 
 .alarm-detail-actions {

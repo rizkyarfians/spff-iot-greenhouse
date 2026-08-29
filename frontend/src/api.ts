@@ -1,6 +1,9 @@
 import type {
   ApiActuator,
+  ApiAlarmActionRequest,
   ApiAlarmActionResult,
+  ApiAlarmDetail,
+  ApiAlarmPage,
   ApiHistorySeries,
   HistoryBucket,
   ApiPumpCommandRequest,
@@ -31,6 +34,9 @@ export type ConnectionState =
 export type {
   ApiActuator,
   ApiAlarm,
+  ApiAlarmDetail,
+  ApiAlarmEvent,
+  ApiAlarmPage,
   ApiDevice,
   ApiHistoryPoint,
   ApiHistorySeries,
@@ -478,16 +484,82 @@ export function updateActuator(
   )
 }
 
+export function fetchAlarms(
+  options: {
+    status?: 'open' | 'acknowledged' | 'resolved'
+    severity?: 'info' | 'warning' | 'critical'
+    query?: string
+    page?: number
+    pageSize?: number
+    signal?: AbortSignal
+  } = {},
+) {
+  const params =
+    new URLSearchParams({
+      page:
+        String(options.page ?? 1),
+
+      pageSize:
+        String(options.pageSize ?? 10),
+    })
+
+  if (options.status) {
+    params.set('status', options.status)
+  }
+
+  if (options.severity) {
+    params.set('severity', options.severity)
+  }
+
+  if (options.query?.trim()) {
+    params.set('query', options.query.trim())
+  }
+
+  return request<ApiAlarmPage>(
+    `/alarms?${params.toString()}`,
+    {
+      signal:
+        options.signal,
+    },
+  )
+}
+
+
+export function fetchAlarmDetail(
+  id: string,
+  signal?: AbortSignal,
+) {
+  return request<ApiAlarmDetail>(
+    `/alarms/${encodeURIComponent(id)}`,
+    {
+      signal,
+    },
+  )
+}
+
 
 export function acknowledgeAlarm(
   id: string,
+  note?: string,
 ) {
+
+  const body = {
+    note,
+  } satisfies ApiAlarmActionRequest
 
   return request<ApiAlarmActionResult>(
     `/alarms/${encodeURIComponent(id)}/acknowledge`,
     {
       method:
         'PATCH',
+
+      headers: {
+        'Content-Type':
+          'application/json',
+      },
+
+      body:
+        JSON.stringify(body),
     },
   )
 }
@@ -495,13 +567,26 @@ export function acknowledgeAlarm(
 
 export function resolveAlarm(
   id: string,
+  note?: string,
 ) {
+
+  const body = {
+    note,
+  } satisfies ApiAlarmActionRequest
 
   return request<ApiAlarmActionResult>(
     `/alarms/${encodeURIComponent(id)}/resolve`,
     {
       method:
         'PATCH',
+
+      headers: {
+        'Content-Type':
+          'application/json',
+      },
+
+      body:
+        JSON.stringify(body),
     },
   )
 }

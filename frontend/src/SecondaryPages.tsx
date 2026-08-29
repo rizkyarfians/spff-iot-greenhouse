@@ -27,6 +27,8 @@ import {
   acknowledgeAlarm as acknowledgeAlarmRequest,
   createSchedule as createScheduleRequest,
   deleteSchedule as deleteScheduleRequest,
+  fetchAlarmDetail,
+  fetchAlarms,
   resolveAlarm as resolveAlarmRequest,
   saveSettings as saveSettingsRequest,
   setScheduleEnabled as setScheduleEnabledRequest,
@@ -35,6 +37,8 @@ import {
 
 import type {
   ApiAlarm,
+  ApiAlarmDetail,
+  ApiAlarmEvent,
   ApiSettings,
   BootstrapData,
   ConnectionState,
@@ -2635,12 +2639,10 @@ type AlarmStatus =
   | 'Diakui'
   | 'Selesai'
 
-
 type AlarmSeverity =
   | 'Kritis'
   | 'Peringatan'
   | 'Informasi'
-
 
 type AlarmRecord = {
   id: string
@@ -2651,20 +2653,29 @@ type AlarmRecord = {
   severity: AlarmSeverity
   status: AlarmStatus
   detectedAt: string
+  lastSeenAt: string
+  occurrenceCount: number
   location: string
   description: string
   recommendation: string
 }
 
+const formatAlarmTime = (
+  value: string | null | undefined,
+) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleString('id-ID')
+    : '-'
+}
 
 const alarmMetadata = (
   alarm: ApiAlarm,
   key: string,
   fallback: string,
 ) => {
-  const value =
-    alarm.metadata?.[key]
-
+  const value = alarm.metadata?.[key]
   return (
     typeof value === 'string'
     || typeof value === 'number'
@@ -2673,283 +2684,219 @@ const alarmMetadata = (
     : fallback
 }
 
-
 const apiAlarmToRecord = (
   alarm: ApiAlarm,
-): AlarmRecord => ({
-  id:
-    alarm.id,
+): AlarmRecord => {
+  const measuredValue =
+    alarm.currentValue === null
+      ? alarmMetadata(alarm, 'value', '-')
+      : `${alarm.currentValue}${alarm.unit ? ` ${alarm.unit}` : ''}`
 
-  title:
-    alarm.title,
+  return {
+    id: alarm.id,
+    title: alarm.title,
+    sensor: alarm.sourceKey,
+    value: measuredValue,
+    threshold:
+      alarm.thresholdText
+      ?? alarmMetadata(alarm, 'threshold', '-'),
+    severity:
+      alarm.severity === 'critical'
+        ? 'Kritis'
+        : alarm.severity === 'warning'
+          ? 'Peringatan'
+          : 'Informasi',
+    status:
+      alarm.status === 'resolved'
+        ? 'Selesai'
+        : alarm.status === 'acknowledged'
+          ? 'Diakui'
+          : 'Aktif',
+    detectedAt: formatAlarmTime(alarm.triggeredAt),
+    lastSeenAt: formatAlarmTime(alarm.lastSeenAt),
+    occurrenceCount: alarm.occurrenceCount,
+    location: alarmMetadata(alarm, 'location', alarm.deviceId),
+    description: alarm.description,
+    recommendation:
+      alarm.recommendation
+      ?? alarmMetadata(
+        alarm,
+        'recommendation',
+        'Periksa sumber alarm dan data terkait sebelum mengambil tindakan.',
+      ),
+  }
+}
 
-  sensor:
-    alarm.sourceKey,
+const alarmStatusQuery = (
+  status: 'Semua' | AlarmStatus,
+) =>
+  status === 'Aktif'
+    ? 'open'
+    : status === 'Diakui'
+      ? 'acknowledged'
+      : status === 'Selesai'
+        ? 'resolved'
+        : undefined
 
-  value:
-    alarmMetadata(
-      alarm,
-      'value',
-      '-',
-    ),
-
-  threshold:
-    alarmMetadata(
-      alarm,
-      'threshold',
-      '-',
-    ),
-
-  severity:
-    alarm.severity
-    === 'critical'
-      ? 'Kritis'
-      : alarm.severity
-        === 'warning'
-        ? 'Peringatan'
-        : 'Informasi',
-
-  status:
-    alarm.status
-    === 'resolved'
-      ? 'Selesai'
-      : alarm.status
-        === 'acknowledged'
-        ? 'Diakui'
-        : 'Aktif',
-
-  detectedAt:
-    new Date(
-      alarm.triggeredAt,
-    ).toLocaleString(
-      'id-ID',
-    ),
-
-  location:
-    alarmMetadata(
-      alarm,
-      'location',
-      alarm.deviceId,
-    ),
-
-  description:
-    alarm.description,
-
-  recommendation:
-    alarmMetadata(
-      alarm,
-      'recommendation',
-      'Periksa sumber alarm dan data sensor terkait.',
-    ),
-})
+const alarmEventTitle = (
+  event: ApiAlarmEvent,
+) => {
+  switch (event.eventType) {
+    case 'detected':
+      return 'Alarm terdeteksi oleh sistem'
+    case 'acknowledged':
+      return `Alarm diakui${event.actor ? ` oleh ${event.actor}` : ''}`
+    case 'escalated':
+      return 'Prioritas alarm ditingkatkan'
+    case 'recovered':
+      return 'Kondisi kembali normal'
+    case 'resolved':
+      return `Alarm diselesaikan${event.actor ? ` oleh ${event.actor}` : ''}`
+    default:
+      return 'Catatan alarm ditambahkan'
+  }
+}
 
 
 function AlarmPage({
   data,
   onRefresh,
 }: ConnectedPageProps) {
-  const { user } =
-    useAuth()
-
-  const isAdmin =
-    user.role === 'admin'
-
-
-  const [
-    alarms,
-    setAlarms,
-  ] =
-    useState<
-      AlarmRecord[]
-    >([])
-
-
-  const [
-    selectedId,
-    setSelectedId,
-  ] =
-    useState('')
-
-
-  const [
-    statusFilter,
-    setStatusFilter,
-  ] =
-    useState<
-      | 'Semua'
-      | AlarmStatus
-    >('Semua')
-
-
-  const [
-    query,
-    setQuery,
-  ] =
-    useState('')
-
-
-  useEffect(
-    () => {
-      const nextAlarms =
-        data
-          ? data.alarms.map(
-              apiAlarmToRecord,
-            )
-          : []
-
-
-      setAlarms(
-        nextAlarms,
-      )
-
-
-      setSelectedId(
-        (current) =>
-          nextAlarms.some(
-            (alarm) =>
-              alarm.id === current,
-          )
-            ? current
-            : (
-                nextAlarms[0]
-                  ?.id ?? ''
-              ),
-      )
-    },
-    [
-      data,
-    ],
+  const { user } = useAuth()
+  const isAdmin = user.role === 'admin'
+  const [alarms, setAlarms] = useState<AlarmRecord[]>(
+    () => data?.alarms.map(apiAlarmToRecord) ?? [],
   )
+  const [selectedId, setSelectedId] = useState(
+    () => data?.alarms[0]?.id ?? '',
+  )
+  const [selectedDetail, setSelectedDetail] =
+    useState<ApiAlarmDetail | null>(null)
+  const [statusFilter, setStatusFilter] =
+    useState<'Semua' | AlarmStatus>('Semua')
+  const [query, setQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(8)
+  const [totalItems, setTotalItems] = useState(data?.alarms.length ?? 0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [counts, setCounts] = useState({
+    open: data?.alarms.filter((alarm) => alarm.status === 'open').length ?? 0,
+    acknowledged:
+      data?.alarms.filter((alarm) => alarm.status === 'acknowledged').length ?? 0,
+    resolved:
+      data?.alarms.filter((alarm) => alarm.status === 'resolved').length ?? 0,
+    criticalActive:
+      data?.alarms.filter(
+        (alarm) => alarm.status !== 'resolved' && alarm.severity === 'critical',
+      ).length ?? 0,
+  })
+  const [refreshVersion, setRefreshVersion] = useState(0)
+  const [actionNote, setActionNote] = useState('')
+  const [isActing, setIsActing] = useState(false)
+  const [actionError, setActionError] = useState('')
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, query])
 
-  const visibleAlarms =
-    alarms.filter(
-      (alarm) => {
-        const matchesStatus =
-          statusFilter === 'Semua'
-          || alarm.status
-            === statusFilter
+  useEffect(() => {
+    const controller = new AbortController()
+    let loading = false
 
-
-        const search =
-          query
-            .trim()
-            .toLowerCase()
-
-
-        const matchesSearch =
-          !search
-          || alarm.title
-            .toLowerCase()
-            .includes(search)
-          || alarm.sensor
-            .toLowerCase()
-            .includes(search)
-          || alarm.id
-            .toLowerCase()
-            .includes(search)
-
-
-        return (
-          matchesStatus
-          && matchesSearch
-        )
-      },
-    )
-
-
-  const selectedAlarm =
-    alarms.find(
-      (alarm) =>
-        alarm.id
-        === selectedId,
-    )
-
-
-  const activeCount =
-    alarms.filter(
-      (alarm) =>
-        alarm.status
-        !== 'Selesai',
-    ).length
-
-
-  const criticalCount =
-    alarms.filter(
-      (alarm) =>
-        alarm.status
-        !== 'Selesai'
-        && alarm.severity
-          === 'Kritis',
-    ).length
-
-
-  const acknowledgedCount =
-    alarms.filter(
-      (alarm) =>
-        alarm.status
-        === 'Diakui',
-    ).length
-
-
-  const resolvedCount =
-    alarms.filter(
-      (alarm) =>
-        alarm.status
-        === 'Selesai',
-    ).length
-
-
-  const updateStatus =
-    async (
-      status:
-      AlarmStatus,
-    ) => {
-      if (!selectedId) {
-        return
-      }
-
-
+    const load = async () => {
+      if (loading) return
+      loading = true
       try {
-        if (
-          status === 'Diakui'
-        ) {
-          await acknowledgeAlarmRequest(
-            selectedId,
-          )
-        } else if (
-          status === 'Selesai'
-        ) {
-          if (!isAdmin) {
-            return
-          }
-
-          await resolveAlarmRequest(
-            selectedId,
-          )
+        const page = await fetchAlarms({
+          status: alarmStatusQuery(statusFilter),
+          query,
+          page: currentPage,
+          pageSize,
+          signal: controller.signal,
+        })
+        const records = page.items.map(apiAlarmToRecord)
+        setAlarms(records)
+        setCounts(page.counts)
+        setTotalItems(page.pagination.totalItems)
+        setTotalPages(page.pagination.totalPages)
+        if (currentPage > page.pagination.totalPages) {
+          setCurrentPage(page.pagination.totalPages)
         }
-
-
-        setAlarms(
-          (current) =>
-            current.map(
-              (alarm) =>
-                alarm.id
-                === selectedId
-                  ? {
-                      ...alarm,
-                      status,
-                    }
-                  : alarm,
-            ),
+        setSelectedId((current) =>
+          records.some((alarm) => alarm.id === current)
+            ? current
+            : records[0]?.id ?? '',
         )
-
-
-        onRefresh()
-      } catch {
-        return
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error('Alarm refresh failed.', error)
+        }
+      } finally {
+        loading = false
       }
     }
+
+    void load()
+    const timer = window.setInterval(() => void load(), 15_000)
+    return () => {
+      controller.abort()
+      window.clearInterval(timer)
+    }
+  }, [currentPage, pageSize, query, refreshVersion, statusFilter])
+
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedDetail(null)
+      return
+    }
+    setSelectedDetail(null)
+    const controller = new AbortController()
+    void fetchAlarmDetail(selectedId, controller.signal)
+      .then(setSelectedDetail)
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.error('Alarm detail refresh failed.', error)
+        }
+      })
+    return () => controller.abort()
+  }, [refreshVersion, selectedId])
+
+  const visibleAlarms = alarms
+  const selectedAlarm = selectedDetail
+    ? apiAlarmToRecord(selectedDetail)
+    : alarms.find((alarm) => alarm.id === selectedId)
+  const activeCount = counts.open + counts.acknowledged
+  const criticalCount = counts.criticalActive
+  const acknowledgedCount = counts.acknowledged
+  const resolvedCount = counts.resolved
+
+  const updateStatus = async (
+    status: AlarmStatus,
+  ) => {
+    if (!selectedId || isActing) return
+    setIsActing(true)
+    setActionError('')
+    try {
+      const note = actionNote.trim() || undefined
+      if (status === 'Diakui') {
+        await acknowledgeAlarmRequest(selectedId, note)
+      } else if (status === 'Selesai' && isAdmin) {
+        await resolveAlarmRequest(selectedId, note)
+      }
+      setActionNote('')
+      setRefreshVersion((version) => version + 1)
+      onRefresh()
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'Aksi alarm gagal disimpan.',
+      )
+    } finally {
+      setIsActing(false)
+    }
+  }
+
 
 
   return (
@@ -3119,7 +3066,7 @@ function AlarmPage({
               </strong>
 
               <span>
-                {visibleAlarms.length}
+                {totalItems}
                 {' '}
                 data
               </span>
@@ -3146,11 +3093,13 @@ function AlarmPage({
                             selectedId
                             === alarm.id
                           }
-                          onClick={() =>
+                          onClick={() => {
                             setSelectedId(
                               alarm.id,
                             )
-                          }
+                            setActionNote('')
+                            setActionError('')
+                          }}
                         >
                           <span
                             className={
@@ -3190,7 +3139,7 @@ function AlarmPage({
 
                             <time>
                               {
-                                alarm.detectedAt
+                                alarm.lastSeenAt
                               }
                             </time>
                           </span>
@@ -3218,6 +3167,43 @@ function AlarmPage({
                   )
               }
             </div>
+
+            <nav
+              className="data-pagination"
+              aria-label="Pagination alarm"
+            >
+              <button
+                className="data-pagination-step"
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() =>
+                  setCurrentPage(
+                    (page) =>
+                      Math.max(1, page - 1),
+                  )
+                }
+              >
+                Sebelumnya
+              </button>
+
+              <span className="alarm-page-indicator">
+                Halaman {currentPage} dari {totalPages}
+              </span>
+
+              <button
+                className="data-pagination-step"
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() =>
+                  setCurrentPage(
+                    (page) =>
+                      Math.min(totalPages, page + 1),
+                  )
+                }
+              >
+                Berikutnya
+              </button>
+            </nav>
           </div>
 
 
@@ -3341,6 +3327,26 @@ function AlarmPage({
                       }
                     </dd>
                   </div>
+
+                  <div>
+                    <dt>
+                      Pertama Terdeteksi
+                    </dt>
+
+                    <dd>
+                      {selectedAlarm.detectedAt}
+                    </dd>
+                  </div>
+
+                  <div>
+                    <dt>
+                      Jumlah Pengamatan
+                    </dt>
+
+                    <dd>
+                      {selectedAlarm.occurrenceCount} kali
+                    </dd>
+                  </div>
                 </dl>
 
 
@@ -3370,76 +3376,107 @@ function AlarmPage({
                     Aktivitas Alarm
                   </h4>
 
-                  <div>
-                    <Clock3
-                      size={16}
-                      strokeWidth={1.8}
-                      aria-hidden="true"
-                    />
-
-                    <span>
-                      <strong>
-                        Alarm terdeteksi oleh sistem
-                      </strong>
-
-                      <small>
-                        {
-                          selectedAlarm.detectedAt
-                        }
-                      </small>
-                    </span>
-                  </div>
-
-
                   {
-                    selectedAlarm.status
-                    !== 'Aktif'
-                    && (
-                      <div>
-                        <ShieldCheck
-                          size={16}
-                          strokeWidth={1.8}
-                          aria-hidden="true"
-                        />
+                    (selectedDetail?.events.length ?? 0) > 0
+                      ? selectedDetail?.events.map(
+                          (event) => (
+                            <div key={event.id}>
+                              {
+                                event.eventType === 'resolved'
+                                || event.eventType === 'recovered'
+                                  ? (
+                                      <CheckCircle2
+                                        size={16}
+                                        strokeWidth={1.8}
+                                        aria-hidden="true"
+                                      />
+                                    )
+                                  : event.eventType === 'acknowledged'
+                                    ? (
+                                        <ShieldCheck
+                                          size={16}
+                                          strokeWidth={1.8}
+                                          aria-hidden="true"
+                                        />
+                                      )
+                                    : (
+                                        <Clock3
+                                          size={16}
+                                          strokeWidth={1.8}
+                                          aria-hidden="true"
+                                        />
+                                      )
+                              }
 
-                        <span>
-                          <strong>
-                            Alarm diakui oleh operator
-                          </strong>
+                              <span>
+                                <strong>
+                                  {alarmEventTitle(event)}
+                                </strong>
 
-                          <small>
-                            Operator fertigasi
-                          </small>
-                        </span>
-                      </div>
-                    )
-                  }
+                                <small>
+                                  {formatAlarmTime(event.occurredAt)}
+                                  {
+                                    event.note
+                                      ? ` · ${event.note}`
+                                      : ''
+                                  }
+                                </small>
+                              </span>
+                            </div>
+                          ),
+                        )
+                      : (
+                          <div>
+                            <Clock3
+                              size={16}
+                              strokeWidth={1.8}
+                              aria-hidden="true"
+                            />
 
+                            <span>
+                              <strong>
+                                Alarm terdeteksi oleh sistem
+                              </strong>
 
-                  {
-                    selectedAlarm.status
-                    === 'Selesai'
-                    && (
-                      <div>
-                        <CheckCircle2
-                          size={16}
-                          strokeWidth={1.8}
-                          aria-hidden="true"
-                        />
-
-                        <span>
-                          <strong>
-                            Kondisi kembali normal
-                          </strong>
-
-                          <small>
-                            Alarm ditandai selesai
-                          </small>
-                        </span>
-                      </div>
-                    )
+                              <small>
+                                {selectedAlarm.detectedAt}
+                              </small>
+                            </span>
+                          </div>
+                        )
                   }
                 </div>
+
+                {
+                  selectedAlarm.status !== 'Selesai'
+                  && (
+                    <label className="alarm-action-note">
+                      <span>
+                        Catatan tindakan (opsional)
+                      </span>
+
+                      <textarea
+                        value={actionNote}
+                        maxLength={500}
+                        rows={2}
+                        placeholder="Contoh: sensor sudah diperiksa di lokasi"
+                        onChange={(event) =>
+                          setActionNote(event.target.value)
+                        }
+                      />
+                    </label>
+                  )
+                }
+
+                {
+                  actionError
+                  && (
+                    <p className="alarm-action-error">
+                      {actionError}
+                    </p>
+                  )
+                }
+
 
 
                 <div className="alarm-detail-actions">
@@ -3450,13 +3487,18 @@ function AlarmPage({
                       <button
                         className="secondary-button"
                         type="button"
+                        disabled={isActing}
                         onClick={() =>
                           void updateStatus(
                             'Diakui',
                           )
                         }
                       >
-                        Akui Alarm
+                        {
+                          isActing
+                            ? 'Menyimpan...'
+                            : 'Akui Alarm'
+                        }
                       </button>
                     )
                   }
@@ -3471,13 +3513,18 @@ function AlarmPage({
                               <button
                                 className="primary-button"
                                 type="button"
+                                disabled={isActing}
                                 onClick={() =>
                                   void updateStatus(
                                     'Selesai',
                                   )
                                 }
                               >
-                                Tandai Selesai
+                                {
+                                  isActing
+                                    ? 'Menyimpan...'
+                                    : 'Tandai Selesai'
+                                }
                               </button>
                             )
 

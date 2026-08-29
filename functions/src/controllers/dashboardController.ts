@@ -279,14 +279,55 @@ export const getAlarms = run(async (req, res) => {
       errors: ['severity'],
     });
   }
-  const acknowledged = req.query.acknowledged === undefined ? undefined : req.query.acknowledged === 'true';
-  const requestedLimit = Number(req.query.limit ?? 100);
-  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 100)) : 100;
-  return ok(res, await repository.alarms({ severity, acknowledged, limit }), 'Data alarm berhasil dimuat.');
+  const status = req.query.status as 'open' | 'acknowledged' | 'resolved' | undefined;
+  if (status && !['open', 'acknowledged', 'resolved'].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Status alarm tidak valid.',
+      errors: ['status'],
+    });
+  }
+  const page = Number(req.query.page ?? 1);
+  const pageSize = Number(req.query.pageSize ?? 10);
+  if (
+    !Number.isInteger(page) || page < 1
+    || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Pagination alarm tidak valid.',
+      errors: ['page', 'pageSize'],
+    });
+  }
+  const query = typeof req.query.query === 'string'
+    ? req.query.query.trim().slice(0, 100)
+    : undefined;
+  return ok(
+    res,
+    await repository.alarmPage({ severity, status, query, page, pageSize }),
+    'Data alarm berhasil dimuat.',
+  );
 });
 
+export const getAlarmDetail = run(async (req, res) => {
+  const alarm = await repository.alarmDetail(String(req.params.id));
+  if (!alarm) {
+    return res.status(404).json({ success: false, message: 'Alarm tidak ditemukan.', errors: [] });
+  }
+  return ok(res, alarm, 'Detail alarm berhasil dimuat.');
+});
+
+const alarmActionNote = (value: unknown) =>
+  typeof value === 'string' && value.trim()
+    ? value.trim().slice(0, 500)
+    : null;
+
 export const acknowledgeAlarm = run(async (req, res) => {
-  const alarm = await repository.acknowledge(String(req.params.id), requestActor(req));
+  const alarm = await repository.acknowledge(
+    String(req.params.id),
+    requestActor(req),
+    alarmActionNote(req.body?.note),
+  );
   if (!alarm) {
     return res.status(404).json({ success: false, message: 'Alarm aktif tidak ditemukan.', errors: [] });
   }
@@ -294,7 +335,11 @@ export const acknowledgeAlarm = run(async (req, res) => {
 });
 
 export const resolveAlarm = run(async (req, res) => {
-  const alarm = await repository.resolve(String(req.params.id));
+  const alarm = await repository.resolve(
+    String(req.params.id),
+    requestActor(req),
+    alarmActionNote(req.body?.note),
+  );
   if (!alarm) {
     return res.status(404).json({ success: false, message: 'Alarm belum selesai tidak ditemukan.', errors: [] });
   }

@@ -11,6 +11,9 @@ import type {
   ApiActuator,
   ApiActuatorLog,
   ApiAlarm,
+  ApiAlarmDetail,
+  ApiAlarmEvent,
+  ApiAlarmPage,
   ApiDevice,
   ApiHistorySeries,
   ApiLatestTelemetry,
@@ -531,74 +534,322 @@ async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: s
   }
 }
 
-async function alarms(filters: {
+type AlarmFilters = {
   severity?: 'info' | 'warning' | 'critical';
+  status?: 'open' | 'acknowledged' | 'resolved';
   acknowledged?: boolean;
+  query?: string;
   limit?: number;
-} = {}) {
-  const values: unknown[] = [siteId];
+  offset?: number;
+};
+
+const alarmSelect = `
+  SELECT alarm_id, device_id, rule_key, incident_key,
+         source_type, source_key, severity, status,
+         title, description, triggered_at, acknowledged_at,
+         acknowledged_by, resolved_at, resolved_by,
+         resolution_note, resolution_type, current_value,
+         threshold_text, unit, first_seen_at, last_seen_at,
+         occurrence_count, metadata
+  FROM spff.alarms
+`;
+
+const alarmMetadataObject = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+
+const mapAlarmRow = (row: Record<string, unknown>): ApiAlarm => {
+  const metadata = alarmMetadataObject(row.metadata);
+  const recommendation =
+    typeof metadata?.recommendation === 'string'
+      ? metadata.recommendation
+      : null;
+  return {
+    id: String(row.alarm_id),
+    deviceId: String(row.device_id),
+    ruleKey: row.rule_key === null ? null : String(row.rule_key),
+    incidentKey: row.incident_key === null ? null : String(row.incident_key),
+    sourceType: row.source_type as ApiAlarm['sourceType'],
+    sourceKey: String(row.source_key),
+    title: String(row.title),
+    description: String(row.description),
+    severity: row.severity as ApiAlarm['severity'],
+    status: row.status as ApiAlarm['status'],
+    acknowledged: row.status !== 'open',
+    createdAt: toRequiredIso(row.triggered_at as Date | string, 'alarms.triggered_at'),
+    triggeredAt: toRequiredIso(row.triggered_at as Date | string, 'alarms.triggered_at'),
+    acknowledgedAt: toIso(row.acknowledged_at as Date | string | null),
+    acknowledgedBy: row.acknowledged_by === null ? null : String(row.acknowledged_by),
+    resolvedAt: toIso(row.resolved_at as Date | string | null),
+    resolvedBy: row.resolved_by === null ? null : String(row.resolved_by),
+    resolutionNote: row.resolution_note === null ? null : String(row.resolution_note),
+    resolutionType: row.resolution_type as ApiAlarm['resolutionType'],
+    currentValue: toNumber(row.current_value),
+    thresholdText: row.threshold_text === null ? null : String(row.threshold_text),
+    unit: row.unit === null ? null : String(row.unit),
+    firstSeenAt: toRequiredIso(row.first_seen_at as Date | string, 'alarms.first_seen_at'),
+    lastSeenAt: toRequiredIso(row.last_seen_at as Date | string, 'alarms.last_seen_at'),
+    occurrenceCount: Number(row.occurrence_count),
+    recommendation,
+    metadata,
+  };
+};
+
+const alarmConditions = (
+  filters: AlarmFilters,
+  values: unknown[],
+): string[] => {
   const conditions = ['site_id = $1'];
   if (filters.severity) {
     values.push(filters.severity);
-    conditions.push(`severity = $${values.length}`);
+    conditions.push('severity = $' + values.length);
   }
-  if (filters.acknowledged !== undefined) {
-    values.push(filters.acknowledged ? 'acknowledged' : 'open');
-    conditions.push(`status = $${values.length}`);
+  const status =
+    filters.status ??
+    (filters.acknowledged === undefined
+      ? undefined
+      : filters.acknowledged ? 'acknowledged' : 'open');
+  if (status) {
+    values.push(status);
+    conditions.push('status = $' + values.length);
   }
-  values.push(filters.limit ?? 100);
+  const search = filters.query?.trim();
+  if (search) {
+    values.push('%' + search + '%');
+    const placeholder = '$' + values.length;
+    conditions.push(
+      '(title ILIKE ' + placeholder +
+      ' OR source_key ILIKE ' + placeholder +
+      ' OR device_id ILIKE ' + placeholder +
+      ' OR alarm_id::text ILIKE ' + placeholder + ')',
+    );
+  }
+  return conditions;
+};
 
+async function alarms(filters: AlarmFilters = {}): Promise<ApiAlarm[]> {
+  const values: unknown[] = [siteId];
+  const conditions = alarmConditions(filters, values);
+  values.push(Math.max(1, Math.min(filters.limit ?? 100, 100)));
+  const limitPlaceholder = '$' + values.length;
+  const offset = Math.max(0, filters.offset ?? 0);
+  values.push(offset);
+  const offsetPlaceholder = '$' + values.length;
   const result = await pool.query(
-    `SELECT alarm_id, device_id, source_type, source_key, severity, status,
-            title, description, triggered_at, acknowledged_at,
-            acknowledged_by, resolved_at, metadata
-     FROM spff.alarms
-     WHERE ${conditions.join(' AND ')}
-     ORDER BY triggered_at DESC
-     LIMIT $${values.length}`,
+    alarmSelect +
+      ' WHERE ' + conditions.join(' AND ') +
+      ' ORDER BY last_seen_at DESC, alarm_id DESC' +
+      ' LIMIT ' + limitPlaceholder +
+      ' OFFSET ' + offsetPlaceholder,
     values,
   );
+  return result.rows.map((row) => mapAlarmRow(row));
+}
 
-  return result.rows.map((row) => ({
-    id: String(row.alarm_id),
-    deviceId: row.device_id as string,
-    sourceType: row.source_type as ApiAlarm['sourceType'],
-    sourceKey: row.source_key as string,
-    title: row.title as string,
-    description: row.description as string,
-    severity: row.severity as 'info' | 'warning' | 'critical',
-    status: row.status as 'open' | 'acknowledged' | 'resolved',
-    acknowledged: row.status !== 'open',
-    createdAt: toRequiredIso(row.triggered_at, 'alarms.triggered_at'),
-    triggeredAt: toRequiredIso(row.triggered_at, 'alarms.triggered_at'),
-    acknowledgedAt: toIso(row.acknowledged_at),
-    acknowledgedBy: row.acknowledged_by as string | null,
-    resolvedAt: toIso(row.resolved_at),
-    metadata: row.metadata as Record<string, unknown> | null,
+async function alarmPage(filters: {
+  severity?: ApiAlarm['severity'];
+  status?: ApiAlarm['status'];
+  query?: string;
+  page: number;
+  pageSize: number;
+}): Promise<ApiAlarmPage> {
+  const values: unknown[] = [siteId];
+  const conditions = alarmConditions(filters, values);
+  const countResult = await pool.query(
+    'SELECT count(*)::integer AS total FROM spff.alarms WHERE ' +
+      conditions.join(' AND '),
+    values,
+  );
+  const totalItems = Number(countResult.rows[0]?.total ?? 0);
+  const items = await alarms({
+    ...filters,
+    limit: filters.pageSize,
+    offset: (filters.page - 1) * filters.pageSize,
+  });
+  const countsResult = await pool.query(
+    `SELECT
+       count(*) FILTER (WHERE status = 'open')::integer AS open,
+       count(*) FILTER (WHERE status = 'acknowledged')::integer AS acknowledged,
+       count(*) FILTER (WHERE status = 'resolved')::integer AS resolved,
+       count(*) FILTER (
+         WHERE status <> 'resolved' AND severity = 'critical'
+       )::integer AS critical_active
+     FROM spff.alarms
+     WHERE site_id = $1`,
+    [siteId],
+  );
+  const counts = countsResult.rows[0] ?? {};
+  return {
+    items,
+    pagination: {
+      page: filters.page,
+      pageSize: filters.pageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / filters.pageSize)),
+    },
+    counts: {
+      open: Number(counts.open ?? 0),
+      acknowledged: Number(counts.acknowledged ?? 0),
+      resolved: Number(counts.resolved ?? 0),
+      criticalActive: Number(counts.critical_active ?? 0),
+    },
+  };
+}
+
+async function alarmDetail(alarmId: string): Promise<ApiAlarmDetail | null> {
+  const alarmResult = await pool.query(
+    alarmSelect + ' WHERE site_id = $1 AND alarm_id = $2 LIMIT 1',
+    [siteId, alarmId],
+  );
+  if (!alarmResult.rows[0]) return null;
+  const eventResult = await pool.query(
+    `SELECT alarm_event_id, alarm_id, event_type, from_status, to_status,
+            severity, current_value, threshold_text, actor, note,
+            occurred_at, metadata
+     FROM spff.alarm_events
+     WHERE alarm_id = $1
+     ORDER BY occurred_at ASC, alarm_event_id ASC`,
+    [alarmId],
+  );
+  const events: ApiAlarmEvent[] = eventResult.rows.map((row) => ({
+    id: String(row.alarm_event_id),
+    alarmId: String(row.alarm_id),
+    eventType: row.event_type as ApiAlarmEvent['eventType'],
+    fromStatus: row.from_status as ApiAlarmEvent['fromStatus'],
+    toStatus: row.to_status as ApiAlarmEvent['toStatus'],
+    severity: row.severity as ApiAlarmEvent['severity'],
+    value: toNumber(row.current_value),
+    thresholdText: row.threshold_text === null ? null : String(row.threshold_text),
+    actor: row.actor === null ? null : String(row.actor),
+    note: row.note === null ? null : String(row.note),
+    occurredAt: toRequiredIso(row.occurred_at, 'alarm_events.occurred_at'),
+    metadata: alarmMetadataObject(row.metadata),
   }));
+  return { ...mapAlarmRow(alarmResult.rows[0]), events };
 }
 
-async function acknowledge(alarmId: string, operator = 'operator') {
-  const result = await pool.query(
-    `UPDATE spff.alarms
-     SET status = 'acknowledged', acknowledged_at = now(), acknowledged_by = $3
-     WHERE alarm_id = $1 AND site_id = $2 AND status = 'open'
-     RETURNING alarm_id, status, acknowledged_at, acknowledged_by`,
-    [alarmId, siteId, operator],
-  );
-  return result.rows[0] ?? null;
+async function acknowledge(
+  alarmId: string,
+  operator = 'operator',
+  note: string | null = null,
+) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `UPDATE spff.alarms
+       SET status = 'acknowledged',
+           acknowledged_at = now(),
+           acknowledged_by = $3,
+           updated_at = now()
+       WHERE alarm_id = $1 AND site_id = $2 AND status = 'open'
+       RETURNING alarm_id, severity, current_value, threshold_text,
+                 acknowledged_at, acknowledged_by`,
+      [alarmId, siteId, operator],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    await client.query(
+      `INSERT INTO spff.alarm_events (
+         alarm_id, event_type, from_status, to_status, severity,
+         current_value, threshold_text, actor, note, occurred_at
+       ) VALUES (
+         $1, 'acknowledged', 'open', 'acknowledged', $2,
+         $3, $4, $5, $6, $7
+       )`,
+      [
+        alarmId,
+        row.severity,
+        row.current_value,
+        row.threshold_text,
+        operator,
+        note,
+        row.acknowledged_at,
+      ],
+    );
+    await client.query('COMMIT');
+    return row;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
-async function resolve(alarmId: string) {
-  const result = await pool.query(
-    `UPDATE spff.alarms
-     SET status = 'resolved', resolved_at = now()
-     WHERE alarm_id = $1 AND site_id = $2 AND status <> 'resolved'
-     RETURNING alarm_id, status, resolved_at`,
-    [alarmId, siteId],
-  );
-  return result.rows[0] ?? null;
+async function resolve(
+  alarmId: string,
+  operator = 'admin',
+  note: string | null = null,
+) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const previous = await client.query(
+      `SELECT status, severity, current_value, threshold_text
+       FROM spff.alarms
+       WHERE alarm_id = $1 AND site_id = $2 AND status <> 'resolved'
+       FOR UPDATE`,
+      [alarmId, siteId],
+    );
+    if (!previous.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const result = await client.query(
+      `UPDATE spff.alarms
+       SET status = 'resolved',
+           resolved_at = now(),
+           resolved_by = $3,
+           resolution_note = $4,
+           resolution_type = 'manual',
+           updated_at = now()
+       WHERE alarm_id = $1 AND site_id = $2
+       RETURNING alarm_id, status, resolved_at, resolved_by,
+                 resolution_note, resolution_type`,
+      [alarmId, siteId, operator, note],
+    );
+    await client.query(
+      `INSERT INTO spff.alarm_events (
+         alarm_id, event_type, from_status, to_status, severity,
+         current_value, threshold_text, actor, note, occurred_at
+       ) VALUES (
+         $1, 'resolved', $2, 'resolved', $3,
+         $4, $5, $6, $7, now()
+       )`,
+      [
+        alarmId,
+        previous.rows[0].status,
+        previous.rows[0].severity,
+        previous.rows[0].current_value,
+        previous.rows[0].threshold_text,
+        operator,
+        note,
+      ],
+    );
+    await client.query(
+      `UPDATE spff.alarm_rule_states
+       SET active_alarm_id = NULL,
+           violation_count = 0,
+           recovery_count = 0,
+           updated_at = now()
+       WHERE active_alarm_id = $1`,
+      [alarmId],
+    );
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
+
 
 async function devices() {
   const result = await pool.query(
@@ -1086,6 +1337,8 @@ export const repository = {
   pumps,
   updatePump,
   alarms,
+  alarmPage,
+  alarmDetail,
   acknowledge,
   resolve,
   devices,

@@ -10,9 +10,13 @@ import {
   type TelemetryPersistedAckMessage,
 } from '@spff/contracts';
 import type { IngestionRepository } from './repository.js';
+import type { AlarmIngestionObserver } from './alarmEvaluator.js';
 
 export class IngestionService {
-  constructor(private readonly repository: IngestionRepository) {}
+  constructor(
+    private readonly repository: IngestionRepository,
+    private readonly alarmObserver?: AlarmIngestionObserver,
+  ) {}
 
   async process(
     topic: string,
@@ -32,6 +36,10 @@ export class IngestionService {
       matchesTopic(message)
     ) {
       await this.repository.saveTelemetry(message);
+      await this.observeAlarm(
+        'telemetry',
+        () => this.alarmObserver?.evaluateTelemetry(message),
+      );
 
       return {
         kind: 'telemetry_persisted_ack',
@@ -50,6 +58,10 @@ export class IngestionService {
       matchesTopic(message)
     ) {
       await this.repository.saveActuatorState(message);
+      await this.observeAlarm(
+        'actuator_state',
+        () => this.alarmObserver?.evaluateActuatorState(message),
+      );
       return null;
     }
 
@@ -59,6 +71,10 @@ export class IngestionService {
       matchesTopic(message)
     ) {
       await this.repository.saveAcknowledgement(message);
+      await this.observeAlarm(
+        'command_ack',
+        () => this.alarmObserver?.evaluateAcknowledgement(message),
+      );
       return null;
     }
 
@@ -87,9 +103,27 @@ export class IngestionService {
       matchesTopic(message)
     ) {
       await this.repository.saveDeviceStatus(message);
+      await this.observeAlarm(
+        'device_status',
+        () => this.alarmObserver?.evaluateDeviceStatus(message),
+      );
       return null;
     }
 
     throw new Error(`Payload does not match channel ${topicParts.channel}.`);
+  }
+
+  private async observeAlarm(
+    source: string,
+    operation: () => Promise<void> | undefined,
+  ): Promise<void> {
+    try {
+      await operation();
+    } catch (error) {
+      console.error('[alarm-evaluator] Ingestion observation failed', {
+        source,
+        error,
+      });
+    }
   }
 }

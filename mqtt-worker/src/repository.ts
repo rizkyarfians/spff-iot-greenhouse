@@ -9,6 +9,13 @@ import type {
 } from "@spff/contracts";
 import { Pool, type PoolClient } from "pg";
 import { config } from "./config.js";
+import type {
+  AlarmCommandSubject,
+  AlarmHealthSubject,
+  AlarmObservation,
+  AlarmRepository,
+  AlarmRule,
+} from "./alarmEvaluator.js";
 
 export interface IngestionRepository {
   saveTelemetry(message: TelemetryMessage): Promise<void>;
@@ -223,7 +230,7 @@ const asAckStatus = (value: string): AckStatus => {
 
 export type DatabasePool = Pick<Pool, "query" | "connect" | "end">;
 
-export class PostgresIngestionRepository implements IngestionRepository, CommandDispatchRepository, ScheduleRepository {
+export class PostgresIngestionRepository implements IngestionRepository, CommandDispatchRepository, ScheduleRepository, AlarmRepository {
   private readonly pool: DatabasePool;
 
   constructor(
@@ -1090,6 +1097,194 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         mode: message.mode,
       },
     );
+  }
+
+  async alarmRules(siteId: string): Promise<AlarmRule[]> {
+    const result = await this.pool.query<{
+      site_id: string;
+      rule_key: string;
+      source_type: "sensor" | "actuator" | "system";
+      source_key: string;
+      comparator: AlarmRule["comparator"];
+      threshold_value: number | string | null;
+      unit: string | null;
+      enabled: boolean;
+    }>(
+      `
+        SELECT site_id, rule_key, source_type, source_key, comparator,
+               threshold_value, unit, enabled
+        FROM spff.alarm_rules
+        WHERE site_id = $1 AND enabled = true
+        ORDER BY rule_key
+      `,
+      [siteId],
+    );
+    return result.rows.map((row) => ({
+      siteId: row.site_id,
+      ruleKey: row.rule_key,
+      sourceType: row.source_type,
+      sourceKey: row.source_key,
+      comparator: row.comparator,
+      thresholdValue:
+        row.threshold_value === null ? null : Number(row.threshold_value),
+      unit: row.unit,
+      enabled: row.enabled,
+    }));
+  }
+
+  async applyAlarmObservation(observation: AlarmObservation): Promise<void> {
+    await this.pool.query(
+      `
+        SELECT spff.apply_alarm_observation(
+          $1, $2, $3, $4, $5, $6, $7::timestamptz,
+          $8, $9, $10::jsonb
+        )
+      `,
+      [
+        observation.siteId,
+        observation.deviceId,
+        observation.ruleKey,
+        observation.incidentKey,
+        observation.sourceKey,
+        observation.violating,
+        observation.observedAt,
+        observation.currentValue,
+        observation.thresholdText,
+        JSON.stringify(observation.metadata),
+      ],
+    );
+  }
+
+  async alarmHealthSubjects(): Promise<AlarmHealthSubject[]> {
+    const result = await this.pool.query<{
+      site_id: string;
+      device_id: string;
+      device_online: boolean | null;
+      device_age_seconds: number | string | null;
+      telemetry_age_seconds: number | string | null;
+      recorded_at: Date | string | null;
+      air_temp: number | string | null;
+      air_humidity: number | string | null;
+    }>(
+      `
+        SELECT
+          device.site_id,
+          device.device_id,
+          status.online AS device_online,
+          extract(epoch FROM (clock_timestamp() - status.received_at))
+            AS device_age_seconds,
+          extract(epoch FROM (clock_timestamp() - telemetry.received_at))
+            AS telemetry_age_seconds,
+          telemetry.recorded_at,
+          telemetry.air_temp,
+          telemetry.air_humidity
+        FROM spff.devices device
+        LEFT JOIN LATERAL (
+          SELECT online, received_at
+          FROM spff.device_status_events candidate
+          WHERE candidate.site_id = device.site_id
+            AND candidate.device_id = device.device_id
+          ORDER BY candidate.received_at DESC, candidate.device_status_id DESC
+          LIMIT 1
+        ) status ON true
+        LEFT JOIN LATERAL (
+          SELECT recorded_at, received_at, air_temp, air_humidity
+          FROM spff.telemetry_samples candidate
+          WHERE candidate.site_id = device.site_id
+            AND candidate.device_id = device.device_id
+          ORDER BY candidate.received_at DESC, candidate.telemetry_id DESC
+          LIMIT 1
+        ) telemetry ON true
+        WHERE device.enabled = true
+        ORDER BY device.site_id, device.device_id
+      `,
+    );
+
+    const numeric = (value: number | string | null): number | null => {
+      if (value === null) return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const iso = (value: Date | string | null): string | null => {
+      if (value === null) return null;
+      const parsed = value instanceof Date ? value : new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+    };
+
+    return result.rows.map((row) => ({
+      siteId: row.site_id,
+      deviceId: row.device_id,
+      deviceOnline: row.device_online,
+      deviceAgeSeconds: numeric(row.device_age_seconds),
+      telemetryAgeSeconds: numeric(row.telemetry_age_seconds),
+      latestRecordedAt: iso(row.recorded_at),
+      sensors: {
+        air_temp: numeric(row.air_temp),
+        air_humidity: numeric(row.air_humidity),
+      },
+    }));
+  }
+
+  async alarmCommandSubjects(): Promise<AlarmCommandSubject[]> {
+    const result = await this.pool.query<{
+      site_id: string;
+      device_id: string;
+      actuator_key: string;
+      command_id: string;
+      status: AlarmCommandSubject["status"];
+      reason: string | null;
+      updated_at: Date | string;
+    }>(
+      `
+        SELECT
+          actuator.site_id,
+          actuator.device_id,
+          actuator.actuator_key,
+          latest.command_id,
+          latest.status,
+          latest.reason,
+          latest.updated_at
+        FROM spff.actuators actuator
+        CROSS JOIN LATERAL (
+          SELECT command_id, status, reason, updated_at
+          FROM spff.control_commands command
+          WHERE command.site_id = actuator.site_id
+            AND command.device_id = actuator.device_id
+            AND command.actuator_key = actuator.actuator_key
+            AND command.status IN (
+              'completed',
+              'rejected',
+              'timed_out',
+              'failed'
+            )
+          ORDER BY command.updated_at DESC, command.created_at DESC
+          LIMIT 1
+        ) latest
+        LEFT JOIN spff.alarm_rule_states state
+          ON state.site_id = actuator.site_id
+         AND state.device_id = actuator.device_id
+         AND state.incident_key = 'command_failed:' || actuator.actuator_key
+        WHERE actuator.enabled = true
+          AND (
+            state.last_observed_at IS NULL
+            OR latest.updated_at > state.last_observed_at
+          )
+        ORDER BY actuator.site_id, actuator.device_id, actuator.actuator_key
+      `,
+    );
+
+    return result.rows.map((row) => ({
+      siteId: row.site_id,
+      deviceId: row.device_id,
+      targetId: row.actuator_key,
+      commandId: row.command_id,
+      status: row.status,
+      reason: row.reason,
+      updatedAt:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : new Date(row.updated_at).toISOString(),
+    }));
   }
 
   private async insertAcknowledgement(

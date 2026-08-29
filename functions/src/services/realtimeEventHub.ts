@@ -19,7 +19,8 @@ export type RealtimeDatabaseEvent = {
   type:
     | 'telemetry.updated'
     | 'device_status.updated'
-    | 'actuator_state.updated';
+    | 'actuator_state.updated'
+    | 'alarm.updated';
   siteId: string;
   deviceId: string;
   messageId: string | null;
@@ -78,6 +79,7 @@ export function parseRealtimeEvent(
       'telemetry.updated',
       'device_status.updated',
       'actuator_state.updated',
+      'alarm.updated',
     ].includes(
       String(value.type),
     )

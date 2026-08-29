@@ -28,6 +28,7 @@ import {
   dashboard,
   deleteSchedule,
   getAlarms,
+  getAlarmDetail,
   getDevices,
   getHistory,
   getLatestTelemetry,
@@ -211,6 +212,11 @@ apiRouter.patch(
 apiRouter.get(
   '/alarms',
   getAlarms,
+);
+
+apiRouter.get(
+  '/alarms/:id',
+  getAlarmDetail,
 );
 
 

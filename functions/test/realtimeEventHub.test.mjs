@@ -56,6 +56,20 @@ test('accepts an actuator state notification', () => {
   assert.equal(event?.messageId, 'pump-water-state-001');
 });
 
+test('accepts an alarm incident notification', () => {
+  const event = parseRealtimeEvent(JSON.stringify({
+    type: 'alarm.updated',
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    messageId: '42',
+    recordedAt: '2026-08-30T10:00:00.000Z',
+    receivedAt: '2026-08-30T10:00:00.010Z',
+  }));
+
+  assert.equal(event?.type, 'alarm.updated');
+  assert.equal(event?.messageId, '42');
+});
+
 
 test('rejects malformed or unsupported notifications', () => {
   assert.equal(parseRealtimeEvent(undefined), null);

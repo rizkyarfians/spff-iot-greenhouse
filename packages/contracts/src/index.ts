@@ -434,6 +434,8 @@ export interface ApiActuator {
 export interface ApiAlarm {
   id: string;
   deviceId: string;
+  ruleKey: string | null;
+  incidentKey: string | null;
   sourceType: 'sensor' | 'actuator' | 'system';
   sourceKey: string;
   title: string;
@@ -446,7 +448,64 @@ export interface ApiAlarm {
   acknowledgedAt: string | null;
   acknowledgedBy: string | null;
   resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolutionNote: string | null;
+  resolutionType: 'automatic' | 'manual' | null;
+  currentValue: number | null;
+  thresholdText: string | null;
+  unit: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  occurrenceCount: number;
+  recommendation: string | null;
   metadata: Record<string, unknown> | null;
+}
+
+export type AlarmEventType =
+  | 'detected'
+  | 'acknowledged'
+  | 'escalated'
+  | 'recovered'
+  | 'resolved'
+  | 'note';
+
+export interface ApiAlarmEvent {
+  id: string;
+  alarmId: string;
+  eventType: AlarmEventType;
+  fromStatus: ApiAlarm['status'] | null;
+  toStatus: ApiAlarm['status'] | null;
+  severity: ApiAlarm['severity'];
+  value: number | null;
+  thresholdText: string | null;
+  actor: string | null;
+  note: string | null;
+  occurredAt: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface ApiAlarmDetail extends ApiAlarm {
+  events: ApiAlarmEvent[];
+}
+
+export interface ApiAlarmPage {
+  items: ApiAlarm[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+  counts: {
+    open: number;
+    acknowledged: number;
+    resolved: number;
+    criticalActive: number;
+  };
+}
+
+export interface ApiAlarmActionRequest {
+  note?: string;
 }
 
 export interface ApiDevice {

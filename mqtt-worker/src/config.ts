@@ -89,6 +89,9 @@ export const config = {
     lookbackSeconds: numberFromEnvironment("SCHEDULE_LOOKBACK_SECONDS", 120),
     commandExpirySeconds: numberFromEnvironment("COMMAND_EXPIRY_SECONDS", 30),
   },
+  alarm: {
+    pollIntervalMs: numberFromEnvironment("ALARM_POLL_INTERVAL_MS", 15_000),
+  },
   database: {
     url: databaseUrl(),
     maxConnections: numberFromEnvironment("DATABASE_POOL_MAX", 10),
