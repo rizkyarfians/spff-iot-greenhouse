@@ -1,6 +1,12 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
+import {
+  cropIdSchema,
+  cropProfiles,
+  defaultCropId,
+  recommendCrops,
+} from '@spff/contracts';
 import type {
   ApiActuator,
   ApiActuatorLog,
@@ -14,6 +20,8 @@ import type {
   ApiTelemetrySnapshot,
   BootstrapData,
   HistoryBucket,
+  SelectedCropInput,
+  SmartSoilSnapshot,
   ScheduleRepeatRule,
 } from '@spff/contracts';
 
@@ -922,6 +930,82 @@ async function telemetrySnapshot(): Promise<ApiTelemetrySnapshot> {
   };
 }
 
+const smartSoilZoneId = 'soil-1';
+const smartSoilSensorIds = new Set([
+  'air_temp',
+  'air_humidity',
+  'soil_1_moisture',
+  'soil_1_temp',
+  'soil_1_ph',
+  'soil_1_ec_us_cm',
+  'soil_1_n',
+  'soil_1_p',
+  'soil_1_k',
+]);
+
+async function smartSoil(): Promise<SmartSoilSnapshot> {
+  const [sensorData, latest, deviceData, settingsData, selectionResult] = await Promise.all([
+    sensors(),
+    latestTelemetry(),
+    devices(),
+    settings(),
+    pool.query(
+      'SELECT crop_id FROM spff.site_crop_selections WHERE site_id = $1 AND zone_id = $2 LIMIT 1',
+      [siteId, smartSoilZoneId],
+    ),
+  ]);
+
+  const device = deviceData[0];
+  if (!device) throw new Error('No enabled device is configured for Smart Soil.');
+
+  const selectedCropId = cropIdSchema.catch(defaultCropId).parse(selectionResult.rows[0]?.crop_id);
+  const selectedCrop = cropProfiles.find((profile) => profile.id === selectedCropId) ?? cropProfiles[0];
+  const conditions = sensorData.filter((sensor) => smartSoilSensorIds.has(sensor.id));
+  const value = (sensorId: string) =>
+    conditions.find((sensor) => sensor.id === sensorId)?.value ?? null;
+
+  return {
+    siteId,
+    zoneId: smartSoilZoneId,
+    deviceId: device.deviceId,
+    deviceStatus: device.connectionStatus,
+    conditions: {
+      sensors: conditions,
+      recordedAt: toIso(latest?.recorded_at),
+      sensorValid: latest?.sensor_valid === undefined ? null : Boolean(latest.sensor_valid),
+    },
+    humidityTarget: {
+      minPercent: settingsData?.humidityMin ?? null,
+      maxPercent: settingsData?.humidityMax ?? null,
+    },
+    profiles: [...cropProfiles],
+    selectedCropId,
+    selectedCrop,
+    recommendations: recommendCrops({
+      airTemperatureC: value('air_temp'),
+      soilTemperatureC: value('soil_1_temp'),
+      soilPh: value('soil_1_ph'),
+      airHumidityPercent: value('air_humidity'),
+      humidityMinPercent: settingsData?.humidityMin ?? null,
+      humidityMaxPercent: settingsData?.humidityMax ?? null,
+    }),
+  };
+}
+
+async function updateSmartSoilSelection(
+  input: SelectedCropInput,
+  selectedBy: string,
+): Promise<SmartSoilSnapshot> {
+  if (input.zoneId !== smartSoilZoneId) {
+    throw new Error('Smart Soil zone is not supported.');
+  }
+  await pool.query(
+    'INSERT INTO spff.site_crop_selections (site_id, zone_id, crop_id, selected_by) VALUES ($1, $2, $3, $4) ON CONFLICT (site_id, zone_id) DO UPDATE SET crop_id = EXCLUDED.crop_id, selected_by = EXCLUDED.selected_by, selected_at = now()',
+    [siteId, input.zoneId, input.selectedCropId, selectedBy],
+  );
+  return smartSoil();
+}
+
 async function bootstrap(): Promise<BootstrapData> {
   const [
     siteData,
@@ -996,6 +1080,8 @@ export const repository = {
   dashboard,
   sensors,
   telemetrySnapshot,
+  smartSoil,
+  updateSmartSoilSelection,
   history,
   pumps,
   updatePump,

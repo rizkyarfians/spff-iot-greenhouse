@@ -1,6 +1,7 @@
 export type PageKey =
   | 'dashboard'
   | 'plants'
+  | 'smart-soil'
   | 'controls'
   | 'logs'
   | 'alarms'
@@ -19,6 +20,8 @@ Record<
 
   plants:
     'Status Tanaman',
+  'smart-soil':
+    'Smart Soil',
 
   controls:
     'Kontrol Perangkat',
@@ -50,6 +53,8 @@ Record<
 
   plants:
     'Pantau kondisi zona tanam berdasarkan telemetry sensor terbaru.',
+  'smart-soil':
+    'Pantau kondisi udara dan tanah, lalu lihat rekomendasi tanaman.',
 
   controls:
     'Kelola aktuator dan jadwal lokal berdasarkan actual state dari ESP32.',

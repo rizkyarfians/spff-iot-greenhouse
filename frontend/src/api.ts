@@ -16,6 +16,8 @@ import type {
   CreateUserRequest,
   LoginRequest,
   ManagedUser,
+  SmartSoilSnapshot,
+  SelectedCropInput,
   UpdateUserRequest,
 } from '@spff/contracts'
 
@@ -374,6 +376,28 @@ export function fetchLatestTelemetry(
     '/telemetry/latest',
     {
       signal,
+    },
+  )
+}
+
+export function fetchSmartSoil(
+  signal?: AbortSignal,
+) {
+  return request<SmartSoilSnapshot>(
+    '/smart-soil',
+    { signal },
+  )
+}
+
+export function saveSmartSoilSelection(
+  input: SelectedCropInput,
+) {
+  return request<SmartSoilSnapshot>(
+    '/smart-soil/selection',
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
     },
   )
 }

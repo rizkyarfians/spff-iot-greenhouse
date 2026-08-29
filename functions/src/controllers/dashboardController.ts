@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { HistoryBucket, ScheduleRepeatRule } from '@spff/contracts';
+import { selectedCropInputSchema } from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
 import {
   ActuatorBusyError,
@@ -196,6 +197,27 @@ export const getHistory = run(async (req, res) => {
 
 export const getPumps = run(async (_req, res) => {
   return ok(res, await repository.pumps(), 'Data aktuator berhasil dimuat.');
+});
+
+export const getSmartSoil = run(async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return ok(res, await repository.smartSoil(), 'Snapshot Smart Soil berhasil dimuat.');
+});
+
+export const updateSmartSoilSelection = run(async (req, res) => {
+  const parsed = selectedCropInputSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      message: 'Pilihan tanaman tidak valid.',
+      errors: parsed.error.issues.map((issue) => issue.path.join('.') || issue.message),
+    });
+  }
+  return ok(
+    res,
+    await repository.updateSmartSoilSelection(parsed.data, requestActor(req)),
+    'Pilihan tanaman Smart Soil berhasil disimpan.',
+  );
 });
 
 export const updatePump = run(async (req, res) => {

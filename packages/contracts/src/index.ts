@@ -248,7 +248,6 @@ export function isPumpCommandMessage(value: unknown): value is PumpCommandMessag
   );
 }
 
-
 export function isActuatorStateMessage(value: unknown): value is ActuatorStateMessage {
   if (!isRecord(value) || !hasIdentity(value) || value.kind !== 'actuator_state') return false;
   const state = String(value.state);
@@ -648,3 +647,4 @@ export interface AuditLogEntry {
 }
 
 export * from './registration.js'
+export * from './smartSoil.js'

@@ -404,6 +404,11 @@ Array<{
     label: 'Status Tanaman',
   },
   {
+    key: 'smart-soil',
+    icon: Droplets,
+    label: 'Smart Soil',
+  },
+  {
     key: 'controls',
     icon: SlidersHorizontal,
     label: 'Kontrol Perangkat',

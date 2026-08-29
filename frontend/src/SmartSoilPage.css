@@ -1,0 +1,57 @@
+.smart-soil-page { display: grid; gap: 18px; }
+.smart-soil-heading { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.smart-soil-heading h2 { margin: 4px 0; font-size: clamp(1.4rem, 2vw, 1.85rem); }
+.smart-soil-heading p, .smart-soil-profile p, .smart-soil-explanation p { margin: 0; color: #6a7e79; }
+.smart-soil-eyebrow { color: #14845e; display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.smart-soil-device { border-radius: 999px; padding: 7px 11px; font-size: .78rem; font-weight: 800; white-space: nowrap; background: #eff3f1; color: #60716b; }
+.smart-soil-device span { width: 7px; height: 7px; display: inline-block; border-radius: 99px; background: currentColor; margin-right: 6px; }
+.smart-soil-device.online { color: #087c58; background: #e7f7ef; }
+.smart-soil-device.stale { color: #a85b00; background: #fff3dd; }
+.smart-soil-device.offline { color: #9a3f3f; background: #fbeaea; }
+.smart-soil-notice { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-radius: 12px; font-size: .9rem; }
+.smart-soil-notice.warning { background: #fff7e8; color: #8b570b; border: 1px solid #f2d8a4; }
+.smart-soil-notice.error, .smart-soil-error { background: #feecec; color: #9e3131; }
+.smart-soil-condition-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.smart-soil-metric { min-height: 132px; background: #fff; border: 1px solid #dce5e1; border-radius: 15px; padding: 14px; display: grid; gap: 6px; align-content: start; color: #60716b; font-size: .82rem; }
+.smart-soil-metric-top { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
+.smart-soil-metric strong { color: #142a24; font-size: 1.2rem; line-height: 1.25; }
+.smart-soil-metric small { color: #85938f; }
+.smart-soil-metric-icon { color: #0c9a70; background: #e8f8f1; width: 31px; height: 31px; border-radius: 9px; display: grid; place-items: center; }
+.smart-soil-sensor-status { border-radius: 999px; padding: 4px 7px; font-size: .66rem; font-weight: 800; }
+.smart-soil-sensor-status.good { color: #087c58; background: #e7f7ef; }
+.smart-soil-sensor-status.warning { color: #a85b00; background: #fff3dd; }
+.smart-soil-sensor-status.critical, .smart-soil-sensor-status.offline { color: #9a3f3f; background: #fbeaea; }
+.smart-soil-layout { display: grid; grid-template-columns: minmax(380px, 1.1fr) minmax(320px, .9fr); gap: 18px; }
+.smart-soil-profile, .smart-soil-explanation, .smart-soil-recommendations { padding: 20px; }
+.smart-soil-profile-detail { display: grid; gap: 16px; margin-top: 18px; }
+.smart-soil-profile h3 { margin: 0 0 2px; font-size: 1.25rem; }
+.smart-soil-profile em { color: #71827d; font-size: .86rem; }
+.smart-soil-field { display: grid; gap: 6px; color: #556862; font-size: .78rem; font-weight: 700; }
+.smart-soil-field select { border: 1px solid #d5e1dc; background: #fff; color: #19342c; border-radius: 9px; padding: 10px 11px; min-height: 40px; font: inherit; font-weight: 600; }
+.smart-soil-definition-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.smart-soil-definition-list div { border-radius: 10px; background: #f5f8f7; padding: 10px; }
+.smart-soil-definition-list dt { color: #71827d; font-size: .72rem; }
+.smart-soil-definition-list dd { margin: 3px 0 0; font-size: .84rem; font-weight: 750; color: #17342b; }
+.smart-soil-profile .primary-action { margin-top: 18px; }
+.primary-action { background: #16a878; color: #fff; border: 0; border-radius: 10px; min-height: 42px; padding: 0 14px; font: inherit; font-size: .84rem; font-weight: 800; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+.primary-action:disabled { cursor: not-allowed; opacity: .55; }
+.smart-soil-explanation ul { margin: 4px 0 18px; padding-left: 18px; display: grid; gap: 10px; color: #5e726b; font-size: .85rem; line-height: 1.45; }
+.smart-soil-read-time { border-top: 1px solid #e3ebe8; padding-top: 15px; display: grid; gap: 4px; color: #71827d; font-size: .76rem; }
+.smart-soil-read-time strong { color: #17342b; font-size: .88rem; }
+.smart-soil-recommendation { border-top: 1px solid #e3ebe8; }
+.smart-soil-recommendation button { padding: 13px 4px; display: grid; grid-template-columns: 30px 1fr auto 18px; align-items: center; text-align: left; gap: 10px; width: 100%; border: 0; background: transparent; cursor: pointer; color: inherit; }
+.smart-soil-recommendation button > span:nth-child(2) { display: grid; gap: 2px; }
+.smart-soil-recommendation small { color: #71827d; }
+.smart-soil-recommendation b { color: #09805b; font-size: 1.05rem; }
+.rank { width: 26px; height: 26px; border-radius: 50%; background: #ecf8f2; color: #15845f; display: grid; place-items: center; font-size: .78rem; font-weight: 800; }
+.smart-soil-recommendation svg.open { transform: rotate(180deg); }
+.smart-soil-recommendation ul { margin: 0 0 14px 40px; padding: 0; list-style: none; display: grid; gap: 6px; color: #5e726b; font-size: .83rem; }
+.smart-soil-recommendation li { display: flex; gap: 7px; align-items: start; }
+.smart-soil-recommendation li svg { color: #16a878; flex: none; margin-top: 1px; }
+.smart-soil-loading, .smart-soil-error { min-height: 320px; place-content: center; place-items: center; font-weight: 700; }
+.spin { animation: smart-soil-spin .8s linear infinite; }
+@keyframes smart-soil-spin { to { transform: rotate(360deg); } }
+@media (max-width: 1200px) { .smart-soil-condition-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px) { .smart-soil-layout { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .smart-soil-heading { display: grid; } .smart-soil-condition-grid { grid-template-columns: repeat(2, 1fr); } .smart-soil-definition-list { grid-template-columns: 1fr; } .smart-soil-profile, .smart-soil-explanation, .smart-soil-recommendations { padding: 15px; } }
+@media (max-width: 430px) { .smart-soil-condition-grid { grid-template-columns: 1fr; } }

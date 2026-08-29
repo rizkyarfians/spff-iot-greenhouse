@@ -57,6 +57,9 @@ import {
 import {
   UserManagementPage,
 } from './UserManagementPage'
+import {
+  SmartSoilPage,
+} from './SmartSoilPage'
 
 import './SecondaryPages.css'
 
@@ -4305,6 +4308,17 @@ export function SecondaryPage({
     return (
       <PlantStatusPage
         {...connectedProps}
+      />
+    )
+  }
+
+  if (
+    page === 'smart-soil'
+  ) {
+    return (
+      <SmartSoilPage
+        connectionState={connectionState}
+        onRefresh={onRefresh}
       />
     )
   }

@@ -34,12 +34,12 @@
     "dev:sync-worker": "npm run dev --workspace @spff/sync-worker",
     "build:sync-worker": "npm run build --workspace @spff/sync-worker",
     "db:check": "npm run build:contracts && node --env-file=functions/.env scripts/check-postgres.mjs",
-    "logs": "node --env-file=functions/.env scripts/system-status.mjs",
-    "logs:esp": "node --env-file=functions/.env scripts/system-status.mjs esp",
-    "logs:telemetry": "node --env-file=functions/.env scripts/system-status.mjs telemetry",
-    "logs:actuators": "node --env-file=functions/.env scripts/system-status.mjs actuators",
-    "logs:schedules": "node --env-file=functions/.env scripts/system-status.mjs schedules",
-    "logs:watch": "node --env-file=functions/.env scripts/system-status.mjs --watch",
+    "logs": "node scripts/system-status.mjs",
+    "logs:esp": "node scripts/system-status.mjs esp",
+    "logs:telemetry": "node scripts/system-status.mjs telemetry",
+    "logs:actuators": "node scripts/system-status.mjs actuators",
+    "logs:schedules": "node scripts/system-status.mjs schedules",
+    "logs:watch": "node scripts/system-status.mjs --watch",
     "test": "npm run test --workspace @spff/contracts && npm run test --workspace functions && npm run test --workspace @spff/edge-gateway && npm run test --workspace @spff/mqtt-worker"
   },
   "devDependencies": {

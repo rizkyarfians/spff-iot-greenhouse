@@ -1,6 +1,21 @@
 import pg from "pg";
+import fs from "node:fs";
+import dotenv from "dotenv";
 
 const { Pool } = pg;
+
+const environmentCandidates = [
+  process.env.SPFF_STATUS_ENV_FILE,
+  "functions/.env",
+  "/etc/spff/mqtt-worker.env",
+  "/etc/spff/api.env",
+].filter(Boolean);
+const environmentFile = environmentCandidates.find((candidate) =>
+  fs.existsSync(candidate),
+);
+if (environmentFile) {
+  dotenv.config({ path: environmentFile, override: false, quiet: true });
+}
 
 const args = process.argv.slice(2);
 const requestedMode =
@@ -46,7 +61,7 @@ Usage:
   npm run logs:watch
 
 Direct options:
-  node --env-file=functions/.env scripts/system-status.mjs [all|esp|telemetry|actuators|schedules] [--watch] [--interval=5]
+  node scripts/system-status.mjs [all|esp|telemetry|actuators|schedules] [--watch] [--interval=5]
 `;
 
 if (help) {
@@ -83,15 +98,23 @@ const telemetryOfflineAfterSeconds = positiveSecondsFromEnvironment(
   600,
 );
 
-const pool = new Pool({
-  host: process.env.PGHOST ?? "127.0.0.1",
-  port: Number(process.env.PGPORT ?? 5432),
-  database: process.env.PGDATABASE ?? "spff",
-  user: process.env.PGUSER ?? "spff_app",
-  password: process.env.PGPASSWORD,
-  application_name: "spff-system-status",
-  max: 4,
-});
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        application_name: "spff-system-status",
+        max: 4,
+      }
+    : {
+        host: process.env.PGHOST ?? "127.0.0.1",
+        port: Number(process.env.PGPORT ?? 5432),
+        database: process.env.PGDATABASE ?? "spff",
+        user: process.env.PGUSER ?? "spff_app",
+        password: process.env.PGPASSWORD,
+        application_name: "spff-system-status",
+        max: 4,
+      },
+);
 
 const toNumberOrNull = (value) => {
   if (value === null || value === undefined || value === "") return null;

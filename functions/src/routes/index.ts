@@ -34,6 +34,7 @@ import {
   getLogs,
   getPumps,
   getSchedules,
+  getSmartSoil,
   getSensors,
   getSettings,
   readiness,
@@ -41,6 +42,7 @@ import {
   setScheduleEnabled,
   streamEvents,
   updatePump,
+  updateSmartSoilSelection,
   updateSettings,
 } from '../controllers/dashboardController.js';
 import {
@@ -175,6 +177,18 @@ apiRouter.get(
 apiRouter.get(
   '/pumps',
   getPumps,
+);
+
+apiRouter.get(
+  '/smart-soil',
+  getSmartSoil,
+);
+
+apiRouter.put(
+  '/smart-soil/selection',
+  requireAdmin,
+  requireCsrf,
+  updateSmartSoilSelection,
 );
 
 
