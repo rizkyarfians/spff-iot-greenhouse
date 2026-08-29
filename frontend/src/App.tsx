@@ -2480,46 +2480,9 @@ const soilNpkGroups =
                                   )
                                 }
 
-                                <span
-                                  className={
-                                    `good-badge is-${sensor.telemetryFreshness}`
-                                  }
-                                >
-                                  {
-                                    sensor.telemetryFreshness === 'fresh'
-                                      ? 'Terbaru'
-                                      : sensor.telemetryFreshness === 'stale'
-                                        ? 'Terlambat'
-                                        : sensor.telemetryFreshness === 'expired'
-                                          ? 'Data Lama'
-                                          : 'Belum Ada'
-                                  }
-                                </span>
                               </span>
 
 
-                              <div
-  className={
-    `metric-sync-status is-${sensor.telemetryFreshness}`
-  }
->
-  <span
-    className="metric-sync-dot"
-    aria-hidden="true"
-  />
-
-  <small>
-    {
-      sensor.telemetryFreshness === 'fresh'
-        ? 'Data terbaru'
-        : sensor.telemetryFreshness === 'stale'
-          ? `Telemetry ${telemetryAgeLabel ?? 'terlambat'}`
-          : sensor.telemetryFreshness === 'expired'
-            ? 'Menunggu telemetry baru'
-            : 'Menunggu telemetry'
-    }
-  </small>
-</div>
                             </button>
                           ),
                         )

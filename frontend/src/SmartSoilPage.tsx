@@ -39,13 +39,6 @@ const iconBySensor: Record<string, typeof Leaf> = {
   soil_1_ec_us_cm: Gauge,
 }
 
-const statusLabels = {
-  good: 'Baik',
-  warning: 'Terlambat',
-  critical: 'Sensor bermasalah',
-  offline: 'Tidak tersedia',
-} as const
-
 const suitabilityLabels = {
   excellent: 'Sangat sesuai',
   good: 'Sesuai',
@@ -155,25 +148,12 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
           <AlertTriangle size={17} /> {error}
         </div>
       )}
-      {snapshot.conditions.sensorValid === false && (
-        <div className="smart-soil-notice warning">
-          <AlertTriangle size={17} />
-          Firmware menandai telemetry sensor tidak valid. Nilai tetap ditampilkan
-          untuk diagnosis, tetapi jangan dijadikan keputusan budidaya.
-        </div>
-      )}
-
       <div className="smart-soil-condition-grid">
         {snapshot.conditions.sensors.map((sensor) => {
           const Icon = iconBySensor[sensor.id] ?? Leaf
           return (
             <article className="smart-soil-metric" key={sensor.id}>
-              <div className="smart-soil-metric-top">
-                <span className="smart-soil-metric-icon"><Icon size={18} /></span>
-                <span className={['smart-soil-sensor-status', sensor.status].join(' ')}>
-                  {statusLabels[sensor.status]}
-                </span>
-              </div>
+              <span className="smart-soil-metric-icon"><Icon size={18} /></span>
               <span>{sensor.name}</span>
               <strong>{formatSensorValue(sensor)}</strong>
               <small>{sensor.groupName}</small>

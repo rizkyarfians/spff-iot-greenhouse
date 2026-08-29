@@ -3555,15 +3555,6 @@ function DevicesPage({
               ? 'Stale'
               : 'Offline',
 
-        signal:
-          device.sensorValid
-          === true
-            ? 'Sensor valid'
-            : device.sensorValid
-              === false
-              ? 'Sensor bermasalah'
-              : 'Menunggu status',
-
         lastSeen:
           device.recordedAt
             ? new Date(
@@ -3695,16 +3686,6 @@ function DevicesPage({
 
 
                 <dl>
-                  <div>
-                    <dt>
-                      Sinyal
-                    </dt>
-
-                    <dd>
-                      {device.signal}
-                    </dd>
-                  </div>
-
                   <div>
                     <dt>
                       Terakhir aktif

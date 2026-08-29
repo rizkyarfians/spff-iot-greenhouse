@@ -13,14 +13,9 @@
 .smart-soil-notice.error, .smart-soil-error { background: #feecec; color: #9e3131; }
 .smart-soil-condition-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .smart-soil-metric { min-height: 132px; background: #fff; border: 1px solid #dce5e1; border-radius: 15px; padding: 14px; display: grid; gap: 6px; align-content: start; color: #60716b; font-size: .82rem; }
-.smart-soil-metric-top { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
 .smart-soil-metric strong { color: #142a24; font-size: 1.2rem; line-height: 1.25; }
 .smart-soil-metric small { color: #85938f; }
 .smart-soil-metric-icon { color: #0c9a70; background: #e8f8f1; width: 31px; height: 31px; border-radius: 9px; display: grid; place-items: center; }
-.smart-soil-sensor-status { border-radius: 999px; padding: 4px 7px; font-size: .66rem; font-weight: 800; }
-.smart-soil-sensor-status.good { color: #087c58; background: #e7f7ef; }
-.smart-soil-sensor-status.warning { color: #a85b00; background: #fff3dd; }
-.smart-soil-sensor-status.critical, .smart-soil-sensor-status.offline { color: #9a3f3f; background: #fbeaea; }
 .smart-soil-layout { display: grid; grid-template-columns: minmax(380px, 1.1fr) minmax(320px, .9fr); gap: 18px; }
 .smart-soil-profile, .smart-soil-explanation, .smart-soil-recommendations { padding: 20px; }
 .smart-soil-profile-detail { display: grid; gap: 16px; margin-top: 18px; }
