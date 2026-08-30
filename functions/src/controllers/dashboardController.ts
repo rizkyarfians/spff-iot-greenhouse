@@ -477,8 +477,19 @@ export const updateAutomaticControl = run(async (req, res) => {
       errors: ['automaticControl'],
     });
   }
+  const supportedConfig = {
+    ...req.body,
+    water: {
+      ...req.body.water,
+      minTankLevelPercent: null,
+    },
+    fertilizer: {
+      ...req.body.fertilizer,
+      minTankLevelPercent: null,
+    },
+  };
   const config = await repository.updateAutomaticControl(
-    req.body,
+    supportedConfig,
     requestActor(req),
   );
   if (!config) {

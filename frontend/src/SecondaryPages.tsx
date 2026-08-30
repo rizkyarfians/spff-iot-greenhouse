@@ -586,8 +586,14 @@ const automaticControlDraft = (
 ): ApiAutomaticControlUpdateRequest => value
   ? {
       desiredMode: value.desiredMode,
-      water: { ...value.water },
-      fertilizer: { ...value.fertilizer },
+      water: {
+        ...value.water,
+        minTankLevelPercent: null,
+      },
+      fertilizer: {
+        ...value.fertilizer,
+        minTankLevelPercent: null,
+      },
     }
   : {
       desiredMode: defaultAutomaticControl.desiredMode,
@@ -865,10 +871,21 @@ function ControlsPage({
     next: ApiAutomaticControlUpdateRequest = automaticDraft,
   ) => {
     if (!isAdmin || savingAutomatic) return
+    const supportedNext: ApiAutomaticControlUpdateRequest = {
+      ...next,
+      water: {
+        ...next.water,
+        minTankLevelPercent: null,
+      },
+      fertilizer: {
+        ...next.fertilizer,
+        minTankLevelPercent: null,
+      },
+    }
     if (
-      next.desiredMode === 'automatic'
-      && !next.water.enabled
-      && !next.fertilizer.enabled
+      supportedNext.desiredMode === 'automatic'
+      && !supportedNext.water.enabled
+      && !supportedNext.fertilizer.enabled
     ) {
       setCommandNotice(
         'Aktifkan dan lengkapi minimal satu profil sebelum memilih mode otomatis.',
@@ -878,7 +895,7 @@ function ControlsPage({
     setSavingAutomatic(true)
     setCommandNotice('Menyimpan konfigurasi kontrol otomatis...')
     try {
-      const saved = await saveAutomaticControlRequest(next)
+      const saved = await saveAutomaticControlRequest(supportedNext)
       setAutomaticDraft(automaticControlDraft(saved))
       setCommandNotice(
         'Konfigurasi tersimpan. Menunggu ESP32 menerapkan revision dan mengirim ACK.',
@@ -1252,6 +1269,15 @@ function ControlsPage({
                   : 'Menunggu ACK konfigurasi ESP32'
             }
           </span>
+          {
+            commandNotice
+              ? (
+                  <small className="mode-operation-notice">
+                    {commandNotice}
+                  </small>
+                )
+              : null
+          }
         </div>
 
 
@@ -1270,7 +1296,6 @@ function ControlsPage({
             disabled={
               !isAdmin
               || savingAutomatic
-              || connectionState !== 'connected'
             }
           >
             Otomatis
@@ -1287,7 +1312,6 @@ function ControlsPage({
             disabled={
               !isAdmin
               || savingAutomatic
-              || connectionState !== 'connected'
             }
           >
             Manual
@@ -1333,7 +1357,8 @@ function ControlsPage({
             <h2>Parameter Kontrol Otomatis</h2>
             <p>
               Threshold agronomi tidak diisi default. Simpan nilai hasil kesepakatan tim agronomi,
-              lalu pilih mode Otomatis.
+              lalu pilih mode Otomatis. Interlock level tangki belum diaktifkan
+              karena sensor masih mengirim jarak dalam cm.
             </p>
           </div>
           <button
@@ -1343,7 +1368,6 @@ function ControlsPage({
             disabled={
               !isAdmin
               || savingAutomatic
-              || connectionState !== 'connected'
             }
           >
             {savingAutomatic ? 'Menyimpan...' : 'Simpan Parameter'}
@@ -1418,15 +1442,6 @@ function ControlsPage({
                 max={86400}
                 disabled={!isAdmin}
                 onChange={(value) => updateWater({ cooldownSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Minimum level tangki (opsional)"
-                value={automaticDraft.water.minTankLevelPercent}
-                unit="%"
-                max={100}
-                step={0.1}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ minTankLevelPercent: value })}
               />
               <AutomaticNumberField
                 label="Minimum debit"
@@ -1552,15 +1567,6 @@ function ControlsPage({
                 step={0.001}
                 disabled={!isAdmin}
                 onChange={(value) => updateFertilizer({ maxDailyVolumeL: value })}
-              />
-              <AutomaticNumberField
-                label="Minimum level tangki (opsional)"
-                value={automaticDraft.fertilizer.minTankLevelPercent}
-                unit="%"
-                max={100}
-                step={0.1}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ minTankLevelPercent: value })}
               />
               <AutomaticNumberField
                 label="Minimum debit"

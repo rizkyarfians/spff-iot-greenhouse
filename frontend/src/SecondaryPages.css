@@ -380,6 +380,15 @@
   color: var(--green-dark);
 }
 
+.mode-operation-notice {
+  display: block;
+  max-width: 620px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .automatic-control-card {
   display: grid;
   gap: 18px;
