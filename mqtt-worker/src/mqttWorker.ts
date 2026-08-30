@@ -1,5 +1,6 @@
 import {
   mqttTopics,
+  type AutomaticControlSyncMessage,
   type PumpCommandMessage,
   type ScheduleSyncMessage,
   type TelemetryPersistedAckMessage,
@@ -135,6 +136,24 @@ this.client.on('message', (topic, payload) => {
           qos: 1,
           retain: true,
         },
+        (error) => (error ? reject(error) : resolve()),
+      );
+    });
+  }
+
+  async publishAutomaticControlSync(
+    message: AutomaticControlSyncMessage,
+  ): Promise<void> {
+    const client = this.client;
+    if (!client?.connected) {
+      throw new Error("MQTT client is not connected.");
+    }
+    const topic = mqttTopics.automaticControl(message.siteId, message.deviceId);
+    await new Promise<void>((resolve, reject) => {
+      client.publish(
+        topic,
+        JSON.stringify(message),
+        { qos: 1, retain: true },
         (error) => (error ? reject(error) : resolve()),
       );
     });

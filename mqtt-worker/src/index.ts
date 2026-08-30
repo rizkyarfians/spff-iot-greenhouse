@@ -6,6 +6,7 @@ import { ScheduleEvaluator } from "./scheduleEvaluator.js";
 import { ScheduleSyncService } from "./scheduleSyncService.js";
 import { config } from "./config.js";
 import { AlarmEvaluator } from "./alarmEvaluator.js";
+import { AutomaticControlSyncService } from "./automaticControlSyncService.js";
 
 const repository = new PostgresIngestionRepository();
 const alarmEvaluator = new AlarmEvaluator(
@@ -22,7 +23,13 @@ const scheduleSyncService = new ScheduleSyncService(
   config.schedule.executionMode,
   config.schedule.syncPollIntervalMs,
 );
+const automaticControlSyncService = new AutomaticControlSyncService(
+  repository,
+  worker,
+  config.automaticControl.syncPollIntervalMs,
+);
 worker.onConnected(() => scheduleSyncService.runOnce(true));
+worker.onConnected(() => automaticControlSyncService.runOnce(true));
 let shuttingDown = false; 
 
 async function shutdown(signal: string) {
@@ -32,6 +39,7 @@ async function shutdown(signal: string) {
   console.log(`[mqtt-worker] Received ${signal}, shutting down.`);
   scheduleEvaluator.stop();
   scheduleSyncService.stop();
+  automaticControlSyncService.stop();
   commandDispatcher.stop();
   alarmEvaluator.stop();
   try {
@@ -64,6 +72,7 @@ void repository
   .then(() => worker.start())
   .then(() => {
     scheduleSyncService.start();
+    automaticControlSyncService.start();
     if (config.schedule.executionMode === "server") {
       scheduleEvaluator.start();
     } else {

@@ -1,5 +1,6 @@
 import {
   decodeJsonMessage,
+  isAutomaticControlAckMessage,
   isActuatorStateMessage,
   isCommandAckMessage,
   isDeviceStatusMessage,
@@ -84,6 +85,15 @@ export class IngestionService {
       matchesTopic(message)
     ) {
       await this.repository.saveScheduleSyncAck(message);
+      return null;
+    }
+
+    if (
+      topicParts.channel === 'ack' &&
+      isAutomaticControlAckMessage(message) &&
+      matchesTopic(message)
+    ) {
+      await this.repository.saveAutomaticControlAck(message);
       return null;
     }
 

@@ -10,6 +10,7 @@ function repositorySpy() {
     saveActuatorState: async (message) => calls.push(['state', message]),
     saveAcknowledgement: async (message) => calls.push(['ack', message]),
     saveScheduleSyncAck: async (message) => calls.push(['schedule_ack', message]),
+    saveAutomaticControlAck: async (message) => calls.push(['automatic_control_ack', message]),
     saveDeviceStatus: async (message) => calls.push(['status', message]),
   };
 }
@@ -65,4 +66,26 @@ test('schedule sync acknowledgement is validated and stored', async () => {
   assert.equal(repository.calls.length, 1);
   assert.equal(repository.calls[0][0], 'schedule_ack');
   assert.equal(repository.calls[0][1].revision, 7);
+});
+
+test('automatic control acknowledgement is validated and stored', async () => {
+  const repository = repositorySpy();
+  const service = new IngestionService(repository);
+  const payload = Buffer.from(JSON.stringify({
+    kind: 'automatic_control_ack',
+    schemaVersion: 1,
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    revision: 9,
+    acknowledgedAt: '2026-08-30T03:00:00.000Z',
+    status: 'applied',
+    appliedMode: 'automatic',
+  }));
+  await service.process(
+    'spff/v1/greenhouse-01/esp32-s3-01/ack',
+    payload,
+  );
+  assert.equal(repository.calls.length, 1);
+  assert.equal(repository.calls[0][0], 'automatic_control_ack');
+  assert.equal(repository.calls[0][1].revision, 9);
 });

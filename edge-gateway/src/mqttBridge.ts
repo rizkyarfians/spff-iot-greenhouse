@@ -1,9 +1,12 @@
 import {
   decodeJsonMessage,
+  isAutomaticControlSyncMessage,
   isPumpCommandMessage,
   isScheduleSyncMessage,
   mqttTopics,
   type ActuatorStateMessage,
+  type AutomaticControlAckMessage,
+  type AutomaticControlSyncMessage,
   type CommandAckMessage,
   type DeviceStatusMessage,
   type PumpCommandMessage,
@@ -19,6 +22,7 @@ export class MqttBridge {
   private client: MqttClient | null = null;
   private commandHandler: ((command: PumpCommandMessage) => Promise<void>) | null = null;
   private scheduleHandler: ((message: ScheduleSyncMessage) => Promise<void>) | null = null;
+  private automaticControlHandler: ((message: AutomaticControlSyncMessage) => Promise<void>) | null = null;
   private connectedHandler: (() => Promise<void>) | null = null;
   private deviceAvailable = false;
   private lastStatus: DeviceStatusMessage | null = null;
@@ -30,12 +34,22 @@ private telemetryPersistedHandler:
     return this.client?.connected === true;
   }
 
+  get lastDeviceMode() {
+    return this.lastStatus?.mode ?? 'manual';
+  }
+
   onCommand(handler: (command: PumpCommandMessage) => Promise<void>) {
     this.commandHandler = handler;
   }
 
   onSchedule(handler: (message: ScheduleSyncMessage) => Promise<void>) {
     this.scheduleHandler = handler;
+  }
+
+  onAutomaticControl(
+    handler: (message: AutomaticControlSyncMessage) => Promise<void>,
+  ) {
+    this.automaticControlHandler = handler;
   }
 
   onConnected(handler: () => Promise<void>) {
@@ -99,6 +113,10 @@ onTelemetryPersisted(
     return this.publish(mqttTopics.acknowledgements(this.config.siteId, this.config.deviceId), message);
   }
 
+  publishAutomaticControlAcknowledgement(message: AutomaticControlAckMessage) {
+    return this.publish(mqttTopics.acknowledgements(this.config.siteId, this.config.deviceId), message);
+  }
+
   publishStatus(message: DeviceStatusMessage) {
     this.lastStatus = message;
     return this.publish(mqttTopics.status(this.config.siteId, this.config.deviceId), message, true);
@@ -109,7 +127,7 @@ onTelemetryPersisted(
     if (this.client.connected) {
       await this.publishStatus({
         ...this.createStatus(false),
-        mode: this.lastStatus?.mode ?? 'automatic',
+        mode: this.lastStatus?.mode ?? 'manual',
         firmwareVersion: this.lastStatus?.firmwareVersion,
       }).catch((error: unknown) => console.error('[mqtt] Failed to publish offline state', error));
     }
@@ -126,7 +144,7 @@ onTelemetryPersisted(
       messageId: `edge-status-${Date.now()}`,
       recordedAt: new Date().toISOString(),
       online,
-      mode: this.lastStatus?.mode ?? 'automatic',
+      mode: this.lastStatus?.mode ?? 'manual',
       firmwareVersion: this.lastStatus?.firmwareVersion,
       systemState: this.lastStatus?.systemState,
       growthPhase: this.lastStatus?.growthPhase,
@@ -154,12 +172,18 @@ onTelemetryPersisted(
           this.config.deviceId,
         ),
       ),
+      this.subscribe(
+        mqttTopics.automaticControl(
+          this.config.siteId,
+          this.config.deviceId,
+        ),
+      ),
     ]);
 
     await this.publishStatus(this.createStatus(this.deviceAvailable));
 
     console.log(`[mqtt] Connected as ${this.config.mqtt.clientId}.`);
-    console.log('[mqtt] Subscribed to command, schedule, and persistence ACK topics.');
+    console.log('[mqtt] Subscribed to command, schedule, automatic-control, and persistence ACK topics.');
   }
 
 private async handleMessage(topic: string, payload: Buffer) {
@@ -213,6 +237,28 @@ private async handleMessage(topic: string, payload: Buffer) {
       }
 
       await this.scheduleHandler(message);
+      return;
+    }
+
+    if (
+      topic === mqttTopics.automaticControl(
+        this.config.siteId,
+        this.config.deviceId,
+      )
+    ) {
+      if (!this.automaticControlHandler) return;
+      if (!isAutomaticControlSyncMessage(message)) {
+        throw new Error(
+          'Automatic-control payload does not match the shared contract.',
+        );
+      }
+      if (
+        message.siteId !== this.config.siteId ||
+        message.deviceId !== this.config.deviceId
+      ) {
+        return;
+      }
+      await this.automaticControlHandler(message);
       return;
     }
 

@@ -88,6 +88,8 @@ export interface CommandAckMessage extends MessageIdentity {
 export type ActuatorReportedState = 'active' | 'inactive' | 'offline' | 'fault';
 export type ScheduleRepeatRule = 'daily' | 'weekdays' | 'weekends' | 'once';
 export type ScheduleExecutionAuthority = 'server' | 'device';
+export type OperatingMode = 'manual' | 'automatic';
+export type MoistureSensorKey = 'soil_1_moisture' | 'soil_2_moisture';
 
 export interface ActuatorStateMessage extends MessageIdentity {
   kind: 'actuator_state';
@@ -105,11 +107,63 @@ export interface DeviceStatusMessage extends MessageIdentity {
   messageId?: string;
   recordedAt: string;
   online: boolean;
-  mode: 'manual' | 'automatic';
+  mode: OperatingMode;
   firmwareVersion?: string;
   systemState?: string;
   growthPhase?: string;
   sensorValid?: boolean;
+}
+
+export interface WaterAutomaticControl {
+  enabled: boolean;
+  sensorKey: MoistureSensorKey;
+  moistureLowPercent: number | null;
+  moistureTargetPercent: number | null;
+  maxRuntimeSeconds: number | null;
+  cooldownSeconds: number | null;
+  minTankLevelPercent: number | null;
+  minFlowLpm: number | null;
+  triggerSampleCount: number;
+  sensorStaleSeconds: number;
+}
+
+export interface FertilizerAutomaticControl {
+  enabled: boolean;
+  sensorKey: 'liquid_ec_us_cm';
+  ecLowUsCm: number | null;
+  ecTargetUsCm: number | null;
+  ecHighUsCm: number | null;
+  dosePulseSeconds: number | null;
+  mixingDelaySeconds: number | null;
+  cooldownSeconds: number | null;
+  maxDoseVolumeL: number | null;
+  maxDailyVolumeL: number | null;
+  minTankLevelPercent: number | null;
+  minFlowLpm: number | null;
+  triggerSampleCount: number;
+  sensorStaleSeconds: number;
+}
+
+export interface AutomaticControlConfig {
+  desiredMode: OperatingMode;
+  water: WaterAutomaticControl;
+  fertilizer: FertilizerAutomaticControl;
+}
+
+export interface AutomaticControlSyncMessage extends MessageIdentity {
+  kind: 'automatic_control_sync';
+  revision: number;
+  generatedAt: string;
+  config: AutomaticControlConfig;
+}
+
+export interface AutomaticControlAckMessage extends MessageIdentity {
+  kind: 'automatic_control_ack';
+  revision: number;
+  acknowledgedAt: string;
+  status: 'applied' | 'rejected';
+  appliedMode: OperatingMode;
+  reason?: string;
 }
 
 export interface DeviceSchedule {
@@ -145,6 +199,7 @@ export type DeviceUplinkMessage =
   | ActuatorStateMessage
   | CommandAckMessage
   | ScheduleSyncAckMessage
+  | AutomaticControlAckMessage
   | DeviceStatusMessage;
 
 const topicPrefix = 'spff/v1';
@@ -162,6 +217,8 @@ export const mqttTopics = {
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/commands`,
   schedules: (siteId: string, deviceId: string) =>
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/schedules`,
+  automaticControl: (siteId: string, deviceId: string) =>
+    `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/automatic-control`,
   acknowledgements: (siteId: string, deviceId: string) =>
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/ack`,
   status: (siteId: string, deviceId: string) =>
@@ -175,13 +232,13 @@ export const mqttTopics = {
 export interface ParsedMqttTopic {
   siteId: string;
   deviceId: string;
-  channel: 'telemetry' | 'state' | 'commands' | 'schedules' | 'ack' | 'status';
+  channel: 'telemetry' | 'state' | 'commands' | 'schedules' | 'automatic-control' | 'ack' | 'status';
 }
 
 export function parseMqttTopic(topic: string): ParsedMqttTopic | null {
   const [namespace, version, siteId, deviceId, channel, extra] = topic.split('/');
   if (namespace !== 'spff' || version !== 'v1' || !siteId || !deviceId || extra) return null;
-  if (!['telemetry', 'state', 'commands', 'schedules', 'ack', 'status'].includes(channel)) return null;
+  if (!['telemetry', 'state', 'commands', 'schedules', 'automatic-control', 'ack', 'status'].includes(channel)) return null;
   return { siteId, deviceId, channel: channel as ParsedMqttTopic['channel'] };
 }
 
@@ -362,6 +419,117 @@ export function isScheduleSyncAckMessage(value: unknown): value is ScheduleSyncA
     (value.storedScheduleCount as number) >= 0 &&
     (value.reason === undefined || typeof value.reason === 'string')
   );
+}
+
+const isNullableFiniteNumber = (value: unknown) =>
+  value === null || (typeof value === 'number' && Number.isFinite(value));
+
+const isNumberInRange = (value: unknown, minimum: number, maximum: number) =>
+  typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum;
+
+const isNullableNumberInRange = (value: unknown, minimum: number, maximum: number) =>
+  value === null || isNumberInRange(value, minimum, maximum);
+
+const isIntegerInRange = (value: unknown, minimum: number, maximum: number) =>
+  Number.isInteger(value) && (value as number) >= minimum && (value as number) <= maximum;
+
+export function isAutomaticControlConfig(value: unknown): value is AutomaticControlConfig {
+  if (!isRecord(value) || !isRecord(value.water) || !isRecord(value.fertilizer)) return false;
+  const water = value.water;
+  const fertilizer = value.fertilizer;
+  const waterNumbers = [
+    water.moistureLowPercent,
+    water.moistureTargetPercent,
+    water.maxRuntimeSeconds,
+    water.cooldownSeconds,
+    water.minTankLevelPercent,
+    water.minFlowLpm,
+  ];
+  const fertilizerNumbers = [
+    fertilizer.ecLowUsCm,
+    fertilizer.ecTargetUsCm,
+    fertilizer.ecHighUsCm,
+    fertilizer.dosePulseSeconds,
+    fertilizer.mixingDelaySeconds,
+    fertilizer.cooldownSeconds,
+    fertilizer.maxDoseVolumeL,
+    fertilizer.maxDailyVolumeL,
+    fertilizer.minTankLevelPercent,
+    fertilizer.minFlowLpm,
+  ];
+  if (
+    (value.desiredMode !== 'manual' && value.desiredMode !== 'automatic') ||
+    typeof water.enabled !== 'boolean' ||
+    !['soil_1_moisture', 'soil_2_moisture'].includes(String(water.sensorKey)) ||
+    !waterNumbers.every(isNullableFiniteNumber) ||
+    !isIntegerInRange(water.triggerSampleCount, 1, 20) ||
+    !isIntegerInRange(water.sensorStaleSeconds, 10, 3600) ||
+    typeof fertilizer.enabled !== 'boolean' ||
+    fertilizer.sensorKey !== 'liquid_ec_us_cm' ||
+    !fertilizerNumbers.every(isNullableFiniteNumber) ||
+    !isIntegerInRange(fertilizer.triggerSampleCount, 1, 20) ||
+    !isIntegerInRange(fertilizer.sensorStaleSeconds, 10, 3600)
+  ) return false;
+
+  if (
+    !isNullableNumberInRange(water.moistureLowPercent, 0, 100) ||
+    !isNullableNumberInRange(water.moistureTargetPercent, 0, 100) ||
+    !isNullableNumberInRange(water.maxRuntimeSeconds, 1, 86400) ||
+    !isNullableNumberInRange(water.cooldownSeconds, 0, 86400) ||
+    !isNullableNumberInRange(water.minTankLevelPercent, 0, 100) ||
+    !isNullableNumberInRange(water.minFlowLpm, 0, 10000) ||
+    !isNullableNumberInRange(fertilizer.ecLowUsCm, 0, 100000) ||
+    !isNullableNumberInRange(fertilizer.ecTargetUsCm, 0, 100000) ||
+    !isNullableNumberInRange(fertilizer.ecHighUsCm, 0, 100000) ||
+    !isNullableNumberInRange(fertilizer.dosePulseSeconds, 1, 3600) ||
+    !isNullableNumberInRange(fertilizer.mixingDelaySeconds, 1, 86400) ||
+    !isNullableNumberInRange(fertilizer.cooldownSeconds, 0, 86400) ||
+    !isNullableNumberInRange(fertilizer.maxDoseVolumeL, 0.001, 100000) ||
+    !isNullableNumberInRange(fertilizer.maxDailyVolumeL, 0.001, 1000000) ||
+    !isNullableNumberInRange(fertilizer.minTankLevelPercent, 0, 100) ||
+    !isNullableNumberInRange(fertilizer.minFlowLpm, 0, 10000)
+  ) return false;
+
+  const waterComplete =
+    isNumberInRange(water.moistureLowPercent, 0, 100) &&
+    isNumberInRange(water.moistureTargetPercent, 0, 100) &&
+    (water.moistureLowPercent as number) < (water.moistureTargetPercent as number) &&
+    isNumberInRange(water.maxRuntimeSeconds, 1, 86400) &&
+    isNumberInRange(water.cooldownSeconds, 0, 86400) &&
+    isNumberInRange(water.minTankLevelPercent, 0, 100) &&
+    isNumberInRange(water.minFlowLpm, 0, 10000);
+  const fertilizerComplete =
+    isNumberInRange(fertilizer.ecLowUsCm, 0, 100000) &&
+    isNumberInRange(fertilizer.ecTargetUsCm, 0, 100000) &&
+    isNumberInRange(fertilizer.ecHighUsCm, 0, 100000) &&
+    (fertilizer.ecLowUsCm as number) < (fertilizer.ecTargetUsCm as number) &&
+    (fertilizer.ecTargetUsCm as number) < (fertilizer.ecHighUsCm as number) &&
+    isNumberInRange(fertilizer.dosePulseSeconds, 1, 3600) &&
+    isNumberInRange(fertilizer.mixingDelaySeconds, 1, 86400) &&
+    isNumberInRange(fertilizer.cooldownSeconds, 0, 86400) &&
+    isNumberInRange(fertilizer.maxDoseVolumeL, 0.001, 100000) &&
+    isNumberInRange(fertilizer.maxDailyVolumeL, 0.001, 1000000) &&
+    (fertilizer.maxDoseVolumeL as number) <= (fertilizer.maxDailyVolumeL as number) &&
+    isNumberInRange(fertilizer.minTankLevelPercent, 0, 100) &&
+    isNumberInRange(fertilizer.minFlowLpm, 0, 10000);
+
+  if ((water.enabled && !waterComplete) || (fertilizer.enabled && !fertilizerComplete)) return false;
+  return value.desiredMode !== 'automatic' || water.enabled || fertilizer.enabled;
+}
+
+export function isAutomaticControlSyncMessage(value: unknown): value is AutomaticControlSyncMessage {
+  return isRecord(value) && hasIdentity(value) && value.kind === 'automatic_control_sync' &&
+    Number.isSafeInteger(value.revision) && (value.revision as number) >= 1 &&
+    isIsoDate(value.generatedAt) && isAutomaticControlConfig(value.config);
+}
+
+export function isAutomaticControlAckMessage(value: unknown): value is AutomaticControlAckMessage {
+  return isRecord(value) && hasIdentity(value) && value.kind === 'automatic_control_ack' &&
+    Number.isSafeInteger(value.revision) && (value.revision as number) >= 1 &&
+    isIsoDate(value.acknowledgedAt) &&
+    (value.status === 'applied' || value.status === 'rejected') &&
+    (value.appliedMode === 'manual' || value.appliedMode === 'automatic') &&
+    (value.reason === undefined || typeof value.reason === 'string');
 }
 
 export type ApiSensorStatus = 'good' | 'warning' | 'critical' | 'offline';
@@ -573,6 +741,24 @@ export interface ApiSettings {
   autoSchedule: boolean;
 }
 
+export interface ApiAutomaticControl extends AutomaticControlConfig {
+  siteId: string;
+  deviceId: string;
+  revision: number;
+  actualMode: OperatingMode | null;
+  publishedRevision: number | null;
+  publishedAt: string | null;
+  acknowledgedRevision: number | null;
+  acknowledgementStatus: 'applied' | 'rejected' | null;
+  acknowledgedAt: string | null;
+  acknowledgementReason: string | null;
+  appliedMode: OperatingMode | null;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export type ApiAutomaticControlUpdateRequest = AutomaticControlConfig;
+
 export interface ApiActuatorLog {
   actuatorStateId: string;
   recordedAt: string;
@@ -617,6 +803,7 @@ export interface BootstrapData {
   actuatorLog: ApiActuatorLog[];
   schedules: ApiSchedule[];
   settings: ApiSettings | null;
+  automaticControl: ApiAutomaticControl | null;
 }
 
 export interface ApiPumpCommandRequest {

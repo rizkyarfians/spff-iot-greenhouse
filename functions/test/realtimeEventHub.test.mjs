@@ -70,6 +70,19 @@ test('accepts an alarm incident notification', () => {
   assert.equal(event?.messageId, '42');
 });
 
+test('accepts an automatic control revision notification', () => {
+  const event = parseRealtimeEvent(JSON.stringify({
+    type: 'automatic_control.updated',
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    messageId: '3',
+    recordedAt: '2026-08-30T10:00:00.000Z',
+    receivedAt: '2026-08-30T10:00:00.010Z',
+  }));
+  assert.equal(event?.type, 'automatic_control.updated');
+  assert.equal(event?.messageId, '3');
+});
+
 
 test('rejects malformed or unsupported notifications', () => {
   assert.equal(parseRealtimeEvent(undefined), null);

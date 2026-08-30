@@ -1,9 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { HistoryBucket, ScheduleRepeatRule } from '@spff/contracts';
-import { selectedCropInputSchema } from '@spff/contracts';
+import { isAutomaticControlConfig, selectedCropInputSchema } from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
 import {
   ActuatorBusyError,
+  AutomaticModeConflictError,
   CommandIdConflictError,
   configuredSiteId,
   repository,
@@ -252,6 +253,13 @@ export const updatePump = run(async (req, res) => {
     }
     return ok(res, pump, `${pump.name} masuk antrean command dan menunggu ACK aktual.`);
   } catch (error) {
+    if (error instanceof AutomaticModeConflictError) {
+      return res.status(409).json({
+        success: false,
+        message: 'Command ON manual dikunci saat mode otomatis aktif. Command OFF darurat tetap diizinkan.',
+        errors: ['automaticMode'],
+      });
+    }
     if (error instanceof ActuatorBusyError) {
       return res.status(409).json({
         success: false,
@@ -450,4 +458,39 @@ export const updateSettings = run(async (req, res) => {
   const settings = await repository.updateSettings(input);
   if (!settings) return res.status(404).json({ success: false, message: 'Site tidak ditemukan.', errors: [] });
   return ok(res, settings, 'Pengaturan tersimpan di PostgreSQL.');
+});
+
+export const getAutomaticControl = run(async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return ok(
+    res,
+    await repository.automaticControl(),
+    'Konfigurasi kontrol otomatis berhasil dimuat.',
+  );
+});
+
+export const updateAutomaticControl = run(async (req, res) => {
+  if (!isAutomaticControlConfig(req.body)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Konfigurasi kontrol otomatis tidak lengkap atau tidak valid.',
+      errors: ['automaticControl'],
+    });
+  }
+  const config = await repository.updateAutomaticControl(
+    req.body,
+    requestActor(req),
+  );
+  if (!config) {
+    return res.status(404).json({
+      success: false,
+      message: 'Tidak ada device aktif untuk menerima konfigurasi.',
+      errors: [],
+    });
+  }
+  return ok(
+    res,
+    config,
+    'Konfigurasi tersimpan dan menunggu ACK penerapan dari ESP32.',
+  );
 });

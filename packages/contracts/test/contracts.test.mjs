@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isActuatorStateMessage,
+  isAutomaticControlAckMessage,
+  isAutomaticControlConfig,
+  isAutomaticControlSyncMessage,
   isCommandAckMessage,
   isPumpCommandMessage,
   isScheduleSyncAckMessage,
@@ -112,5 +115,80 @@ test('schedule sync acknowledgement validates revision and stored count', () => 
   assert.equal(isScheduleSyncAckMessage({
     ...acknowledgement,
     storedScheduleCount: -1,
+  }), false);
+});
+
+test('automatic control validates hysteresis, EC ordering, and MQTT topic', () => {
+  const config = {
+    desiredMode: 'automatic',
+    water: {
+      enabled: true,
+      sensorKey: 'soil_1_moisture',
+      moistureLowPercent: 35,
+      moistureTargetPercent: 55,
+      maxRuntimeSeconds: 900,
+      cooldownSeconds: 300,
+      minTankLevelPercent: 20,
+      minFlowLpm: 0.1,
+      triggerSampleCount: 3,
+      sensorStaleSeconds: 120,
+    },
+    fertilizer: {
+      enabled: false,
+      sensorKey: 'liquid_ec_us_cm',
+      ecLowUsCm: null,
+      ecTargetUsCm: null,
+      ecHighUsCm: null,
+      dosePulseSeconds: null,
+      mixingDelaySeconds: null,
+      cooldownSeconds: null,
+      maxDoseVolumeL: null,
+      maxDailyVolumeL: null,
+      minTankLevelPercent: null,
+      minFlowLpm: null,
+      triggerSampleCount: 3,
+      sensorStaleSeconds: 120,
+    },
+  };
+  const message = {
+    kind: 'automatic_control_sync',
+    schemaVersion: 1,
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    revision: 2,
+    generatedAt: '2026-08-30T03:00:00.000Z',
+    config,
+  };
+  assert.equal(isAutomaticControlConfig(config), true);
+  assert.equal(isAutomaticControlSyncMessage(message), true);
+  assert.equal(isAutomaticControlConfig({
+    ...config,
+    water: { ...config.water, moistureTargetPercent: 30 },
+  }), false);
+  assert.deepEqual(
+    parseMqttTopic(mqttTopics.automaticControl('greenhouse-01', 'esp32-s3-01')),
+    {
+      siteId: 'greenhouse-01',
+      deviceId: 'esp32-s3-01',
+      channel: 'automatic-control',
+    },
+  );
+});
+
+test('automatic control acknowledgement requires applied mode', () => {
+  const acknowledgement = {
+    kind: 'automatic_control_ack',
+    schemaVersion: 1,
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    revision: 2,
+    acknowledgedAt: '2026-08-30T03:00:01.000Z',
+    status: 'applied',
+    appliedMode: 'automatic',
+  };
+  assert.equal(isAutomaticControlAckMessage(acknowledgement), true);
+  assert.equal(isAutomaticControlAckMessage({
+    ...acknowledgement,
+    appliedMode: 'unknown',
   }), false);
 });

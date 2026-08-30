@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/pro
 import path from 'node:path';
 import type {
   ActuatorStateMessage,
+  AutomaticControlAckMessage,
   CommandAckMessage,
   DeviceStatusMessage,
   ScheduleSyncAckMessage,
@@ -14,6 +15,7 @@ export type OutboxRecord =
   | { kind: 'state'; payload: ActuatorStateMessage }
   | { kind: 'ack'; payload: CommandAckMessage }
   | { kind: 'schedule_ack'; payload: ScheduleSyncAckMessage }
+  | { kind: 'automatic_control_ack'; payload: AutomaticControlAckMessage }
   | { kind: 'status'; payload: DeviceStatusMessage };
 
 export class DurableOutbox {

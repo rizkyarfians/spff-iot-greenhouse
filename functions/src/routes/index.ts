@@ -29,6 +29,7 @@ import {
   deleteSchedule,
   getAlarms,
   getAlarmDetail,
+  getAutomaticControl,
   getDevices,
   getHistory,
   getLatestTelemetry,
@@ -43,6 +44,7 @@ import {
   setScheduleEnabled,
   streamEvents,
   updatePump,
+  updateAutomaticControl,
   updateSmartSoilSelection,
   updateSettings,
 } from '../controllers/dashboardController.js';
@@ -315,6 +317,23 @@ apiRouter.put(
   requireAdmin,
   requireCsrf,
   updateSettings,
+);
+
+
+/*
+ * AUTOMATIC CONTROL
+ * Read untuk semua user login; modifikasi admin only.
+ */
+apiRouter.get(
+  '/automatic-control',
+  getAutomaticControl,
+);
+
+apiRouter.put(
+  '/automatic-control',
+  requireAdmin,
+  requireCsrf,
+  updateAutomaticControl,
 );
 
 

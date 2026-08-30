@@ -30,6 +30,7 @@ import {
   fetchAlarmDetail,
   fetchAlarms,
   resolveAlarm as resolveAlarmRequest,
+  saveAutomaticControl as saveAutomaticControlRequest,
   saveSettings as saveSettingsRequest,
   setScheduleEnabled as setScheduleEnabledRequest,
   updateActuator,
@@ -39,6 +40,8 @@ import type {
   ApiAlarm,
   ApiAlarmDetail,
   ApiAlarmEvent,
+  ApiAutomaticControl,
+  ApiAutomaticControlUpdateRequest,
   ApiSettings,
   BootstrapData,
   ConnectionState,
@@ -546,6 +549,93 @@ Record<
     'Satu Kali',
 }
 
+const defaultAutomaticControl: ApiAutomaticControlUpdateRequest = {
+  desiredMode: 'manual',
+  water: {
+    enabled: false,
+    sensorKey: 'soil_1_moisture',
+    moistureLowPercent: null,
+    moistureTargetPercent: null,
+    maxRuntimeSeconds: null,
+    cooldownSeconds: null,
+    minTankLevelPercent: null,
+    minFlowLpm: null,
+    triggerSampleCount: 3,
+    sensorStaleSeconds: 120,
+  },
+  fertilizer: {
+    enabled: false,
+    sensorKey: 'liquid_ec_us_cm',
+    ecLowUsCm: null,
+    ecTargetUsCm: null,
+    ecHighUsCm: null,
+    dosePulseSeconds: null,
+    mixingDelaySeconds: null,
+    cooldownSeconds: null,
+    maxDoseVolumeL: null,
+    maxDailyVolumeL: null,
+    minTankLevelPercent: null,
+    minFlowLpm: null,
+    triggerSampleCount: 3,
+    sensorStaleSeconds: 120,
+  },
+}
+
+const automaticControlDraft = (
+  value: ApiAutomaticControl | null | undefined,
+): ApiAutomaticControlUpdateRequest => value
+  ? {
+      desiredMode: value.desiredMode,
+      water: { ...value.water },
+      fertilizer: { ...value.fertilizer },
+    }
+  : {
+      desiredMode: defaultAutomaticControl.desiredMode,
+      water: { ...defaultAutomaticControl.water },
+      fertilizer: { ...defaultAutomaticControl.fertilizer },
+    }
+
+function AutomaticNumberField({
+  label,
+  value,
+  unit,
+  min = 0,
+  max,
+  step = 1,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: number | null
+  unit: string
+  min?: number
+  max?: number
+  step?: number
+  disabled: boolean
+  onChange: (value: number | null) => void
+}) {
+  return (
+    <label className="automatic-field">
+      <span>{label}</span>
+      <span className="automatic-input-wrap">
+        <input
+          type="number"
+          value={value ?? ''}
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          onChange={(event) => {
+            const next = event.target.value
+            onChange(next === '' ? null : Number(next))
+          }}
+        />
+        <small>{unit}</small>
+      </span>
+    </label>
+  )
+}
+
 
 function ControlsPage({
   data,
@@ -564,6 +654,18 @@ function ControlsPage({
     setCommandNotice,
   ] =
     useState('')
+
+  const [
+    automaticDraft,
+    setAutomaticDraft,
+  ] = useState<ApiAutomaticControlUpdateRequest>(
+    () => automaticControlDraft(data?.automaticControl),
+  )
+
+  const [
+    savingAutomatic,
+    setSavingAutomatic,
+  ] = useState(false)
 
 
   const [
@@ -645,6 +747,34 @@ function ControlsPage({
     data?.devices[0]
       ?.mode ?? null
 
+  const automaticControl =
+    data?.automaticControl ?? null
+
+  const desiredMode =
+    automaticControl?.desiredMode
+    ?? automaticDraft.desiredMode
+
+  const automaticModeRequested =
+    desiredMode === 'automatic'
+    || mode === 'automatic'
+
+  const automaticApplied =
+    automaticControl !== null
+    && automaticControl.acknowledgedRevision === automaticControl.revision
+    && automaticControl.acknowledgementStatus === 'applied'
+    && automaticControl.appliedMode === automaticControl.desiredMode
+
+  useEffect(
+    () => {
+      setAutomaticDraft(
+        automaticControlDraft(data?.automaticControl),
+      )
+    },
+    [
+      data?.automaticControl,
+    ],
+  )
+
 
   useEffect(
     () => {
@@ -707,6 +837,75 @@ function ControlsPage({
     )
   }
 
+  const updateWater = (
+    patch: Partial<ApiAutomaticControlUpdateRequest['water']>,
+  ) => {
+    setAutomaticDraft((current) => ({
+      ...current,
+      water: {
+        ...current.water,
+        ...patch,
+      },
+    }))
+  }
+
+  const updateFertilizer = (
+    patch: Partial<ApiAutomaticControlUpdateRequest['fertilizer']>,
+  ) => {
+    setAutomaticDraft((current) => ({
+      ...current,
+      fertilizer: {
+        ...current.fertilizer,
+        ...patch,
+      },
+    }))
+  }
+
+  const saveAutomatic = async (
+    next: ApiAutomaticControlUpdateRequest = automaticDraft,
+  ) => {
+    if (!isAdmin || savingAutomatic) return
+    if (
+      next.desiredMode === 'automatic'
+      && !next.water.enabled
+      && !next.fertilizer.enabled
+    ) {
+      setCommandNotice(
+        'Aktifkan dan lengkapi minimal satu profil sebelum memilih mode otomatis.',
+      )
+      return
+    }
+    setSavingAutomatic(true)
+    setCommandNotice('Menyimpan konfigurasi kontrol otomatis...')
+    try {
+      const saved = await saveAutomaticControlRequest(next)
+      setAutomaticDraft(automaticControlDraft(saved))
+      setCommandNotice(
+        'Konfigurasi tersimpan. Menunggu ESP32 menerapkan revision dan mengirim ACK.',
+      )
+      onRefresh()
+    } catch (error) {
+      setCommandNotice(
+        error instanceof Error
+          ? error.message
+          : 'Konfigurasi kontrol otomatis gagal disimpan.',
+      )
+    } finally {
+      setSavingAutomatic(false)
+    }
+  }
+
+  const selectMode = (
+    desiredMode: ApiAutomaticControlUpdateRequest['desiredMode'],
+  ) => {
+    const next = {
+      ...automaticDraft,
+      desiredMode,
+    }
+    setAutomaticDraft(next)
+    void saveAutomatic(next)
+  }
+
 
   const setAll =
     async (
@@ -716,6 +915,13 @@ function ControlsPage({
         connectionState
         !== 'connected'
       ) {
+        return
+      }
+
+      if (active && automaticModeRequested) {
+        setCommandNotice(
+          'Command ON manual dikunci saat mode otomatis diminta atau sedang aktif.',
+        )
         return
       }
 
@@ -792,6 +998,13 @@ function ControlsPage({
         return
       }
 
+      if (!target.isActive && automaticModeRequested) {
+        setCommandNotice(
+          'Command ON manual dikunci saat mode otomatis diminta atau sedang aktif.',
+        )
+        return
+      }
+
 
       setCommandNotice(
         `Menyimpan command ${target.name}...`,
@@ -837,6 +1050,13 @@ function ControlsPage({
           'Hanya admin yang dapat menambah jadwal.',
         )
 
+        return
+      }
+
+      if (automaticModeRequested) {
+        setCommandNotice(
+          'Penjadwalan langsung dinonaktifkan saat mode otomatis agar tidak konflik dengan closed-loop ESP32.',
+        )
         return
       }
 
@@ -920,6 +1140,13 @@ function ControlsPage({
           'Hanya admin yang dapat mengubah jadwal.',
         )
 
+        return
+      }
+
+      if (automaticModeRequested && !enabled) {
+        setCommandNotice(
+          'Jadwal tidak dapat diaktifkan saat mode otomatis.',
+        )
         return
       }
 
@@ -1007,40 +1234,61 @@ function ControlsPage({
 
           <p>
             {
-              mode === 'automatic'
-                ? 'ESP32 melaporkan mode otomatis.'
-                : mode === 'manual'
-                  ? 'ESP32 melaporkan mode manual.'
-                  : 'Belum ada mode aktual dari ESP32.'
+              `Diminta: ${desiredMode === 'automatic' ? 'otomatis' : 'manual'} - Aktual ESP32: ${
+                mode === 'automatic'
+                  ? 'otomatis'
+                  : mode === 'manual'
+                    ? 'manual'
+                    : 'belum tersedia'
+              }`
             }
           </p>
+          <span className={automaticApplied ? 'sync-state is-applied' : 'sync-state'}>
+            {
+              automaticApplied
+                ? `Revision ${automaticControl?.revision} diterapkan`
+                : automaticControl?.acknowledgementStatus === 'rejected'
+                  ? `Ditolak ESP32: ${automaticControl.acknowledgementReason ?? 'tanpa alasan'}`
+                  : 'Menunggu ACK konfigurasi ESP32'
+            }
+          </span>
         </div>
 
 
         <div
           className="segmented-control"
-          aria-label="Mode operasi aktual dari perangkat"
+          aria-label="Pilih mode operasi yang diinginkan"
         >
           <button
             className={
-              mode === 'automatic'
+              desiredMode === 'automatic'
                 ? 'is-selected'
                 : ''
             }
             type="button"
-            disabled
+            onClick={() => selectMode('automatic')}
+            disabled={
+              !isAdmin
+              || savingAutomatic
+              || connectionState !== 'connected'
+            }
           >
             Otomatis
           </button>
 
           <button
             className={
-              mode === 'manual'
+              desiredMode === 'manual'
                 ? 'is-selected'
                 : ''
             }
             type="button"
-            disabled
+            onClick={() => selectMode('manual')}
+            disabled={
+              !isAdmin
+              || savingAutomatic
+              || connectionState !== 'connected'
+            }
           >
             Manual
           </button>
@@ -1071,10 +1319,278 @@ function ControlsPage({
             disabled={
               connectionState
               !== 'connected'
+              || automaticModeRequested
             }
           >
             Aktifkan Semua
           </button>
+        </div>
+      </div>
+
+      <div className="automatic-control-card page-card">
+        <div className="automatic-control-header">
+          <div>
+            <h2>Parameter Kontrol Otomatis</h2>
+            <p>
+              Threshold agronomi tidak diisi default. Simpan nilai hasil kesepakatan tim agronomi,
+              lalu pilih mode Otomatis.
+            </p>
+          </div>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => void saveAutomatic()}
+            disabled={
+              !isAdmin
+              || savingAutomatic
+              || connectionState !== 'connected'
+            }
+          >
+            {savingAutomatic ? 'Menyimpan...' : 'Simpan Parameter'}
+          </button>
+        </div>
+
+        <div className="automatic-profile-grid">
+          <section className="automatic-profile">
+            <div className="automatic-profile-heading">
+              <div>
+                <strong>Pompa Air</strong>
+                <small>Hysteresis kelembapan tanah</small>
+              </div>
+              <label className="automatic-enable">
+                <input
+                  type="checkbox"
+                  checked={automaticDraft.water.enabled}
+                  disabled={!isAdmin}
+                  onChange={(event) => updateWater({ enabled: event.target.checked })}
+                />
+                Aktif
+              </label>
+            </div>
+
+            <label className="automatic-field">
+              <span>Sensor utama</span>
+              <select
+                value={automaticDraft.water.sensorKey}
+                disabled={!isAdmin}
+                onChange={(event) => updateWater({
+                  sensorKey: event.target.value === 'soil_2_moisture'
+                    ? 'soil_2_moisture'
+                    : 'soil_1_moisture',
+                })}
+              >
+                <option value="soil_1_moisture">Kelembapan Tanah 1</option>
+                <option value="soil_2_moisture">Kelembapan Tanah 2</option>
+              </select>
+            </label>
+
+            <div className="automatic-fields">
+              <AutomaticNumberField
+                label="Minimum (pompa ON)"
+                value={automaticDraft.water.moistureLowPercent}
+                unit="%"
+                max={100}
+                step={0.1}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ moistureLowPercent: value })}
+              />
+              <AutomaticNumberField
+                label="Target (pompa OFF)"
+                value={automaticDraft.water.moistureTargetPercent}
+                unit="%"
+                max={100}
+                step={0.1}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ moistureTargetPercent: value })}
+              />
+              <AutomaticNumberField
+                label="Max runtime"
+                value={automaticDraft.water.maxRuntimeSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ maxRuntimeSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Cooldown"
+                value={automaticDraft.water.cooldownSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ cooldownSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Minimum level tangki"
+                value={automaticDraft.water.minTankLevelPercent}
+                unit="%"
+                max={100}
+                step={0.1}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ minTankLevelPercent: value })}
+              />
+              <AutomaticNumberField
+                label="Minimum debit"
+                value={automaticDraft.water.minFlowLpm}
+                unit="L/min"
+                max={10000}
+                step={0.01}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ minFlowLpm: value })}
+              />
+              <AutomaticNumberField
+                label="Sampel pemicu"
+                value={automaticDraft.water.triggerSampleCount}
+                unit="sampel"
+                min={1}
+                max={20}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ triggerSampleCount: value ?? 3 })}
+              />
+              <AutomaticNumberField
+                label="Batas data basi"
+                value={automaticDraft.water.sensorStaleSeconds}
+                unit="detik"
+                min={10}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ sensorStaleSeconds: value ?? 120 })}
+              />
+            </div>
+          </section>
+
+          <section className="automatic-profile">
+            <div className="automatic-profile-heading">
+              <div>
+                <strong>Pompa Pupuk</strong>
+                <small>Pulse dosing closed-loop EC larutan</small>
+              </div>
+              <label className="automatic-enable">
+                <input
+                  type="checkbox"
+                  checked={automaticDraft.fertilizer.enabled}
+                  disabled={!isAdmin}
+                  onChange={(event) => updateFertilizer({ enabled: event.target.checked })}
+                />
+                Aktif
+              </label>
+            </div>
+
+            <label className="automatic-field">
+              <span>Sensor utama</span>
+              <select value="liquid_ec_us_cm" disabled>
+                <option value="liquid_ec_us_cm">EC Larutan</option>
+              </select>
+            </label>
+
+            <div className="automatic-fields">
+              <AutomaticNumberField
+                label="EC minimum (mulai dosis)"
+                value={automaticDraft.fertilizer.ecLowUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecLowUsCm: value })}
+              />
+              <AutomaticNumberField
+                label="EC target (stop)"
+                value={automaticDraft.fertilizer.ecTargetUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecTargetUsCm: value })}
+              />
+              <AutomaticNumberField
+                label="EC maksimum"
+                value={automaticDraft.fertilizer.ecHighUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecHighUsCm: value })}
+              />
+              <AutomaticNumberField
+                label="Durasi pulse"
+                value={automaticDraft.fertilizer.dosePulseSeconds}
+                unit="detik"
+                min={1}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ dosePulseSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Waktu mixing"
+                value={automaticDraft.fertilizer.mixingDelaySeconds}
+                unit="detik"
+                min={1}
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ mixingDelaySeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Cooldown"
+                value={automaticDraft.fertilizer.cooldownSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ cooldownSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Maksimum per pulse"
+                value={automaticDraft.fertilizer.maxDoseVolumeL}
+                unit="L"
+                min={0.001}
+                max={100000}
+                step={0.001}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ maxDoseVolumeL: value })}
+              />
+              <AutomaticNumberField
+                label="Maksimum per hari"
+                value={automaticDraft.fertilizer.maxDailyVolumeL}
+                unit="L"
+                min={0.001}
+                max={1000000}
+                step={0.001}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ maxDailyVolumeL: value })}
+              />
+              <AutomaticNumberField
+                label="Minimum level tangki"
+                value={automaticDraft.fertilizer.minTankLevelPercent}
+                unit="%"
+                max={100}
+                step={0.1}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ minTankLevelPercent: value })}
+              />
+              <AutomaticNumberField
+                label="Minimum debit"
+                value={automaticDraft.fertilizer.minFlowLpm}
+                unit="L/min"
+                max={10000}
+                step={0.01}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ minFlowLpm: value })}
+              />
+              <AutomaticNumberField
+                label="Sampel pemicu"
+                value={automaticDraft.fertilizer.triggerSampleCount}
+                unit="sampel"
+                min={1}
+                max={20}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ triggerSampleCount: value ?? 3 })}
+              />
+              <AutomaticNumberField
+                label="Batas data basi"
+                value={automaticDraft.fertilizer.sensorStaleSeconds}
+                unit="detik"
+                min={10}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ sensorStaleSeconds: value ?? 120 })}
+              />
+            </div>
+          </section>
         </div>
       </div>
 
@@ -1167,6 +1683,10 @@ function ControlsPage({
                         control.pending
                         || connectionState
                           !== 'connected'
+                        || (
+                          automaticModeRequested
+                          && !control.isActive
+                        )
                       }
                     >
                       <span />
@@ -1519,6 +2039,7 @@ function ControlsPage({
               || controls.length === 0
               || connectionState
                 !== 'connected'
+              || automaticModeRequested
             }
           >
             <Plus
@@ -1660,7 +2181,13 @@ function ControlsPage({
                               schedule.enabled,
                             )
                           }
-                          disabled={!isAdmin}
+                          disabled={
+                            !isAdmin
+                            || (
+                              automaticModeRequested
+                              && !schedule.enabled
+                            )
+                          }
                         >
                           <span />
                         </button>

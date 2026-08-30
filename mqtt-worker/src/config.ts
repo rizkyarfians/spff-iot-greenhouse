@@ -89,6 +89,12 @@ export const config = {
     lookbackSeconds: numberFromEnvironment("SCHEDULE_LOOKBACK_SECONDS", 120),
     commandExpirySeconds: numberFromEnvironment("COMMAND_EXPIRY_SECONDS", 30),
   },
+  automaticControl: {
+    syncPollIntervalMs: numberFromEnvironment(
+      "AUTOMATIC_CONTROL_SYNC_POLL_INTERVAL_MS",
+      1_000,
+    ),
+  },
   alarm: {
     pollIntervalMs: numberFromEnvironment("ALARM_POLL_INTERVAL_MS", 15_000),
   },

@@ -8,6 +8,7 @@ import {
   recommendCrops,
 } from '@spff/contracts';
 import type {
+  ApiAutomaticControl,
   ApiActuator,
   ApiActuatorLog,
   ApiAlarm,
@@ -21,6 +22,7 @@ import type {
   ApiSettings,
   ApiSystemLog,
   ApiTelemetrySnapshot,
+  AutomaticControlConfig,
   BootstrapData,
   HistoryBucket,
   SelectedCropInput,
@@ -77,6 +79,7 @@ export type CreateScheduleInput = {
 };
 
 export type SiteSettingsInput = ApiSettings;
+export type AutomaticControlInput = AutomaticControlConfig;
 
 export type HistoryQuery = {
   from?: Date;
@@ -97,6 +100,13 @@ export class CommandIdConflictError extends Error {
   constructor(public readonly commandId: string) {
     super(`Command ID ${commandId} already exists with a different target or parameter.`);
     this.name = 'CommandIdConflictError';
+  }
+}
+
+export class AutomaticModeConflictError extends Error {
+  constructor() {
+    super('Manual ON command is blocked while automatic mode is requested.');
+    this.name = 'AutomaticModeConflictError';
   }
 }
 
@@ -146,6 +156,8 @@ async function readiness() {
             to_regclass('spff.device_schedule_sync_state') IS NOT NULL AS schedule_sync_ready,
             to_regclass('spff.schedule_sync_ack_events') IS NOT NULL AS schedule_sync_ack_ready,
             to_regclass('spff.site_settings') IS NOT NULL AS settings_ready,
+            to_regclass('spff.device_automatic_control_configs') IS NOT NULL AS automatic_control_ready,
+            to_regclass('spff.automatic_control_ack_events') IS NOT NULL AS automatic_control_ack_ready,
             to_regclass('spff.cloud_outbox') IS NOT NULL AS outbox_ready,
             to_regprocedure('spff.notify_realtime_event()') IS NOT NULL
               AND EXISTS (
@@ -179,6 +191,8 @@ async function readiness() {
     scheduleSyncState: Boolean(row.schedule_sync_ready),
     scheduleSyncAcknowledgements: Boolean(row.schedule_sync_ack_ready),
     settings: Boolean(row.settings_ready),
+    automaticControl: Boolean(row.automatic_control_ready),
+    automaticControlAcknowledgements: Boolean(row.automatic_control_ack_ready),
     transactionalOutbox: Boolean(row.outbox_ready),
     realtimeNotifications: Boolean(row.realtime_ready),
   };
@@ -478,6 +492,19 @@ async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: s
         updatedAt: toIso(existing.issued_at),
         expiresAt: toIso(existing.expires_at),
       };
+    }
+
+    if (isActive) {
+      const automaticMode = await client.query(
+        `SELECT 1
+         FROM spff.device_automatic_control_configs
+         WHERE site_id = $1
+           AND device_id = $2
+           AND desired_mode = 'automatic'
+         LIMIT 1`,
+        [siteId, actuator.device_id],
+      );
+      if (automaticMode.rows[0]) throw new AutomaticModeConflictError();
     }
 
     const inFlight = await client.query(
@@ -1154,6 +1181,162 @@ async function updateSettings(input: SiteSettingsInput) {
   }
 }
 
+const automaticControlSelect = `
+  SELECT config.*,
+         status.mode AS actual_mode
+  FROM spff.device_automatic_control_configs config
+  LEFT JOIN spff.latest_device_status status
+    ON status.site_id = config.site_id
+   AND status.device_id = config.device_id
+`;
+
+const mapAutomaticControl = (row: Record<string, unknown>): ApiAutomaticControl => ({
+  siteId: String(row.site_id),
+  deviceId: String(row.device_id),
+  revision: Number(row.revision),
+  desiredMode: row.desired_mode as ApiAutomaticControl['desiredMode'],
+  actualMode: (row.actual_mode ?? null) as ApiAutomaticControl['actualMode'],
+  water: {
+    enabled: Boolean(row.water_enabled),
+    sensorKey: row.water_sensor_key as ApiAutomaticControl['water']['sensorKey'],
+    moistureLowPercent: toNumber(row.water_moisture_low_pct),
+    moistureTargetPercent: toNumber(row.water_moisture_target_pct),
+    maxRuntimeSeconds: toNumber(row.water_max_runtime_seconds),
+    cooldownSeconds: toNumber(row.water_cooldown_seconds),
+    minTankLevelPercent: toNumber(row.water_min_tank_level_pct),
+    minFlowLpm: toNumber(row.water_min_flow_lpm),
+    triggerSampleCount: Number(row.water_trigger_sample_count),
+    sensorStaleSeconds: Number(row.water_sensor_stale_seconds),
+  },
+  fertilizer: {
+    enabled: Boolean(row.fertilizer_enabled),
+    sensorKey: 'liquid_ec_us_cm',
+    ecLowUsCm: toNumber(row.fertilizer_ec_low_us_cm),
+    ecTargetUsCm: toNumber(row.fertilizer_ec_target_us_cm),
+    ecHighUsCm: toNumber(row.fertilizer_ec_high_us_cm),
+    dosePulseSeconds: toNumber(row.fertilizer_dose_pulse_seconds),
+    mixingDelaySeconds: toNumber(row.fertilizer_mixing_delay_seconds),
+    cooldownSeconds: toNumber(row.fertilizer_cooldown_seconds),
+    maxDoseVolumeL: toNumber(row.fertilizer_max_dose_volume_l),
+    maxDailyVolumeL: toNumber(row.fertilizer_max_daily_volume_l),
+    minTankLevelPercent: toNumber(row.fertilizer_min_tank_level_pct),
+    minFlowLpm: toNumber(row.fertilizer_min_flow_lpm),
+    triggerSampleCount: Number(row.fertilizer_trigger_sample_count),
+    sensorStaleSeconds: Number(row.fertilizer_sensor_stale_seconds),
+  },
+  publishedRevision: toNumber(row.published_revision),
+  publishedAt: toIso(row.published_at as Date | string | null),
+  acknowledgedRevision: toNumber(row.acknowledged_revision),
+  acknowledgementStatus: (row.acknowledgement_status ?? null) as ApiAutomaticControl['acknowledgementStatus'],
+  acknowledgedAt: toIso(row.acknowledged_at as Date | string | null),
+  acknowledgementReason: (row.acknowledgement_reason ?? null) as string | null,
+  appliedMode: (row.applied_mode ?? null) as ApiAutomaticControl['appliedMode'],
+  updatedBy: String(row.updated_by),
+  updatedAt: toRequiredIso(row.updated_at as Date | string, 'automatic control updated_at'),
+});
+
+async function automaticControl(): Promise<ApiAutomaticControl | null> {
+  const result = await pool.query(
+    `${automaticControlSelect}
+     WHERE config.site_id = $1
+     ORDER BY config.device_id
+     LIMIT 1`,
+    [siteId],
+  );
+  return result.rows[0] ? mapAutomaticControl(result.rows[0]) : null;
+}
+
+async function updateAutomaticControl(
+  input: AutomaticControlInput,
+  updatedBy: string,
+): Promise<ApiAutomaticControl | null> {
+  const deviceResult = await pool.query(
+    `SELECT device_id
+     FROM spff.devices
+     WHERE site_id = $1 AND enabled = true
+     ORDER BY device_id
+     LIMIT 1`,
+    [siteId],
+  );
+  const deviceId = deviceResult.rows[0]?.device_id as string | undefined;
+  if (!deviceId) return null;
+
+  await pool.query(
+    `INSERT INTO spff.device_automatic_control_configs (
+       site_id, device_id, desired_mode,
+       water_enabled, water_sensor_key, water_moisture_low_pct,
+       water_moisture_target_pct, water_max_runtime_seconds,
+       water_cooldown_seconds, water_min_tank_level_pct,
+       water_min_flow_lpm, water_trigger_sample_count,
+       water_sensor_stale_seconds,
+       fertilizer_enabled, fertilizer_sensor_key,
+       fertilizer_ec_low_us_cm, fertilizer_ec_target_us_cm,
+       fertilizer_ec_high_us_cm, fertilizer_dose_pulse_seconds,
+       fertilizer_mixing_delay_seconds, fertilizer_cooldown_seconds,
+       fertilizer_max_dose_volume_l, fertilizer_max_daily_volume_l,
+       fertilizer_min_tank_level_pct, fertilizer_min_flow_lpm,
+       fertilizer_trigger_sample_count, fertilizer_sensor_stale_seconds,
+       updated_by
+     ) VALUES (
+       $1, $2, $3,
+       $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+       $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+       $24, $25, $26, $27, $28
+     )
+     ON CONFLICT (site_id, device_id) DO UPDATE SET
+       revision = spff.device_automatic_control_configs.revision + 1,
+       desired_mode = EXCLUDED.desired_mode,
+       water_enabled = EXCLUDED.water_enabled,
+       water_sensor_key = EXCLUDED.water_sensor_key,
+       water_moisture_low_pct = EXCLUDED.water_moisture_low_pct,
+       water_moisture_target_pct = EXCLUDED.water_moisture_target_pct,
+       water_max_runtime_seconds = EXCLUDED.water_max_runtime_seconds,
+       water_cooldown_seconds = EXCLUDED.water_cooldown_seconds,
+       water_min_tank_level_pct = EXCLUDED.water_min_tank_level_pct,
+       water_min_flow_lpm = EXCLUDED.water_min_flow_lpm,
+       water_trigger_sample_count = EXCLUDED.water_trigger_sample_count,
+       water_sensor_stale_seconds = EXCLUDED.water_sensor_stale_seconds,
+       fertilizer_enabled = EXCLUDED.fertilizer_enabled,
+       fertilizer_sensor_key = EXCLUDED.fertilizer_sensor_key,
+       fertilizer_ec_low_us_cm = EXCLUDED.fertilizer_ec_low_us_cm,
+       fertilizer_ec_target_us_cm = EXCLUDED.fertilizer_ec_target_us_cm,
+       fertilizer_ec_high_us_cm = EXCLUDED.fertilizer_ec_high_us_cm,
+       fertilizer_dose_pulse_seconds = EXCLUDED.fertilizer_dose_pulse_seconds,
+       fertilizer_mixing_delay_seconds = EXCLUDED.fertilizer_mixing_delay_seconds,
+       fertilizer_cooldown_seconds = EXCLUDED.fertilizer_cooldown_seconds,
+       fertilizer_max_dose_volume_l = EXCLUDED.fertilizer_max_dose_volume_l,
+       fertilizer_max_daily_volume_l = EXCLUDED.fertilizer_max_daily_volume_l,
+       fertilizer_min_tank_level_pct = EXCLUDED.fertilizer_min_tank_level_pct,
+       fertilizer_min_flow_lpm = EXCLUDED.fertilizer_min_flow_lpm,
+       fertilizer_trigger_sample_count = EXCLUDED.fertilizer_trigger_sample_count,
+       fertilizer_sensor_stale_seconds = EXCLUDED.fertilizer_sensor_stale_seconds,
+       published_revision = NULL,
+       published_at = NULL,
+       acknowledged_revision = NULL,
+       acknowledgement_status = NULL,
+       acknowledged_at = NULL,
+       acknowledgement_reason = NULL,
+       updated_by = EXCLUDED.updated_by`,
+    [
+      siteId, deviceId, input.desiredMode,
+      input.water.enabled, input.water.sensorKey,
+      input.water.moistureLowPercent, input.water.moistureTargetPercent,
+      input.water.maxRuntimeSeconds, input.water.cooldownSeconds,
+      input.water.minTankLevelPercent, input.water.minFlowLpm,
+      input.water.triggerSampleCount, input.water.sensorStaleSeconds,
+      input.fertilizer.enabled, input.fertilizer.sensorKey,
+      input.fertilizer.ecLowUsCm, input.fertilizer.ecTargetUsCm,
+      input.fertilizer.ecHighUsCm, input.fertilizer.dosePulseSeconds,
+      input.fertilizer.mixingDelaySeconds, input.fertilizer.cooldownSeconds,
+      input.fertilizer.maxDoseVolumeL, input.fertilizer.maxDailyVolumeL,
+      input.fertilizer.minTankLevelPercent, input.fertilizer.minFlowLpm,
+      input.fertilizer.triggerSampleCount, input.fertilizer.sensorStaleSeconds,
+      updatedBy,
+    ],
+  );
+  return automaticControl();
+}
+
 async function telemetrySnapshot(): Promise<ApiTelemetrySnapshot> {
   const [
     definitions,
@@ -1271,6 +1454,7 @@ async function bootstrap(): Promise<BootstrapData> {
     latest,
     scheduleData,
     settingsData,
+    automaticControlData,
   ] = await Promise.all([
     site(),
     sensorDefinitions(),
@@ -1284,6 +1468,7 @@ async function bootstrap(): Promise<BootstrapData> {
     latestTelemetry(),
     schedules(),
     settings(),
+    automaticControl(),
   ]);
 
   return {
@@ -1300,6 +1485,7 @@ async function bootstrap(): Promise<BootstrapData> {
     actuatorLog: actuatorRows,
     schedules: scheduleData,
     settings: settingsData,
+    automaticControl: automaticControlData,
   };
 }
 
@@ -1349,4 +1535,6 @@ export const repository = {
   deleteSchedule,
   settings,
   updateSettings,
+  automaticControl,
+  updateAutomaticControl,
 };

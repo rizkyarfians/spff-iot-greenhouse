@@ -995,6 +995,13 @@ function App() {
         refreshLatest,
       )
 
+      events.addEventListener(
+        'automatic_control.updated',
+        () => setRefreshVersion(
+          (version) => version + 1,
+        ),
+      )
+
 
       events.addEventListener(
         'open',

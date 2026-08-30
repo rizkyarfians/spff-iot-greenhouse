@@ -1,4 +1,6 @@
 import type {
+  AutomaticControlAckMessage,
+  AutomaticControlSyncMessage,
   ActuatorStateMessage,
   CommandAckMessage,
   DeviceStatusMessage,
@@ -21,6 +23,7 @@ export interface IngestionRepository {
   saveTelemetry(message: TelemetryMessage): Promise<void>;
   saveAcknowledgement(message: CommandAckMessage): Promise<void>;
   saveScheduleSyncAck(message: ScheduleSyncAckMessage): Promise<void>;
+  saveAutomaticControlAck(message: AutomaticControlAckMessage): Promise<void>;
   saveActuatorState(message: ActuatorStateMessage): Promise<void>;
   saveDeviceStatus(message: DeviceStatusMessage): Promise<void>;
 }
@@ -89,6 +92,16 @@ export interface ScheduleSyncRepository {
     deviceId: string,
     revision: number,
     authority: ScheduleExecutionAuthority,
+    publishedAt: string,
+  ): Promise<void>;
+}
+
+export interface AutomaticControlSyncRepository {
+  automaticControlSnapshots(force: boolean): Promise<AutomaticControlSyncMessage[]>;
+  markAutomaticControlPublished(
+    siteId: string,
+    deviceId: string,
+    revision: number,
     publishedAt: string,
   ): Promise<void>;
 }
@@ -353,9 +366,13 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         actuator_key: string;
       }>(
         `
-          SELECT site_id, device_id, actuator_key
-          FROM spff.actuators
-          WHERE enabled = true
+          SELECT actuator.site_id, actuator.device_id, actuator.actuator_key
+          FROM spff.actuators actuator
+          LEFT JOIN spff.device_automatic_control_configs automatic_control
+            ON automatic_control.site_id = actuator.site_id
+           AND automatic_control.device_id = actuator.device_id
+          WHERE actuator.enabled = true
+            AND COALESCE(automatic_control.desired_mode, 'manual') <> 'automatic'
         `,
       ),
       this.pool.query<{ site_id: string; timezone: string }>(
@@ -605,6 +622,155 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         publishedAt,
       ],
     );
+  }
+
+  async automaticControlSnapshots(
+    force: boolean,
+  ): Promise<AutomaticControlSyncMessage[]> {
+    const result = await this.pool.query(
+      `
+        SELECT *
+        FROM spff.device_automatic_control_configs
+        WHERE $1::boolean
+           OR published_revision IS DISTINCT FROM revision
+        ORDER BY site_id, device_id
+      `,
+      [force],
+    );
+    const generatedAt = new Date().toISOString();
+    const nullableNumber = (value: unknown) =>
+      value === null || value === undefined ? null : Number(value);
+
+    return result.rows.map((row) => ({
+      kind: "automatic_control_sync" as const,
+      schemaVersion: 1 as const,
+      siteId: String(row.site_id),
+      deviceId: String(row.device_id),
+      revision: Number(row.revision),
+      generatedAt,
+      config: {
+        desiredMode: row.desired_mode as "manual" | "automatic",
+        water: {
+          enabled: Boolean(row.water_enabled),
+          sensorKey: row.water_sensor_key as "soil_1_moisture" | "soil_2_moisture",
+          moistureLowPercent: nullableNumber(row.water_moisture_low_pct),
+          moistureTargetPercent: nullableNumber(row.water_moisture_target_pct),
+          maxRuntimeSeconds: nullableNumber(row.water_max_runtime_seconds),
+          cooldownSeconds: nullableNumber(row.water_cooldown_seconds),
+          minTankLevelPercent: nullableNumber(row.water_min_tank_level_pct),
+          minFlowLpm: nullableNumber(row.water_min_flow_lpm),
+          triggerSampleCount: Number(row.water_trigger_sample_count),
+          sensorStaleSeconds: Number(row.water_sensor_stale_seconds),
+        },
+        fertilizer: {
+          enabled: Boolean(row.fertilizer_enabled),
+          sensorKey: "liquid_ec_us_cm" as const,
+          ecLowUsCm: nullableNumber(row.fertilizer_ec_low_us_cm),
+          ecTargetUsCm: nullableNumber(row.fertilizer_ec_target_us_cm),
+          ecHighUsCm: nullableNumber(row.fertilizer_ec_high_us_cm),
+          dosePulseSeconds: nullableNumber(row.fertilizer_dose_pulse_seconds),
+          mixingDelaySeconds: nullableNumber(row.fertilizer_mixing_delay_seconds),
+          cooldownSeconds: nullableNumber(row.fertilizer_cooldown_seconds),
+          maxDoseVolumeL: nullableNumber(row.fertilizer_max_dose_volume_l),
+          maxDailyVolumeL: nullableNumber(row.fertilizer_max_daily_volume_l),
+          minTankLevelPercent: nullableNumber(row.fertilizer_min_tank_level_pct),
+          minFlowLpm: nullableNumber(row.fertilizer_min_flow_lpm),
+          triggerSampleCount: Number(row.fertilizer_trigger_sample_count),
+          sensorStaleSeconds: Number(row.fertilizer_sensor_stale_seconds),
+        },
+      },
+    }));
+  }
+
+  async markAutomaticControlPublished(
+    siteId: string,
+    deviceId: string,
+    revision: number,
+    publishedAt: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `
+        UPDATE spff.device_automatic_control_configs
+        SET
+          published_revision = $3,
+          published_at = $4::timestamptz,
+          updated_at = now()
+        WHERE site_id = $1
+          AND device_id = $2
+          AND revision = $3
+      `,
+      [siteId, deviceId, revision, publishedAt],
+    );
+  }
+
+  async saveAutomaticControlAck(
+    message: AutomaticControlAckMessage,
+  ): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+          INSERT INTO spff.automatic_control_ack_events (
+            site_id, device_id, revision, status, applied_mode,
+            reason, acknowledged_at, raw_payload
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::jsonb)
+          ON CONFLICT (
+            site_id, device_id, revision, status, acknowledged_at
+          ) DO NOTHING
+        `,
+        [
+          message.siteId,
+          message.deviceId,
+          message.revision,
+          message.status,
+          message.appliedMode,
+          message.reason ?? null,
+          message.acknowledgedAt,
+          JSON.stringify(message),
+        ],
+      );
+      await client.query(
+        `
+          UPDATE spff.device_automatic_control_configs
+          SET
+            acknowledged_revision = $3,
+            acknowledgement_status = $4,
+            acknowledged_at = $5::timestamptz,
+            acknowledgement_reason = $6,
+            applied_mode = $7,
+            updated_at = now()
+          WHERE site_id = $1
+            AND device_id = $2
+            AND $3 >= COALESCE(acknowledged_revision, 0)
+            AND $3 <= revision
+        `,
+        [
+          message.siteId,
+          message.deviceId,
+          message.revision,
+          message.status,
+          message.acknowledgedAt,
+          message.reason ?? null,
+          message.appliedMode,
+        ],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    console.log("[repository] automatic control acknowledgement stored", {
+      siteId: message.siteId,
+      deviceId: message.deviceId,
+      revision: message.revision,
+      status: message.status,
+      appliedMode: message.appliedMode,
+    });
   }
 
   async saveScheduleSyncAck(message: ScheduleSyncAckMessage): Promise<void> {

@@ -1,5 +1,7 @@
 import type {
   ApiActuator,
+  ApiAutomaticControl,
+  ApiAutomaticControlUpdateRequest,
   ApiAlarmActionRequest,
   ApiAlarmActionResult,
   ApiAlarmDetail,
@@ -33,6 +35,8 @@ export type ConnectionState =
 
 export type {
   ApiActuator,
+  ApiAutomaticControl,
+  ApiAutomaticControlUpdateRequest,
   ApiAlarm,
   ApiAlarmDetail,
   ApiAlarmEvent,
@@ -681,6 +685,21 @@ export function saveSettings(
         JSON.stringify(
           settings,
         ),
+    },
+  )
+}
+
+export function saveAutomaticControl(
+  config: ApiAutomaticControlUpdateRequest,
+) {
+  return request<ApiAutomaticControl>(
+    '/automatic-control',
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
     },
   )
 }

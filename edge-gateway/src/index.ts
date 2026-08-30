@@ -1,11 +1,14 @@
 import {
   decodeJsonMessage,
+  isAutomaticControlAckMessage,
   isActuatorStateMessage,
   isCommandAckMessage,
   isDeviceStatusMessage,
   isScheduleSyncAckMessage,
   isTelemetryMessage,
   type CommandAckMessage,
+  type AutomaticControlAckMessage,
+  type AutomaticControlSyncMessage,
   type PumpCommandMessage,
   type ScheduleSyncAckMessage,
   type ScheduleSyncMessage,
@@ -30,6 +33,9 @@ const publishOutboxRecord = async (record: OutboxRecord) => {
   if (record.kind === 'ack') return mqttBridge.publishAcknowledgement(record.payload);
   if (record.kind === 'schedule_ack') {
     return mqttBridge.publishScheduleAcknowledgement(record.payload);
+  }
+  if (record.kind === 'automatic_control_ack') {
+    return mqttBridge.publishAutomaticControlAcknowledgement(record.payload);
   }
   return mqttBridge.publishStatus(record.payload);
 };
@@ -66,6 +72,10 @@ const serialGateway = new SerialGateway(
     }
     if (isScheduleSyncAckMessage(message) && belongsToConfiguredDevice(message)) {
       await queue({ kind: 'schedule_ack', payload: message });
+      return;
+    }
+    if (isAutomaticControlAckMessage(message) && belongsToConfiguredDevice(message)) {
+      await queue({ kind: 'automatic_control_ack', payload: message });
       return;
     }
     if (isDeviceStatusMessage(message) && belongsToConfiguredDevice(message)) {
@@ -171,6 +181,36 @@ mqttBridge.onSchedule(async (message: ScheduleSyncMessage) => {
 
     await queue({
       kind: 'schedule_ack',
+      payload: acknowledgement,
+    });
+  }
+});
+
+mqttBridge.onAutomaticControl(async (message: AutomaticControlSyncMessage) => {
+  try {
+    await serialGateway.send(message);
+    console.log('[edge] Automatic-control config forwarded to ESP32', {
+      revision: message.revision,
+      desiredMode: message.config.desiredMode,
+      waterEnabled: message.config.water.enabled,
+      fertilizerEnabled: message.config.fertilizer.enabled,
+    });
+  } catch (error) {
+    const acknowledgement: AutomaticControlAckMessage = {
+      kind: 'automatic_control_ack',
+      schemaVersion: 1,
+      siteId: message.siteId,
+      deviceId: message.deviceId,
+      revision: message.revision,
+      acknowledgedAt: new Date().toISOString(),
+      status: 'rejected',
+      appliedMode: mqttBridge.lastDeviceMode,
+      reason: error instanceof Error
+        ? error.message
+        : 'Serial transport failed.',
+    };
+    await queue({
+      kind: 'automatic_control_ack',
       payload: acknowledgement,
     });
   }
