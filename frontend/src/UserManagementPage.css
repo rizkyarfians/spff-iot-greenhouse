@@ -458,10 +458,16 @@
    ========================= */
 
 .um-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 122px 108px 90px;
   min-width: max-content;
   align-items: center;
   gap: 9px;
+}
+
+.um-actions .um-button {
+  width: 100%;
+  padding-inline: 10px;
 }
 
 
