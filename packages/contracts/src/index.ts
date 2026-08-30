@@ -866,6 +866,11 @@ export interface UpdateUserRequest {
   enabled?: boolean;
 }
 
+export interface DeleteUserResult {
+  userId: string;
+  username: string;
+}
+
 export interface AuditLogEntry {
   auditId: string;
 

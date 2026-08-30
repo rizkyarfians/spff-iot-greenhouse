@@ -12,6 +12,7 @@ import {
 
 import {
   authReadiness,
+  deleteManagedUser,
   getAuditLogs,
   getUsers,
   loginUser,
@@ -362,6 +363,13 @@ apiRouter.patch(
   requireAdmin,
   requireCsrf,
   patchUser,
+);
+
+apiRouter.delete(
+  '/admin/users/:id',
+  requireAdmin,
+  requireCsrf,
+  deleteManagedUser,
 );
 
 

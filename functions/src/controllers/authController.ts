@@ -11,6 +11,7 @@ import type {
 import {
   countUsers,
   createUser,
+  deleteUser,
   isValidPassword,
   isValidUsername,
   listAuditLogs,
@@ -785,6 +786,156 @@ export const patchUser =
 
               errors: [
                 'last-admin',
+              ],
+            });
+        }
+
+
+        throw error;
+      }
+    },
+  );
+
+export const deleteManagedUser =
+  run(
+    async (
+      req,
+      res,
+    ) => {
+
+      const targetId =
+        String(
+          req.params.id,
+        );
+
+
+      if (
+        req.auth
+          ?.userId
+        === targetId
+      ) {
+
+        return res
+          .status(409)
+          .json({
+            success: false,
+
+            data: null,
+
+            message:
+              'Admin tidak boleh menghapus akun yang sedang dipakai sendiri.',
+
+            errors: [
+              'self-protection',
+            ],
+          });
+      }
+
+
+      try {
+
+        const deleted =
+          await deleteUser(
+            targetId,
+            req.auth!.userId,
+          );
+
+
+        if (!deleted) {
+
+          return res
+            .status(404)
+            .json({
+              success: false,
+
+              data: null,
+
+              message:
+                'User tidak ditemukan.',
+
+              errors: [],
+            });
+        }
+
+
+        return res.json({
+          success: true,
+
+          data:
+            deleted,
+
+          message:
+            'User berhasil dihapus.',
+        });
+
+      } catch (error) {
+
+        if (
+          error instanceof Error
+
+          && error.message
+            === 'LAST_ADMIN'
+        ) {
+
+          return res
+            .status(409)
+            .json({
+              success: false,
+
+              data: null,
+
+              message:
+                'Minimal satu admin aktif harus tetap tersedia.',
+
+              errors: [
+                'last-admin',
+              ],
+            });
+        }
+
+        if (
+          error instanceof Error
+
+          && error.message
+            === 'SELF_DELETE'
+        ) {
+
+          return res
+            .status(409)
+            .json({
+              success: false,
+
+              data: null,
+
+              message:
+                'Admin tidak boleh menghapus akun yang sedang dipakai sendiri.',
+
+              errors: [
+                'self-protection',
+              ],
+            });
+        }
+
+
+        if (
+          error instanceof Error
+
+          && error.message
+            === 'DELETE_USER_FORBIDDEN'
+        ) {
+
+          return res
+            .status(403)
+            .json({
+              success: false,
+
+              data: null,
+
+              message:
+                'Hanya admin aktif yang dapat menghapus akun.',
+
+              errors: [
+                'admin-required',
               ],
             });
         }

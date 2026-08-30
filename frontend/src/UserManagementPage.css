@@ -261,6 +261,18 @@
   background: #f7eae8;
 }
 
+.um-button--delete {
+  border-color: #edcbc6;
+  color: #a63f35;
+  background: #fff1ef;
+}
+
+.um-button--delete:hover:not(:disabled) {
+  border-color: #dfaaa3;
+  color: #8e3028;
+  background: #fbe3df;
+}
+
 .um-button:disabled {
   cursor: not-allowed;
   opacity: 0.42;

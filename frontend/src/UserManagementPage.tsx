@@ -9,6 +9,7 @@ import {
   KeyRound,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   UserCheck,
   UserRoundCog,
   UserX,
@@ -21,6 +22,7 @@ import type {
 } from './api'
 
 import {
+  deleteUser,
   fetchUsers,
   updateUser,
 } from './api'
@@ -67,6 +69,14 @@ export function UserManagementPage() {
     setNewPassword,
   ] =
     useState('')
+
+  const [
+    deletingUserId,
+    setDeletingUserId,
+  ] =
+    useState<string | null>(
+      null,
+    )
 
 
   const loadUsers =
@@ -242,6 +252,81 @@ export function UserManagementPage() {
             ? error.message
             : 'Password gagal diperbarui.',
         )
+      }
+    }
+
+  const removeUser =
+    async (
+      target: ManagedUser,
+    ) => {
+
+      if (
+        target.userId
+        === user.userId
+      ) {
+        setNotice(
+          'Akun yang sedang digunakan tidak dapat dihapus.',
+        )
+
+        return
+      }
+
+
+      const confirmed =
+        window.confirm(
+          `Hapus akun @${target.username} secara permanen?\n\nSemua sesi login akun ini akan dihentikan. Tindakan ini tidak dapat dibatalkan.`,
+        )
+
+
+      if (!confirmed) {
+        return
+      }
+
+
+      setNotice('')
+      setDeletingUserId(
+        target.userId,
+      )
+
+
+      try {
+        await deleteUser(
+          target.userId,
+        )
+
+
+        setUsers(
+          (current) =>
+            current.filter(
+              (candidate) =>
+                candidate.userId
+                !== target.userId,
+            ),
+        )
+
+
+        if (
+          passwordTarget
+            ?.userId
+          === target.userId
+        ) {
+          setPasswordTarget(null)
+          setNewPassword('')
+        }
+
+
+        setNotice(
+          `Akun ${target.username} berhasil dihapus.`,
+        )
+
+      } catch (error) {
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : 'Akun gagal dihapus.',
+        )
+      } finally {
+        setDeletingUserId(null)
       }
     }
 
@@ -667,6 +752,39 @@ export function UserManagementPage() {
                                         />
 
                                         Password
+                                      </button>
+
+                                      <button
+                                        className="um-button um-button--delete"
+                                        type="button"
+                                        disabled={
+                                          isCurrentUser
+                                          || deletingUserId
+                                            !== null
+                                        }
+                                        title={
+                                          isCurrentUser
+                                            ? 'Akun yang sedang digunakan tidak dapat dihapus'
+                                            : `Hapus akun ${target.username}`
+                                        }
+                                        onClick={() =>
+                                          void removeUser(
+                                            target,
+                                          )
+                                        }
+                                      >
+                                        <Trash2
+                                          size={15}
+                                          strokeWidth={1.8}
+                                          aria-hidden="true"
+                                        />
+
+                                        {
+                                          deletingUserId
+                                          === target.userId
+                                            ? 'Menghapus...'
+                                            : 'Hapus'
+                                        }
                                       </button>
                                     </div>
                                   </td>

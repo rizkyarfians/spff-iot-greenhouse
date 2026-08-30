@@ -19,6 +19,7 @@ import type {
   AuthUser,
   BootstrapData,
   CreateUserRequest,
+  DeleteUserResult,
   LoginRequest,
   ManagedUser,
   SmartSoilSnapshot,
@@ -346,6 +347,19 @@ export function updateUser(
         JSON.stringify(
           input,
         ),
+    },
+  )
+}
+
+export function deleteUser(
+  id: string,
+) {
+
+  return request<DeleteUserResult>(
+    `/admin/users/${encodeURIComponent(id)}`,
+    {
+      method:
+        'DELETE',
     },
   )
 }

@@ -11,6 +11,7 @@ import pg from 'pg';
 import type {
   AppRole,
   AuthUser,
+  DeleteUserResult,
   ManagedUser,
 } from '@spff/contracts';
 
@@ -1482,6 +1483,43 @@ export async function updateUser(
 
     client.release();
   }
+}
+
+export async function deleteUser(
+  userId: string,
+  actorUserId: string,
+): Promise<DeleteUserResult | null> {
+
+  const result =
+    await pool.query<{
+      username: string | null;
+    }>(
+      `
+      SELECT
+        spff.delete_app_user(
+          $1,
+          $2
+        ) AS username
+      `,
+      [
+        userId,
+        actorUserId,
+      ],
+    );
+
+
+  const username =
+    result.rows[0]
+      ?.username
+    ?? null;
+
+
+  return username
+    ? {
+        userId,
+        username,
+      }
+    : null;
 }
 
 
