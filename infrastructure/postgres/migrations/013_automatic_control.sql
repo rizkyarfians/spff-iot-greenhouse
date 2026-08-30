@@ -74,7 +74,6 @@ CREATE TABLE IF NOT EXISTS spff.device_automatic_control_configs (
           AND water_moisture_low_pct < water_moisture_target_pct
           AND water_max_runtime_seconds IS NOT NULL
           AND water_cooldown_seconds IS NOT NULL
-          AND water_min_tank_level_pct IS NOT NULL
           AND water_min_flow_lpm IS NOT NULL
         )
       )
@@ -105,7 +104,6 @@ CREATE TABLE IF NOT EXISTS spff.device_automatic_control_configs (
           AND fertilizer_max_dose_volume_l IS NOT NULL
           AND fertilizer_max_daily_volume_l IS NOT NULL
           AND fertilizer_max_dose_volume_l <= fertilizer_max_daily_volume_l
-          AND fertilizer_min_tank_level_pct IS NOT NULL
           AND fertilizer_min_flow_lpm IS NOT NULL
         )
       )

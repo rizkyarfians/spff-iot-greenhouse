@@ -1420,7 +1420,7 @@ function ControlsPage({
                 onChange={(value) => updateWater({ cooldownSeconds: value })}
               />
               <AutomaticNumberField
-                label="Minimum level tangki"
+                label="Minimum level tangki (opsional)"
                 value={automaticDraft.water.minTankLevelPercent}
                 unit="%"
                 max={100}
@@ -1554,7 +1554,7 @@ function ControlsPage({
                 onChange={(value) => updateFertilizer({ maxDailyVolumeL: value })}
               />
               <AutomaticNumberField
-                label="Minimum level tangki"
+                label="Minimum level tangki (opsional)"
                 value={automaticDraft.fertilizer.minTankLevelPercent}
                 unit="%"
                 max={100}

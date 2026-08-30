@@ -496,7 +496,6 @@ export function isAutomaticControlConfig(value: unknown): value is AutomaticCont
     (water.moistureLowPercent as number) < (water.moistureTargetPercent as number) &&
     isNumberInRange(water.maxRuntimeSeconds, 1, 86400) &&
     isNumberInRange(water.cooldownSeconds, 0, 86400) &&
-    isNumberInRange(water.minTankLevelPercent, 0, 100) &&
     isNumberInRange(water.minFlowLpm, 0, 10000);
   const fertilizerComplete =
     isNumberInRange(fertilizer.ecLowUsCm, 0, 100000) &&
@@ -510,7 +509,6 @@ export function isAutomaticControlConfig(value: unknown): value is AutomaticCont
     isNumberInRange(fertilizer.maxDoseVolumeL, 0.001, 100000) &&
     isNumberInRange(fertilizer.maxDailyVolumeL, 0.001, 1000000) &&
     (fertilizer.maxDoseVolumeL as number) <= (fertilizer.maxDailyVolumeL as number) &&
-    isNumberInRange(fertilizer.minTankLevelPercent, 0, 100) &&
     isNumberInRange(fertilizer.minFlowLpm, 0, 10000);
 
   if ((water.enabled && !waterComplete) || (fertilizer.enabled && !fertilizerComplete)) return false;
