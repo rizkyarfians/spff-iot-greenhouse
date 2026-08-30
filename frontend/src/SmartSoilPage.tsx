@@ -131,7 +131,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
           <span className="smart-soil-eyebrow"><Leaf size={15} /> Smart Soil</span>
           <h2>Monitoring kondisi & rekomendasi tanaman</h2>
           <p>
-            Analisis memakai telemetry terakhir dari PostgreSQL. Fitur ini tidak
+            Analisis memakai data terakhir dari sistem. Fitur ini tidak
             mengendalikan pompa atau jadwal.
           </p>
         </div>
@@ -262,7 +262,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
             <strong>
               {snapshot.conditions.recordedAt
                 ? new Date(snapshot.conditions.recordedAt).toLocaleString('id-ID')
-                : 'Belum ada telemetry'}
+                : 'Belum ada data'}
             </strong>
           </div>
         </article>
@@ -276,7 +276,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
           </div>
         </div>
         {snapshot.recommendations.length === 0 ? (
-          <p className="empty-copy">Belum cukup telemetry untuk membuat rekomendasi.</p>
+          <p className="empty-copy">Belum cukup data untuk membuat rekomendasi.</p>
         ) : (
           snapshot.recommendations.map((recommendation, index) => (
             <div className="smart-soil-recommendation" key={recommendation.cropId}>

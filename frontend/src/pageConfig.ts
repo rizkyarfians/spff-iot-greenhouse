@@ -49,27 +49,27 @@ Record<
   string
 > = {
   dashboard:
-    'Pantau kondisi fertigasi, sensor, jadwal, dan telemetry terbaru.',
+    'Pantau kondisi fertigasi, sensor, jadwal, dan data terbaru.',
 
   plants:
-    'Pantau kondisi zona tanam berdasarkan telemetry sensor terbaru.',
+    'Pantau kondisi zona tanam berdasarkan data sensor terbaru.',
   'smart-soil':
     'Pantau kondisi udara dan tanah, lalu lihat rekomendasi tanaman.',
 
   controls:
-    'Kelola aktuator dan jadwal lokal berdasarkan actual state dari ESP32.',
+    'Nyalakan pompa, pilih cara kerja, dan atur jadwal.',
 
   logs:
-    'Lihat histori telemetry yang tersimpan di PostgreSQL lokal.',
+    'Lihat histori data sensor dan aktivitas pompa yang tersimpan di sistem lokal.',
 
   alarms:
-    'Pantau alarm aktif, acknowledgement, dan status penyelesaian.',
+    'Lihat peringatan yang perlu diperiksa dan tindak lanjutnya.',
 
   devices:
     'Pantau konektivitas, last seen, firmware, dan kondisi perangkat.',
 
   settings:
-    'Kelola konfigurasi fertigasi yang tersimpan di PostgreSQL lokal.',
+    'Kelola konfigurasi fertigasi yang tersimpan di sistem lokal.',
 
   users:
     'Kelola akses admin dan operator dashboard lokal SPFF.',

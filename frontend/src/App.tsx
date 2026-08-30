@@ -1407,7 +1407,7 @@ const soilNpkGroups =
   const historyWindowLabel =
     currentHistorySeries
       ? `${formatHistoryTimestamp(currentHistorySeries.from)} – ${formatHistoryTimestamp(currentHistorySeries.to)} · rata-rata ${currentHistorySeries.bucketMinutes} menit`
-      : 'Memuat histori telemetry...'
+      : 'Memuat riwayat data...'
 
 
   const homeSchedules =
@@ -1743,9 +1743,8 @@ const soilNpkGroups =
             <strong>
               {
                 primaryDevice
-                  ?.deviceId
-                  .toUpperCase()
-                ?? 'ESP32-S3-01'
+                  ?.displayName
+                ?? 'Alat Utama'
               }
             </strong>
 
@@ -1767,17 +1766,17 @@ const soilNpkGroups =
                   ? 'Menghubungkan'
 
                   : connectionState === 'unavailable'
-                    ? 'API Offline'
+                    ? 'Sistem Tidak Tersambung'
 
                     : primaryDevice
                       ?.connectionStatus === 'online'
-                      ? 'Online'
+                      ? 'Tersambung'
 
                       : primaryDevice
                         ?.connectionStatus === 'stale'
-                        ? 'Stale'
+                        ? 'Data Terlambat'
 
-                        : 'Offline'
+                        : 'Tidak Tersambung'
               }
             </span>
           </div>
@@ -1788,20 +1787,20 @@ const soilNpkGroups =
               connectionState === 'connected'
                 ? (
                     telemetryFreshness === 'fresh'
-                      ? `Telemetry ${telemetryAgeLabel ?? 'baru saja'}`
+                      ? `Data masuk ${telemetryAgeLabel ?? 'baru saja'}`
                       : telemetryFreshness === 'stale'
-                        ? `Telemetry terlambat · ${telemetryAgeLabel ?? '-'}`
+                        ? `Data terlambat · ${telemetryAgeLabel ?? '-'}`
                         : telemetryFreshness === 'expired'
-                          ? `Menunggu telemetry baru · terakhir ${telemetryAgeLabel ?? '-'}`
+                          ? `Menunggu data baru · terakhir ${telemetryAgeLabel ?? '-'}`
                           : `${
                           backendData
                             ?.sensorDefinitions
                             .length
                           ?? 0
-                        } sensor terdaftar · menunggu telemetry`
+                        } sensor terdaftar · menunggu data`
                   )
 
-                : 'Backend SPFF belum terhubung'
+                : 'Sistem belum tersambung'
             }
           </small>
         </div>
@@ -1950,7 +1949,7 @@ const soilNpkGroups =
                     {
                       connectionState === 'connected'
                         ? 'Tidak ada alarm aktif di database.'
-                        : 'Menunggu koneksi backend SPFF.'
+                        : 'Menunggu sistem tersambung.'
                     }
                   </p>
                 )
@@ -2370,7 +2369,7 @@ const soilNpkGroups =
 
                             : (
                                 <div className="schedule-empty-inline">
-                                  Belum ada jadwal aktif di PostgreSQL.
+                                  Belum ada jadwal aktif.
                                 </div>
                               )
                         }
@@ -2508,7 +2507,7 @@ const soilNpkGroups =
                             {
                               hasTelemetry
                                 ? historyWindowLabel
-                                : 'Belum ada telemetry tersimpan'
+                                : 'Belum ada data tersimpan'
                             }
                           </small>
                         </div>
@@ -2647,7 +2646,7 @@ const soilNpkGroups =
                           currentHistory.length === 0
                             ? (
                                 <div className="chart-empty-state">
-                                  Belum ada histori telemetry untuk sensor ini.
+                                  Belum ada riwayat data untuk sensor ini.
                                 </div>
                               )
 
@@ -2661,13 +2660,13 @@ const soilNpkGroups =
                                   }
                                 >
                                   <title>
-                                    Riwayat telemetry
+                                    Riwayat data sensor
                                     {' '}
                                     {
                                       currentSensor.label
                                     }
                                     {' '}
-                                    dari PostgreSQL
+                                    yang tersimpan
                                   </title>
 
 

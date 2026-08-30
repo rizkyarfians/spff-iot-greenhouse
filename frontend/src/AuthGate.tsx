@@ -704,7 +704,7 @@ export function AuthGate({
               />
 
               <span className="auth-eyebrow">
-                SPFF Local Server
+                Sistem Fertigasi
               </span>
 
               <h1>
@@ -712,9 +712,9 @@ export function AuthGate({
               </h1>
 
               <p>
-                Memeriksa session dan
-                menghubungkan ke server
-                fertigasi lokal.
+                Memeriksa akun dan
+                menyambungkan sistem
+                fertigasi.
               </p>
 
               <div
@@ -723,8 +723,8 @@ export function AuthGate({
               >
                 <span className="auth-loading-pulse" />
 
-                Menghubungkan ke PostgreSQL
-                dan Local API
+                Menyambungkan data
+                fertigasi
               </div>
             </div>
 

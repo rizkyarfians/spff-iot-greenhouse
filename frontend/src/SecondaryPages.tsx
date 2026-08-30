@@ -57,6 +57,10 @@ import type {
 } from './pageConfig'
 
 import {
+  farmerReasonLabel,
+} from './displayLabels'
+
+import {
   formatTelemetryAge,
   getTelemetryFreshness,
 } from './telemetryStatus'
@@ -158,7 +162,7 @@ function PlantStatusPage({
 
             status:
               hasData
-                ? 'Telemetry Tersedia'
+                ? 'Data Tersedia'
                 : 'Belum Ada Data',
 
             moisture:
@@ -173,8 +177,8 @@ function PlantStatusPage({
 
             note:
               hasData
-                ? 'Nilai zona berasal dari telemetry sensor tanah terbaru; tidak ada skor kesehatan sintetis.'
-                : 'Belum ada telemetry tanah tersimpan pada database SPFF.',
+                ? 'Nilai zona berasal dari data sensor tanah terbaru; tidak ada skor kesehatan sintetis.'
+                : 'Belum ada data sensor tanah tersimpan pada sistem SPFF.',
           }
         }),
       [data],
@@ -224,14 +228,14 @@ function PlantStatusPage({
           </strong>
 
           <small>
-            Schema database SPFF
+            Jumlah sensor yang tersedia
           </small>
         </article>
 
 
         <article className="summary-card">
           <span>
-            Telemetry
+            Data Terbaru
           </span>
 
           <strong>
@@ -255,8 +259,8 @@ function PlantStatusPage({
           >
             {
               telemetryFreshness === 'waiting'
-                ? 'Belum ada telemetry tersimpan'
-                : `Telemetry ${telemetryAgeLabel ?? '-'}`
+                ? 'Belum ada data tersimpan'
+                : `Diperbarui ${telemetryAgeLabel ?? '-'}`
             }
           </small>
         </article>
@@ -299,8 +303,8 @@ function PlantStatusPage({
             {
               data?.devices[0]
                 ?.sensorValid === false
-                ? 'ESP32 melaporkan sensor tidak valid'
-                : 'Berdasarkan PostgreSQL'
+                ? 'Sensor perlu diperiksa'
+                : 'Berdasarkan data terakhir'
             }
           </small>
         </article>
@@ -339,7 +343,7 @@ function PlantStatusPage({
               </option>
 
               <option>
-                Telemetry Tersedia
+                Data Tersedia
               </option>
 
               <option>
@@ -388,7 +392,7 @@ function PlantStatusPage({
                       {
                         plant.dataAvailable
                           ? 'Data sensor tersedia'
-                          : 'Menunggu telemetry'
+                          : 'Menunggu data'
                       }
                     </strong>
                   </div>
@@ -898,7 +902,7 @@ function ControlsPage({
       const saved = await saveAutomaticControlRequest(supportedNext)
       setAutomaticDraft(automaticControlDraft(saved))
       setCommandNotice(
-        'Konfigurasi tersimpan. Menunggu ESP32 menerapkan revision dan mengirim ACK.',
+        'Pengaturan tersimpan. Menunggu alat menerapkannya.',
       )
       onRefresh()
     } catch (error) {
@@ -954,7 +958,7 @@ function ControlsPage({
         eligible.length === 0
       ) {
         setCommandNotice(
-          'Semua aktuator masih menunggu penyelesaian command sebelumnya.',
+          'Semua aktuator masih menyelesaikan perintah sebelumnya.',
         )
 
         return
@@ -962,7 +966,7 @@ function ControlsPage({
 
 
       setCommandNotice(
-        'Menyimpan command ke PostgreSQL...',
+        'Mengirim perintah...',
       )
 
 
@@ -979,7 +983,7 @@ function ControlsPage({
 
 
         setCommandNotice(
-          'Command tersimpan. State UI tidak berubah sampai ACK aktual diterima dari ESP32.',
+          'Perintah terkirim. Status akan berubah setelah pompa merespons.',
         )
 
         onRefresh()
@@ -1036,7 +1040,7 @@ function ControlsPage({
 
 
         setCommandNotice(
-          `${target.name}: command pending. Menunggu ACK actual state dari ESP32.`,
+          `${target.name}: perintah dikirim. Menunggu kondisi pompa.`,
         )
 
         onRefresh()
@@ -1072,7 +1076,7 @@ function ControlsPage({
 
       if (automaticModeRequested) {
         setCommandNotice(
-          'Penjadwalan langsung dinonaktifkan saat mode otomatis agar tidak konflik dengan closed-loop ESP32.',
+          'Jadwal dinonaktifkan saat cara otomatis digunakan agar pompa tidak menerima dua perintah.',
         )
         return
       }
@@ -1088,7 +1092,7 @@ function ControlsPage({
 
       if (!actuator) {
         setCommandNotice(
-          'Pilih aktuator yang terdaftar di PostgreSQL.',
+          'Pilih aktuator yang tersedia.',
         )
 
         return
@@ -1133,7 +1137,7 @@ function ControlsPage({
 
 
         setCommandNotice(
-          'Jadwal tersimpan di PostgreSQL dan akan dieksekusi oleh MQTT Worker lokal.',
+          'Jadwal berhasil disimpan.',
         )
 
         onRefresh()
@@ -1176,7 +1180,7 @@ function ControlsPage({
 
 
         setCommandNotice(
-          'Status jadwal tersimpan di PostgreSQL.',
+          'Status jadwal berhasil disimpan.',
         )
 
         onRefresh()
@@ -1210,7 +1214,7 @@ function ControlsPage({
 
 
         setCommandNotice(
-          'Jadwal dihapus dari PostgreSQL.',
+          'Jadwal berhasil dihapus.',
         )
 
         onRefresh()
@@ -1251,7 +1255,7 @@ function ControlsPage({
 
           <p>
             {
-              `Diminta: ${desiredMode === 'automatic' ? 'otomatis' : 'manual'} - Aktual ESP32: ${
+              `Diminta: ${desiredMode === 'automatic' ? 'otomatis' : 'manual'} - Aktual perangkat: ${
                 mode === 'automatic'
                   ? 'otomatis'
                   : mode === 'manual'
@@ -1263,10 +1267,14 @@ function ControlsPage({
           <span className={automaticApplied ? 'sync-state is-applied' : 'sync-state'}>
             {
               automaticApplied
-                ? `Revision ${automaticControl?.revision} diterapkan`
+                ? 'Pengaturan sudah diterapkan'
                 : automaticControl?.acknowledgementStatus === 'rejected'
-                  ? `Ditolak ESP32: ${automaticControl.acknowledgementReason ?? 'tanpa alasan'}`
-                  : 'Menunggu ACK konfigurasi ESP32'
+                  ? 'Pengaturan ditolak: '
+                    + (
+                      farmerReasonLabel(automaticControl.acknowledgementReason)
+                      || 'silakan periksa isian'
+                    )
+                  : 'Menunggu alat menerapkan pengaturan'
             }
           </span>
           {
@@ -1428,7 +1436,7 @@ function ControlsPage({
                 onChange={(value) => updateWater({ moistureTargetPercent: value })}
               />
               <AutomaticNumberField
-                label="Max runtime"
+                label="Batas waktu menyala"
                 value={automaticDraft.water.maxRuntimeSeconds}
                 unit="detik"
                 max={86400}
@@ -1436,7 +1444,7 @@ function ControlsPage({
                 onChange={(value) => updateWater({ maxRuntimeSeconds: value })}
               />
               <AutomaticNumberField
-                label="Cooldown"
+                label="Jeda sebelum menyala lagi"
                 value={automaticDraft.water.cooldownSeconds}
                 unit="detik"
                 max={86400}
@@ -1453,7 +1461,7 @@ function ControlsPage({
                 onChange={(value) => updateWater({ minFlowLpm: value })}
               />
               <AutomaticNumberField
-                label="Sampel pemicu"
+                label="Jumlah pembacaan pemicu"
                 value={automaticDraft.water.triggerSampleCount}
                 unit="sampel"
                 min={1}
@@ -1462,7 +1470,7 @@ function ControlsPage({
                 onChange={(value) => updateWater({ triggerSampleCount: value ?? 3 })}
               />
               <AutomaticNumberField
-                label="Batas data basi"
+                label="Batas menunggu data"
                 value={automaticDraft.water.sensorStaleSeconds}
                 unit="detik"
                 min={10}
@@ -1523,7 +1531,7 @@ function ControlsPage({
                 onChange={(value) => updateFertilizer({ ecHighUsCm: value })}
               />
               <AutomaticNumberField
-                label="Durasi pulse"
+                label="Lama pompa sekali jalan"
                 value={automaticDraft.fertilizer.dosePulseSeconds}
                 unit="detik"
                 min={1}
@@ -1532,7 +1540,7 @@ function ControlsPage({
                 onChange={(value) => updateFertilizer({ dosePulseSeconds: value })}
               />
               <AutomaticNumberField
-                label="Waktu mixing"
+                label="Waktu tunggu agar tercampur"
                 value={automaticDraft.fertilizer.mixingDelaySeconds}
                 unit="detik"
                 min={1}
@@ -1541,7 +1549,7 @@ function ControlsPage({
                 onChange={(value) => updateFertilizer({ mixingDelaySeconds: value })}
               />
               <AutomaticNumberField
-                label="Cooldown"
+                label="Jeda sebelum pemberian berikutnya"
                 value={automaticDraft.fertilizer.cooldownSeconds}
                 unit="detik"
                 max={86400}
@@ -1549,7 +1557,7 @@ function ControlsPage({
                 onChange={(value) => updateFertilizer({ cooldownSeconds: value })}
               />
               <AutomaticNumberField
-                label="Maksimum per pulse"
+                label="Batas pupuk sekali jalan"
                 value={automaticDraft.fertilizer.maxDoseVolumeL}
                 unit="L"
                 min={0.001}
@@ -1559,7 +1567,7 @@ function ControlsPage({
                 onChange={(value) => updateFertilizer({ maxDoseVolumeL: value })}
               />
               <AutomaticNumberField
-                label="Maksimum per hari"
+                label="Batas pupuk per hari"
                 value={automaticDraft.fertilizer.maxDailyVolumeL}
                 unit="L"
                 min={0.001}
@@ -1578,7 +1586,7 @@ function ControlsPage({
                 onChange={(value) => updateFertilizer({ minFlowLpm: value })}
               />
               <AutomaticNumberField
-                label="Sampel pemicu"
+                label="Jumlah pembacaan pemicu"
                 value={automaticDraft.fertilizer.triggerSampleCount}
                 unit="sampel"
                 min={1}
@@ -1587,7 +1595,7 @@ function ControlsPage({
                 onChange={(value) => updateFertilizer({ triggerSampleCount: value ?? 3 })}
               />
               <AutomaticNumberField
-                label="Batas data basi"
+                label="Batas menunggu data"
                 value={automaticDraft.fertilizer.sensorStaleSeconds}
                 unit="detik"
                 min={10}
@@ -1628,8 +1636,6 @@ function ControlsPage({
                       </h3>
 
                       <p>
-                        {control.deviceId}
-                        {' · '}
                         {control.zone}
                       </p>
 
@@ -1642,7 +1648,7 @@ function ControlsPage({
                       >
                         {
                           control.pending
-                            ? `Menunggu ACK ${
+                            ? `Menunggu pompa ${
                                 control.requestedIsActive
                                   ? 'ON'
                                   : 'OFF'
@@ -1703,8 +1709,7 @@ function ControlsPage({
 
             : (
               <div className="schedule-empty">
-                Belum ada aktuator aktif
-                yang terdaftar di PostgreSQL.
+                Belum ada aktuator aktif yang tersedia.
               </div>
             )
         }
@@ -1721,7 +1726,7 @@ function ControlsPage({
             <p>
               {
                 isAdmin
-                  ? 'Jadwal disimpan lokal di PostgreSQL dan dieksekusi MQTT Worker.'
+                  ? 'Jadwal disimpan di sistem lokal.'
                   : 'Operator dapat melihat jadwal; perubahan jadwal hanya untuk admin.'
               }
             </p>
@@ -1743,7 +1748,7 @@ function ControlsPage({
               </strong>
 
               <small>
-                Source of truth: PostgreSQL
+                Tersimpan di sistem
               </small>
             </span>
           </div>
@@ -2255,8 +2260,8 @@ function ControlsPage({
             || (
               connectionState
               === 'connected'
-                ? `${activeCount} dari ${controls.length} aktuator aktif berdasarkan actual state terakhir.`
-                : 'Backend SPFF belum terhubung.'
+                ? `${activeCount} dari ${controls.length} aktuator aktif berdasarkan status terakhir.`
+                : 'Sistem belum tersambung.'
             )
           }
         </p>
@@ -2440,13 +2445,13 @@ function LogsPage({
 
         const sourceLabel = {
           telemetry:
-            'Telemetry ESP',
+            'Telemetry Perangkat',
           command_ack:
             'Konfirmasi perintah',
           manual:
             'Manual',
           system:
-            'Sistem ESP',
+            'Sistem Perangkat',
         }[
           row.source
         ]
@@ -2485,7 +2490,7 @@ function LogsPage({
           row.reason
             ? sourceLabel
               + ' · '
-              + row.reason
+              + farmerReasonLabel(row.reason)
             : sourceLabel,
 
           row.actuatorKey,
@@ -3074,7 +3079,7 @@ function LogsPage({
                             : 'Belum ada aktivitas pompa untuk filter ini.'
                         )
                   )
-                : 'Backend SPFF belum terhubung.'
+                : 'Sistem belum tersambung.'
             }
           </p>
 
@@ -3248,7 +3253,7 @@ const apiAlarmToRecord = (
     detectedAt: formatAlarmTime(alarm.triggeredAt),
     lastSeenAt: formatAlarmTime(alarm.lastSeenAt),
     occurrenceCount: alarm.occurrenceCount,
-    location: alarmMetadata(alarm, 'location', alarm.deviceId),
+    location: alarmMetadata(alarm, 'location', 'Lokasi Utama'),
     description: alarm.description,
     recommendation:
       alarm.recommendation
@@ -4118,10 +4123,7 @@ function DevicesPage({
           device.displayName,
 
         type:
-          `${
-            device.hardwareModel
-            ?? 'Controller'
-          } - ${device.deviceId}`,
+          'Alat pemantauan utama',
 
         connectionStatus:
           device.connectionStatus,
@@ -4180,7 +4182,7 @@ function DevicesPage({
       onRefresh()
 
       setRefreshLabel(
-        `Status ${id} diminta ulang dari backend SPFF.`,
+        ['Kondisi ', id, ' sedang diperbarui.'].join(''),
       )
     }
 
@@ -4201,7 +4203,7 @@ function DevicesPage({
               connectionState
               === 'connected'
                 ? refreshLabel
-                : 'Backend SPFF belum terhubung'
+                : 'Sistem belum tersambung'
             }
           </p>
         </div>
@@ -4452,7 +4454,7 @@ function SettingsPage({
         !== 'connected'
       ) {
         setNotice(
-          'Backend SPFF belum terhubung; pengaturan tidak disimpan.',
+          'Sistem belum tersambung; pengaturan belum disimpan.',
         )
 
         return
@@ -4472,7 +4474,7 @@ function SettingsPage({
 
 
         setNotice(
-          'Pengaturan tersimpan di PostgreSQL lokal.',
+          'Pengaturan berhasil disimpan.',
         )
 
 
@@ -4507,7 +4509,7 @@ function SettingsPage({
 
 
       setNotice(
-        'Perubahan lokal dibatalkan; nilai dikembalikan dari data terakhir PostgreSQL.',
+        'Perubahan dibatalkan; pengaturan dikembalikan ke nilai terakhir.',
       )
     }
 
@@ -4831,7 +4833,7 @@ function SettingsPage({
                 !== 'connected'
             }
           >
-            Simpan ke PostgreSQL
+            Simpan Pengaturan
           </button>
         </div>
       </form>
