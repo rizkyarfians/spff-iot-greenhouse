@@ -1,6 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { HistoryBucket, ScheduleRepeatRule } from '@spff/contracts';
-import { isAutomaticControlConfig, selectedCropInputSchema } from '@spff/contracts';
+import {
+  isAutomaticControlConfig,
+  selectedCropInputSchema,
+  smartSoilReferenceInputSchema,
+} from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
 import {
   ActuatorBusyError,
@@ -218,6 +222,22 @@ export const updateSmartSoilSelection = run(async (req, res) => {
     res,
     await repository.updateSmartSoilSelection(parsed.data, requestActor(req)),
     'Pilihan tanaman Smart Soil berhasil disimpan.',
+  );
+});
+
+export const updateSmartSoilReference = run(async (req, res) => {
+  const parsed = smartSoilReferenceInputSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      message: 'Acuan manual Smart Soil tidak valid.',
+      errors: parsed.error.issues.map((issue) => issue.path.join('.') || issue.message),
+    });
+  }
+  return ok(
+    res,
+    await repository.updateSmartSoilReference(parsed.data, requestActor(req)),
+    'Acuan manual Smart Soil berhasil disimpan.',
   );
 });
 

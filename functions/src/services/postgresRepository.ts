@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import {
+  compareSmartSoilReference,
   cropIdSchema,
   cropProfiles,
   defaultCropId,
@@ -26,6 +27,8 @@ import type {
   BootstrapData,
   HistoryBucket,
   SelectedCropInput,
+  SmartSoilReference,
+  SmartSoilReferenceInput,
   SmartSoilSnapshot,
   ScheduleRepeatRule,
 } from '@spff/contracts';
@@ -1378,13 +1381,22 @@ const smartSoilSensorIds = new Set([
 ]);
 
 async function smartSoil(): Promise<SmartSoilSnapshot> {
-  const [sensorData, latest, deviceData, settingsData, selectionResult] = await Promise.all([
+  const [sensorData, latest, deviceData, settingsData, selectionResult, referenceResult] = await Promise.all([
     sensors(),
     latestTelemetry(),
     devices(),
     settings(),
     pool.query(
       'SELECT crop_id FROM spff.site_crop_selections WHERE site_id = $1 AND zone_id = $2 LIMIT 1',
+      [siteId, smartSoilZoneId],
+    ),
+    pool.query(
+      `SELECT zone_id, crop_name, temperature_min_c, temperature_max_c,
+              soil_ph_min, soil_ph_max, humidity_min_percent, humidity_max_percent,
+              updated_by, updated_at
+       FROM spff.site_smart_soil_references
+       WHERE site_id = $1 AND zone_id = $2
+       LIMIT 1`,
       [siteId, smartSoilZoneId],
     ),
   ]);
@@ -1397,6 +1409,21 @@ async function smartSoil(): Promise<SmartSoilSnapshot> {
   const conditions = sensorData.filter((sensor) => smartSoilSensorIds.has(sensor.id));
   const value = (sensorId: string) =>
     conditions.find((sensor) => sensor.id === sensorId)?.value ?? null;
+  const referenceRow = referenceResult.rows[0];
+  const reference: SmartSoilReference | null = referenceRow
+    ? {
+        zoneId: String(referenceRow.zone_id),
+        cropName: String(referenceRow.crop_name),
+        temperatureMinC: Number(referenceRow.temperature_min_c),
+        temperatureMaxC: Number(referenceRow.temperature_max_c),
+        soilPhMin: Number(referenceRow.soil_ph_min),
+        soilPhMax: Number(referenceRow.soil_ph_max),
+        humidityMinPercent: Number(referenceRow.humidity_min_percent),
+        humidityMaxPercent: Number(referenceRow.humidity_max_percent),
+        updatedBy: String(referenceRow.updated_by),
+        updatedAt: toRequiredIso(referenceRow.updated_at, 'smart soil reference updated_at'),
+      }
+    : null;
 
   return {
     siteId,
@@ -1423,7 +1450,57 @@ async function smartSoil(): Promise<SmartSoilSnapshot> {
       humidityMinPercent: settingsData?.humidityMin ?? null,
       humidityMaxPercent: settingsData?.humidityMax ?? null,
     }),
+    reference,
+    comparison: reference
+      ? compareSmartSoilReference(reference, {
+          airTemperatureC: value('air_temp'),
+          soilPh: value('soil_1_ph'),
+          airHumidityPercent: value('air_humidity'),
+        })
+      : [],
   };
+}
+
+async function updateSmartSoilReference(
+  input: SmartSoilReferenceInput,
+  updatedBy: string,
+): Promise<SmartSoilSnapshot> {
+  if (input.zoneId !== smartSoilZoneId) {
+    throw new Error('Smart Soil zone is not supported.');
+  }
+  await pool.query(
+    `INSERT INTO spff.site_smart_soil_references (
+       site_id, zone_id, crop_name,
+       temperature_min_c, temperature_max_c,
+       soil_ph_min, soil_ph_max,
+       humidity_min_percent, humidity_max_percent,
+       updated_by
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (site_id, zone_id) DO UPDATE SET
+       crop_name = EXCLUDED.crop_name,
+       temperature_min_c = EXCLUDED.temperature_min_c,
+       temperature_max_c = EXCLUDED.temperature_max_c,
+       soil_ph_min = EXCLUDED.soil_ph_min,
+       soil_ph_max = EXCLUDED.soil_ph_max,
+       humidity_min_percent = EXCLUDED.humidity_min_percent,
+       humidity_max_percent = EXCLUDED.humidity_max_percent,
+       updated_by = EXCLUDED.updated_by,
+       updated_at = now()`,
+    [
+      siteId,
+      input.zoneId,
+      input.cropName,
+      input.temperatureMinC,
+      input.temperatureMaxC,
+      input.soilPhMin,
+      input.soilPhMax,
+      input.humidityMinPercent,
+      input.humidityMaxPercent,
+      updatedBy,
+    ],
+  );
+  return smartSoil();
 }
 
 async function updateSmartSoilSelection(
@@ -1519,6 +1596,7 @@ export const repository = {
   telemetrySnapshot,
   smartSoil,
   updateSmartSoilSelection,
+  updateSmartSoilReference,
   history,
   pumps,
   updatePump,

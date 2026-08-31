@@ -764,6 +764,9 @@ function ControlsPage({
     automaticControl?.desiredMode
     ?? automaticDraft.desiredMode
 
+  const selectedMode =
+    automaticDraft.desiredMode
+
   const automaticModeRequested =
     desiredMode === 'automatic'
     || mode === 'automatic'
@@ -1295,7 +1298,7 @@ function ControlsPage({
         >
           <button
             className={
-              desiredMode === 'automatic'
+              selectedMode === 'automatic'
                 ? 'is-selected'
                 : ''
             }
@@ -1311,7 +1314,7 @@ function ControlsPage({
 
           <button
             className={
-              desiredMode === 'manual'
+              selectedMode === 'manual'
                 ? 'is-selected'
                 : ''
             }
@@ -1327,6 +1330,8 @@ function ControlsPage({
         </div>
 
 
+        {
+          selectedMode === 'manual' && (
         <div className="toolbar-actions">
           <button
             className="secondary-button"
@@ -1357,8 +1362,12 @@ function ControlsPage({
             Aktifkan Semua
           </button>
         </div>
+          )
+        }
       </div>
 
+      {
+        selectedMode === 'automatic' && (
       <div className="automatic-control-card page-card">
         <div className="automatic-control-header">
           <div>
@@ -1607,8 +1616,12 @@ function ControlsPage({
           </section>
         </div>
       </div>
+        )
+      }
 
 
+      {
+        selectedMode === 'manual' && (
       <div className="control-grid">
         {
           controls.length > 0
@@ -1714,8 +1727,12 @@ function ControlsPage({
             )
         }
       </div>
+        )
+      }
 
 
+      {
+        selectedMode === 'automatic' && (
       <div className="actuator-schedule-card page-card">
         <div className="schedule-card-header">
           <div>
@@ -2244,6 +2261,8 @@ function ControlsPage({
           }
         </div>
       </div>
+        )
+      }
 
 
       <div className="operation-note page-card">
@@ -4421,15 +4440,6 @@ function SettingsPage({
     }
 
 
-  const numericValue =
-    (
-      value: string,
-    ) =>
-      value.trim() === ''
-        ? null
-        : Number(value)
-
-
   const save =
     async (
       event:
@@ -4573,120 +4583,6 @@ function SettingsPage({
               }
             />
           </label>
-        </div>
-
-
-        <div className="page-card settings-section">
-          <div className="page-card-header">
-            <div>
-              <h2>
-                Ambang Sensor
-              </h2>
-
-              <p>
-                Nilai disimpan lokal
-                sebagai konfigurasi site.
-              </p>
-            </div>
-          </div>
-
-
-          <div className="field-grid">
-            <label className="field-label">
-              <span>
-                Suhu Minimum (°C)
-              </span>
-
-              <input
-                disabled={!isAdmin}
-                type="number"
-                value={
-                  settings.temperatureMin
-                  ?? ''
-                }
-                onChange={(event) =>
-                  update(
-                    'temperatureMin',
-                    numericValue(
-                      event.target.value,
-                    ),
-                  )
-                }
-              />
-            </label>
-
-
-            <label className="field-label">
-              <span>
-                Suhu Maksimum (°C)
-              </span>
-
-              <input
-                disabled={!isAdmin}
-                type="number"
-                value={
-                  settings.temperatureMax
-                  ?? ''
-                }
-                onChange={(event) =>
-                  update(
-                    'temperatureMax',
-                    numericValue(
-                      event.target.value,
-                    ),
-                  )
-                }
-              />
-            </label>
-
-
-            <label className="field-label">
-              <span>
-                Kelembapan Minimum (%)
-              </span>
-
-              <input
-                disabled={!isAdmin}
-                type="number"
-                value={
-                  settings.humidityMin
-                  ?? ''
-                }
-                onChange={(event) =>
-                  update(
-                    'humidityMin',
-                    numericValue(
-                      event.target.value,
-                    ),
-                  )
-                }
-              />
-            </label>
-
-
-            <label className="field-label">
-              <span>
-                Kelembapan Maksimum (%)
-              </span>
-
-              <input
-                disabled={!isAdmin}
-                type="number"
-                value={
-                  settings.humidityMax
-                  ?? ''
-                }
-                onChange={(event) =>
-                  update(
-                    'humidityMax',
-                    numericValue(
-                      event.target.value,
-                    ),
-                  )
-                }
-              />
-            </label>
-          </div>
         </div>
 
 

@@ -23,6 +23,7 @@ import type {
   LoginRequest,
   ManagedUser,
   SmartSoilSnapshot,
+  SmartSoilReferenceInput,
   SelectedCropInput,
   UpdateUserRequest,
 } from '@spff/contracts'
@@ -421,6 +422,18 @@ export function saveSmartSoilSelection(
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  )
+}
+
+export function saveSmartSoilReference(
+  input: SmartSoilReferenceInput,
+) {
+  return request<SmartSoilSnapshot>(
+    '/smart-soil/reference',
+    {
+      method: 'PUT',
       body: JSON.stringify(input),
     },
   )

@@ -399,11 +399,6 @@ Array<{
     label: 'Dashboard',
   },
   {
-    key: 'plants',
-    icon: Sprout,
-    label: 'Status Tanaman',
-  },
-  {
     key: 'smart-soil',
     icon: Droplets,
     label: 'Smart Soil',

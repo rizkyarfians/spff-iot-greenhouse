@@ -46,6 +46,7 @@ import {
   streamEvents,
   updatePump,
   updateAutomaticControl,
+  updateSmartSoilReference,
   updateSmartSoilSelection,
   updateSettings,
 } from '../controllers/dashboardController.js';
@@ -193,6 +194,13 @@ apiRouter.put(
   requireAdmin,
   requireCsrf,
   updateSmartSoilSelection,
+);
+
+apiRouter.put(
+  '/smart-soil/reference',
+  requireAdmin,
+  requireCsrf,
+  updateSmartSoilReference,
 );
 
 

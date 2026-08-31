@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
   Droplets,
   FlaskConical,
   Gauge,
@@ -13,13 +12,14 @@ import {
   Wind,
 } from 'lucide-react'
 import type {
-  CropId,
+  SmartSoilComparison,
+  SmartSoilReferenceInput,
   SmartSoilSensorCondition,
   SmartSoilSnapshot,
 } from '@spff/contracts'
 import {
   fetchSmartSoil,
-  saveSmartSoilSelection,
+  saveSmartSoilReference,
   type ConnectionState,
 } from './api'
 import { useAuth } from './authContext'
@@ -30,6 +30,11 @@ type Props = {
   onRefresh: () => void
 }
 
+type ReferenceDraft = Record<
+  Exclude<keyof SmartSoilReferenceInput, 'zoneId'>,
+  string
+>
+
 const iconBySensor: Record<string, typeof Leaf> = {
   air_temp: Thermometer,
   air_humidity: Wind,
@@ -39,12 +44,29 @@ const iconBySensor: Record<string, typeof Leaf> = {
   soil_1_ec_us_cm: Gauge,
 }
 
-const suitabilityLabels = {
-  excellent: 'Sangat sesuai',
-  good: 'Sesuai',
-  marginal: 'Cukup sesuai',
-  unsuitable: 'Kurang sesuai',
-} as const
+const blankReferenceDraft = (): ReferenceDraft => ({
+  cropName: '',
+  temperatureMinC: '',
+  temperatureMaxC: '',
+  soilPhMin: '',
+  soilPhMax: '',
+  humidityMinPercent: '',
+  humidityMaxPercent: '',
+})
+
+const toReferenceDraft = (
+  reference: SmartSoilSnapshot['reference'],
+): ReferenceDraft => reference
+  ? {
+      cropName: reference.cropName,
+      temperatureMinC: String(reference.temperatureMinC),
+      temperatureMaxC: String(reference.temperatureMaxC),
+      soilPhMin: String(reference.soilPhMin),
+      soilPhMax: String(reference.soilPhMax),
+      humidityMinPercent: String(reference.humidityMinPercent),
+      humidityMaxPercent: String(reference.humidityMaxPercent),
+    }
+  : blankReferenceDraft()
 
 const formatSensorValue = (sensor: SmartSoilSensorCondition) =>
   sensor.value === null
@@ -54,14 +76,24 @@ const formatSensorValue = (sensor: SmartSoilSensorCondition) =>
         sensor.unit,
       ].filter(Boolean).join(' ')
 
-const range = (min: number, max: number, unit = '') =>
-  [min, '–', max, unit ? [' ', unit].join('') : ''].join('')
+const comparisonLabels: Record<SmartSoilComparison['status'], string> = {
+  within: 'Sesuai acuan',
+  below: 'Di bawah acuan',
+  above: 'Di atas acuan',
+  unavailable: 'Belum ada data',
+}
+
+const formatComparisonValue = (
+  value: number | null,
+  unit: string,
+) => value === null
+  ? '—'
+  : `${value.toLocaleString('id-ID', { maximumFractionDigits: 1 })} ${unit}`
 
 export function SmartSoilPage({ connectionState, onRefresh }: Props) {
   const { user } = useAuth()
   const [snapshot, setSnapshot] = useState<SmartSoilSnapshot | null>(null)
-  const [selectedCropId, setSelectedCropId] = useState<CropId>('sweet-potato')
-  const [expandedCrop, setExpandedCrop] = useState<CropId | null>(null)
+  const [draft, setDraft] = useState<ReferenceDraft>(blankReferenceDraft)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -71,7 +103,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
     try {
       const data = await fetchSmartSoil()
       setSnapshot(data)
-      setSelectedCropId(data.selectedCropId)
+      setDraft(toReferenceDraft(data.reference))
       setError('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Smart Soil belum dapat dimuat.')
@@ -84,24 +116,59 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
     void load()
   }, [])
 
-  const activeProfile = useMemo(
-    () => snapshot?.profiles.find((profile) => profile.id === selectedCropId),
-    [selectedCropId, snapshot],
+  const savedDraft = useMemo(
+    () => toReferenceDraft(snapshot?.reference ?? null),
+    [snapshot?.reference],
   )
 
-  const saveSelection = async () => {
-    if (!snapshot || user.role !== 'admin') return
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(savedDraft)
+
+  const updateDraft = (field: keyof ReferenceDraft, value: string) => {
+    setDraft((current) => ({ ...current, [field]: value }))
+  }
+
+  const saveReference = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!snapshot || user.role !== 'admin' || saving) return
+
+    const numericFields = {
+      temperatureMinC: Number(draft.temperatureMinC),
+      temperatureMaxC: Number(draft.temperatureMaxC),
+      soilPhMin: Number(draft.soilPhMin),
+      soilPhMax: Number(draft.soilPhMax),
+      humidityMinPercent: Number(draft.humidityMinPercent),
+      humidityMaxPercent: Number(draft.humidityMaxPercent),
+    }
+    const numericDraftValues = [
+      draft.temperatureMinC,
+      draft.temperatureMaxC,
+      draft.soilPhMin,
+      draft.soilPhMax,
+      draft.humidityMinPercent,
+      draft.humidityMaxPercent,
+    ]
+    if (
+      !draft.cropName.trim()
+      || numericDraftValues.some((value) => value.trim() === '')
+      || Object.values(numericFields).some((value) => !Number.isFinite(value))
+    ) {
+      setError('Lengkapi nama tanaman dan seluruh nilai acuannya.')
+      return
+    }
+
     setSaving(true)
     try {
-      const data = await saveSmartSoilSelection({
+      const data = await saveSmartSoilReference({
         zoneId: snapshot.zoneId,
-        selectedCropId,
+        cropName: draft.cropName.trim(),
+        ...numericFields,
       })
       setSnapshot(data)
+      setDraft(toReferenceDraft(data.reference))
       setError('')
       onRefresh()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Pilihan tanaman belum tersimpan.')
+      setError(caught instanceof Error ? caught.message : 'Acuan tanaman belum tersimpan.')
     } finally {
       setSaving(false)
     }
@@ -129,17 +196,18 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
       <header className="smart-soil-heading">
         <div>
           <span className="smart-soil-eyebrow"><Leaf size={15} /> Smart Soil</span>
-          <h2>Monitoring kondisi & rekomendasi tanaman</h2>
+          <h2>Monitoring kondisi & acuan tanaman</h2>
           <p>
-            Analisis memakai data terakhir dari sistem. Fitur ini tidak
-            mengendalikan pompa atau jadwal.
+            Bandingkan kondisi terbaru dengan rentang yang diisi dan disepakati tim lapangan.
           </p>
         </div>
         <div className={['smart-soil-device', snapshot.deviceStatus].join(' ')}>
           <span />
           {snapshot.deviceStatus === 'online'
-            ? 'Device online'
-            : ['Device ', snapshot.deviceStatus].join('')}
+            ? 'Perangkat terhubung'
+            : snapshot.deviceStatus === 'stale'
+              ? 'Data terlambat'
+              : 'Perangkat tidak terhubung'}
         </div>
       </header>
 
@@ -148,6 +216,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
           <AlertTriangle size={17} /> {error}
         </div>
       )}
+
       <div className="smart-soil-condition-grid">
         {snapshot.conditions.sensors.map((sensor) => {
           const Icon = iconBySensor[sensor.id] ?? Leaf
@@ -163,100 +232,127 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
       </div>
 
       <div className="smart-soil-layout">
-        <article className="page-card smart-soil-profile">
+        <form className="page-card smart-soil-profile" onSubmit={saveReference}>
           <div className="page-card-header">
             <div>
-              <h2>Tanaman acuan</h2>
-              <p>Pilih profil untuk dibandingkan dengan kondisi lokasi saat ini.</p>
+              <h2>Acuan tanaman manual</h2>
+              <p>Isi rentang berdasarkan rekomendasi tim agronomi atau kebutuhan tanaman.</p>
             </div>
           </div>
-          <label className="smart-soil-field">
-            <span>Pilih tanaman</span>
-            <select
-              value={selectedCropId}
-              onChange={(event) => setSelectedCropId(event.target.value as CropId)}
-            >
-              {snapshot.profiles.map((profile) => (
-                <option value={profile.id} key={profile.id}>
-                  {profile.commonName}
-                </option>
-              ))}
-            </select>
+
+          <label className="smart-soil-field smart-soil-field-wide">
+            <span>Nama tanaman</span>
+            <input
+              value={draft.cropName}
+              placeholder="Contoh: Pakcoy"
+              maxLength={100}
+              required
+              disabled={user.role !== 'admin'}
+              onChange={(event) => updateDraft('cropName', event.target.value)}
+            />
           </label>
 
-          {activeProfile && (
-            <div className="smart-soil-profile-detail">
-              <div>
-                <h3>{activeProfile.commonName}</h3>
-                <em>{activeProfile.scientificName}</em>
+          <div className="smart-soil-reference-grid">
+            <label className="smart-soil-field">
+              <span>Suhu minimum</span>
+              <div className="smart-soil-input-wrap">
+                <input type="number" min={-20} max={80} step="0.1" required disabled={user.role !== 'admin'} value={draft.temperatureMinC} onChange={(event) => updateDraft('temperatureMinC', event.target.value)} />
+                <small>°C</small>
               </div>
-              <dl className="smart-soil-definition-list">
-                <div>
-                  <dt>Baseline suhu</dt>
-                  <dd>{range(activeProfile.temperature.optimalMinC, activeProfile.temperature.optimalMaxC, '°C')}</dd>
-                </div>
-                <div>
-                  <dt>Baseline pH tanah</dt>
-                  <dd>{range(activeProfile.soil.optimalPhMin, activeProfile.soil.optimalPhMax)}</dd>
-                </div>
-                <div>
-                  <dt>Rentang kelembapan lokasi</dt>
-                  <dd>
-                    {snapshot.humidityTarget.minPercent === null ||
-                    snapshot.humidityTarget.maxPercent === null
-                      ? 'Belum diatur'
-                      : range(
-                          snapshot.humidityTarget.minPercent,
-                          snapshot.humidityTarget.maxPercent,
-                          '%',
-                        )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Siklus tumbuh</dt>
-                  <dd>
-                    {activeProfile.growth
-                      ? range(activeProfile.growth.minDays, activeProfile.growth.maxDays, 'hari')
-                      : 'Data belum tersedia'}
-                  </dd>
-                </div>
-              </dl>
-              <small>
-                Baseline tanaman: {activeProfile.source.map((source) => source.name).join(' · ')}.
-                Kelembapan memakai rentang operasional lokasi, bukan baseline spesifik tanaman.
-              </small>
-            </div>
-          )}
+            </label>
+            <label className="smart-soil-field">
+              <span>Suhu maksimum</span>
+              <div className="smart-soil-input-wrap">
+                <input type="number" min={-20} max={80} step="0.1" required disabled={user.role !== 'admin'} value={draft.temperatureMaxC} onChange={(event) => updateDraft('temperatureMaxC', event.target.value)} />
+                <small>°C</small>
+              </div>
+            </label>
+            <label className="smart-soil-field">
+              <span>pH tanah minimum</span>
+              <div className="smart-soil-input-wrap">
+                <input type="number" min={0} max={14} step="0.1" required disabled={user.role !== 'admin'} value={draft.soilPhMin} onChange={(event) => updateDraft('soilPhMin', event.target.value)} />
+                <small>pH</small>
+              </div>
+            </label>
+            <label className="smart-soil-field">
+              <span>pH tanah maksimum</span>
+              <div className="smart-soil-input-wrap">
+                <input type="number" min={0} max={14} step="0.1" required disabled={user.role !== 'admin'} value={draft.soilPhMax} onChange={(event) => updateDraft('soilPhMax', event.target.value)} />
+                <small>pH</small>
+              </div>
+            </label>
+            <label className="smart-soil-field">
+              <span>Kelembapan udara minimum</span>
+              <div className="smart-soil-input-wrap">
+                <input type="number" min={0} max={100} step="0.1" required disabled={user.role !== 'admin'} value={draft.humidityMinPercent} onChange={(event) => updateDraft('humidityMinPercent', event.target.value)} />
+                <small>%RH</small>
+              </div>
+            </label>
+            <label className="smart-soil-field">
+              <span>Kelembapan udara maksimum</span>
+              <div className="smart-soil-input-wrap">
+                <input type="number" min={0} max={100} step="0.1" required disabled={user.role !== 'admin'} value={draft.humidityMaxPercent} onChange={(event) => updateDraft('humidityMaxPercent', event.target.value)} />
+                <small>%RH</small>
+              </div>
+            </label>
+          </div>
 
           <button
             className="primary-action"
-            type="button"
-            onClick={() => void saveSelection()}
+            type="submit"
             disabled={
-              saving ||
-              user.role !== 'admin' ||
-              connectionState !== 'connected' ||
-              selectedCropId === snapshot.selectedCropId
+              saving
+              || user.role !== 'admin'
+              || connectionState !== 'connected'
+              || !isDirty
             }
           >
             {saving ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}
-            {user.role === 'admin' ? 'Simpan pilihan' : 'Hanya admin yang dapat menyimpan'}
+            {user.role === 'admin' ? 'Simpan acuan' : 'Hanya admin yang dapat menyimpan'}
           </button>
-        </article>
+        </form>
 
         <article className="page-card smart-soil-explanation">
           <div className="page-card-header">
             <div>
-              <h2>Cara membaca analisis</h2>
-              <p>Skor dinormalisasi hanya dari input yang tersedia.</p>
+              <h2>Hasil perbandingan</h2>
+              <p>
+                {snapshot.reference
+                  ? `Kondisi saat ini dibandingkan dengan acuan ${snapshot.reference.cropName}.`
+                  : 'Isi acuan tanaman terlebih dahulu untuk melihat hasil.'}
+              </p>
             </div>
           </div>
-          <ul>
-            <li><strong>Suhu 40%</strong> dibandingkan dengan baseline suhu tiap tanaman.</li>
-            <li><strong>pH tanah 35%</strong> dibandingkan dengan baseline pH tiap tanaman.</li>
-            <li><strong>Kelembapan udara 25%</strong> dibandingkan dengan rentang lokasi di Pengaturan.</li>
-            <li>Moisture, EC, dan NPK tetap dimonitor, tetapi belum masuk skor tanpa baseline tanaman yang tervalidasi.</li>
-          </ul>
+
+          {snapshot.comparison.length > 0 ? (
+            <div className="smart-soil-comparison-list">
+              {snapshot.comparison.map((item) => (
+                <div className={`smart-soil-comparison ${item.status}`} key={item.parameter}>
+                  <span className="smart-soil-comparison-icon">
+                    {item.status === 'within'
+                      ? <CheckCircle2 size={18} />
+                      : <AlertTriangle size={18} />}
+                  </span>
+                  <span>
+                    <strong>{item.label}</strong>
+                    <small>
+                      Acuan {item.minimum.toLocaleString('id-ID')}–{item.maximum.toLocaleString('id-ID')} {item.unit}
+                    </small>
+                  </span>
+                  <span className="smart-soil-comparison-value">
+                    <strong>{formatComparisonValue(item.currentValue, item.unit)}</strong>
+                    <small>{comparisonLabels[item.status]}</small>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="smart-soil-empty-reference">
+              <Leaf size={22} />
+              Belum ada acuan manual yang tersimpan.
+            </div>
+          )}
+
           <div className="smart-soil-read-time">
             Data terakhir
             <strong>
@@ -267,54 +363,6 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
           </div>
         </article>
       </div>
-
-      <article className="page-card smart-soil-recommendations">
-        <div className="page-card-header">
-          <div>
-            <h2>Rekomendasi tanaman</h2>
-            <p>Urutan kecocokan berdasarkan kondisi yang sedang terbaca.</p>
-          </div>
-        </div>
-        {snapshot.recommendations.length === 0 ? (
-          <p className="empty-copy">Belum cukup data untuk membuat rekomendasi.</p>
-        ) : (
-          snapshot.recommendations.map((recommendation, index) => (
-            <div className="smart-soil-recommendation" key={recommendation.cropId}>
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedCrop(
-                    expandedCrop === recommendation.cropId ? null : recommendation.cropId,
-                  )
-                }
-              >
-                <span className="rank">{index + 1}</span>
-                <span>
-                  <strong>
-                    {snapshot.profiles.find((profile) => profile.id === recommendation.cropId)?.commonName}
-                  </strong>
-                  <small>{suitabilityLabels[recommendation.suitability]}</small>
-                </span>
-                <b>{recommendation.score}%</b>
-                <ChevronDown
-                  size={17}
-                  className={expandedCrop === recommendation.cropId ? 'open' : ''}
-                />
-              </button>
-              {expandedCrop === recommendation.cropId && (
-                <ul>
-                  {recommendation.reasons.map((reason) => (
-                    <li key={reason.parameter}>
-                      <CheckCircle2 size={15} />
-                      {reason.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))
-        )}
-      </article>
     </section>
   )
 }

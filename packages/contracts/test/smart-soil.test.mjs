@@ -1,10 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  compareSmartSoilReference,
   cropProfiles,
   defaultCropId,
   recommendCrops,
   selectedCropInputSchema,
+  smartSoilReferenceInputSchema,
 } from '../dist/index.js'
 
 test('crop dataset contains ten profiles with sweet potato as default', () => {
@@ -64,5 +66,41 @@ test('crop selection accepts known profile and rejects unknown crop', () => {
       selectedCropId: 'invented-crop',
     }).success,
     false,
+  )
+})
+
+test('manual Smart Soil reference validates ranges and compares without synthetic scoring', () => {
+  const reference = {
+    zoneId: 'soil-1',
+    cropName: 'Pakcoy',
+    temperatureMinC: 20,
+    temperatureMaxC: 28,
+    soilPhMin: 5.5,
+    soilPhMax: 7,
+    humidityMinPercent: 60,
+    humidityMaxPercent: 80,
+  }
+
+  assert.equal(smartSoilReferenceInputSchema.safeParse(reference).success, true)
+  assert.equal(
+    smartSoilReferenceInputSchema.safeParse({
+      ...reference,
+      soilPhMin: 8,
+      soilPhMax: 6,
+    }).success,
+    false,
+  )
+
+  assert.deepEqual(
+    compareSmartSoilReference(reference, {
+      airTemperatureC: 29,
+      soilPh: 6.2,
+      airHumidityPercent: null,
+    }).map(({ parameter, status }) => ({ parameter, status })),
+    [
+      { parameter: 'temperature', status: 'above' },
+      { parameter: 'ph', status: 'within' },
+      { parameter: 'humidity', status: 'unavailable' },
+    ],
   )
 })

@@ -73,6 +73,112 @@ export const selectedCropInputSchema = z.object({
 })
 export type SelectedCropInput = z.infer<typeof selectedCropInputSchema>
 
+export const smartSoilReferenceInputSchema = z
+  .object({
+    zoneId: z.string().trim().min(1),
+    cropName: z.string().trim().min(1).max(100),
+    temperatureMinC: finiteNumber.min(-20).max(80),
+    temperatureMaxC: finiteNumber.min(-20).max(80),
+    soilPhMin: finiteNumber.min(0).max(14),
+    soilPhMax: finiteNumber.min(0).max(14),
+    humidityMinPercent: finiteNumber.min(0).max(100),
+    humidityMaxPercent: finiteNumber.min(0).max(100),
+  })
+  .superRefine((value, context) => {
+    const ranges = [
+      ['temperatureMaxC', value.temperatureMinC, value.temperatureMaxC],
+      ['soilPhMax', value.soilPhMin, value.soilPhMax],
+      ['humidityMaxPercent', value.humidityMinPercent, value.humidityMaxPercent],
+    ] as const
+
+    for (const [path, minimum, maximum] of ranges) {
+      if (minimum > maximum) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [path],
+          message: 'Nilai maksimum harus lebih besar atau sama dengan nilai minimum.',
+        })
+      }
+    }
+  })
+
+export type SmartSoilReferenceInput = z.infer<typeof smartSoilReferenceInputSchema>
+
+export interface SmartSoilReference extends SmartSoilReferenceInput {
+  updatedBy: string
+  updatedAt: string
+}
+
+export interface SmartSoilComparison {
+  parameter: 'temperature' | 'ph' | 'humidity'
+  label: string
+  currentValue: number | null
+  minimum: number
+  maximum: number
+  unit: string
+  status: 'within' | 'below' | 'above' | 'unavailable'
+}
+
+export function compareSmartSoilReference(
+  reference: SmartSoilReferenceInput,
+  values: {
+    airTemperatureC: number | null
+    soilPh: number | null
+    airHumidityPercent: number | null
+  },
+): SmartSoilComparison[] {
+  const compare = (
+    parameter: SmartSoilComparison['parameter'],
+    label: string,
+    currentValue: number | null,
+    minimum: number,
+    maximum: number,
+    unit: string,
+  ): SmartSoilComparison => ({
+    parameter,
+    label,
+    currentValue,
+    minimum,
+    maximum,
+    unit,
+    status:
+      currentValue === null
+        ? 'unavailable'
+        : currentValue < minimum
+          ? 'below'
+          : currentValue > maximum
+            ? 'above'
+            : 'within',
+  })
+
+  return [
+    compare(
+      'temperature',
+      'Suhu udara',
+      values.airTemperatureC,
+      reference.temperatureMinC,
+      reference.temperatureMaxC,
+      '°C',
+    ),
+    compare(
+      'ph',
+      'pH tanah',
+      values.soilPh,
+      reference.soilPhMin,
+      reference.soilPhMax,
+      'pH',
+    ),
+    compare(
+      'humidity',
+      'Kelembapan udara',
+      values.airHumidityPercent,
+      reference.humidityMinPercent,
+      reference.humidityMaxPercent,
+      '%RH',
+    ),
+  ]
+}
+
 export const cropRecommendationInputSchema = z.object({
   airTemperatureC: finiteNumber.nullable().optional(),
   soilTemperatureC: finiteNumber.nullable().optional(),
@@ -237,4 +343,6 @@ export interface SmartSoilSnapshot {
   selectedCropId: CropId
   selectedCrop: CropProfile
   recommendations: CropRecommendation[]
+  reference: SmartSoilReference | null
+  comparison: SmartSoilComparison[]
 }
