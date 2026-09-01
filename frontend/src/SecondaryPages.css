@@ -1046,6 +1046,7 @@
 }
 
 .datalog-chart-card {
+  order: -1;
   padding: 22px;
 }
 
