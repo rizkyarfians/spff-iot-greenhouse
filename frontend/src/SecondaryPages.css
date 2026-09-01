@@ -977,12 +977,6 @@
   width: 118px;
 }
 
-.log-actions .datalog-time-filter small {
-  color: #7c8a84;
-  font-size: 9px;
-  line-height: 1;
-}
-
 .log-actions .primary-button,
 .log-actions .secondary-button {
   display: inline-flex;

@@ -3115,7 +3115,6 @@ function LogsPage({
                   setCurrentPage(1)
                 }}
               />
-              <small>Kosong = 00:00</small>
             </label>
 
             <label className="page-select compact-select datalog-time-filter">
@@ -3128,7 +3127,6 @@ function LogsPage({
                   setCurrentPage(1)
                 }}
               />
-              <small>Kosong = 23:59</small>
             </label>
 
 
