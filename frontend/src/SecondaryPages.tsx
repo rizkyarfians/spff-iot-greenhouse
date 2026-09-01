@@ -3406,7 +3406,7 @@ function LogsPage({
               viewBox="0 0 760 230"
               role="img"
               aria-label="Grafik riwayat sensor sesuai rentang Datalog"
-              preserveAspectRatio="none"
+              preserveAspectRatio="xMidYMid meet"
             >
               <defs>
                 <linearGradient id="datalog-chart-fill" x1="0" y1="0" x2="0" y2="1">

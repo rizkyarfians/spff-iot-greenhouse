@@ -1095,15 +1095,19 @@
 }
 
 .datalog-chart-visual {
-  height: 290px;
+  display: grid;
+  height: clamp(320px, 29vw, 440px);
+  place-items: center;
   margin-top: 18px;
   border-radius: 12px;
   background: linear-gradient(180deg, #fbfdfc 0%, #f7faf8 100%);
-  padding: 14px 16px 8px;
+  overflow: hidden;
+  padding: 18px 20px 12px;
 }
 
 .datalog-chart-visual svg {
-  width: 100%;
+  display: block;
+  width: min(100%, 1440px);
   height: 100%;
   overflow: visible;
 }
@@ -1128,6 +1132,8 @@
   stroke: #24ad78;
   stroke-width: 3;
   stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .datalog-chart-point {
@@ -1919,6 +1925,20 @@
 
   .datalog-chart-select {
     width: 100%;
+  }
+
+  .datalog-chart-visual {
+    height: 280px;
+    justify-content: start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 14px 12px 8px;
+  }
+
+  .datalog-chart-visual svg {
+    width: 760px;
+    min-width: 760px;
+    height: 230px;
   }
 
   .log-actions .primary-button,
