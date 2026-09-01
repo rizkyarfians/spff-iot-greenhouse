@@ -7,6 +7,7 @@ import type {
   ApiAlarmDetail,
   ApiAlarmPage,
   ApiHistorySeries,
+  ApiDatalogPage,
   HistoryBucket,
   ApiPumpCommandRequest,
   ApiScheduleCreateRequest,
@@ -39,6 +40,7 @@ export type {
   ApiActuator,
   ApiAutomaticControl,
   ApiAutomaticControlUpdateRequest,
+  ApiDatalogPage,
   ApiAlarm,
   ApiAlarmDetail,
   ApiAlarmEvent,
@@ -444,6 +446,7 @@ export function fetchSensorHistory(
   sensorKey: string,
   signal?: AbortSignal,
   options: {
+    from?: Date
     to?: Date
     hours?: number
     bucket?: HistoryBucket
@@ -473,12 +476,45 @@ export function fetchSensorHistory(
     )
   }
 
+  if (options.from) {
+    params.set(
+      'from',
+      options.from.toISOString(),
+    )
+  }
+
 
   return request<ApiHistorySeries>(
     `/sensors/history?${params.toString()}`,
     {
       signal,
     },
+  )
+}
+
+export function fetchDatalog(
+  options: {
+    kind: 'sensor' | 'actuator'
+    parameter: string
+    from: Date
+    to: Date
+    page: number
+    pageSize?: number
+  },
+  signal?: AbortSignal,
+) {
+  const params = new URLSearchParams({
+    kind: options.kind,
+    parameter: options.parameter,
+    from: options.from.toISOString(),
+    to: options.to.toISOString(),
+    page: String(options.page),
+    pageSize: String(options.pageSize ?? 10),
+  })
+
+  return request<ApiDatalogPage>(
+    `/datalog?${params.toString()}`,
+    { signal },
   )
 }
 

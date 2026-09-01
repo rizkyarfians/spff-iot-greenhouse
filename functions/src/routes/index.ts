@@ -32,6 +32,7 @@ import {
   getAlarmDetail,
   getAutomaticControl,
   getDevices,
+  getDatalog,
   getHistory,
   getLatestTelemetry,
   getLogs,
@@ -176,6 +177,11 @@ apiRouter.get(
 apiRouter.get(
   '/sensors/history',
   getHistory,
+);
+
+apiRouter.get(
+  '/datalog',
+  getDatalog,
 );
 
 

@@ -582,6 +582,31 @@ export interface ApiHistorySeries {
   points: ApiHistoryPoint[];
 }
 
+export type DatalogKind = 'sensor' | 'actuator';
+
+export interface ApiDatalogItem {
+  id: string;
+  kind: DatalogKind;
+  recordedAt: string;
+  parameterKey: string;
+  displayName: string;
+  value: number | null;
+  unit: string;
+  state: ApiActuator['state'] | null;
+  source: ApiActuatorLog['source'] | null;
+  reason: string | null;
+}
+
+export interface ApiDatalogPage {
+  items: ApiDatalogItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+}
+
 export interface ApiActuator {
   id: string;
   deviceId: string;

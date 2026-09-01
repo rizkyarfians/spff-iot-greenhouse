@@ -27,8 +27,10 @@ import {
   acknowledgeAlarm as acknowledgeAlarmRequest,
   createSchedule as createScheduleRequest,
   deleteSchedule as deleteScheduleRequest,
+  fetchDatalog,
   fetchAlarmDetail,
   fetchAlarms,
+  fetchSensorHistory,
   resolveAlarm as resolveAlarmRequest,
   saveAutomaticControl as saveAutomaticControlRequest,
   saveSettings as saveSettingsRequest,
@@ -42,6 +44,8 @@ import type {
   ApiAlarmEvent,
   ApiAutomaticControl,
   ApiAutomaticControlUpdateRequest,
+  ApiDatalogPage,
+  ApiHistorySeries,
   ApiSettings,
   BootstrapData,
   ConnectionState,
@@ -2290,6 +2294,29 @@ function ControlsPage({
 }
 
 
+const jakartaDateInputValue = () =>
+  new Intl.DateTimeFormat(
+    'en-CA',
+    {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    },
+  ).format(new Date())
+
+
+const datalogDateTime = (
+  date: string,
+  time: string,
+  endOfMinute: boolean,
+) => new Date(
+  `${date}T${time || (endOfMinute ? '23:59' : '00:00')}:${
+    endOfMinute ? '59.999' : '00'
+  }+07:00`,
+)
+
+
 function LogsPage({
   data,
   connectionState,
@@ -2324,13 +2351,18 @@ function LogsPage({
     )
 
 
-  const [
-    range,
-    setRange,
-  ] =
-    useState(
-      'Hari Ini',
-    )
+  const [fromDate, setFromDate] = useState(jakartaDateInputValue)
+  const [toDate, setToDate] = useState(jakartaDateInputValue)
+  const [fromTime, setFromTime] = useState('')
+  const [toTime, setToTime] = useState('')
+
+  const [datalogPage, setDatalogPage] = useState<ApiDatalogPage | null>(null)
+  const [datalogLoading, setDatalogLoading] = useState(false)
+  const [datalogError, setDatalogError] = useState('')
+
+  const [chartSensor, setChartSensor] = useState('soil_1_moisture')
+  const [chartSeries, setChartSeries] = useState<ApiHistorySeries | null>(null)
+  const [chartLoading, setChartLoading] = useState(false)
 
 
   const [
@@ -2399,7 +2431,7 @@ function LogsPage({
 
   const sensorRows =
     (
-      data?.telemetryLog ?? []
+      datalogPage?.items.filter((row) => row.kind === 'sensor') ?? []
     ).map(
       (row) => [
         new Date(
@@ -2434,7 +2466,7 @@ function LogsPage({
 
         'Tersimpan',
 
-        row.sensorKey,
+        row.parameterKey,
 
         row.recordedAt,
       ],
@@ -2443,7 +2475,7 @@ function LogsPage({
 
   const actuatorRows =
     (
-      data?.actuatorLog ?? []
+      datalogPage?.items.filter((row) => row.kind === 'actuator') ?? []
     ).map(
       (row) => {
         const stateLabel = {
@@ -2458,7 +2490,7 @@ function LogsPage({
           fault:
             'Gangguan',
         }[
-          row.state
+          row.state ?? 'offline'
         ]
 
 
@@ -2472,7 +2504,7 @@ function LogsPage({
           system:
             'Sistem Perangkat',
         }[
-          row.source
+          row.source ?? 'system'
         ]
 
 
@@ -2512,7 +2544,7 @@ function LogsPage({
               + farmerReasonLabel(row.reason)
             : sourceLabel,
 
-          row.actuatorKey,
+          row.parameterKey,
 
           row.recordedAt,
         ]
@@ -2532,53 +2564,123 @@ function LogsPage({
       : actuator
 
 
-  const rangeDays = {
-    'Hari Ini':
-      1,
-    '7 Hari':
-      7,
-    '30 Hari':
-      30,
-  }[
-    range
-  ] ?? 1
+  useEffect(
+    () => {
+      const rangeFrom = datalogDateTime(fromDate, fromTime, false)
+      const rangeTo = datalogDateTime(toDate, toTime, true)
+      const rangeDurationMs = rangeTo.getTime() - rangeFrom.getTime()
+      const rangeIsValid =
+        fromDate !== ''
+        && toDate !== ''
+        && Number.isFinite(rangeDurationMs)
+        && rangeDurationMs >= 0
+        && rangeDurationMs <= 31 * 24 * 60 * 60 * 1000
 
+      if (connectionState !== 'connected' || !rangeIsValid) {
+        setDatalogPage(null)
+        if (!rangeIsValid) {
+          setDatalogError('Pilih rentang tanggal maksimal 31 hari.')
+        }
+        return
+      }
 
-  const rangeStart =
-    new Date()
+      const controller = new AbortController()
+      setDatalogLoading(true)
+      setDatalogError('')
 
+      void fetchDatalog(
+        {
+          kind: logType,
+          parameter: selectedParameter,
+          from: rangeFrom,
+          to: rangeTo,
+          page: currentPage,
+          pageSize: 10,
+        },
+        controller.signal,
+      )
+        .then(setDatalogPage)
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === 'AbortError') return
+          setDatalogPage(null)
+          setDatalogError(
+            error instanceof Error ? error.message : 'Datalog belum dapat dimuat.',
+          )
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setDatalogLoading(false)
+        })
 
-  rangeStart.setHours(
-    0,
-    0,
-    0,
-    0,
+      return () => controller.abort()
+    },
+    [
+      connectionState,
+      currentPage,
+      fromDate,
+      fromTime,
+      logType,
+      selectedParameter,
+      toDate,
+      toTime,
+    ],
   )
 
 
-  rangeStart.setDate(
-    rangeStart.getDate()
-    - (
-      rangeDays
-      - 1
-    ),
+  useEffect(
+    () => {
+      const rangeFrom = datalogDateTime(fromDate, fromTime, false)
+      const rangeTo = datalogDateTime(toDate, toTime, true)
+      const rangeDurationMs = rangeTo.getTime() - rangeFrom.getTime()
+      const rangeIsValid =
+        fromDate !== ''
+        && toDate !== ''
+        && Number.isFinite(rangeDurationMs)
+        && rangeDurationMs >= 0
+        && rangeDurationMs <= 31 * 24 * 60 * 60 * 1000
+
+      if (connectionState !== 'connected' || !rangeIsValid || !chartSensor) {
+        setChartSeries(null)
+        return
+      }
+
+      const controller = new AbortController()
+      const rangeHours = rangeDurationMs / (60 * 60 * 1000)
+      const bucket = rangeHours <= 24 ? '5m' : rangeHours <= 7 * 24 ? '1h' : '6h'
+      setChartLoading(true)
+
+      void fetchSensorHistory(
+        chartSensor,
+        controller.signal,
+        {
+          from: rangeFrom,
+          to: rangeTo,
+          hours: Math.max(1, Math.ceil(rangeHours)),
+          bucket,
+        },
+      )
+        .then(setChartSeries)
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === 'AbortError') return
+          setChartSeries(null)
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setChartLoading(false)
+        })
+
+      return () => controller.abort()
+    },
+    [
+      chartSensor,
+      connectionState,
+      fromDate,
+      fromTime,
+      toDate,
+      toTime,
+    ],
   )
 
 
-  const rows =
-    databaseRows.filter(
-      (row) =>
-        (
-          selectedParameter
-          === 'all'
-          || row[4]
-          === selectedParameter
-        )
-        && Date.parse(
-          row[5],
-        )
-        >= rangeStart.getTime(),
-    )
+  const rows = databaseRows
 
 
   const rowsPerPage =
@@ -2586,13 +2688,7 @@ function LogsPage({
 
 
   const totalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        rows.length
-        / rowsPerPage,
-      ),
-    )
+    datalogPage?.pagination.totalPages ?? 1
 
 
   useEffect(
@@ -2620,11 +2716,7 @@ function LogsPage({
 
 
   const visibleRows =
-    rows.slice(
-      pageStart,
-      pageStart
-      + rowsPerPage,
-    )
+    rows
 
 
   const visiblePageCount =
@@ -2666,6 +2758,64 @@ function LogsPage({
         pageWindowStart
         + index,
     )
+
+
+  const chartPoints = useMemo(
+    () => chartSeries?.points ?? [],
+    [chartSeries],
+  )
+
+
+  const chartGeometry = useMemo(
+    () => {
+      const plotLeft = 28
+      const plotRight = 732
+      const plotBottom = 202
+      const values = chartPoints.map((point) => point.value)
+
+      if (values.length === 0) {
+        return { points: [], linePath: '', areaPath: '', plotBottom }
+      }
+
+      const maximum = Math.max(...values)
+      const minimum = Math.min(...values)
+      const valueRange = Math.max(maximum - minimum, 1)
+      const points = values.map((value, index) => ({
+        x: values.length === 1
+          ? (plotLeft + plotRight) / 2
+          : plotLeft + (index * (plotRight - plotLeft)) / (values.length - 1),
+        y: plotBottom - 18 - ((value - minimum) / valueRange) * 132,
+      }))
+      const linePath = points.reduce((path, point, index) => {
+        if (index === 0) return `M ${point.x} ${point.y}`
+        const previous = points[index - 1]
+        const controlX = (previous.x + point.x) / 2
+        return `${path} C ${controlX} ${previous.y}, ${controlX} ${point.y}, ${point.x} ${point.y}`
+      }, '')
+
+      return {
+        points,
+        linePath,
+        areaPath: `${linePath} L ${plotRight} ${plotBottom} L ${plotLeft} ${plotBottom} Z`,
+        plotBottom,
+      }
+    },
+    [chartPoints],
+  )
+
+  const chartMarkerCount = Math.min(chartGeometry.points.length, 6)
+  const chartMarkerIndexes = chartMarkerCount === 0
+    ? []
+    : chartMarkerCount === 1
+      ? [0]
+      : Array.from(
+          { length: chartMarkerCount },
+          (_, index) => Math.round(
+            index * (chartGeometry.points.length - 1) / (chartMarkerCount - 1),
+          ),
+        )
+
+  const dateRangeLabel = `${fromDate} ${fromTime || '00:00'} – ${toDate} ${toTime || '23:59'}`
 
 
   const exportCsv =
@@ -2728,14 +2878,7 @@ function LogsPage({
 
 
       link.download =
-        `fertigasi-datalog-${
-          range
-            .toLowerCase()
-            .replaceAll(
-              ' ',
-              '-',
-            )
-        }.csv`
+        `fertigasi-datalog-${fromDate}-${toDate}.csv`
 
 
       document.body
@@ -2770,9 +2913,11 @@ function LogsPage({
         'all',
       )
 
-      setRange(
-        'Hari Ini',
-      )
+      const today = jakartaDateInputValue()
+      setFromDate(today)
+      setToDate(today)
+      setFromTime('')
+      setToTime('')
 
       setCurrentPage(
         1,
@@ -2799,8 +2944,7 @@ function LogsPage({
                   ? 'Data sensor tersimpan'
                   : 'Aktivitas ON/OFF pompa'
               }
-              untuk periode{' '}
-              {range.toLowerCase()}.
+              untuk {dateRangeLabel}.
             </p>
           </div>
 
@@ -2932,35 +3076,59 @@ function LogsPage({
             </label>
 
 
-            <label className="page-select compact-select">
+            <label className="page-select compact-select datalog-date-filter">
               <span>
-                Periode
+                Dari Tanggal
               </span>
 
-              <select
-                value={range}
+              <input
+                type="date"
+                value={fromDate}
+                max={toDate || undefined}
                 onChange={(event) => {
-                  setRange(
-                    event.target.value,
-                  )
-
-                  setCurrentPage(
-                    1,
-                  )
+                  setFromDate(event.target.value)
+                  setCurrentPage(1)
                 }}
-              >
-                <option>
-                  Hari Ini
-                </option>
+              />
+            </label>
 
-                <option>
-                  7 Hari
-                </option>
+            <label className="page-select compact-select datalog-date-filter">
+              <span>Sampai Tanggal</span>
+              <input
+                type="date"
+                value={toDate}
+                min={fromDate || undefined}
+                onChange={(event) => {
+                  setToDate(event.target.value)
+                  setCurrentPage(1)
+                }}
+              />
+            </label>
 
-                <option>
-                  30 Hari
-                </option>
-              </select>
+            <label className="page-select compact-select datalog-time-filter">
+              <span>Dari Jam</span>
+              <input
+                type="time"
+                value={fromTime}
+                onChange={(event) => {
+                  setFromTime(event.target.value)
+                  setCurrentPage(1)
+                }}
+              />
+              <small>Kosong = 00:00</small>
+            </label>
+
+            <label className="page-select compact-select datalog-time-filter">
+              <span>Sampai Jam</span>
+              <input
+                type="time"
+                value={toTime}
+                onChange={(event) => {
+                  setToTime(event.target.value)
+                  setCurrentPage(1)
+                }}
+              />
+              <small>Kosong = 23:59</small>
             </label>
 
 
@@ -2981,11 +3149,24 @@ function LogsPage({
               onClick={
                 exportCsv
               }
+              disabled={rows.length === 0 || datalogLoading}
             >
               Ekspor CSV
             </button>
           </div>
         </div>
+
+        {datalogError && (
+          <div className="datalog-feedback is-error">
+            <AlertTriangle size={16} /> {datalogError}
+          </div>
+        )}
+
+        {datalogLoading && (
+          <div className="datalog-feedback">
+            Memuat data sesuai rentang waktu…
+          </div>
+        )}
 
 
         <div className="data-table-wrap">
@@ -3083,7 +3264,7 @@ function LogsPage({
                             + visibleRows.length
                           )
                           + ' dari '
-                          + rows.length
+                          + (datalogPage?.pagination.totalItems ?? rows.length)
                           + (
                             logType
                             === 'sensor'
@@ -3186,6 +3367,107 @@ function LogsPage({
           </nav>
         </div>
       </div>
+
+      <article className="page-card datalog-chart-card">
+        <div className="datalog-chart-header">
+          <div>
+            <h2>Grafik Riwayat Sensor</h2>
+            <p>{dateRangeLabel} · nilai rata-rata per interval</p>
+          </div>
+
+          <label className="page-select compact-select datalog-chart-select">
+            <span>Parameter Grafik</span>
+            <select
+              value={chartSensor}
+              onChange={(event) => setChartSensor(event.target.value)}
+            >
+              {sensorGroups.map((group) => (
+                <optgroup key={group.groupName} label={group.groupName}>
+                  {group.definitions.map((definition) => (
+                    <option key={definition.sensorKey} value={definition.sensorKey}>
+                      {definition.displayName} · {definition.unit}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="datalog-chart-visual">
+          {chartLoading ? (
+            <div className="datalog-chart-empty">Memuat grafik…</div>
+          ) : chartPoints.length === 0 ? (
+            <div className="datalog-chart-empty">
+              Belum ada data sensor pada rentang waktu ini.
+            </div>
+          ) : (
+            <svg
+              viewBox="0 0 760 230"
+              role="img"
+              aria-label="Grafik riwayat sensor sesuai rentang Datalog"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="datalog-chart-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#27b484" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="#27b484" stopOpacity="0.03" />
+                </linearGradient>
+              </defs>
+              <line
+                className="datalog-chart-baseline"
+                x1="28"
+                x2="732"
+                y1={chartGeometry.plotBottom}
+                y2={chartGeometry.plotBottom}
+              />
+              <path
+                className="datalog-chart-area"
+                d={chartGeometry.areaPath}
+                fill="url(#datalog-chart-fill)"
+              />
+              <path className="datalog-chart-line" d={chartGeometry.linePath} />
+              {chartMarkerIndexes.map((historyIndex) => {
+                const point = chartGeometry.points[historyIndex]
+                const historyPoint = chartPoints[historyIndex]
+                const markerLabel = new Date(historyPoint.recordedAt).toLocaleString(
+                  'id-ID',
+                  {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Jakarta',
+                  },
+                )
+                return (
+                  <g key={`${historyPoint.recordedAt}-${historyIndex}`}>
+                    <title>
+                      {`${markerLabel}: ${historyPoint.average} ${chartSeries?.unit ?? ''} (${historyPoint.samples} data)`}
+                    </title>
+                    <line
+                      className="datalog-chart-guide"
+                      x1={point.x}
+                      x2={point.x}
+                      y1={point.y}
+                      y2={chartGeometry.plotBottom}
+                    />
+                    <circle className="datalog-chart-point" cx={point.x} cy={point.y} r="4" />
+                    <text
+                      className="datalog-chart-time-label"
+                      x={point.x}
+                      y="222"
+                      textAnchor={historyIndex === 0 ? 'start' : historyIndex === chartPoints.length - 1 ? 'end' : 'middle'}
+                    >
+                      {markerLabel}
+                    </text>
+                  </g>
+                )
+              })}
+            </svg>
+          )}
+        </div>
+      </article>
     </section>
   )
 }

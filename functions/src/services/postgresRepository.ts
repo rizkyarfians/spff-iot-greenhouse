@@ -17,6 +17,7 @@ import type {
   ApiAlarmEvent,
   ApiAlarmPage,
   ApiDevice,
+  ApiDatalogPage,
   ApiHistorySeries,
   ApiLatestTelemetry,
   ApiSensor,
@@ -384,6 +385,124 @@ async function history(
     bucketMinutes: query.bucketMinutes,
     aggregate: 'avg',
     points,
+  };
+}
+
+async function datalog(query: {
+  kind: 'sensor' | 'actuator';
+  parameter: string;
+  from: Date;
+  to: Date;
+  page: number;
+  pageSize: number;
+}): Promise<ApiDatalogPage> {
+  const offset = (query.page - 1) * query.pageSize;
+
+  if (query.kind === 'sensor') {
+    const result = await pool.query(
+      `WITH filtered AS (
+         SELECT
+           sample.telemetry_id,
+           sample.recorded_at,
+           definition.sensor_key,
+           definition.display_name,
+           definition.unit,
+           (to_jsonb(sample) ->> definition.sensor_key)::double precision AS value
+         FROM spff.telemetry_samples sample
+         CROSS JOIN spff.sensor_definitions definition
+         WHERE sample.site_id = $1
+           AND sample.recorded_at >= $2::timestamptz
+           AND sample.recorded_at <= $3::timestamptz
+           AND definition.enabled = true
+           AND ($4::text = 'all' OR definition.sensor_key = $4::text)
+           AND to_jsonb(sample) ->> definition.sensor_key IS NOT NULL
+       )
+       SELECT *, count(*) OVER() AS total_count
+       FROM filtered
+       ORDER BY recorded_at DESC, telemetry_id DESC, sensor_key ASC
+       LIMIT $5 OFFSET $6`,
+      [
+        siteId,
+        query.from.toISOString(),
+        query.to.toISOString(),
+        query.parameter,
+        query.pageSize,
+        offset,
+      ],
+    );
+    const totalItems = Number(result.rows[0]?.total_count ?? 0);
+    return {
+      items: result.rows.map((row) => ({
+        id: `${row.telemetry_id}:${row.sensor_key}`,
+        kind: 'sensor' as const,
+        recordedAt: toRequiredIso(row.recorded_at, 'datalog.recorded_at'),
+        parameterKey: String(row.sensor_key),
+        displayName: String(row.display_name),
+        value: toNumber(row.value),
+        unit: String(row.unit),
+        state: null,
+        source: null,
+        reason: null,
+      })),
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        totalItems,
+        totalPages: Math.max(1, Math.ceil(totalItems / query.pageSize)),
+      },
+    };
+  }
+
+  const result = await pool.query(
+    `SELECT
+       event.actuator_state_id,
+       event.recorded_at,
+       event.actuator_key,
+       actuator.display_name,
+       event.state,
+       event.source,
+       event.reason,
+       count(*) OVER() AS total_count
+     FROM spff.actuator_state_events event
+     JOIN spff.actuators actuator
+       ON actuator.site_id = event.site_id
+      AND actuator.device_id = event.device_id
+      AND actuator.actuator_key = event.actuator_key
+     WHERE event.site_id = $1
+       AND event.recorded_at >= $2::timestamptz
+       AND event.recorded_at <= $3::timestamptz
+       AND ($4::text = 'all' OR event.actuator_key = $4::text)
+     ORDER BY event.recorded_at DESC, event.actuator_state_id DESC
+     LIMIT $5 OFFSET $6`,
+    [
+      siteId,
+      query.from.toISOString(),
+      query.to.toISOString(),
+      query.parameter,
+      query.pageSize,
+      offset,
+    ],
+  );
+  const totalItems = Number(result.rows[0]?.total_count ?? 0);
+  return {
+    items: result.rows.map((row) => ({
+      id: String(row.actuator_state_id),
+      kind: 'actuator' as const,
+      recordedAt: toRequiredIso(row.recorded_at, 'datalog.recorded_at'),
+      parameterKey: String(row.actuator_key),
+      displayName: String(row.display_name),
+      value: null,
+      unit: '',
+      state: row.state as ApiDatalogPage['items'][number]['state'],
+      source: row.source as ApiDatalogPage['items'][number]['source'],
+      reason: row.reason as string | null,
+    })),
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      totalItems,
+      totalPages: Math.max(1, Math.ceil(totalItems / query.pageSize)),
+    },
   };
 }
 
@@ -1598,6 +1717,7 @@ export const repository = {
   updateSmartSoilSelection,
   updateSmartSoilReference,
   history,
+  datalog,
   pumps,
   updatePump,
   alarms,

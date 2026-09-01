@@ -924,7 +924,8 @@
   line-height: 1.2;
 }
 
-.log-actions .page-select select {
+.log-actions .page-select select,
+.log-actions .page-select input {
   display: block;
   width: 100%;
   height: 40px;
@@ -947,11 +948,13 @@
     background 150ms ease;
 }
 
-.log-actions .page-select select:hover {
+.log-actions .page-select select:hover,
+.log-actions .page-select input:hover {
   border-color: #becbc4;
 }
 
-.log-actions .page-select select:focus {
+.log-actions .page-select select:focus,
+.log-actions .page-select input:focus {
   border-color: var(--green);
   box-shadow:
     0 0 0 3px
@@ -964,6 +967,20 @@
 
 .log-actions .page-select:nth-child(2) {
   width: 130px;
+}
+
+.log-actions .datalog-date-filter {
+  width: 145px;
+}
+
+.log-actions .datalog-time-filter {
+  width: 118px;
+}
+
+.log-actions .datalog-time-filter small {
+  color: #7c8a84;
+  font-size: 9px;
+  line-height: 1;
 }
 
 .log-actions .primary-button,
@@ -1017,6 +1034,121 @@
   margin-top: 22px;
 }
 
+.datalog-feedback {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 16px;
+  border-radius: 9px;
+  background: #f2f7f5;
+  color: #52645c;
+  padding: 10px 12px;
+  font-size: 11px;
+}
+
+.datalog-feedback.is-error {
+  background: #fff0ee;
+  color: #a23f34;
+}
+
+.datalog-chart-card {
+  padding: 22px;
+}
+
+.datalog-chart-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.datalog-chart-header h2 {
+  margin: 0 0 4px;
+}
+
+.datalog-chart-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.datalog-chart-select {
+  display: grid;
+  width: min(260px, 100%);
+  gap: 6px;
+}
+
+.datalog-chart-select > span {
+  color: #4f5c56;
+  font-size: var(--font-size-label);
+  font-weight: 650;
+}
+
+.datalog-chart-select select {
+  width: 100%;
+  min-height: var(--control-height);
+  border: 1px solid #d7dfdb;
+  border-radius: var(--control-radius);
+  background: #fff;
+  color: #24372f;
+  padding: 0 34px 0 12px;
+  font: inherit;
+}
+
+.datalog-chart-visual {
+  height: 290px;
+  margin-top: 18px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fbfdfc 0%, #f7faf8 100%);
+  padding: 14px 16px 8px;
+}
+
+.datalog-chart-visual svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.datalog-chart-baseline,
+.datalog-chart-guide {
+  stroke: #cbd7d1;
+  stroke-width: 1;
+}
+
+.datalog-chart-guide {
+  stroke-dasharray: 3 4;
+  opacity: .7;
+}
+
+.datalog-chart-area {
+  stroke: none;
+}
+
+.datalog-chart-line {
+  fill: none;
+  stroke: #24ad78;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.datalog-chart-point {
+  fill: #24ad78;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.datalog-chart-time-label {
+  fill: #71817a;
+  font-size: 9px;
+}
+
+.datalog-chart-empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: var(--font-size-body);
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -1041,6 +1173,11 @@
   margin: 14px 0 0;
   color: var(--muted);
   font-size: 9px;
+}
+
+.log-actions .page-select input {
+  padding: 0 10px;
+  cursor: text;
 }
 
 .data-table-footer {
@@ -1769,7 +1906,18 @@
   }
 
   .log-actions .page-select:first-child,
-  .log-actions .page-select:nth-child(2) {
+  .log-actions .page-select:nth-child(2),
+  .log-actions .datalog-date-filter,
+  .log-actions .datalog-time-filter {
+    width: 100%;
+  }
+
+  .datalog-chart-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .datalog-chart-select {
     width: 100%;
   }
 
@@ -1882,6 +2030,7 @@
 }
 
 .page-select select,
+.log-actions .page-select input,
 .field-label input,
 .schedule-field input,
 .schedule-field select,

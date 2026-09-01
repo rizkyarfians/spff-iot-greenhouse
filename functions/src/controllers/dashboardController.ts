@@ -151,7 +151,7 @@ export const getHistory = run(async (req, res) => {
     requestedFrom === null ||
     !Number.isFinite(hours) ||
     hours < 1 ||
-    hours > 168 ||
+    hours > 744 ||
     (requestedFrom !== undefined && requestedTo === undefined)
   ) {
     return res.status(400).json({
@@ -198,6 +198,57 @@ export const getHistory = run(async (req, res) => {
     });
   }
   return ok(res, data, `Riwayat sensor ${type} berhasil dimuat.`);
+});
+
+export const getDatalog = run(async (req, res) => {
+  const kind = String(req.query.kind ?? 'sensor');
+  const parameter = String(req.query.parameter ?? 'all');
+  const from = optionalQueryDate(req.query.from);
+  const to = optionalQueryDate(req.query.to);
+  const page = Number(req.query.page ?? 1);
+  const pageSize = Number(req.query.pageSize ?? 10);
+
+  if (
+    (kind !== 'sensor' && kind !== 'actuator')
+    || !/^(all|[a-z0-9_]{1,64})$/.test(parameter)
+    || from === undefined
+    || from === null
+    || to === undefined
+    || to === null
+    || !Number.isInteger(page)
+    || page < 1
+    || !Number.isInteger(pageSize)
+    || pageSize < 1
+    || pageSize > 100
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: 'Filter datalog tidak valid.',
+      errors: ['kind', 'parameter', 'from', 'to', 'page', 'pageSize'],
+    });
+  }
+
+  const rangeMs = to.getTime() - from.getTime();
+  if (rangeMs < 0 || rangeMs > 31 * 24 * 60 * 60 * 1000) {
+    return res.status(400).json({
+      success: false,
+      message: 'Rentang datalog maksimal 31 hari.',
+      errors: ['from', 'to'],
+    });
+  }
+
+  return ok(
+    res,
+    await repository.datalog({
+      kind,
+      parameter,
+      from,
+      to,
+      page,
+      pageSize,
+    }),
+    'Datalog berhasil dimuat.',
+  );
 });
 
 export const getPumps = run(async (_req, res) => {
