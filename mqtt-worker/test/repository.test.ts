@@ -72,7 +72,14 @@ test("saveTelemetry maps contract payload and uses message idempotency", async (
   assert.equal(query.values[33], 12.4);
   assert.equal(query.values[34], true);
 
-  const rawPayload = JSON.parse(String(query.values[35])) as {
+  const sensorHealth = JSON.parse(String(query.values[35])) as Record<
+    string,
+    { valid: boolean; reason?: string }
+  >;
+  assert.deepEqual(sensorHealth.soil_1_moisture, { valid: true });
+  assert.deepEqual(sensorHealth.battery_voltage, { valid: true });
+
+  const rawPayload = JSON.parse(String(query.values[36])) as {
     messageId: string;
   };
   assert.equal(rawPayload.messageId, "test-message-001");

@@ -30,6 +30,12 @@ export const telemetrySensorKeys = [
 ] as const;
 export type TelemetrySensorKey = (typeof telemetrySensorKeys)[number];
 
+const legacyOptionalTelemetrySensorKeys = new Set<TelemetrySensorKey>([
+  'tank_water_level_pct',
+  'tank_fert_level_pct',
+  'battery_voltage',
+]);
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -48,8 +54,19 @@ export interface TelemetryMessage extends MessageIdentity {
   messageId: string;
   sequence: number;
   recordedAt: string;
+  sensorValid?: boolean;
+  sensorHealth?: TelemetrySensorHealthMap;
   sensors: Partial<Record<TelemetrySensorKey, number>>;
 }
+
+export interface TelemetrySensorHealth {
+  valid: boolean;
+  reason?: string;
+}
+
+export type TelemetrySensorHealthMap = Partial<
+  Record<TelemetrySensorKey, TelemetrySensorHealth>
+>;
 
 export interface TelemetryPersistedAckMessage extends MessageIdentity {
   kind: 'telemetry_persisted_ack';
@@ -251,6 +268,44 @@ const hasIdentity = (value: Record<string, unknown>) =>
 const isIsoDate = (value: unknown) =>
   typeof value === 'string' && value.length > 0 && Number.isFinite(Date.parse(value));
 
+const isTelemetrySensorHealthMap = (value: unknown) => {
+  if (value === undefined) return true;
+  if (!isRecord(value)) return false;
+  return Object.entries(value).every(([key, health]) =>
+    telemetrySensorKeys.includes(key as TelemetrySensorKey) &&
+    isRecord(health) &&
+    typeof health.valid === 'boolean' &&
+    (health.reason === undefined ||
+      (typeof health.reason === 'string' && health.reason.length <= 100)),
+  );
+};
+
+export function deriveTelemetrySensorHealth(
+  message: TelemetryMessage,
+): TelemetrySensorHealthMap {
+  const health: TelemetrySensorHealthMap = {};
+  for (const sensorKey of telemetrySensorKeys) {
+    const explicit = message.sensorHealth?.[sensorKey];
+    if (explicit) {
+      health[sensorKey] = explicit.reason
+        ? { valid: explicit.valid, reason: explicit.reason }
+        : { valid: explicit.valid };
+      continue;
+    }
+    if (Object.hasOwn(message.sensors, sensorKey)) {
+      health[sensorKey] = { valid: true };
+      continue;
+    }
+    if (
+      message.sensorValid === false &&
+      !legacyOptionalTelemetrySensorKeys.has(sensorKey)
+    ) {
+      health[sensorKey] = { valid: false, reason: 'not_reported' };
+    }
+  }
+  return health;
+}
+
 export function decodeJsonMessage(payload: Uint8Array | string): unknown {
   const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
   return JSON.parse(text) as unknown;
@@ -264,6 +319,8 @@ export function isTelemetryMessage(value: unknown): value is TelemetryMessage {
     Number.isSafeInteger(value.sequence) &&
     (value.sequence as number) >= 0 &&
     isIsoDate(value.recordedAt) &&
+    (value.sensorValid === undefined || typeof value.sensorValid === 'boolean') &&
+    isTelemetrySensorHealthMap(value.sensorHealth) &&
     Object.entries(value.sensors).every(
       ([key, sensorValue]) => telemetrySensorKeys.includes(key as TelemetrySensorKey) && typeof sensorValue === 'number' && Number.isFinite(sensorValue),
     )
@@ -541,6 +598,8 @@ export interface ApiSensor {
   value: number | null;
   unit: string;
   status: ApiSensorStatus;
+  valid: boolean | null;
+  faultReason: string | null;
   updatedAt: string | null;
 }
 
@@ -592,6 +651,7 @@ export interface ApiDatalogItem {
   displayName: string;
   value: number | null;
   unit: string;
+  sensorValid: boolean | null;
   state: ApiActuator['state'] | null;
   source: ApiActuatorLog['source'] | null;
   reason: string | null;

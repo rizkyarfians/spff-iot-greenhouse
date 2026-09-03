@@ -251,6 +251,7 @@ async function queryTelemetry() {
             telemetry.recorded_at,
             telemetry.received_at,
             telemetry.sensor_valid,
+            telemetry.sensor_health,
             extract(epoch FROM (clock_timestamp() - telemetry.received_at)) AS age_seconds,
             extract(epoch FROM (telemetry.received_at - telemetry.recorded_at)) AS latency_seconds,
             coalesce(recent.samples_10m, 0)::integer AS samples_10m,
@@ -399,12 +400,12 @@ const printTelemetry = (rows, timezone) => {
       samples_10m: Number(row.samples_10m ?? 0),
       sequence: row.sequence ?? "-",
       values: row.sensor_values ?? 0,
-      quality:
-        row.sensor_valid === null
-          ? "-"
-          : row.sensor_valid
-            ? "valid"
-            : "invalid",
+      quality: (() => {
+        const faults = Object.entries(row.sensor_health ?? {})
+          .filter(([, health]) => health?.valid === false)
+          .map(([sensorKey]) => sensorKey);
+        return faults.length > 0 ? `fault: ${faults.join(",")}` : "valid";
+      })(),
       latency: formatLatency(row.latency_seconds),
       message_id: shortId(row.message_id),
     })),

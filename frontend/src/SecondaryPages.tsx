@@ -305,9 +305,10 @@ function PlantStatusPage({
 
           <small>
             {
-              data?.devices[0]
-                ?.sensorValid === false
-                ? 'Sensor perlu diperiksa'
+              data?.sensors.some(
+                (sensor) => sensor.status === 'critical',
+              )
+                ? 'Beberapa sensor perlu diperiksa'
                 : 'Berdasarkan data terakhir'
             }
           </small>
@@ -2464,7 +2465,9 @@ function LogsPage({
         `${row.value ?? '--'} ${row.unit}`
           .trim(),
 
-        'Tersimpan',
+        row.sensorValid === false
+          ? 'Perlu diperiksa'
+          : 'Tersimpan',
 
         row.parameterKey,
 

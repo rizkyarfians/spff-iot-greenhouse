@@ -1,3 +1,4 @@
+import { deriveTelemetrySensorHealth } from "@spff/contracts";
 import type {
   AutomaticControlAckMessage,
   AutomaticControlSyncMessage,
@@ -946,6 +947,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       firstBoolean(raw, ["sensorValid", "sensor_valid"]) ??
       firstBoolean(sensors, ["sensorValid", "sensor_valid"]) ??
       true;
+    const sensorHealth = deriveTelemetrySensorHealth(message);
 
     const values: unknown[] = [
       schemaVersion,
@@ -983,6 +985,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       optionalNumber(sensors, "flow_fert_total_l"),
       optionalNumber(sensors, "battery_voltage"),
       sensorValid,
+      JSON.stringify(sensorHealth),
       JSON.stringify(message),
     ];
 
@@ -1024,6 +1027,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           flow_fert_total_l,
           battery_voltage,
           sensor_valid,
+          sensor_health,
           raw_payload
         ) VALUES (
           $1, $2, $3, $4, $5, $6,
@@ -1032,7 +1036,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           $21, $22, $23, $24, $25,
           $26, $27, $28, $29,
           $30, $31, $32, $33,
-          $34, $35, $36::jsonb
+          $34, $35, $36::jsonb, $37::jsonb
         )
         ON CONFLICT (site_id, device_id, message_id) DO NOTHING
         RETURNING telemetry_id

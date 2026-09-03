@@ -87,6 +87,31 @@ test("telemetry evaluates configured sensor rule and recovers telemetry-stopped 
   assert.equal(observations[1].violating, false);
 });
 
+test("telemetry skips numeric alarm evaluation for the faulted parameter only", async () => {
+  const observations: AlarmObservation[] = [];
+  const evaluator = new AlarmEvaluator(repository(observations));
+  const message = {
+    kind: "telemetry",
+    schemaVersion: 1,
+    siteId: "greenhouse-01",
+    deviceId: "esp32-s3-01",
+    messageId: "telemetry-fault-001",
+    sequence: 2,
+    recordedAt: "2026-09-03T11:27:16.000Z",
+    sensorValid: false,
+    sensorHealth: {
+      air_temp: { valid: false, reason: "crc_error" },
+    },
+    sensors: { air_temp: 99 },
+  } satisfies TelemetryMessage;
+
+  await evaluator.evaluateTelemetry(message);
+
+  assert.equal(observations.length, 1);
+  assert.equal(observations[0].ruleKey, "telemetry_stopped");
+  assert.equal(observations[0].violating, false);
+});
+
 test("rejected command opens incident and completed command supplies recovery", async () => {
   const observations: AlarmObservation[] = [];
   const evaluator = new AlarmEvaluator(repository(observations));

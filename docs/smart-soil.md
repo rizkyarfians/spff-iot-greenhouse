@@ -14,8 +14,10 @@ Snapshot memakai sensor canonical berikut:
 - soil_1_n, soil_1_p, dan soil_1_k
 
 Status Baik, Terlambat, Sensor bermasalah, atau Tidak tersedia memakai status
-sensor yang sama dengan dashboard utama. Jika firmware mengirim sensorValid false,
-halaman memberi peringatan dan nilai hanya boleh dipakai untuk diagnosis.
+sensor yang sama dengan dashboard utama. Status fault dibaca per parameter dari
+sensorHealth; satu sensor fault tidak lagi membuat seluruh sensor ikut bermasalah.
+Payload firmware lama tetap didukung dengan menandai field yang hadir sebagai valid
+dan field yang tidak hadir sebagai not_reported ketika sensorValid bernilai false.
 
 ## Rekomendasi tanaman
 

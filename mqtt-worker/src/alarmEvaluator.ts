@@ -145,6 +145,10 @@ export class AlarmEvaluator implements AlarmIngestionObserver {
 
     for (const rule of rules) {
       if (rule.sourceType !== "sensor") continue;
+      const health = (
+        message.sensorHealth as Partial<Record<string, { valid: boolean }>> | undefined
+      )?.[rule.sourceKey];
+      if (health?.valid === false) continue;
       const value = finiteNumber(sensors[rule.sourceKey]);
       const violating = evaluateNumericAlarmRule(rule, value);
       if (violating === null) continue;

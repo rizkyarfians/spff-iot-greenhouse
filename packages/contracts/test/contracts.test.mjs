@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  deriveTelemetrySensorHealth,
   isActuatorStateMessage,
   isAutomaticControlAckMessage,
   isAutomaticControlConfig,
@@ -33,6 +34,40 @@ test('telemetry accepts SPFF schema keys and rejects unknown keys', () => {
   };
   assert.equal(isTelemetryMessage({ ...base, sensors: { soil_1_moisture: 65, battery_voltage: 12.4 } }), true);
   assert.equal(isTelemetryMessage({ ...base, sensors: { invented_sensor: 123 } }), false);
+});
+
+test('telemetry health isolates faults per parameter and keeps zero values valid', () => {
+  const message = {
+    kind: 'telemetry',
+    schemaVersion: 1,
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    messageId: 'msg-health-1',
+    sequence: 2,
+    recordedAt: '2026-09-03T11:27:16.000Z',
+    sensorValid: false,
+    sensorHealth: {
+      soil_1_ph: { valid: false, reason: 'crc_error' },
+    },
+    sensors: {
+      soil_1_moisture: 0,
+      soil_1_ph: 9,
+    },
+  };
+
+  assert.equal(isTelemetryMessage(message), true);
+  const health = deriveTelemetrySensorHealth(message);
+  assert.deepEqual(health.soil_1_moisture, { valid: true });
+  assert.deepEqual(health.soil_1_ph, { valid: false, reason: 'crc_error' });
+  assert.deepEqual(health.tank_water_distance_cm, {
+    valid: false,
+    reason: 'not_reported',
+  });
+  assert.equal(health.battery_voltage, undefined);
+  assert.equal(isTelemetryMessage({
+    ...message,
+    sensorHealth: { invented_sensor: { valid: false } },
+  }), false);
 });
 
 test('command validates expiry and acknowledgement actual state', () => {

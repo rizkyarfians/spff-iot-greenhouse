@@ -120,6 +120,23 @@ const toNumber = (value: unknown): number | null => {
   return Number.isFinite(number) ? number : null;
 };
 
+const sensorHealthFor = (
+  value: unknown,
+  sensorKey: string,
+): { valid: boolean; reason: string | null } | null => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const health = (value as Record<string, unknown>)[sensorKey];
+  if (typeof health !== 'object' || health === null || Array.isArray(health)) return null;
+  const record = health as Record<string, unknown>;
+  if (typeof record.valid !== 'boolean') return null;
+  return {
+    valid: record.valid,
+    reason: typeof record.reason === 'string' && record.reason.trim()
+      ? record.reason
+      : null,
+  };
+};
+
 const toIso = (value: Date | string | null | undefined) => {
   if (!value) return null;
   return new Date(value).toISOString();
@@ -239,10 +256,12 @@ async function sensorDefinitions() {
 
 async function latestTelemetry() {
   const result = await pool.query(
-    `SELECT *
-     FROM spff.latest_telemetry
-     WHERE site_id = $1
-     ORDER BY recorded_at DESC
+    `SELECT latest.*, sample.sensor_health
+     FROM spff.latest_telemetry latest
+     JOIN spff.telemetry_samples sample
+       ON sample.telemetry_id = latest.telemetry_id
+     WHERE latest.site_id = $1
+     ORDER BY latest.recorded_at DESC
      LIMIT 1`,
     [siteId],
   );
@@ -271,13 +290,16 @@ const mapSensors = (
   const telemetryAge = ageSeconds(latest?.recorded_at as Date | string | undefined);
   return definitions.map((definition) => {
     const value = latest ? toNumber(latest[definition.sensorKey]) : null;
-    const status: ApiSensor['status'] = value === null || telemetryAge >= telemetryOfflineAfterSeconds
+    const health = sensorHealthFor(latest?.sensor_health, definition.sensorKey);
+    const status: ApiSensor['status'] = telemetryAge >= telemetryOfflineAfterSeconds
       ? 'offline'
-      : latest?.sensor_valid === false
+      : health?.valid === false
         ? 'critical'
-        : telemetryAge >= telemetryStaleAfterSeconds
-          ? 'warning'
-          : 'good';
+        : value === null
+          ? 'offline'
+          : telemetryAge >= telemetryStaleAfterSeconds
+            ? 'warning'
+            : 'good';
     return {
       id: definition.sensorKey,
       type: definition.sensorKey,
@@ -286,6 +308,8 @@ const mapSensors = (
       value,
       unit: definition.unit,
       status,
+      valid: health?.valid ?? null,
+      faultReason: health?.reason ?? null,
       updatedAt: toIso(latest?.recorded_at as Date | string | undefined),
     };
   });
@@ -407,7 +431,13 @@ async function datalog(query: {
            definition.sensor_key,
            definition.display_name,
            definition.unit,
-           (to_jsonb(sample) ->> definition.sensor_key)::double precision AS value
+           (to_jsonb(sample) ->> definition.sensor_key)::double precision AS value,
+           CASE
+             WHEN sample.sensor_health ? definition.sensor_key
+             THEN (sample.sensor_health -> definition.sensor_key ->> 'valid')::boolean
+             ELSE NULL
+           END AS sensor_valid,
+           NULLIF(sample.sensor_health -> definition.sensor_key ->> 'reason', '') AS fault_reason
          FROM spff.telemetry_samples sample
          CROSS JOIN spff.sensor_definitions definition
          WHERE sample.site_id = $1
@@ -440,9 +470,10 @@ async function datalog(query: {
         displayName: String(row.display_name),
         value: toNumber(row.value),
         unit: String(row.unit),
+        sensorValid: row.sensor_valid === null ? null : Boolean(row.sensor_valid),
         state: null,
         source: null,
-        reason: null,
+        reason: row.fault_reason === null ? null : String(row.fault_reason),
       })),
       pagination: {
         page: query.page,
@@ -493,6 +524,7 @@ async function datalog(query: {
       displayName: String(row.display_name),
       value: null,
       unit: '',
+      sensorValid: null,
       state: row.state as ApiDatalogPage['items'][number]['state'],
       source: row.source as ApiDatalogPage['items'][number]['source'],
       reason: row.reason as string | null,
@@ -1552,7 +1584,9 @@ async function smartSoil(): Promise<SmartSoilSnapshot> {
     conditions: {
       sensors: conditions,
       recordedAt: toIso(latest?.recorded_at),
-      sensorValid: latest?.sensor_valid === undefined ? null : Boolean(latest.sensor_valid),
+      sensorValid: latest
+        ? conditions.every((sensor) => sensor.value !== null && sensor.valid !== false)
+        : null,
     },
     humidityTarget: {
       minPercent: settingsData?.humidityMin ?? null,
