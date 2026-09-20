@@ -256,7 +256,14 @@ async function sensorDefinitions() {
 
 async function latestTelemetry() {
   const result = await pool.query(
-    `SELECT latest.*, sample.sensor_health
+    `SELECT latest.*,
+            sample.sensor_health,
+            sample.ac_voltage_v,
+            sample.ac_current_a,
+            sample.ac_power_w,
+            sample.ac_energy_kwh,
+            sample.ac_frequency_hz,
+            sample.ac_power_factor
      FROM spff.latest_telemetry latest
      JOIN spff.telemetry_samples sample
        ON sample.telemetry_id = latest.telemetry_id

@@ -30,6 +30,7 @@ import {
   UserRound,
   Users,
   Waves,
+  Zap,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -69,6 +70,11 @@ import './App.css'
 
 
 type SensorKey = string
+
+
+type DashboardSensorGroup =
+  | 'greenhouse'
+  | 'energy'
 
 
 type SensorData = {
@@ -346,6 +352,60 @@ SensorDefinition[] = [
     softColor: '#faf1df',
     ideal: 'Daya',
   },
+  {
+    key: 'ac_voltage_v',
+    label: 'Tegangan AC',
+    unit: 'V',
+    glyph: 'VAC',
+    color: '#b26a2b',
+    softColor: '#fbefe3',
+    ideal: 'Energi',
+  },
+  {
+    key: 'ac_current_a',
+    label: 'Arus AC',
+    unit: 'A',
+    glyph: 'A',
+    color: '#a65b36',
+    softColor: '#faece7',
+    ideal: 'Energi',
+  },
+  {
+    key: 'ac_power_w',
+    label: 'Daya Aktif',
+    unit: 'W',
+    glyph: 'W',
+    color: '#9a6430',
+    softColor: '#f9efe4',
+    ideal: 'Energi',
+  },
+  {
+    key: 'ac_energy_kwh',
+    label: 'Energi Terpakai',
+    unit: 'kWh',
+    glyph: 'kWh',
+    color: '#8d5e3b',
+    softColor: '#f7ede7',
+    ideal: 'Energi',
+  },
+  {
+    key: 'ac_frequency_hz',
+    label: 'Frekuensi',
+    unit: 'Hz',
+    glyph: 'Hz',
+    color: '#7d6a32',
+    softColor: '#f5f1e4',
+    ideal: 'Energi',
+  },
+  {
+    key: 'ac_power_factor',
+    label: 'Faktor Daya',
+    unit: 'PF',
+    glyph: 'PF',
+    color: '#78623e',
+    softColor: '#f3eee7',
+    ideal: 'Energi',
+  },
 ]
 
 
@@ -367,7 +427,7 @@ SensorData[] =
   )
 
 
-const dashboardSensorKeys:
+const greenhouseDashboardSensorKeys:
 SensorKey[] = [
   'soil_1_moisture',
   'soil_1_ec_us_cm',
@@ -377,6 +437,18 @@ SensorKey[] = [
   'liquid_ec_us_cm',
   'tank_water_level_pct',
   'tank_fert_level_pct',
+]
+
+
+const energyDashboardSensorKeys:
+SensorKey[] = [
+  'battery_voltage',
+  'ac_voltage_v',
+  'ac_current_a',
+  'ac_power_w',
+  'ac_energy_kwh',
+  'ac_frequency_hz',
+  'ac_power_factor',
 ]
 
 
@@ -525,6 +597,11 @@ function SensorIcon({
   ) {
     Icon =
       BatteryMedium
+  } else if (
+    sensorKey.startsWith('ac_')
+  ) {
+    Icon =
+      Zap
   }
 
 
@@ -632,6 +709,15 @@ function App() {
   ] =
     useState<SensorKey>(
       'soil_1_moisture',
+    )
+
+
+  const [
+    dashboardSensorGroup,
+    setDashboardSensorGroup,
+  ] =
+    useState<DashboardSensorGroup>(
+      'greenhouse',
     )
 
 
@@ -1270,7 +1356,11 @@ function App() {
 
 
   const dashboardSensors =
-    dashboardSensorKeys.map(
+    (
+      dashboardSensorGroup === 'energy'
+        ? energyDashboardSensorKeys
+        : greenhouseDashboardSensorKeys
+    ).map(
       (key) =>
         mergedSensorData.find(
           (sensor) =>
@@ -2394,9 +2484,68 @@ const soilNpkGroups =
 
                   <div className="monitoring-grid">
                     <div
-                      className="sensor-panel"
+                      className={
+                        `sensor-panel ${
+                          dashboardSensorGroup === 'energy'
+                            ? 'is-energy'
+                            : ''
+                        }`
+                      }
                       aria-label="Ringkasan sensor"
                     >
+                      <div className="sensor-panel-toolbar">
+                        <div>
+                          <strong>
+                            Ringkasan Sensor
+                          </strong>
+
+                          <small>
+                            Pilih kelompok data yang ingin dilihat.
+                          </small>
+                        </div>
+
+                        <label className="sensor-group-select">
+                          <span className="sr-only">
+                            Pilih kelompok sensor
+                          </span>
+
+                          <select
+                            value={
+                              dashboardSensorGroup
+                            }
+                            onChange={(event) => {
+                              const group =
+                                event.target.value as DashboardSensorGroup
+
+
+                              setDashboardSensorGroup(
+                                group,
+                              )
+
+
+                              setSelectedSensor(
+                                group === 'energy'
+                                  ? energyDashboardSensorKeys[0]
+                                  : greenhouseDashboardSensorKeys[0],
+                              )
+
+
+                              setChartDate('')
+                              setChartHour('')
+                            }}
+                          >
+                            <option value="greenhouse">
+                              Greenhouse
+                            </option>
+
+                            <option value="energy">
+                              Energi
+                            </option>
+                          </select>
+                        </label>
+                      </div>
+
+
                       {
                         dashboardSensors.map(
                           (sensor) => (

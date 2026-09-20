@@ -16,10 +16,12 @@ import {
   telemetrySensorKeys,
 } from '../dist/index.js';
 
-test('telemetry contract exposes all 28 PostgreSQL sensor keys', () => {
-  assert.equal(telemetrySensorKeys.length, 28);
+test('telemetry contract exposes all 34 PostgreSQL sensor keys', () => {
+  assert.equal(telemetrySensorKeys.length, 34);
   assert.ok(telemetrySensorKeys.includes('soil_1_moisture'));
   assert.ok(telemetrySensorKeys.includes('battery_voltage'));
+  assert.ok(telemetrySensorKeys.includes('ac_voltage_v'));
+  assert.ok(telemetrySensorKeys.includes('ac_power_factor'));
 });
 
 test('telemetry accepts SPFF schema keys and rejects unknown keys', () => {
@@ -32,7 +34,7 @@ test('telemetry accepts SPFF schema keys and rejects unknown keys', () => {
     sequence: 1,
     recordedAt: '2026-08-17T06:00:00.000Z',
   };
-  assert.equal(isTelemetryMessage({ ...base, sensors: { soil_1_moisture: 65, battery_voltage: 12.4 } }), true);
+  assert.equal(isTelemetryMessage({ ...base, sensors: { soil_1_moisture: 65, battery_voltage: 12.4, ac_voltage_v: 220.5 } }), true);
   assert.equal(isTelemetryMessage({ ...base, sensors: { invented_sensor: 123 } }), false);
 });
 

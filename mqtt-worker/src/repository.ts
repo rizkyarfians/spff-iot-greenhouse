@@ -984,6 +984,12 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       optionalNumber(sensors, "flow_fert_lpm"),
       optionalNumber(sensors, "flow_fert_total_l"),
       optionalNumber(sensors, "battery_voltage"),
+      optionalNumber(sensors, "ac_voltage_v"),
+      optionalNumber(sensors, "ac_current_a"),
+      optionalNumber(sensors, "ac_power_w"),
+      optionalNumber(sensors, "ac_energy_kwh"),
+      optionalNumber(sensors, "ac_frequency_hz"),
+      optionalNumber(sensors, "ac_power_factor"),
       sensorValid,
       JSON.stringify(sensorHealth),
       JSON.stringify(message),
@@ -1026,6 +1032,12 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           flow_fert_lpm,
           flow_fert_total_l,
           battery_voltage,
+          ac_voltage_v,
+          ac_current_a,
+          ac_power_w,
+          ac_energy_kwh,
+          ac_frequency_hz,
+          ac_power_factor,
           sensor_valid,
           sensor_health,
           raw_payload
@@ -1036,7 +1048,8 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           $21, $22, $23, $24, $25,
           $26, $27, $28, $29,
           $30, $31, $32, $33,
-          $34, $35, $36::jsonb, $37::jsonb
+          $34, $35, $36, $37, $38, $39, $40,
+          $41, $42::jsonb, $43::jsonb
         )
         ON CONFLICT (site_id, device_id, message_id) DO NOTHING
         RETURNING telemetry_id

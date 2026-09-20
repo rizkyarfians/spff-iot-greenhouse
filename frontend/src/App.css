@@ -1507,6 +1507,86 @@ input:focus-visible {
   gap: 12px;
 }
 
+.sensor-panel.is-energy {
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+}
+
+.sensor-panel-toolbar {
+  display: flex;
+
+  min-width: 0;
+
+  grid-column: 1 / -1;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  border: 1px solid #dce3df;
+  border-radius: 13px;
+
+  background: #fff;
+
+  padding: 11px 12px 11px 16px;
+}
+
+.sensor-panel-toolbar > div {
+  display: grid;
+
+  min-width: 0;
+
+  gap: 2px;
+}
+
+.sensor-panel-toolbar strong {
+  color: #16211c;
+
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.sensor-panel-toolbar small {
+  color: #75827b;
+
+  font-size: 10px;
+}
+
+.sensor-group-select {
+  position: relative;
+
+  flex: 0 0 auto;
+}
+
+.sensor-group-select select {
+  min-width: 142px;
+  height: 38px;
+
+  border: 1px solid #d5ded9;
+  border-radius: 10px;
+
+  background: #fff;
+
+  color: #24332b;
+
+  padding: 0 34px 0 12px;
+
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+
+  cursor: pointer;
+}
+
+.sensor-group-select select:focus-visible {
+  outline: 2px solid #25ae7b;
+  outline-offset: 2px;
+}
+
 
 /* =========================
    SENSOR CARD
@@ -2266,6 +2346,14 @@ input:focus-visible {
       );
   }
 
+  .sensor-panel.is-energy {
+    grid-template-columns:
+      repeat(
+        4,
+        minmax(0, 1fr)
+      );
+  }
+
   .metric-card {
     min-height: 158px;
   }
@@ -2459,6 +2547,26 @@ input:focus-visible {
         2,
         minmax(0, 1fr)
       );
+  }
+
+  .sensor-panel.is-energy {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+  .sensor-panel-toolbar {
+    align-items: stretch;
+
+    flex-direction: column;
+
+    gap: 9px;
+  }
+
+  .sensor-group-select select {
+    width: 100%;
   }
 
   .metric-card {

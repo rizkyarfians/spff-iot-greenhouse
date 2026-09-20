@@ -27,6 +27,12 @@ export const telemetrySensorKeys = [
   'flow_fert_lpm',
   'flow_fert_total_l',
   'battery_voltage',
+  'ac_voltage_v',
+  'ac_current_a',
+  'ac_power_w',
+  'ac_energy_kwh',
+  'ac_frequency_hz',
+  'ac_power_factor',
 ] as const;
 export type TelemetrySensorKey = (typeof telemetrySensorKeys)[number];
 
@@ -34,6 +40,12 @@ const legacyOptionalTelemetrySensorKeys = new Set<TelemetrySensorKey>([
   'tank_water_level_pct',
   'tank_fert_level_pct',
   'battery_voltage',
+  'ac_voltage_v',
+  'ac_current_a',
+  'ac_power_w',
+  'ac_energy_kwh',
+  'ac_frequency_hz',
+  'ac_power_factor',
 ]);
 
 export interface ApiResponse<T> {

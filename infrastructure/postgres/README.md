@@ -88,7 +88,7 @@ Trigger migration `003` membuat event outbox dalam transaksi yang sama dengan te
 
 Migration `007` menambahkan trigger `pg_notify` setelah insert telemetry dan device status berhasil. Payload notification hanya berisi identity/timestamp; PostgreSQL tetap source of truth dan API membaca ulang snapshot terbaru sebelum memperbarui frontend melalui SSE.
 
-Migration `008` menyinkronkan 28 parameter sensor canonical, label, unit, grup, dan urutannya pada `spff.sensor_definitions`. Dropdown grafik dan Datalog memakai katalog ini dengan `sensor_key` sebagai value stabil.
+Migration `008` menyinkronkan 28 parameter sensor canonical, label, unit, grup, dan urutannya pada `spff.sensor_definitions`. Migration `018` menambahkan 6 parameter energi AC sehingga katalog berisi 34 parameter. Dropdown grafik dan Datalog memakai katalog ini dengan `sensor_key` sebagai value stabil.
 
 Migration `009` menambahkan indeks histori aktuator dan sinyal realtime `actuator_state.updated`. Setiap event ON/OFF yang berhasil disimpan dari ESP32 akan memicu API membaca ulang snapshot, sehingga status kontrol dan Datalog aktivitas pompa diperbarui tanpa polling.
 
