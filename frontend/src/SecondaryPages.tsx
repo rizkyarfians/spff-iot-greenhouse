@@ -44,6 +44,7 @@ import type {
   ApiAlarmEvent,
   ApiAutomaticControl,
   ApiAutomaticControlUpdateRequest,
+  ApiDatalogItem,
   ApiDatalogPage,
   ApiHistorySeries,
   ApiSettings,
@@ -2318,6 +2319,134 @@ const datalogDateTime = (
 )
 
 
+const datalogTimestamp = (
+  recordedAt: string,
+) =>
+  new Date(
+    recordedAt,
+  ).toLocaleString(
+    'id-ID',
+    {
+      timeZone:
+        'Asia/Jakarta',
+
+      day:
+        '2-digit',
+
+      month:
+        '2-digit',
+
+      year:
+        'numeric',
+
+      hour:
+        '2-digit',
+
+      minute:
+        '2-digit',
+
+      second:
+        '2-digit',
+    },
+  )
+
+
+const datalogDisplayRow = (
+  row: ApiDatalogItem,
+) => {
+  if (
+    row.kind === 'sensor'
+  ) {
+    return [
+      datalogTimestamp(
+        row.recordedAt,
+      ),
+
+      row.displayName,
+
+      `${row.value ?? '--'} ${row.unit}`
+        .trim(),
+
+      row.sensorValid === false
+        ? 'Perlu diperiksa'
+        : 'Tersimpan',
+
+      row.parameterKey,
+
+      row.recordedAt,
+    ]
+  }
+
+
+  const stateLabel = {
+    active:
+      'Aktif',
+    inactive:
+      'Nonaktif',
+    processing:
+      'Diproses',
+    offline:
+      'Offline',
+    fault:
+      'Gangguan',
+  }[
+    row.state ?? 'offline'
+  ]
+
+
+  const sourceLabel = {
+    telemetry:
+      'Telemetry Perangkat',
+    command_ack:
+      'Konfirmasi perintah',
+    manual:
+      'Manual',
+    system:
+      'Sistem Perangkat',
+  }[
+    row.source ?? 'system'
+  ]
+
+
+  return [
+    datalogTimestamp(
+      row.recordedAt,
+    ),
+
+    row.displayName,
+
+    stateLabel,
+
+    row.reason
+      ? sourceLabel
+        + ' · '
+        + farmerReasonLabel(
+          row.reason,
+        )
+      : sourceLabel,
+
+    row.parameterKey,
+
+    row.recordedAt,
+  ]
+}
+
+
+const csvCell = (
+  value: string,
+) => {
+  const spreadsheetSafeValue =
+    /^[=+\-@]/.test(
+      value.trimStart(),
+    )
+      ? `'${value}`
+      : value
+
+
+  return `"${spreadsheetSafeValue.replaceAll('"', '""')}"`
+}
+
+
 function LogsPage({
   data,
   connectionState,
@@ -2360,6 +2489,7 @@ function LogsPage({
   const [datalogPage, setDatalogPage] = useState<ApiDatalogPage | null>(null)
   const [datalogLoading, setDatalogLoading] = useState(false)
   const [datalogError, setDatalogError] = useState('')
+  const [exportLoading, setExportLoading] = useState(false)
 
   const [chartSensor, setChartSensor] = useState('soil_1_moisture')
   const [chartSeries, setChartSeries] = useState<ApiHistorySeries | null>(null)
@@ -2430,135 +2560,13 @@ function LogsPage({
     )
 
 
-  const sensorRows =
-    (
-      datalogPage?.items.filter((row) => row.kind === 'sensor') ?? []
-    ).map(
-      (row) => [
-        new Date(
-          row.recordedAt,
-        ).toLocaleString(
-          'id-ID',
-          {
-            day:
-              '2-digit',
-
-            month:
-              '2-digit',
-
-            year:
-              'numeric',
-
-            hour:
-              '2-digit',
-
-            minute:
-              '2-digit',
-
-            second:
-              '2-digit',
-          },
-        ),
-
-        row.displayName,
-
-        `${row.value ?? '--'} ${row.unit}`
-          .trim(),
-
-        row.sensorValid === false
-          ? 'Perlu diperiksa'
-          : 'Tersimpan',
-
-        row.parameterKey,
-
-        row.recordedAt,
-      ],
-    )
-
-
-  const actuatorRows =
-    (
-      datalogPage?.items.filter((row) => row.kind === 'actuator') ?? []
-    ).map(
-      (row) => {
-        const stateLabel = {
-          active:
-            'Aktif',
-          inactive:
-            'Nonaktif',
-          processing:
-            'Diproses',
-          offline:
-            'Offline',
-          fault:
-            'Gangguan',
-        }[
-          row.state ?? 'offline'
-        ]
-
-
-        const sourceLabel = {
-          telemetry:
-            'Telemetry Perangkat',
-          command_ack:
-            'Konfirmasi perintah',
-          manual:
-            'Manual',
-          system:
-            'Sistem Perangkat',
-        }[
-          row.source ?? 'system'
-        ]
-
-
-        return [
-          new Date(
-            row.recordedAt,
-          ).toLocaleString(
-            'id-ID',
-            {
-              day:
-                '2-digit',
-
-              month:
-                '2-digit',
-
-              year:
-                'numeric',
-
-              hour:
-                '2-digit',
-
-              minute:
-                '2-digit',
-
-              second:
-                '2-digit',
-            },
-          ),
-
-          row.displayName,
-
-          stateLabel,
-
-          row.reason
-            ? sourceLabel
-              + ' · '
-              + farmerReasonLabel(row.reason)
-            : sourceLabel,
-
-          row.parameterKey,
-
-          row.recordedAt,
-        ]
-      },
-    )
-
-
   const databaseRows =
-    logType === 'sensor'
-      ? sensorRows
-      : actuatorRows
+    (
+      datalogPage?.items
+      ?? []
+    ).map(
+      datalogDisplayRow,
+    )
 
 
   const selectedParameter =
@@ -2822,83 +2830,205 @@ function LogsPage({
 
 
   const exportCsv =
-    () => {
-      const csv =
-        [
-          [
-            'Waktu',
-            'Parameter',
-            'Nilai',
-            logType === 'sensor'
-              ? 'Status'
-              : 'Sumber',
-          ],
-          ...rows.map(
-            (row) =>
-              row.slice(
-                0,
-                4,
-              ),
-          ),
-        ]
-          .map(
-            (row) =>
-              row
-                .map(
-                  (cell) =>
-                    `"${cell}"`,
-                )
-                .join(','),
-          )
-          .join('\n')
-
-
-      const blob =
-        new Blob(
-          [
-            csv,
-          ],
-          {
-            type:
-              'text/csv;charset=utf-8',
-          },
+    async () => {
+      const rangeFrom =
+        datalogDateTime(
+          fromDate,
+          fromTime,
+          false,
         )
 
 
-      const url =
-        URL.createObjectURL(
-          blob,
+      const rangeTo =
+        datalogDateTime(
+          toDate,
+          toTime,
+          true,
         )
 
 
-      const link =
-        document
-          .createElement('a')
+      const rangeDurationMs =
+        rangeTo.getTime()
+        - rangeFrom.getTime()
 
 
-      link.href =
-        url
-
-
-      link.download =
-        `fertigasi-datalog-${fromDate}-${toDate}.csv`
-
-
-      document.body
-        .appendChild(
-          link,
+      if (
+        fromDate === ''
+        || toDate === ''
+        || !Number.isFinite(
+          rangeDurationMs,
+        )
+        || rangeDurationMs < 0
+        || rangeDurationMs
+          > 31
+          * 24
+          * 60
+          * 60
+          * 1000
+      ) {
+        setDatalogError(
+          'Pilih rentang tanggal maksimal 31 hari.',
         )
 
 
-      link.click()
+        return
+      }
 
 
-      link.remove()
-
-
-      URL.revokeObjectURL(
-        url,
+      setExportLoading(
+        true,
       )
+
+
+      setDatalogError(
+        '',
+      )
+
+
+      try {
+        const exportedRows:
+        string[][] = []
+
+
+        let exportPage =
+          1
+
+
+        let exportTotalPages =
+          1
+
+
+        do {
+          const result =
+            await fetchDatalog(
+              {
+                kind:
+                  logType,
+
+                parameter:
+                  selectedParameter,
+
+                from:
+                  rangeFrom,
+
+                to:
+                  rangeTo,
+
+                page:
+                  exportPage,
+
+                pageSize:
+                  1_000,
+              },
+            )
+
+
+          exportedRows.push(
+            ...result.items.map(
+              (item) =>
+                datalogDisplayRow(
+                  item,
+                ).slice(
+                  0,
+                  4,
+                ),
+            ),
+          )
+
+
+          exportTotalPages =
+            result.pagination.totalPages
+
+
+          exportPage +=
+            1
+        } while (
+          exportPage
+          <= exportTotalPages
+        )
+
+
+        const csv =
+          [
+            [
+              'Waktu',
+              'Parameter',
+              'Nilai',
+              logType === 'sensor'
+                ? 'Status'
+                : 'Sumber',
+            ],
+            ...exportedRows,
+          ]
+            .map(
+              (row) =>
+                row
+                  .map(
+                    csvCell,
+                  )
+                  .join(','),
+            )
+            .join('\r\n')
+
+
+        const blob =
+          new Blob(
+            [
+              '\uFEFF',
+              csv,
+            ],
+            {
+              type:
+                'text/csv;charset=utf-8',
+            },
+          )
+
+
+        const url =
+          URL.createObjectURL(
+            blob,
+          )
+
+
+        const link =
+          document
+            .createElement('a')
+
+
+        link.href =
+          url
+
+
+        link.download =
+          `fertigasi-datalog-${logType}-${fromDate}-${(fromTime || '00:00').replace(':', '-')}-${toDate}-${(toTime || '23:59').replace(':', '-')}.csv`
+
+
+        document.body
+          .appendChild(
+            link,
+          )
+
+
+        link.click()
+
+
+        link.remove()
+
+
+        URL.revokeObjectURL(
+          url,
+        )
+      } catch (error) {
+        setDatalogError(
+          error instanceof Error
+            ? error.message
+            : 'CSV belum dapat dibuat.',
+        )
+      } finally {
+        setExportLoading(
+          false,
+        )
+      }
     }
 
 
@@ -3150,9 +3280,17 @@ function LogsPage({
               onClick={
                 exportCsv
               }
-              disabled={rows.length === 0 || datalogLoading}
+              disabled={
+                rows.length === 0
+                || datalogLoading
+                || exportLoading
+              }
             >
-              Ekspor CSV
+              {
+                exportLoading
+                  ? 'Menyiapkan CSV…'
+                  : 'Ekspor CSV'
+              }
             </button>
           </div>
         </div>

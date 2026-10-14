@@ -219,7 +219,7 @@ export const getDatalog = run(async (req, res) => {
     || page < 1
     || !Number.isInteger(pageSize)
     || pageSize < 1
-    || pageSize > 100
+    || pageSize > 1_000
   ) {
     return res.status(400).json({
       success: false,

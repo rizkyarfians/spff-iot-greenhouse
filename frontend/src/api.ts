@@ -105,6 +105,7 @@ export type {
   ApiActuator,
   ApiAutomaticControl,
   ApiAutomaticControlUpdateRequest,
+  ApiDatalogItem,
   ApiDatalogPage,
   ApiAlarm,
   ApiAlarmDetail,
