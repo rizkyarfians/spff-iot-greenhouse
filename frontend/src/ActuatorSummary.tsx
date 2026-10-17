@@ -1,5 +1,5 @@
 import type { ApiActuator, ApiDevice } from '@spff/contracts'
-import { Droplets, FlaskConical } from 'lucide-react'
+import { ArrowUpRight, Droplets, FlaskConical } from 'lucide-react'
 import './ActuatorSummary.css'
 
 export function ActuatorSummary({ actuators, devices, connected, onOpen }: {
@@ -12,7 +12,6 @@ export function ActuatorSummary({ actuators, devices, connected, onOpen }: {
     <section className="actuator-summary" aria-labelledby="actuator-summary-title">
       <div className="actuator-summary-heading">
         <h2 id="actuator-summary-title">Kondisi Pompa</h2>
-        <button type="button" onClick={onOpen}>Lihat kontrol pompa</button>
       </div>
       <div className="actuator-summary-items">
         {(['pump_water', 'pump_fert'] as const).map((id) => {
@@ -33,15 +32,17 @@ export function ActuatorSummary({ actuators, devices, connected, onOpen }: {
           const Icon = id === 'pump_water' ? Droplets : FlaskConical
           const failed = ['rejected', 'failed', 'timed_out'].includes(pump?.commandStatus ?? '')
           return (
-            <div className="actuator-summary-item" key={id}>
-              <Icon size={22} aria-hidden="true" />
-              <div>
-                <h3>{id === 'pump_water' ? 'Pompa Air' : 'Pompa Pupuk'}</h3>
-                <span className={`actuator-summary-status is-${tone}`}>{label}</span>
+            <button className="actuator-summary-item" key={id} type="button" onClick={onOpen}
+              aria-label={`Buka kontrol ${id === 'pump_water' ? 'pompa air' : 'pompa pupuk'}: ${label}`}>
+              <Icon size={18} aria-hidden="true" />
+              <span className="actuator-summary-copy">
+                <span className="actuator-summary-name">{id === 'pump_water' ? 'Pompa Air' : 'Pompa Pupuk'}</span>
                 {pending && <small>Permintaan: {pump?.requestedIsActive ? 'nyalakan' : 'matikan'} pompa</small>}
-                {failed && <small>Perintah terakhir gagal. Lihat kontrol pompa.</small>}
-              </div>
-            </div>
+                {failed && <small>Perintah terakhir gagal</small>}
+              </span>
+                <span className={`actuator-summary-status is-${tone}`}>{label}</span>
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </button>
           )
         })}
       </div>
