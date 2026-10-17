@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 
@@ -28,6 +29,7 @@ import {
   createSchedule as createScheduleRequest,
   deleteSchedule as deleteScheduleRequest,
   fetchDatalog,
+  fetchDatalogExport,
   fetchAlarmDetail,
   fetchAlarms,
   fetchSensorHistory,
@@ -64,6 +66,7 @@ import type {
 import {
   farmerReasonLabel,
 } from './displayLabels'
+import { datalogTimestamp, encodeCsvRows } from './datalogCsv'
 
 import {
   formatTelemetryAge,
@@ -2319,38 +2322,6 @@ const datalogDateTime = (
 )
 
 
-const datalogTimestamp = (
-  recordedAt: string,
-) =>
-  new Date(
-    recordedAt,
-  ).toLocaleString(
-    'id-ID',
-    {
-      timeZone:
-        'Asia/Jakarta',
-
-      day:
-        '2-digit',
-
-      month:
-        '2-digit',
-
-      year:
-        'numeric',
-
-      hour:
-        '2-digit',
-
-      minute:
-        '2-digit',
-
-      second:
-        '2-digit',
-    },
-  )
-
-
 const datalogDisplayRow = (
   row: ApiDatalogItem,
 ) => {
@@ -2432,21 +2403,6 @@ const datalogDisplayRow = (
 }
 
 
-const csvCell = (
-  value: string,
-) => {
-  const spreadsheetSafeValue =
-    /^[=+\-@]/.test(
-      value.trimStart(),
-    )
-      ? `'${value}`
-      : value
-
-
-  return `"${spreadsheetSafeValue.replaceAll('"', '""')}"`
-}
-
-
 function LogsPage({
   data,
   connectionState,
@@ -2490,6 +2446,12 @@ function LogsPage({
   const [datalogLoading, setDatalogLoading] = useState(false)
   const [datalogError, setDatalogError] = useState('')
   const [exportLoading, setExportLoading] = useState(false)
+  const [exportNotice, setExportNotice] = useState('')
+  const exportController = useRef<AbortController | null>(null)
+  useEffect(() => () => {
+    exportController.current?.abort()
+    exportController.current = null
+  }, [])
 
   const [chartSensor, setChartSensor] = useState('soil_1_moisture')
   const [chartSeries, setChartSeries] = useState<ApiHistorySeries | null>(null)
@@ -2829,208 +2791,75 @@ function LogsPage({
   const dateRangeLabel = `${fromDate} ${fromTime || '00:00'} – ${toDate} ${toTime || '23:59'}`
 
 
-  const exportCsv =
-    async () => {
-      const rangeFrom =
-        datalogDateTime(
-          fromDate,
-          fromTime,
-          false,
-        )
-
-
-      const rangeTo =
-        datalogDateTime(
-          toDate,
-          toTime,
-          true,
-        )
-
-
-      const rangeDurationMs =
-        rangeTo.getTime()
-        - rangeFrom.getTime()
-
-
-      if (
-        fromDate === ''
-        || toDate === ''
-        || !Number.isFinite(
-          rangeDurationMs,
-        )
-        || rangeDurationMs < 0
-        || rangeDurationMs
-          > 31
-          * 24
-          * 60
-          * 60
-          * 1000
-      ) {
-        setDatalogError(
-          'Pilih rentang tanggal maksimal 31 hari.',
-        )
-
-
-        return
-      }
-
-
-      setExportLoading(
-        true,
-      )
-
-
-      setDatalogError(
-        '',
-      )
-
-
-      try {
-        const exportedRows:
-        string[][] = []
-
-
-        let exportPage =
-          1
-
-
-        let exportTotalPages =
-          1
-
-
-        do {
-          const result =
-            await fetchDatalog(
-              {
-                kind:
-                  logType,
-
-                parameter:
-                  selectedParameter,
-
-                from:
-                  rangeFrom,
-
-                to:
-                  rangeTo,
-
-                page:
-                  exportPage,
-
-                pageSize:
-                  1_000,
-              },
-            )
-
-
-          exportedRows.push(
-            ...result.items.map(
-              (item) =>
-                datalogDisplayRow(
-                  item,
-                ).slice(
-                  0,
-                  4,
-                ),
-            ),
-          )
-
-
-          exportTotalPages =
-            result.pagination.totalPages
-
-
-          exportPage +=
-            1
-        } while (
-          exportPage
-          <= exportTotalPages
-        )
-
-
-        const csv =
-          [
-            [
-              'Waktu',
-              'Parameter',
-              'Nilai',
-              logType === 'sensor'
-                ? 'Status'
-                : 'Sumber',
-            ],
-            ...exportedRows,
-          ]
-            .map(
-              (row) =>
-                row
-                  .map(
-                    csvCell,
-                  )
-                  .join(','),
-            )
-            .join('\r\n')
-
-
-        const blob =
-          new Blob(
-            [
-              '\uFEFF',
-              csv,
-            ],
-            {
-              type:
-                'text/csv;charset=utf-8',
-            },
-          )
-
-
-        const url =
-          URL.createObjectURL(
-            blob,
-          )
-
-
-        const link =
-          document
-            .createElement('a')
-
-
-        link.href =
-          url
-
-
-        link.download =
-          `fertigasi-datalog-${logType}-${fromDate}-${(fromTime || '00:00').replace(':', '-')}-${toDate}-${(toTime || '23:59').replace(':', '-')}.csv`
-
-
-        document.body
-          .appendChild(
-            link,
-          )
-
-
-        link.click()
-
-
-        link.remove()
-
-
-        URL.revokeObjectURL(
-          url,
-        )
-      } catch (error) {
-        setDatalogError(
-          error instanceof Error
-            ? error.message
-            : 'CSV belum dapat dibuat.',
-        )
-      } finally {
-        setExportLoading(
-          false,
-        )
-      }
+  const exportCsv = async () => {
+    if (exportController.current) return
+    const rangeFrom = datalogDateTime(fromDate, fromTime, false)
+    const rangeTo = datalogDateTime(toDate, toTime, true)
+    const duration = rangeTo.getTime() - rangeFrom.getTime()
+    if (!fromDate || !toDate || !Number.isFinite(duration) || duration < 0 || duration > 31 * 86_400_000) {
+      setDatalogError('Pilih rentang tanggal maksimal 31 hari.')
+      return
     }
 
+    const controller = new AbortController()
+    exportController.current = controller
+    setExportLoading(true)
+    setDatalogError('')
+    setExportNotice('Mengambil data untuk CSV…')
+    try {
+      // Keep CSV chunks, not every JSON record plus a second giant string.
+      const parts: Blob[] = [new Blob(['\uFEFF', encodeCsvRows([
+        ['Waktu', 'Parameter', 'Nilai', logType === 'sensor' ? 'Status' : 'Sumber'],
+      ])])]
+      let bytes = parts[0].size
+      let receivedRows = 0
+      const count = await fetchDatalogExport(
+        { kind: logType, parameter: selectedParameter, from: rangeFrom, to: rangeTo },
+        controller.signal,
+        async (items) => {
+          controller.signal.throwIfAborted()
+          const chunk = new Blob([encodeCsvRows(items.map((item) => datalogDisplayRow(item).slice(0, 4)))])
+          bytes += chunk.size
+          // Bound the cross-browser Blob fallback; don't exhaust the browser's memory.
+          if (bytes > 64 * 1024 * 1024) throw new Error('CSV melebihi 64 MB. Pilih rentang waktu lebih pendek.')
+          parts.push(chunk)
+          receivedRows += items.length
+          setExportNotice(`Menyiapkan CSV: ${receivedRows.toLocaleString('id-ID')} baris…`)
+          // Give React, paint, and the cancel button a turn between batches.
+          await new Promise<void>((resolve) => setTimeout(resolve, 0))
+        },
+      )
+      controller.signal.throwIfAborted()
+      if (count === 0) {
+        setExportNotice('Tidak ada data dalam rentang ekspor yang dipilih.')
+        return
+      }
+      const blob = new Blob(parts, { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `fertigasi-datalog-${logType}-${fromDate}-${(fromTime || '00:00').replace(':', '-')}-${toDate}-${(toTime || '23:59').replace(':', '-')}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      // Let the browser consume the object URL before releasing it.
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setExportNotice(`CSV siap: ${count.toLocaleString('id-ID')} baris. Download sudah dimulai.`)
+    } catch (error) {
+      if (exportController.current !== controller) return
+      if (controller.signal.aborted) {
+        setExportNotice('Ekspor dibatalkan. Tidak ada file yang disimpan.')
+      } else {
+        setExportNotice('')
+        setDatalogError(error instanceof Error ? error.message : 'CSV belum dapat dibuat.')
+      }
+    } finally {
+      if (exportController.current === controller) {
+        exportController.current = null
+        setExportLoading(false)
+      }
+    }
+  }
 
   const resetFilters =
     () => {
@@ -3281,8 +3110,7 @@ function LogsPage({
                 exportCsv
               }
               disabled={
-                rows.length === 0
-                || datalogLoading
+                connectionState !== 'connected'
                 || exportLoading
               }
             >
@@ -3292,8 +3120,19 @@ function LogsPage({
                   : 'Ekspor CSV'
               }
             </button>
+            {exportLoading && (
+              <button className="secondary-button" type="button" onClick={() => exportController.current?.abort()}>
+                Batalkan Ekspor
+              </button>
+            )}
           </div>
         </div>
+
+        {exportNotice && (
+          <div className="datalog-feedback" role="status" aria-live="polite">
+            {exportNotice}
+          </div>
+        )}
 
         {datalogError && (
           <div className="datalog-feedback is-error">

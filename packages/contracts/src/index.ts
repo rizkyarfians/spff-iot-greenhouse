@@ -679,6 +679,13 @@ export interface ApiDatalogPage {
   };
 }
 
+/** NDJSON export: the client must receive complete before saving a CSV. */
+export type ApiDatalogExportEvent =
+  | { type: 'start' }
+  | { type: 'batch'; items: ApiDatalogItem[] }
+  | { type: 'complete'; rowCount: number }
+  | { type: 'error'; message: string };
+
 export interface ApiActuator {
   id: string;
   deviceId: string;

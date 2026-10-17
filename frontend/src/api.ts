@@ -7,6 +7,7 @@ import type {
   ApiAlarmDetail,
   ApiAlarmPage,
   ApiHistorySeries,
+  ApiDatalogItem,
   ApiDatalogPage,
   HistoryBucket,
   ApiPumpCommandRequest,
@@ -28,6 +29,7 @@ import type {
   SelectedCropInput,
   UpdateUserRequest,
 } from '@spff/contracts'
+import { readDatalogExportStream } from './datalogExportStream'
 
 
 export type ConnectionState =
@@ -584,6 +586,31 @@ export function fetchDatalog(
   )
 }
 
+
+export async function fetchDatalogExport(
+  options: { kind: 'sensor' | 'actuator'; parameter: string; from: Date; to: Date },
+  signal: AbortSignal,
+  onBatch: (items: ApiDatalogItem[]) => Promise<void>,
+) {
+  const params = new URLSearchParams({
+    kind: options.kind, parameter: options.parameter,
+    from: options.from.toISOString(), to: options.to.toISOString(),
+  })
+  const response = await fetch(`/api/datalog/export?${params}`, {
+    signal, credentials: 'include', cache: 'no-store',
+    headers: { Accept: 'application/x-ndjson' },
+  })
+  if (!response.ok) {
+    if (response.status === 401) window.dispatchEvent(new CustomEvent('spff:unauthorized'))
+    const error = await response.json().catch(() => null)
+    throw new ApiError(error?.message || `HTTP ${response.status}`, response.status)
+  }
+  if (!response.body || !response.headers.get('content-type')?.includes('application/x-ndjson')) {
+    await response.body?.cancel()
+    throw new Error('Server belum mendukung ekspor ini. Perbarui backend lalu coba lagi.')
+  }
+  return readDatalogExportStream(response.body, signal, onBatch)
+}
 
 export function updateActuator(
   id: string,

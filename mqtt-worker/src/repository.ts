@@ -1,4 +1,4 @@
-import { deriveTelemetrySensorHealth } from "@spff/contracts";
+import { deriveTankLevels } from "./tankLevels.js";
 import type {
   AutomaticControlAckMessage,
   AutomaticControlSyncMessage,
@@ -933,7 +933,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
 
   async saveTelemetry(message: TelemetryMessage): Promise<void> {
     const raw = asObject(message);
-    const sensors = asObject(raw.sensors);
+    const { sensors, sensorHealth } = deriveTankLevels(message);
     const schemaVersion =
       typeof raw.schemaVersion === "number" && Number.isInteger(raw.schemaVersion)
         ? raw.schemaVersion
@@ -947,7 +947,6 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       firstBoolean(raw, ["sensorValid", "sensor_valid"]) ??
       firstBoolean(sensors, ["sensorValid", "sensor_valid"]) ??
       true;
-    const sensorHealth = deriveTelemetrySensorHealth(message);
 
     const values: unknown[] = [
       schemaVersion,

@@ -28,7 +28,8 @@ const telemetryMessage = {
     liquid_ph: 6.1,
     air_temp: 28.4,
     air_humidity: 72.5,
-    tank_water_level_pct: 76,
+    tank_water_distance_cm: 43.2,
+    tank_fert_distance_cm: 45,
     battery_voltage: 12.4,
     ac_voltage_v: 220.4,
     ac_current_a: 1.25,
@@ -75,6 +76,7 @@ test("saveTelemetry maps contract payload and uses message idempotency", async (
   assert.equal(query.values[23], 28.4);
   assert.equal(query.values[24], 72.5);
   assert.equal(query.values[26], 76);
+  assert.equal(query.values[28], 50);
   assert.equal(query.values[33], 12.4);
   assert.equal(query.values[34], 220.4);
   assert.equal(query.values[35], 1.25);
@@ -89,6 +91,8 @@ test("saveTelemetry maps contract payload and uses message idempotency", async (
     { valid: boolean; reason?: string }
   >;
   assert.deepEqual(sensorHealth.soil_1_moisture, { valid: true });
+  assert.deepEqual(sensorHealth.tank_water_level_pct, { valid: true });
+  assert.deepEqual(sensorHealth.tank_fert_level_pct, { valid: true });
   assert.deepEqual(sensorHealth.battery_voltage, { valid: true });
   assert.deepEqual(sensorHealth.ac_voltage_v, { valid: true });
 

@@ -54,6 +54,7 @@ import {
 import {
   registerController,
 } from '../controllers/registrationController.js'
+import { getDatalogExport } from '../controllers/datalogExportController.js';
 
 
 export const apiRouter =
@@ -183,6 +184,8 @@ apiRouter.get(
   '/datalog',
   getDatalog,
 );
+
+apiRouter.get('/datalog/export', getDatalogExport);
 
 
 apiRouter.get(
