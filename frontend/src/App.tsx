@@ -67,6 +67,7 @@ import {
 } from './authContext'
 
 import './App.css'
+import { ActuatorSummary } from './ActuatorSummary'
 
 
 type SensorKey = string
@@ -2481,6 +2482,13 @@ const soilNpkGroups =
                     </aside>
                   </div>
 
+
+                  <ActuatorSummary
+                    actuators={backendData?.actuators ?? []}
+                    devices={backendData?.devices ?? []}
+                    connected={connectionState === 'connected'}
+                    onOpen={() => navigateTo('controls')}
+                  />
 
                   <div className="monitoring-grid">
                     <div
