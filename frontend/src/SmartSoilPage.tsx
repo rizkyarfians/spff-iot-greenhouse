@@ -77,9 +77,9 @@ const formatSensorValue = (sensor: SmartSoilSensorCondition) =>
       ].filter(Boolean).join(' ')
 
 const comparisonLabels: Record<SmartSoilComparison['status'], string> = {
-  within: 'Sesuai acuan',
-  below: 'Di bawah acuan',
-  above: 'Di atas acuan',
+  within: 'Sesuai kebutuhan',
+  below: 'Di bawah batas',
+  above: 'Di atas batas',
   unavailable: 'Belum ada data',
 }
 
@@ -152,7 +152,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
       || numericDraftValues.some((value) => value.trim() === '')
       || Object.values(numericFields).some((value) => !Number.isFinite(value))
     ) {
-      setError('Lengkapi nama tanaman dan seluruh nilai acuannya.')
+      setError('Lengkapi nama tanaman serta semua batas bawah dan atas.')
       return
     }
 
@@ -168,7 +168,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
       setError('')
       onRefresh()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Acuan tanaman belum tersimpan.')
+      setError(caught instanceof Error ? caught.message : 'Kebutuhan tanaman belum tersimpan.')
     } finally {
       setSaving(false)
     }
@@ -193,23 +193,14 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
 
   return (
     <section className="secondary-page smart-soil-page" aria-label="Smart Soil">
-      <header className="smart-soil-heading">
-        <div>
-          <span className="smart-soil-eyebrow"><Leaf size={15} /> Smart Soil</span>
-          <h2>Monitoring kondisi & acuan tanaman</h2>
-          <p>
-            Bandingkan kondisi terbaru dengan rentang yang diisi dan disepakati tim lapangan.
-          </p>
-        </div>
+      {snapshot.deviceStatus !== 'online' && (
         <div className={['smart-soil-device', snapshot.deviceStatus].join(' ')}>
           <span />
-          {snapshot.deviceStatus === 'online'
-            ? 'Perangkat terhubung'
-            : snapshot.deviceStatus === 'stale'
-              ? 'Data terlambat'
+          {snapshot.deviceStatus === 'stale'
+              ? 'Belum menerima data baru'
               : 'Perangkat tidak terhubung'}
         </div>
-      </header>
+      )}
 
       {error && (
         <div className="smart-soil-notice error">
@@ -225,7 +216,6 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
               <span className="smart-soil-metric-icon"><Icon size={18} /></span>
               <span>{sensor.name}</span>
               <strong>{formatSensorValue(sensor)}</strong>
-              <small>{sensor.groupName}</small>
             </article>
           )
         })}
@@ -235,8 +225,8 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
         <form className="page-card smart-soil-profile" onSubmit={saveReference}>
           <div className="page-card-header">
             <div>
-              <h2>Acuan tanaman manual</h2>
-              <p>Isi rentang berdasarkan rekomendasi tim agronomi atau kebutuhan tanaman.</p>
+              <h2>Kebutuhan tanaman</h2>
+              <p>Isi batas bawah dan atas sesuai arahan pendamping pertanian.</p>
             </div>
           </div>
 
@@ -254,42 +244,42 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
 
           <div className="smart-soil-reference-grid">
             <label className="smart-soil-field">
-              <span>Suhu minimum</span>
+              <span>Suhu udara terendah</span>
               <div className="smart-soil-input-wrap">
                 <input type="number" min={-20} max={80} step="0.1" required disabled={user.role !== 'admin'} value={draft.temperatureMinC} onChange={(event) => updateDraft('temperatureMinC', event.target.value)} />
                 <small>°C</small>
               </div>
             </label>
             <label className="smart-soil-field">
-              <span>Suhu maksimum</span>
+              <span>Suhu udara tertinggi</span>
               <div className="smart-soil-input-wrap">
                 <input type="number" min={-20} max={80} step="0.1" required disabled={user.role !== 'admin'} value={draft.temperatureMaxC} onChange={(event) => updateDraft('temperatureMaxC', event.target.value)} />
                 <small>°C</small>
               </div>
             </label>
             <label className="smart-soil-field">
-              <span>pH tanah minimum</span>
+              <span>pH tanah terendah</span>
               <div className="smart-soil-input-wrap">
                 <input type="number" min={0} max={14} step="0.1" required disabled={user.role !== 'admin'} value={draft.soilPhMin} onChange={(event) => updateDraft('soilPhMin', event.target.value)} />
                 <small>pH</small>
               </div>
             </label>
             <label className="smart-soil-field">
-              <span>pH tanah maksimum</span>
+              <span>pH tanah tertinggi</span>
               <div className="smart-soil-input-wrap">
                 <input type="number" min={0} max={14} step="0.1" required disabled={user.role !== 'admin'} value={draft.soilPhMax} onChange={(event) => updateDraft('soilPhMax', event.target.value)} />
                 <small>pH</small>
               </div>
             </label>
             <label className="smart-soil-field">
-              <span>Kelembapan udara minimum</span>
+              <span>Kelembapan udara terendah</span>
               <div className="smart-soil-input-wrap">
                 <input type="number" min={0} max={100} step="0.1" required disabled={user.role !== 'admin'} value={draft.humidityMinPercent} onChange={(event) => updateDraft('humidityMinPercent', event.target.value)} />
                 <small>%RH</small>
               </div>
             </label>
             <label className="smart-soil-field">
-              <span>Kelembapan udara maksimum</span>
+              <span>Kelembapan udara tertinggi</span>
               <div className="smart-soil-input-wrap">
                 <input type="number" min={0} max={100} step="0.1" required disabled={user.role !== 'admin'} value={draft.humidityMaxPercent} onChange={(event) => updateDraft('humidityMaxPercent', event.target.value)} />
                 <small>%RH</small>
@@ -308,7 +298,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
             }
           >
             {saving ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}
-            {user.role === 'admin' ? 'Simpan acuan' : 'Hanya admin yang dapat menyimpan'}
+            {user.role === 'admin' ? 'Simpan kebutuhan tanaman' : 'Hanya admin yang dapat menyimpan'}
           </button>
         </form>
 
@@ -318,8 +308,8 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
               <h2>Hasil perbandingan</h2>
               <p>
                 {snapshot.reference
-                  ? `Kondisi saat ini dibandingkan dengan acuan ${snapshot.reference.cropName}.`
-                  : 'Isi acuan tanaman terlebih dahulu untuk melihat hasil.'}
+                  ? `Perbandingan kondisi saat ini dengan kebutuhan ${snapshot.reference.cropName}.`
+                  : 'Hasil muncul setelah kebutuhan tanaman disimpan.'}
               </p>
             </div>
           </div>
@@ -336,7 +326,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
                   <span>
                     <strong>{item.label}</strong>
                     <small>
-                      Acuan {item.minimum.toLocaleString('id-ID')}–{item.maximum.toLocaleString('id-ID')} {item.unit}
+                      Batas {item.minimum.toLocaleString('id-ID')}–{item.maximum.toLocaleString('id-ID')} {item.unit}
                     </small>
                   </span>
                   <span className="smart-soil-comparison-value">
@@ -349,7 +339,7 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
           ) : (
             <div className="smart-soil-empty-reference">
               <Leaf size={22} />
-              Belum ada acuan manual yang tersimpan.
+              Belum ada kebutuhan tanaman yang disimpan.
             </div>
           )}
 

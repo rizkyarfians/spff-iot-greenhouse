@@ -140,7 +140,7 @@ input:focus-visible {
   color: #243b31;
 
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 
@@ -381,7 +381,7 @@ input:focus-visible {
     4px 8px;
 
   font-size: 9px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .notification-list {
@@ -533,7 +533,7 @@ input:focus-visible {
   color: #fff;
 
   font-size: 20px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .brand-mark svg {
@@ -624,7 +624,7 @@ input:focus-visible {
     var(--green-dark);
 
   font-size: 10px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .drawer-nav-icon svg {
@@ -641,7 +641,7 @@ input:focus-visible {
 .drawer-nav-item
 > span:last-child {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 
@@ -692,7 +692,7 @@ input:focus-visible {
     4px 7px;
 
   font-size: 8px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .drawer-device-card .device-status.is-stale {
@@ -773,7 +773,7 @@ input:focus-visible {
     #66706b;
 
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .avatar svg {
@@ -877,7 +877,7 @@ input:focus-visible {
       30px
     );
 
-  font-weight: 760;
+  font-weight: 700;
 
   line-height: 1.1;
 
@@ -1029,7 +1029,7 @@ input:focus-visible {
     12px 0 15px;
 
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .hero-location-icon {
@@ -1111,7 +1111,7 @@ input:focus-visible {
 .hero-sensor strong small {
   font-size: 0.55em;
 
-  font-weight: 600;
+  font-weight: 700;
 }
 
 
@@ -1319,7 +1319,7 @@ input:focus-visible {
     var(--green-dark);
 
   font-size: 8px;
-  font-weight: 800;
+  font-weight: 700;
 
   letter-spacing:
     1.3px;
@@ -1358,7 +1358,7 @@ input:focus-visible {
     4px 9px;
 
   font-size: 8px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .today-chip {
@@ -1440,7 +1440,7 @@ input:focus-visible {
 .schedule-copy strong {
   font-size: 10px;
 
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .schedule-copy small {
@@ -1477,7 +1477,7 @@ input:focus-visible {
     var(--green-dark);
 
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 700;
 
   cursor: pointer;
 }
@@ -1547,7 +1547,7 @@ input:focus-visible {
   color: #16211c;
 
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .sensor-panel-toolbar small {
@@ -1577,7 +1577,7 @@ input:focus-visible {
 
   font: inherit;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 700;
 
   cursor: pointer;
 }
@@ -1666,7 +1666,7 @@ input:focus-visible {
     var(--sensor-color);
 
   font-size: 10px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .metric-icon svg,
@@ -1693,7 +1693,7 @@ input:focus-visible {
   font-family: inherit;
 
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 700;
 
   line-height: 1.35;
 }
@@ -1731,7 +1731,7 @@ input:focus-visible {
    * pada hero sensor (28,4 °C).
    */
   font-size: 22px;
-  font-weight: 750;
+  font-weight: 700;
 
   line-height: 1;
 
@@ -1752,7 +1752,7 @@ input:focus-visible {
   font-family: inherit;
 
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
 
   line-height: 1;
 }
@@ -1809,7 +1809,7 @@ input:focus-visible {
   font-family: inherit;
 
   font-size: 8px;
-  font-weight: 600;
+  font-weight: 700;
 
   line-height: 1.2;
 
@@ -2781,7 +2781,7 @@ input:focus-visible {
   .metric-reading-row > strong,
   .metric-reading > strong {
     font-size: 20px;
-    font-weight: 750;
+    font-weight: 700;
     line-height: 1;
     letter-spacing: 0;
   }
@@ -2948,7 +2948,7 @@ and (
   color: #24372f;
   padding: 0 36px 0 12px;
   font-size: var(--font-size-body);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.2;
   cursor: pointer;
   transition:
@@ -3060,7 +3060,7 @@ and (
   padding: 0 8px 0 10px;
   font: inherit;
   font-size: var(--font-size-body);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition:
     border-color 150ms ease,
@@ -3096,7 +3096,7 @@ and (
   padding: 0 11px;
   font: inherit;
   font-size: var(--font-size-label);
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
   transition:
     border-color 150ms ease,

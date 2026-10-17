@@ -1,9 +1,7 @@
 .smart-soil-page { display: grid; gap: 18px; }
-.smart-soil-heading { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
-.smart-soil-heading h2 { margin: 4px 0; font-size: clamp(1.4rem, 2vw, 1.85rem); }
-.smart-soil-heading p, .smart-soil-profile p, .smart-soil-explanation p { margin: 0; color: #6a7e79; }
-.smart-soil-eyebrow { color: #14845e; display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.smart-soil-device { border-radius: 999px; padding: 7px 11px; font-size: .78rem; font-weight: 800; white-space: nowrap; background: #eff3f1; color: #60716b; }
+.smart-soil-profile p, .smart-soil-explanation p { margin: 0; color: #6a7e79; }
+.smart-soil-page > .smart-soil-device { justify-self: start; }
+.smart-soil-device { border-radius: 999px; padding: 7px 11px; font-size: .78rem; font-weight: 700; white-space: nowrap; background: #eff3f1; color: #60716b; }
 .smart-soil-device span { width: 7px; height: 7px; display: inline-block; border-radius: 99px; background: currentColor; margin-right: 6px; }
 .smart-soil-device.online { color: #087c58; background: #e7f7ef; }
 .smart-soil-device.stale { color: #a85b00; background: #fff3dd; }
@@ -19,15 +17,15 @@
 .smart-soil-profile, .smart-soil-explanation { padding: 20px; }
 .smart-soil-field { display: grid; gap: 6px; color: #556862; font-size: .78rem; font-weight: 700; }
 .smart-soil-field-wide { margin-top: 18px; }
-.smart-soil-field input { width: 100%; min-width: 0; min-height: 40px; border: 0; background: transparent; color: #19342c; padding: 10px 11px; font: inherit; font-weight: 600; outline: none; }
+.smart-soil-field input { width: 100%; min-width: 0; min-height: 40px; border: 0; background: transparent; color: #19342c; padding: 10px 11px; font: inherit; font-weight: 700; outline: none; }
 .smart-soil-field-wide > input { border: 1px solid #d5e1dc; border-radius: 9px; background: #fff; }
 .smart-soil-field input:disabled { color: #74837e; background: #f4f7f6; cursor: not-allowed; }
 .smart-soil-field-wide > input:focus, .smart-soil-input-wrap:focus-within { border-color: #1aa878; box-shadow: 0 0 0 3px rgba(26, 168, 120, .12); }
 .smart-soil-reference-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
 .smart-soil-input-wrap { display: flex; align-items: center; border: 1px solid #d5e1dc; border-radius: 9px; background: #fff; overflow: hidden; }
-.smart-soil-input-wrap small { flex: none; padding: 0 11px; color: #71827d; border-left: 1px solid #e2e9e6; font-weight: 600; }
+.smart-soil-input-wrap small { flex: none; padding: 0 11px; color: #71827d; border-left: 1px solid #e2e9e6; font-weight: 700; }
 .smart-soil-profile .primary-action { margin-top: 18px; }
-.primary-action { background: #16a878; color: #fff; border: 0; border-radius: 10px; min-height: 42px; padding: 0 14px; font: inherit; font-size: .84rem; font-weight: 800; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+.primary-action { background: #16a878; color: #fff; border: 0; border-radius: 10px; min-height: 42px; padding: 0 14px; font: inherit; font-size: .84rem; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
 .primary-action:disabled { cursor: not-allowed; opacity: .55; }
 .smart-soil-comparison-list { display: grid; gap: 10px; margin-top: 18px; }
 .smart-soil-comparison { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid #dce5e1; border-radius: 11px; background: #f8faf9; }
@@ -48,5 +46,5 @@
 @keyframes smart-soil-spin { to { transform: rotate(360deg); } }
 @media (max-width: 1200px) { .smart-soil-condition-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 980px) { .smart-soil-layout { grid-template-columns: 1fr; } }
-@media (max-width: 680px) { .smart-soil-heading { display: grid; } .smart-soil-condition-grid { grid-template-columns: repeat(2, 1fr); } .smart-soil-reference-grid { grid-template-columns: 1fr; } .smart-soil-profile, .smart-soil-explanation { padding: 15px; } }
+@media (max-width: 680px) { .smart-soil-condition-grid { grid-template-columns: repeat(2, 1fr); } .smart-soil-reference-grid { grid-template-columns: 1fr; } .smart-soil-profile, .smart-soil-explanation { padding: 15px; } }
 @media (max-width: 430px) { .smart-soil-condition-grid { grid-template-columns: 1fr; } .smart-soil-comparison { grid-template-columns: 32px 1fr; } .smart-soil-comparison-value { grid-column: 2; text-align: left; } }

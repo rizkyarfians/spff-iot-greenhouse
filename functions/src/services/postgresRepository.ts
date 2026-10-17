@@ -661,7 +661,7 @@ async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: s
          FROM spff.device_automatic_control_configs
          WHERE site_id = $1
            AND device_id = $2
-           AND desired_mode = 'automatic'
+           AND (desired_mode = 'automatic' OR applied_mode = 'automatic')
          LIMIT 1`,
         [siteId, actuator.device_id],
       );

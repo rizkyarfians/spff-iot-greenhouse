@@ -67,14 +67,14 @@
   margin-bottom: 5px;
   color: #74827b;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .um-summary-copy > strong {
   display: block;
   color: #19392e;
   font-size: 27px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -96,7 +96,7 @@
 .um-section-eyebrow {
   color: #288965;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
@@ -149,7 +149,7 @@
   margin: 5px 0 6px;
   color: #17382c;
   font-size: 19px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.3;
   letter-spacing: -0.25px;
 }
@@ -179,7 +179,7 @@
   border-radius: 999px;
   padding: 5px 10px;
   font-size: 9px;
-  font-weight: 750;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -302,7 +302,7 @@
   border-bottom: 1px solid #e6ece8;
   color: #7b8882;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 700;
   text-align: left;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -358,7 +358,7 @@
   color: #26795c;
   background: #e7f3ed;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .um-identity-copy {
@@ -371,7 +371,7 @@
   gap: 7px;
   color: #263f35;
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .um-identity-copy small {
@@ -387,7 +387,7 @@
   color: #24795c;
   background: #e6f4ed;
   font-size: 7px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 
@@ -409,7 +409,7 @@
   background: #fff;
   font: inherit;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .um-role-select:focus {
@@ -438,7 +438,7 @@
   padding: 5px 10px;
   border-radius: 999px;
   font-size: 8px;
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
 }
 

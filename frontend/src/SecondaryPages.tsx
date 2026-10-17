@@ -186,7 +186,7 @@ function PlantStatusPage({
             note:
               hasData
                 ? 'Nilai zona berasal dari data sensor tanah terbaru; tidak ada skor kesehatan sintetis.'
-                : 'Belum ada data sensor tanah tersimpan pada sistem SPFF.',
+                : 'Belum ada pembacaan sensor tanah.',
           }
         }),
       [data],
@@ -614,47 +614,7 @@ const automaticControlDraft = (
       fertilizer: { ...defaultAutomaticControl.fertilizer },
     }
 
-function AutomaticNumberField({
-  label,
-  value,
-  unit,
-  min = 0,
-  max,
-  step = 1,
-  disabled,
-  onChange,
-}: {
-  label: string
-  value: number | null
-  unit: string
-  min?: number
-  max?: number
-  step?: number
-  disabled: boolean
-  onChange: (value: number | null) => void
-}) {
-  return (
-    <label className="automatic-field">
-      <span>{label}</span>
-      <span className="automatic-input-wrap">
-        <input
-          type="number"
-          value={value ?? ''}
-          min={min}
-          max={max}
-          step={step}
-          disabled={disabled}
-          onChange={(event) => {
-            const next = event.target.value
-            onChange(next === '' ? null : Number(next))
-          }}
-        />
-        <small>{unit}</small>
-      </span>
-    </label>
-  )
-}
-
+import { modeNotice } from './modeNotice'
 
 function ControlsPage({
   data,
@@ -685,6 +645,11 @@ function ControlsPage({
     savingAutomatic,
     setSavingAutomatic,
   ] = useState(false)
+
+  const [modeRequest, setModeRequest] = useState<{
+    mode: 'manual' | 'automatic'; revision: number
+  } | null>(null)
+  const [modeSaveError, setModeSaveError] = useState('')
 
 
   const [
@@ -768,6 +733,12 @@ function ControlsPage({
 
   const automaticControl =
     data?.automaticControl ?? null
+
+  const modeFeedback = savingAutomatic
+    ? { tone: 'pending', text: 'Menyimpan pilihan mode…' }
+    : modeSaveError
+      ? { tone: 'error', text: modeSaveError }
+      : modeRequest ? modeNotice(modeRequest, automaticControl) : null
 
   const desiredMode =
     automaticControl?.desiredMode
@@ -859,30 +830,6 @@ function ControlsPage({
     )
   }
 
-  const updateWater = (
-    patch: Partial<ApiAutomaticControlUpdateRequest['water']>,
-  ) => {
-    setAutomaticDraft((current) => ({
-      ...current,
-      water: {
-        ...current.water,
-        ...patch,
-      },
-    }))
-  }
-
-  const updateFertilizer = (
-    patch: Partial<ApiAutomaticControlUpdateRequest['fertilizer']>,
-  ) => {
-    setAutomaticDraft((current) => ({
-      ...current,
-      fertilizer: {
-        ...current.fertilizer,
-        ...patch,
-      },
-    }))
-  }
-
   const saveAutomatic = async (
     next: ApiAutomaticControlUpdateRequest = automaticDraft,
   ) => {
@@ -891,38 +838,27 @@ function ControlsPage({
       ...next,
       water: {
         ...next.water,
+        enabled: false,
         minTankLevelPercent: null,
       },
       fertilizer: {
         ...next.fertilizer,
+        enabled: false,
         minTankLevelPercent: null,
       },
     }
-    if (
-      supportedNext.desiredMode === 'automatic'
-      && !supportedNext.water.enabled
-      && !supportedNext.fertilizer.enabled
-    ) {
-      setCommandNotice(
-        'Aktifkan dan lengkapi minimal satu profil sebelum memilih mode otomatis.',
-      )
-      return
-    }
     setSavingAutomatic(true)
-    setCommandNotice('Menyimpan konfigurasi kontrol otomatis...')
+    setModeSaveError('')
+    setModeRequest(null)
+    setCommandNotice('')
     try {
       const saved = await saveAutomaticControlRequest(supportedNext)
       setAutomaticDraft(automaticControlDraft(saved))
-      setCommandNotice(
-        'Pengaturan tersimpan. Menunggu alat menerapkannya.',
-      )
+      setModeRequest({ mode: saved.desiredMode, revision: saved.revision })
       onRefresh()
     } catch (error) {
-      setCommandNotice(
-        error instanceof Error
-          ? error.message
-          : 'Konfigurasi kontrol otomatis gagal disimpan.',
-      )
+      setModeSaveError('Pilihan mode belum berhasil disimpan. '
+        + (error instanceof Error ? error.message : 'Coba lagi dan periksa sambungan.'))
     } finally {
       setSavingAutomatic(false)
     }
@@ -935,7 +871,6 @@ function ControlsPage({
       ...automaticDraft,
       desiredMode,
     }
-    setAutomaticDraft(next)
     void saveAutomatic(next)
   }
 
@@ -1086,12 +1021,6 @@ function ControlsPage({
         return
       }
 
-      if (automaticModeRequested) {
-        setCommandNotice(
-          'Jadwal dinonaktifkan saat cara otomatis digunakan agar pompa tidak menerima dua perintah.',
-        )
-        return
-      }
 
 
       const actuator =
@@ -1176,12 +1105,6 @@ function ControlsPage({
         return
       }
 
-      if (automaticModeRequested && !enabled) {
-        setCommandNotice(
-          'Jadwal tidak dapat diaktifkan saat mode otomatis.',
-        )
-        return
-      }
 
 
       try {
@@ -1259,15 +1182,23 @@ function ControlsPage({
       className="secondary-page"
       aria-label="Kontrol perangkat"
     >
+      <div role="status" aria-live="polite" aria-atomic="true">
+        {modeFeedback && (
+          <div className={`mode-feedback mode-feedback--${modeFeedback.tone}`}>
+            {modeFeedback.text}
+          </div>
+        )}
+      </div>
       <div className="control-toolbar page-card">
         <div>
           <h2>
-            Mode Operasi
+            Cara Kerja Pompa
           </h2>
+          <p>Manual: tombol dashboard. Otomatis: mengikuti jadwal. Kontrol sensor dan AI belum digunakan.</p>
 
           <p>
             {
-              `Diminta: ${desiredMode === 'automatic' ? 'otomatis' : 'manual'} - Aktual perangkat: ${
+              `Pilihan Anda: ${desiredMode === 'automatic' ? 'otomatis' : 'manual'}. Mode pada alat: ${
                 mode === 'automatic'
                   ? 'otomatis'
                   : mode === 'manual'
@@ -1340,7 +1271,7 @@ function ControlsPage({
 
 
         {
-          selectedMode === 'manual' && (
+          (
         <div className="toolbar-actions">
           <button
             className="secondary-button"
@@ -1375,258 +1306,6 @@ function ControlsPage({
         }
       </div>
 
-      {
-        selectedMode === 'automatic' && (
-      <div className="automatic-control-card page-card">
-        <div className="automatic-control-header">
-          <div>
-            <h2>Parameter Kontrol Otomatis</h2>
-            <p>
-              Threshold agronomi tidak diisi default. Simpan nilai hasil kesepakatan tim agronomi,
-              lalu pilih mode Otomatis. Interlock level tangki belum diaktifkan
-              karena sensor masih mengirim jarak dalam cm.
-            </p>
-          </div>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() => void saveAutomatic()}
-            disabled={
-              !isAdmin
-              || savingAutomatic
-            }
-          >
-            {savingAutomatic ? 'Menyimpan...' : 'Simpan Parameter'}
-          </button>
-        </div>
-
-        <div className="automatic-profile-grid">
-          <section className="automatic-profile">
-            <div className="automatic-profile-heading">
-              <div>
-                <strong>Pompa Air</strong>
-                <small>Hysteresis kelembapan tanah</small>
-              </div>
-              <label className="automatic-enable">
-                <input
-                  type="checkbox"
-                  checked={automaticDraft.water.enabled}
-                  disabled={!isAdmin}
-                  onChange={(event) => updateWater({ enabled: event.target.checked })}
-                />
-                Aktif
-              </label>
-            </div>
-
-            <label className="automatic-field">
-              <span>Sensor utama</span>
-              <select
-                value={automaticDraft.water.sensorKey}
-                disabled={!isAdmin}
-                onChange={(event) => updateWater({
-                  sensorKey: event.target.value === 'soil_2_moisture'
-                    ? 'soil_2_moisture'
-                    : 'soil_1_moisture',
-                })}
-              >
-                <option value="soil_1_moisture">Kelembapan Tanah 1</option>
-                <option value="soil_2_moisture">Kelembapan Tanah 2</option>
-              </select>
-            </label>
-
-            <div className="automatic-fields">
-              <AutomaticNumberField
-                label="Minimum (pompa ON)"
-                value={automaticDraft.water.moistureLowPercent}
-                unit="%"
-                max={100}
-                step={0.1}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ moistureLowPercent: value })}
-              />
-              <AutomaticNumberField
-                label="Target (pompa OFF)"
-                value={automaticDraft.water.moistureTargetPercent}
-                unit="%"
-                max={100}
-                step={0.1}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ moistureTargetPercent: value })}
-              />
-              <AutomaticNumberField
-                label="Batas waktu menyala"
-                value={automaticDraft.water.maxRuntimeSeconds}
-                unit="detik"
-                max={86400}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ maxRuntimeSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Jeda sebelum menyala lagi"
-                value={automaticDraft.water.cooldownSeconds}
-                unit="detik"
-                max={86400}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ cooldownSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Minimum debit"
-                value={automaticDraft.water.minFlowLpm}
-                unit="L/min"
-                max={10000}
-                step={0.01}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ minFlowLpm: value })}
-              />
-              <AutomaticNumberField
-                label="Jumlah pembacaan pemicu"
-                value={automaticDraft.water.triggerSampleCount}
-                unit="sampel"
-                min={1}
-                max={20}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ triggerSampleCount: value ?? 3 })}
-              />
-              <AutomaticNumberField
-                label="Batas menunggu data"
-                value={automaticDraft.water.sensorStaleSeconds}
-                unit="detik"
-                min={10}
-                max={3600}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ sensorStaleSeconds: value ?? 120 })}
-              />
-            </div>
-          </section>
-
-          <section className="automatic-profile">
-            <div className="automatic-profile-heading">
-              <div>
-                <strong>Pompa Pupuk</strong>
-                <small>Pulse dosing closed-loop EC larutan</small>
-              </div>
-              <label className="automatic-enable">
-                <input
-                  type="checkbox"
-                  checked={automaticDraft.fertilizer.enabled}
-                  disabled={!isAdmin}
-                  onChange={(event) => updateFertilizer({ enabled: event.target.checked })}
-                />
-                Aktif
-              </label>
-            </div>
-
-            <label className="automatic-field">
-              <span>Sensor utama</span>
-              <select value="liquid_ec_us_cm" disabled>
-                <option value="liquid_ec_us_cm">EC Larutan</option>
-              </select>
-            </label>
-
-            <div className="automatic-fields">
-              <AutomaticNumberField
-                label="EC minimum (mulai dosis)"
-                value={automaticDraft.fertilizer.ecLowUsCm}
-                unit="uS/cm"
-                max={100000}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ ecLowUsCm: value })}
-              />
-              <AutomaticNumberField
-                label="EC target (stop)"
-                value={automaticDraft.fertilizer.ecTargetUsCm}
-                unit="uS/cm"
-                max={100000}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ ecTargetUsCm: value })}
-              />
-              <AutomaticNumberField
-                label="EC maksimum"
-                value={automaticDraft.fertilizer.ecHighUsCm}
-                unit="uS/cm"
-                max={100000}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ ecHighUsCm: value })}
-              />
-              <AutomaticNumberField
-                label="Lama pompa sekali jalan"
-                value={automaticDraft.fertilizer.dosePulseSeconds}
-                unit="detik"
-                min={1}
-                max={3600}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ dosePulseSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Waktu tunggu agar tercampur"
-                value={automaticDraft.fertilizer.mixingDelaySeconds}
-                unit="detik"
-                min={1}
-                max={86400}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ mixingDelaySeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Jeda sebelum pemberian berikutnya"
-                value={automaticDraft.fertilizer.cooldownSeconds}
-                unit="detik"
-                max={86400}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ cooldownSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Batas pupuk sekali jalan"
-                value={automaticDraft.fertilizer.maxDoseVolumeL}
-                unit="L"
-                min={0.001}
-                max={100000}
-                step={0.001}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ maxDoseVolumeL: value })}
-              />
-              <AutomaticNumberField
-                label="Batas pupuk per hari"
-                value={automaticDraft.fertilizer.maxDailyVolumeL}
-                unit="L"
-                min={0.001}
-                max={1000000}
-                step={0.001}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ maxDailyVolumeL: value })}
-              />
-              <AutomaticNumberField
-                label="Minimum debit"
-                value={automaticDraft.fertilizer.minFlowLpm}
-                unit="L/min"
-                max={10000}
-                step={0.01}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ minFlowLpm: value })}
-              />
-              <AutomaticNumberField
-                label="Jumlah pembacaan pemicu"
-                value={automaticDraft.fertilizer.triggerSampleCount}
-                unit="sampel"
-                min={1}
-                max={20}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ triggerSampleCount: value ?? 3 })}
-              />
-              <AutomaticNumberField
-                label="Batas menunggu data"
-                value={automaticDraft.fertilizer.sensorStaleSeconds}
-                unit="detik"
-                min={10}
-                max={3600}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ sensorStaleSeconds: value ?? 120 })}
-              />
-            </div>
-          </section>
-        </div>
-      </div>
-        )
-      }
 
 
       {
@@ -1746,13 +1425,13 @@ function ControlsPage({
         <div className="schedule-card-header">
           <div>
             <h2>
-              Penjadwalan Aktuator
+              Jadwal Pompa
             </h2>
 
             <p>
               {
                 isAdmin
-                  ? 'Jadwal disimpan di sistem lokal.'
+                  ? 'Atur waktu pompa menyala dan berhenti.'
                   : 'Operator dapat melihat jadwal; perubahan jadwal hanya untuk admin.'
               }
             </p>
@@ -1788,7 +1467,7 @@ function ControlsPage({
         >
           <label className="schedule-field">
             <span>
-              Aktuator
+              Pompa
             </span>
 
             <select
@@ -2076,7 +1755,6 @@ function ControlsPage({
               || controls.length === 0
               || connectionState
                 !== 'connected'
-              || automaticModeRequested
             }
           >
             <Plus
@@ -2220,10 +1898,7 @@ function ControlsPage({
                           }
                           disabled={
                             !isAdmin
-                            || (
-                              automaticModeRequested
-                              && !schedule.enabled
-                            )
+
                           }
                         >
                           <span />
@@ -2903,8 +2578,8 @@ function LogsPage({
               {
                 logType
                 === 'sensor'
-                  ? 'Data sensor tersimpan'
-                  : 'Aktivitas ON/OFF pompa'
+                  ? 'Data sensor '
+                  : 'Waktu pompa menyala dan mati '
               }
               untuk {dateRangeLabel}.
             </p>
@@ -3787,12 +3462,11 @@ function AlarmPage({
         <div className="page-card-header alarm-page-header">
           <div>
             <h2>
-              Riwayat dan Detail Alarm
+              Daftar Peringatan
             </h2>
 
             <p>
-              Pantau anomali sensor
-              serta tindak lanjut operator.
+              Periksa kondisi yang bermasalah dan catat penanganannya.
             </p>
           </div>
 
@@ -4474,7 +4148,7 @@ function DevicesPage({
       <div className="page-card device-page-header">
         <div>
           <h2>
-            Perangkat Terhubung
+            Daftar Perangkat
           </h2>
 
           <p>
@@ -4495,7 +4169,7 @@ function DevicesPage({
             refreshDevices
           }
         >
-          Refresh Status
+          Perbarui Status
         </button>
       </div>
 
@@ -4561,7 +4235,7 @@ function DevicesPage({
 
                   <div>
                     <dt>
-                      Firmware
+                      Versi perangkat lunak
                     </dt>
 
                     <dd>
@@ -4818,8 +4492,7 @@ function SettingsPage({
               </h2>
 
               <p>
-                Identitas dan preferensi
-                utama sistem.
+                Nama lokasi yang ditampilkan di Dashboard.
               </p>
             </div>
           </div>
@@ -4854,7 +4527,7 @@ function SettingsPage({
               </strong>
 
               <p>
-                Preferensi notifikasi site.
+                Atur pemberitahuan alarm untuk lokasi ini.
               </p>
             </div>
 
@@ -4891,7 +4564,7 @@ function SettingsPage({
               </strong>
 
               <p>
-                Preferensi suara dashboard.
+                Atur suara pemberitahuan di Dashboard.
               </p>
             </div>
 
@@ -4928,8 +4601,7 @@ function SettingsPage({
               </strong>
 
               <p>
-                Aktifkan eksekusi
-                jadwal lokal.
+                Jalankan pompa sesuai jadwal yang disimpan.
               </p>
             </div>
 

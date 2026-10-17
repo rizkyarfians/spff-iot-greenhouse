@@ -112,7 +112,7 @@
     var(--green-dark, #16845a);
 
   font-size: 14px;
-  font-weight: 850;
+  font-weight: 700;
   letter-spacing: 0.45px;
 }
 
@@ -160,7 +160,7 @@
   padding: 6px 10px;
 
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.15px;
 }
 
@@ -173,7 +173,7 @@
   font-size:
     clamp(30px, 3vw, 40px);
 
-  font-weight: 760;
+  font-weight: 700;
 
   letter-spacing: -1.35px;
   line-height: 1.04;
@@ -358,7 +358,7 @@
   color: #fff;
 
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 
   cursor: pointer;
 
@@ -425,7 +425,7 @@
   padding: 0;
 
   font: inherit;
-  font-weight: 800;
+  font-weight: 700;
 
   cursor: pointer;
 }
@@ -704,7 +704,7 @@
     7px 10px;
 
   font-size: 9px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .auth-online-dot {
@@ -767,7 +767,7 @@
     7px 11px;
 
   font-size: 9px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .auth-visual-content h2 {
@@ -783,7 +783,7 @@
       54px
     );
 
-  font-weight: 650;
+  font-weight: 700;
 
   letter-spacing: -1.8px;
 
@@ -945,7 +945,7 @@ svg {
   color: #fff;
 
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
 
   line-height: 1.25;
 }

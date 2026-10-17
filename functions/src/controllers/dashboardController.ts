@@ -544,7 +544,7 @@ export const updateAutomaticControl = run(async (req, res) => {
   if (!isAutomaticControlConfig(req.body)) {
     return res.status(400).json({
       success: false,
-      message: 'Konfigurasi kontrol otomatis tidak lengkap atau tidak valid.',
+      message: 'Pengaturan mode tidak valid. Kontrol berdasarkan sensor harus dinonaktifkan; Otomatis menggunakan jadwal.',
       errors: ['automaticControl'],
     });
   }
@@ -573,6 +573,6 @@ export const updateAutomaticControl = run(async (req, res) => {
   return ok(
     res,
     config,
-    'Konfigurasi tersimpan dan menunggu ACK penerapan dari ESP32.',
+    'Mode tersimpan. Menunggu konfirmasi dari perangkat.',
   );
 });

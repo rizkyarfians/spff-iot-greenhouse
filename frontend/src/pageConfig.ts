@@ -27,7 +27,7 @@ Record<
     'Kontrol Perangkat',
 
   logs:
-    'Datalog Sensor',
+    'Datalog',
 
   alarms:
     'Detail Alarm',
@@ -36,7 +36,7 @@ Record<
     'Status Perangkat',
 
   settings:
-    'Pengaturan Sistem',
+    'Pengaturan',
 
   users:
     'Manajemen User',
@@ -49,28 +49,28 @@ Record<
   string
 > = {
   dashboard:
-    'Pantau kondisi fertigasi, sensor, jadwal, dan data terbaru.',
+    'Lihat kondisi tanaman, isi tandon, dan jadwal pompa.',
 
   plants:
-    'Pantau kondisi zona tanam berdasarkan data sensor terbaru.',
+    'Lihat kondisi setiap area tanam dari pembacaan sensor.',
   'smart-soil':
-    'Pantau kondisi udara dan tanah, lalu lihat rekomendasi tanaman.',
+    'Bandingkan kondisi tanah dan udara dengan kebutuhan tanaman.',
 
   controls:
     'Nyalakan pompa, pilih cara kerja, dan atur jadwal.',
 
   logs:
-    'Lihat histori data sensor dan aktivitas pompa yang tersimpan di sistem lokal.',
+    'Lihat dan unduh riwayat sensor serta waktu pompa menyala dan mati.',
 
   alarms:
     'Lihat peringatan yang perlu diperiksa dan tindak lanjutnya.',
 
   devices:
-    'Pantau konektivitas, last seen, firmware, dan kondisi perangkat.',
+    'Periksa sambungan perangkat dan waktu data terakhir diterima.',
 
   settings:
-    'Kelola konfigurasi fertigasi yang tersimpan di sistem lokal.',
+    'Atur nama lokasi dan pengaturan lainnya.',
 
   users:
-    'Kelola akses admin dan operator dashboard lokal SPFF.',
+    'Kelola akun dan hak akses Admin serta Operator.',
 }

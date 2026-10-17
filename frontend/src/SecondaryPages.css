@@ -91,7 +91,7 @@
 .field-label span {
   color: #565e5a;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .page-select select,
@@ -321,7 +321,7 @@
   border-radius: 50%;
   background: var(--green);
   color: #fff;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .inline-detail strong {
@@ -474,7 +474,7 @@
 .automatic-field > span:first-child {
   color: #505a55;
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .automatic-field select,
@@ -551,7 +551,7 @@
   border-radius: 12px;
   background: var(--green-soft);
   color: var(--green-dark);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .control-icon {
@@ -633,7 +633,7 @@
 .schedule-field > span {
   color: #565e5a;
   font-size: 9px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .schedule-field input,
@@ -746,7 +746,7 @@
   background: #f0f2f1;
   color: #747c78;
   font-size: 8px;
-  font-weight: 750;
+  font-weight: 700;
   padding: 4px 8px;
 }
 
@@ -884,7 +884,7 @@
   border-radius: 50%;
   background: #e9f1ff;
   color: #3d7ddd;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .operation-note p {
@@ -920,7 +920,7 @@
   margin: 0;
   color: #4f5c56;
   font-size: 9px;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -939,7 +939,7 @@
   padding: 0 34px 0 12px;
   font-family: inherit;
   font-size: 10px;
-  font-weight: 550;
+  font-weight: 700;
   line-height: 1;
   cursor: pointer;
   transition:
@@ -1075,7 +1075,7 @@
 .datalog-chart-select > span {
   color: #4f5c56;
   font-size: var(--font-size-label);
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .datalog-chart-select select {
@@ -1428,7 +1428,7 @@
 .alarm-page-indicator {
   color: var(--muted);
   font-size: var(--font-size-meta);
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .alarm-list-item {
@@ -1526,7 +1526,7 @@
   align-items: center;
   border-radius: 999px;
   font-size: 8px;
-  font-weight: 750;
+  font-weight: 700;
   padding: 4px 8px;
 }
 
@@ -2126,3 +2126,14 @@
     grid-template-columns: 1fr;
   }
 }
+.mode-feedback {
+  padding: 12px 16px;
+  border: 1px solid #b9d6ca;
+  border-radius: 12px;
+  background: #edf7f2;
+  color: #215b43;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.mode-feedback--pending { background: #fff8e6; border-color: #e6d09b; color: #72520d; }
+.mode-feedback--error { background: #fff0ef; border-color: #e8b8b4; color: #9b3028; }

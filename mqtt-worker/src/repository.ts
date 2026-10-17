@@ -310,6 +310,18 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         WHERE status = 'pending'
           AND issued_at <= now()
           AND expires_at > now()
+          AND (requested_is_active = false OR EXISTS (
+            SELECT 1 FROM spff.device_automatic_control_configs mode_config
+            WHERE mode_config.site_id = spff.control_commands.site_id
+              AND mode_config.device_id = spff.control_commands.device_id
+              AND mode_config.acknowledgement_status = 'applied'
+              AND mode_config.acknowledged_revision = mode_config.revision
+              AND mode_config.applied_mode = mode_config.desired_mode
+              AND mode_config.desired_mode = CASE
+                WHEN requested_by LIKE 'schedule:%' THEN 'automatic'
+                ELSE 'manual'
+              END
+          ))
         ORDER BY issued_at ASC, created_at ASC
         LIMIT $1
       `,
@@ -356,7 +368,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
     }
   }
 
-  async enabledSchedules(): Promise<ActuatorSchedule[]> {
+  async enabledSchedules(requireAppliedMode = true): Promise<ActuatorSchedule[]> {
     const [scheduleResult, actuatorResult, siteResult] = await Promise.all([
       this.pool.query<{ schedule: JsonObject }>(
         `SELECT to_jsonb(s) AS schedule FROM spff.actuator_schedules s`,
@@ -373,8 +385,14 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
             ON automatic_control.site_id = actuator.site_id
            AND automatic_control.device_id = actuator.device_id
           WHERE actuator.enabled = true
-            AND COALESCE(automatic_control.desired_mode, 'manual') <> 'automatic'
+            AND automatic_control.desired_mode = 'automatic'
+            AND ($1 = false OR (
+              automatic_control.applied_mode = 'automatic'
+              AND automatic_control.acknowledgement_status = 'applied'
+              AND automatic_control.acknowledged_revision = automatic_control.revision
+            ))
         `,
+        [requireAppliedMode],
       ),
       this.pool.query<{ site_id: string; timezone: string }>(
         `SELECT site_id, timezone FROM spff.sites`,
@@ -552,7 +570,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           force,
         ],
       ),
-      this.enabledSchedules(),
+      this.enabledSchedules(false),
     ]);
 
     const generatedAt = new Date().toISOString();

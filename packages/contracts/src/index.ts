@@ -581,7 +581,8 @@ export function isAutomaticControlConfig(value: unknown): value is AutomaticCont
     isNumberInRange(fertilizer.minFlowLpm, 0, 10000);
 
   if ((water.enabled && !waterComplete) || (fertilizer.enabled && !fertilizerComplete)) return false;
-  return value.desiredMode !== 'automatic' || water.enabled || fertilizer.enabled;
+  // Automatic now means schedules; sensor-driven profiles are out of scope.
+  return !water.enabled && !fertilizer.enabled;
 }
 
 export function isAutomaticControlSyncMessage(value: unknown): value is AutomaticControlSyncMessage {

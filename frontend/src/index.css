@@ -1,5 +1,6 @@
 :root {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
   color: #151817;
   background: #fbfcfb;
   font-synthesis: none;
@@ -46,4 +47,17 @@ select {
 
 ::selection {
   background: rgb(36 174 115 / 22%);
+}
+
+/* Shared type roles for every page, form, table and chart. */
+h1, h2, h3, h4, h5, h6, strong, b, th, button {
+  font-weight: 700;
+}
+
+input, select, textarea, option, ::placeholder {
+  font-family: inherit;
+}
+
+svg text {
+  font-family: inherit;
 }

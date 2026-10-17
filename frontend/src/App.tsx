@@ -2145,8 +2145,8 @@ const soilNpkGroups =
   <button
     className="compact-icon-button"
     type="button"
-    aria-label="Logout"
-    title="Logout"
+    aria-label="Keluar"
+    title="Keluar"
     onClick={() => {
       void logout()
     }}
@@ -2644,7 +2644,7 @@ const soilNpkGroups =
                       <div className="chart-head">
                         <div>
                           <h2>
-                            Latest Data
+                            Grafik Sensor
                           </h2>
 
                           <small className="metric-update">

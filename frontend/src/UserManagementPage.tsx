@@ -131,7 +131,7 @@ export function UserManagementPage() {
         === user.userId
       ) {
         setNotice(
-          'Role akun yang sedang digunakan tidak dapat diubah.',
+          'Hak akses akun yang sedang digunakan tidak dapat diubah.',
         )
 
         return
@@ -148,7 +148,7 @@ export function UserManagementPage() {
         )
 
         setNotice(
-          `Role ${target.username} berhasil diperbarui.`,
+          `Hak akses ${target.username} berhasil diperbarui.`,
         )
 
         await loadUsers()
@@ -156,7 +156,7 @@ export function UserManagementPage() {
         setNotice(
           error instanceof Error
             ? error.message
-            : 'Role gagal diperbarui.',
+            : 'Hak akses gagal diperbarui.',
         )
       }
     }
@@ -221,7 +221,7 @@ export function UserManagementPage() {
         || newPassword.length > 128
       ) {
         setNotice(
-          'Password harus berisi 12 sampai 128 karakter.',
+          'Kata sandi harus berisi 12 sampai 128 karakter.',
         )
 
         return
@@ -239,7 +239,7 @@ export function UserManagementPage() {
         )
 
         setNotice(
-          `Password ${passwordTarget.username} berhasil diperbarui.`,
+          `Kata sandi ${passwordTarget.username} berhasil diperbarui.`,
         )
 
         setPasswordTarget(null)
@@ -250,7 +250,7 @@ export function UserManagementPage() {
         setNotice(
           error instanceof Error
             ? error.message
-            : 'Password gagal diperbarui.',
+            : 'Kata sandi gagal diperbarui.',
         )
       }
     }
@@ -505,14 +505,12 @@ export function UserManagementPage() {
           <div>
 
             <h2>
-              User Terdaftar
+              Daftar Akun
             </h2>
 
             <p>
-              Kelola role, aktivasi,
-              dan password user.
-              Akun operator baru dibuat
-              melalui halaman registrasi.
+              Atur hak akses, aktifkan akun, atau ubah kata sandi.
+              Operator baru dapat membuat akun melalui halaman pendaftaran.
             </p>
           </div>
 
@@ -549,7 +547,7 @@ export function UserManagementPage() {
                 aria-hidden="true"
               />
 
-              Refresh
+              Perbarui
             </button>
           </div>
         </div>
@@ -580,7 +578,7 @@ export function UserManagementPage() {
                       <thead>
                         <tr>
                           <th>User</th>
-                          <th>Role</th>
+                          <th>Hak akses</th>
                           <th>Status</th>
                           <th>Aksi</th>
                         </tr>
@@ -647,7 +645,7 @@ export function UserManagementPage() {
                                         isCurrentUser
                                       }
                                       aria-label={
-                                        `Role ${target.username}`
+                                        `Hak akses ${target.username}`
                                       }
                                       onChange={(event) => {
                                         const role:
@@ -751,7 +749,7 @@ export function UserManagementPage() {
                                           aria-hidden="true"
                                         />
 
-                                        Password
+                                        Kata sandi
                                       </button>
 
                                       <button
@@ -815,16 +813,12 @@ export function UserManagementPage() {
               </div>
 
               <div>
-                <span className="um-section-eyebrow">
-                  Keamanan akun
-                </span>
-
                 <h3>
-                  Reset Password
+                  Ubah Kata Sandi
                 </h3>
 
                 <p>
-                  Ubah password untuk
+                  Kata sandi baru untuk
                   {' '}
                   <strong>
                     @{passwordTarget.username}
@@ -844,7 +838,7 @@ export function UserManagementPage() {
                 minLength={12}
                 maxLength={128}
                 autoComplete="new-password"
-                placeholder="Password baru, minimal 12 karakter"
+                placeholder="Kata sandi baru, minimal 12 karakter"
                 value={
                   newPassword
                 }
@@ -871,7 +865,7 @@ export function UserManagementPage() {
                 className="um-button um-button--primary"
                 type="submit"
               >
-                Simpan Password
+                Simpan Kata Sandi
               </button>
             </form>
           </article>

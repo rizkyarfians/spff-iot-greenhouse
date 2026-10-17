@@ -101,7 +101,7 @@ function AuthVisual() {
         <span className="auth-visual-system">
           <span className="auth-online-dot" />
 
-          SPFF Auto Hidro
+          Smart Fertigasi
         </span>
       </div>
 
@@ -131,12 +131,12 @@ function AuthVisual() {
 
             <div>
               <strong>
-                Sensor Monitoring
+                Kondisi Tanaman
               </strong>
 
               <span>
                 NPK, EC, pH, suhu,
-                kelembapan, flow dan level.
+                kelembapan, aliran air, dan isi tandon.
               </span>
             </div>
           </div>
@@ -152,12 +152,11 @@ function AuthVisual() {
 
             <div>
               <strong>
-                Smart Farming
+                Kontrol Pompa
               </strong>
 
               <span>
-                Data lokal terintegrasi
-                dengan kontrol fertigasi.
+                Atur penyiraman dan pemberian pupuk.
               </span>
             </div>
           </div>
@@ -391,7 +390,7 @@ export function AuthGate({
         || !password
       ) {
         setLoginNotice(
-          'Username dan password wajib diisi.',
+          'Nama pengguna dan kata sandi wajib diisi.',
         )
 
 
@@ -494,7 +493,7 @@ export function AuthGate({
         username.length < 3
       ) {
         setRegisterNotice(
-          'Username minimal 3 karakter.',
+          'Nama pengguna minimal 3 karakter.',
         )
 
 
@@ -519,7 +518,7 @@ export function AuthGate({
         || password.length > 128
       ) {
         setRegisterNotice(
-          'Password harus berisi 12 sampai 128 karakter.',
+          'Kata sandi harus berisi 12 sampai 128 karakter.',
         )
 
 
@@ -532,7 +531,7 @@ export function AuthGate({
         !== confirmPassword
       ) {
         setRegisterNotice(
-          'Konfirmasi password tidak sama.',
+          'Kata sandi yang diulang belum sama.',
         )
 
 
@@ -703,10 +702,6 @@ export function AuthGate({
                 aria-hidden="true"
               />
 
-              <span className="auth-eyebrow">
-                Sistem Fertigasi
-              </span>
-
               <h1>
                 Menyiapkan dashboard
               </h1>
@@ -777,19 +772,12 @@ export function AuthGate({
                   ? (
                       <>
                         <div className="auth-heading">
-                          <span className="auth-eyebrow">
-                            Selamat datang kembali
-                          </span>
-
                           <h1>
-                            Login
+                            Masuk
                           </h1>
 
                           <p>
-                            Gunakan akun
-                            anda untuk mengakses
-                            monitoring, datalog,
-                            dan kontrol fertigasi.
+                            Masuk untuk melihat kondisi tanaman dan mengatur pompa.
                           </p>
                         </div>
 
@@ -802,7 +790,7 @@ export function AuthGate({
                         >
                           <label className="auth-field">
                             <span>
-                              Username
+                              Nama pengguna
                             </span>
 
                             <div className="auth-input">
@@ -815,7 +803,7 @@ export function AuthGate({
                               <input
                                 type="text"
                                 autoComplete="username"
-                                placeholder="Masukkan username"
+                                placeholder="Masukkan nama pengguna"
                                 value={
                                   loginForm.username
                                 }
@@ -840,7 +828,7 @@ export function AuthGate({
 
                           <label className="auth-field">
                             <span>
-                              Password
+                              Kata sandi
                             </span>
 
                             <div className="auth-input">
@@ -857,7 +845,7 @@ export function AuthGate({
                                     : 'password'
                                 }
                                 autoComplete="current-password"
-                                placeholder="Masukkan password"
+                                placeholder="Masukkan kata sandi"
                                 value={
                                   loginForm.password
                                 }
@@ -882,8 +870,8 @@ export function AuthGate({
                                 type="button"
                                 aria-label={
                                   showLoginPassword
-                                    ? 'Sembunyikan password'
-                                    : 'Tampilkan password'
+                                    ? 'Sembunyikan kata sandi'
+                                    : 'Tampilkan kata sandi'
                                 }
                                 onClick={() =>
                                   setShowLoginPassword(
@@ -991,25 +979,18 @@ export function AuthGate({
                             aria-hidden="true"
                           />
 
-                          Kembali ke login
+                          Kembali ke halaman masuk
                         </button>
 
 
                         <div className="auth-heading auth-heading--register">
-                          <span className="auth-eyebrow">
-                            Registrasi operator
-                          </span>
-
                           <h1>
                             Buat akun baru
                           </h1>
 
                           <p>
-                            Akun baru otomatis
-                            memiliki role operator
-                            dan harus diaktifkan
-                            administrator sebelum
-                            dapat digunakan.
+                            Akun baru mendapat akses Operator.
+                            Minta Admin mengaktifkannya sebelum masuk.
                           </p>
                         </div>
 
@@ -1061,7 +1042,7 @@ export function AuthGate({
 
                             <label className="auth-field">
                               <span>
-                                Username
+                                Nama pengguna
                               </span>
 
                               <div className="auth-input">
@@ -1100,7 +1081,7 @@ export function AuthGate({
 
                           <label className="auth-field">
                             <span>
-                              Password
+                              Kata sandi
                             </span>
 
                             <div className="auth-input">
@@ -1144,8 +1125,8 @@ export function AuthGate({
                                 type="button"
                                 aria-label={
                                   showRegisterPassword
-                                    ? 'Sembunyikan password'
-                                    : 'Tampilkan password'
+                                    ? 'Sembunyikan kata sandi'
+                                    : 'Tampilkan kata sandi'
                                 }
                                 onClick={() =>
                                   setShowRegisterPassword(
@@ -1179,7 +1160,7 @@ export function AuthGate({
 
                           <label className="auth-field">
                             <span>
-                              Ulangi Password
+                              Ulangi kata sandi
                             </span>
 
                             <div className="auth-input">
@@ -1198,7 +1179,7 @@ export function AuthGate({
                                 autoComplete="new-password"
                                 minLength={12}
                                 maxLength={128}
-                                placeholder="Masukkan ulang password"
+                                placeholder="Masukkan ulang kata sandi"
                                 value={
                                   registerForm.confirmPassword
                                 }
@@ -1223,8 +1204,8 @@ export function AuthGate({
                                 type="button"
                                 aria-label={
                                   showConfirmPassword
-                                    ? 'Sembunyikan password'
-                                    : 'Tampilkan password'
+                                    ? 'Sembunyikan kata sandi'
+                                    : 'Tampilkan kata sandi'
                                 }
                                 onClick={() =>
                                   setShowConfirmPassword(
@@ -1266,8 +1247,8 @@ export function AuthGate({
                             <span>
                               Akun operator baru
                               membutuhkan aktivasi
-                              administrator sebelum
-                              dapat login.
+                              Admin sebelum
+                              dapat masuk.
                             </span>
                           </div>
 
