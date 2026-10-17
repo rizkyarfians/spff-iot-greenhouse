@@ -2487,7 +2487,14 @@ const soilNpkGroups =
                     actuators={backendData?.actuators ?? []}
                     devices={backendData?.devices ?? []}
                     connected={connectionState === 'connected'}
-                    onOpen={() => navigateTo('controls')}
+                    automatic={backendData?.automaticControl?.desiredMode === 'automatic'
+                      || backendData?.automaticControl?.appliedMode === 'automatic'
+                      || (backendData?.devices ?? []).some((device) => device.mode === 'automatic')}
+                    onUpdated={(actuator) => setBackendData((current) => current ? {
+                      ...current,
+                      actuators: current.actuators.map((item) => item.id === actuator.id
+                        && item.deviceId === actuator.deviceId ? actuator : item),
+                    } : current)}
                   />
 
                   <div className="monitoring-grid">

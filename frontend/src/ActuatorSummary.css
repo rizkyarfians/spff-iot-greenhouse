@@ -27,10 +27,24 @@
   font: inherit;
   font-size: var(--font-size-body);
   text-align: left;
+}
+.actuator-summary-switch {
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  border: 0;
+  border-radius: 99px;
+  background: #b5c3bd;
+  flex-shrink: 0;
   cursor: pointer;
 }
-.actuator-summary-item:hover { border-color: var(--green-dark); background: #f7fbf9; }
-.actuator-summary-item:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
+.actuator-summary-switch span { display: block; width: 20px; height: 20px; border-radius: 50%; background: white; }
+.actuator-summary-switch.is-on { background: var(--green-dark); }
+.actuator-summary-switch.is-on span { transform: translateX(18px); }
+.actuator-summary-switch:disabled { opacity: .5; cursor: not-allowed; }
+.actuator-summary-switch:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
+.actuator-summary-note { font-size: var(--font-size-label); color: #536560; margin: 10px 0 0; }
+.actuator-summary-note:empty { display: none; }
 .actuator-summary-item > svg { flex-shrink: 0; color: #00876b; }
 .actuator-summary-copy { flex: 1; min-width: 0; }
 .actuator-summary-name { font-weight: 700; }
