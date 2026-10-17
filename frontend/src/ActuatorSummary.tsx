@@ -85,7 +85,6 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, conf
           )
         })}
       </div>
-      {automatic && <p className="actuator-summary-note">Mode otomatis: menyalakan dari dashboard dinonaktifkan. Aktuator yang menyala tetap bisa dimatikan.</p>}
       <div className="actuator-summary-note" role="status" aria-live="polite">{notice}</div>
     </section>
   )

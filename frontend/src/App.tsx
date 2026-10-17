@@ -39,7 +39,6 @@ import {
 } from './SecondaryPages'
 
 import {
-  pageDescriptions,
   pageTitles,
   type PageKey,
 } from './pageConfig'
@@ -2175,13 +2174,6 @@ const soilNpkGroups =
               }
             </h1>
 
-            <p>
-              {
-                pageDescriptions[
-                  activePage
-                ]
-              }
-            </p>
           </div>
         </header>
 
@@ -2515,9 +2507,6 @@ const soilNpkGroups =
                             Ringkasan Sensor
                           </strong>
 
-                          <small>
-                            Pilih kelompok data yang ingin dilihat.
-                          </small>
                         </div>
 
                         <label className="sensor-group-select">
