@@ -1,6 +1,7 @@
 import { deriveTelemetrySensorHealth, type TelemetryMessage } from "@spff/contracts";
 
-// Calibration is sensor-face to tank bottom, not nominal tank volume.
+// Legacy *_distance_cm fields contain liquid height measured from the bottom.
+// Heights are tank heights, not sensor-to-surface distances or tank volumes.
 const tanks = [
   { distance: "tank_water_distance_cm", level: "tank_water_level_pct", height: 180 },
   { distance: "tank_fert_distance_cm", level: "tank_fert_level_pct", height: 90 },
@@ -14,16 +15,16 @@ export function deriveTankLevels(message: TelemetryMessage) {
     return { sensors, sensorHealth };
   }
   for (const tank of tanks) {
-    const distance = sensors[tank.distance];
+    const liquidHeight = sensors[tank.distance];
     delete sensors[tank.level];
     if (sensorHealth[tank.distance]?.valid === false) {
       sensorHealth[tank.level] = { ...sensorHealth[tank.distance]! };
-    } else if (typeof distance !== "number" || !Number.isFinite(distance)) {
+    } else if (typeof liquidHeight !== "number" || !Number.isFinite(liquidHeight)) {
       sensorHealth[tank.level] = { valid: false, reason: "not_reported" };
-    } else if (distance < 0 || distance > tank.height) {
-      sensorHealth[tank.level] = { valid: false, reason: "distance_out_of_range" };
+    } else if (liquidHeight < 0 || liquidHeight > tank.height) {
+      sensorHealth[tank.level] = { valid: false, reason: "height_out_of_range" };
     } else {
-      sensors[tank.level] = Math.round((1 - distance / tank.height) * 1000) / 10;
+      sensors[tank.level] = Math.round((liquidHeight / tank.height) * 1000) / 10;
       sensorHealth[tank.level] = { valid: true };
     }
   }

@@ -75,7 +75,7 @@ test("saveTelemetry maps contract payload and uses message idempotency", async (
   assert.equal(query.values[20], 6.1);
   assert.equal(query.values[23], 28.4);
   assert.equal(query.values[24], 72.5);
-  assert.equal(query.values[26], 76);
+  assert.equal(query.values[26], 24);
   assert.equal(query.values[28], 50);
   assert.equal(query.values[33], 12.4);
   assert.equal(query.values[34], 220.4);
