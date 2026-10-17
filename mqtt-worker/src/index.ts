@@ -2,7 +2,6 @@ import { CommandDispatchService } from "./commandDispatchService.js";
 import { IngestionService } from "./ingestionService.js";
 import { MqttWorker } from "./mqttWorker.js";
 import { PostgresIngestionRepository } from "./repository.js";
-import { ScheduleEvaluator } from "./scheduleEvaluator.js";
 import { ScheduleSyncService } from "./scheduleSyncService.js";
 import { config } from "./config.js";
 import { AlarmEvaluator } from "./alarmEvaluator.js";
@@ -16,11 +15,10 @@ const alarmEvaluator = new AlarmEvaluator(
 const ingestionService = new IngestionService(repository, alarmEvaluator);
 const worker = new MqttWorker(ingestionService);
 const commandDispatcher = new CommandDispatchService(repository, worker);
-const scheduleEvaluator = new ScheduleEvaluator(repository);
 const scheduleSyncService = new ScheduleSyncService(
   repository,
   worker,
-  config.schedule.executionMode,
+  "device",
   config.schedule.syncPollIntervalMs,
 );
 const automaticControlSyncService = new AutomaticControlSyncService(
@@ -37,7 +35,6 @@ async function shutdown(signal: string) {
   shuttingDown = true;
 
   console.log(`[mqtt-worker] Received ${signal}, shutting down.`);
-  scheduleEvaluator.stop();
   scheduleSyncService.stop();
   automaticControlSyncService.stop();
   commandDispatcher.stop();
@@ -73,13 +70,7 @@ void repository
   .then(() => {
     scheduleSyncService.start();
     automaticControlSyncService.start();
-    if (config.schedule.executionMode === "server") {
-      scheduleEvaluator.start();
-    } else {
-      console.log(
-        "[schedule-evaluator] Disabled; ESP32 is the schedule execution authority.",
-      );
-    }
+    console.log("[schedule-evaluator] Disabled: ESP32 combines schedule windows with sensor control.");
     commandDispatcher.start();
     alarmEvaluator.start();
   })

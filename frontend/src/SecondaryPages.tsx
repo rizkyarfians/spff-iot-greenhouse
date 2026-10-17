@@ -616,6 +616,48 @@ const automaticControlDraft = (
 
 import { modeNotice } from './modeNotice'
 
+function AutomaticNumberField({
+  label,
+  value,
+  unit,
+  min = 0,
+  max,
+  step = 1,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: number | null
+  unit: string
+  min?: number
+  max?: number
+  step?: number
+  disabled: boolean
+  onChange: (value: number | null) => void
+}) {
+  return (
+    <label className="automatic-field">
+      <span>{label}</span>
+      <span className="automatic-input-wrap">
+        <input
+          type="number"
+          value={value ?? ''}
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          onChange={(event) => {
+            const next = event.target.value
+            onChange(next === '' ? null : Number(next))
+          }}
+        />
+        <small>{unit}</small>
+      </span>
+    </label>
+  )
+}
+
+
 function ControlsPage({
   data,
   connectionState,
@@ -830,6 +872,30 @@ function ControlsPage({
     )
   }
 
+  const updateWater = (
+    patch: Partial<ApiAutomaticControlUpdateRequest['water']>,
+  ) => {
+    setAutomaticDraft((current) => ({
+      ...current,
+      water: {
+        ...current.water,
+        ...patch,
+      },
+    }))
+  }
+
+  const updateFertilizer = (
+    patch: Partial<ApiAutomaticControlUpdateRequest['fertilizer']>,
+  ) => {
+    setAutomaticDraft((current) => ({
+      ...current,
+      fertilizer: {
+        ...current.fertilizer,
+        ...patch,
+      },
+    }))
+  }
+
   const saveAutomatic = async (
     next: ApiAutomaticControlUpdateRequest = automaticDraft,
   ) => {
@@ -838,14 +904,17 @@ function ControlsPage({
       ...next,
       water: {
         ...next.water,
-        enabled: false,
         minTankLevelPercent: null,
       },
       fertilizer: {
         ...next.fertilizer,
-        enabled: false,
         minTankLevelPercent: null,
       },
+    }
+    if (supportedNext.desiredMode === 'automatic'
+      && !supportedNext.water.enabled && !supportedNext.fertilizer.enabled) {
+      setModeSaveError('Aktifkan dan lengkapi pengaturan sensor untuk minimal satu pompa.')
+      return
     }
     setSavingAutomatic(true)
     setModeSaveError('')
@@ -1194,7 +1263,8 @@ function ControlsPage({
           <h2>
             Cara Kerja Pompa
           </h2>
-          <p>Manual: tombol dashboard. Otomatis: mengikuti jadwal. Kontrol sensor dan AI belum digunakan.</p>
+          <p>Manual: tombol dashboard. Otomatis: sensor mengatur pompa selama jadwal aktif. Di luar jadwal pompa berhenti.</p>
+          <p>Matikan Semua menjeda kontrol otomatis. Untuk melanjutkan, simpan ulang pengaturan atau pilih Otomatis lagi.</p>
 
           <p>
             {
@@ -1307,6 +1377,257 @@ function ControlsPage({
       </div>
 
 
+
+      {
+        (
+      <div className="automatic-control-card page-card">
+        <div className="automatic-control-header">
+          <div>
+            <h2>Pengaturan Sensor</h2>
+            <p>
+              Isi batas sesuai kebutuhan tanaman. Pompa hanya bekerja di dalam jadwal dan jika sensor menunjukkan kebutuhan. Pengaman isi tandon belum digunakan.
+            </p>
+          </div>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => void saveAutomatic()}
+            disabled={
+              !isAdmin
+              || savingAutomatic
+            }
+          >
+            {savingAutomatic ? 'Menyimpan...' : 'Simpan Parameter'}
+          </button>
+        </div>
+
+        <div className="automatic-profile-grid">
+          <section className="automatic-profile">
+            <div className="automatic-profile-heading">
+              <div>
+                <strong>Pompa Air</strong>
+                <small>Menyala saat tanah kering, berhenti saat cukup lembap</small>
+              </div>
+              <label className="automatic-enable">
+                <input
+                  type="checkbox"
+                  checked={automaticDraft.water.enabled}
+                  disabled={!isAdmin}
+                  onChange={(event) => updateWater({ enabled: event.target.checked })}
+                />
+                Aktif
+              </label>
+            </div>
+
+            <label className="automatic-field">
+              <span>Sensor utama</span>
+              <select
+                value={automaticDraft.water.sensorKey}
+                disabled={!isAdmin}
+                onChange={(event) => updateWater({
+                  sensorKey: event.target.value === 'soil_2_moisture'
+                    ? 'soil_2_moisture'
+                    : 'soil_1_moisture',
+                })}
+              >
+                <option value="soil_1_moisture">Kelembapan Tanah 1</option>
+                <option value="soil_2_moisture">Kelembapan Tanah 2</option>
+              </select>
+            </label>
+
+            <div className="automatic-fields">
+              <AutomaticNumberField
+                label="Minimum (pompa ON)"
+                value={automaticDraft.water.moistureLowPercent}
+                unit="%"
+                max={100}
+                step={0.1}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ moistureLowPercent: value })}
+              />
+              <AutomaticNumberField
+                label="Target (pompa OFF)"
+                value={automaticDraft.water.moistureTargetPercent}
+                unit="%"
+                max={100}
+                step={0.1}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ moistureTargetPercent: value })}
+              />
+              <AutomaticNumberField
+                label="Batas waktu menyala"
+                value={automaticDraft.water.maxRuntimeSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ maxRuntimeSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Jeda sebelum menyala lagi"
+                value={automaticDraft.water.cooldownSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ cooldownSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Minimum debit"
+                value={automaticDraft.water.minFlowLpm}
+                unit="L/min"
+                max={10000}
+                step={0.01}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ minFlowLpm: value })}
+              />
+              <AutomaticNumberField
+                label="Jumlah pembacaan pemicu"
+                value={automaticDraft.water.triggerSampleCount}
+                unit="sampel"
+                min={1}
+                max={20}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ triggerSampleCount: value ?? 3 })}
+              />
+              <AutomaticNumberField
+                label="Batas menunggu data"
+                value={automaticDraft.water.sensorStaleSeconds}
+                unit="detik"
+                min={10}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ sensorStaleSeconds: value ?? 120 })}
+              />
+            </div>
+          </section>
+
+          <section className="automatic-profile">
+            <div className="automatic-profile-heading">
+              <div>
+                <strong>Pompa Pupuk</strong>
+                <small>Pemberian pupuk bertahap sesuai EC larutan</small>
+              </div>
+              <label className="automatic-enable">
+                <input
+                  type="checkbox"
+                  checked={automaticDraft.fertilizer.enabled}
+                  disabled={!isAdmin}
+                  onChange={(event) => updateFertilizer({ enabled: event.target.checked })}
+                />
+                Aktif
+              </label>
+            </div>
+
+            <label className="automatic-field">
+              <span>Sensor utama</span>
+              <select value="liquid_ec_us_cm" disabled>
+                <option value="liquid_ec_us_cm">EC Larutan</option>
+              </select>
+            </label>
+
+            <div className="automatic-fields">
+              <AutomaticNumberField
+                label="EC minimum (mulai dosis)"
+                value={automaticDraft.fertilizer.ecLowUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecLowUsCm: value })}
+              />
+              <AutomaticNumberField
+                label="EC target (stop)"
+                value={automaticDraft.fertilizer.ecTargetUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecTargetUsCm: value })}
+              />
+              <AutomaticNumberField
+                label="EC maksimum"
+                value={automaticDraft.fertilizer.ecHighUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecHighUsCm: value })}
+              />
+              <AutomaticNumberField
+                label="Lama pompa sekali jalan"
+                value={automaticDraft.fertilizer.dosePulseSeconds}
+                unit="detik"
+                min={1}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ dosePulseSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Waktu tunggu agar tercampur"
+                value={automaticDraft.fertilizer.mixingDelaySeconds}
+                unit="detik"
+                min={1}
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ mixingDelaySeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Jeda sebelum pemberian berikutnya"
+                value={automaticDraft.fertilizer.cooldownSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ cooldownSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Batas pupuk sekali jalan"
+                value={automaticDraft.fertilizer.maxDoseVolumeL}
+                unit="L"
+                min={0.001}
+                max={100000}
+                step={0.001}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ maxDoseVolumeL: value })}
+              />
+              <AutomaticNumberField
+                label="Batas pupuk per hari"
+                value={automaticDraft.fertilizer.maxDailyVolumeL}
+                unit="L"
+                min={0.001}
+                max={1000000}
+                step={0.001}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ maxDailyVolumeL: value })}
+              />
+              <AutomaticNumberField
+                label="Minimum debit"
+                value={automaticDraft.fertilizer.minFlowLpm}
+                unit="L/min"
+                max={10000}
+                step={0.01}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ minFlowLpm: value })}
+              />
+              <AutomaticNumberField
+                label="Jumlah pembacaan pemicu"
+                value={automaticDraft.fertilizer.triggerSampleCount}
+                unit="sampel"
+                min={1}
+                max={20}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ triggerSampleCount: value ?? 3 })}
+              />
+              <AutomaticNumberField
+                label="Batas menunggu data"
+                value={automaticDraft.fertilizer.sensorStaleSeconds}
+                unit="detik"
+                min={10}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ sensorStaleSeconds: value ?? 120 })}
+              />
+            </div>
+          </section>
+        </div>
+      </div>
+        )
+      }
 
       {
         selectedMode === 'manual' && (

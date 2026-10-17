@@ -323,7 +323,7 @@ uint32_t lastCycleStartMs = 0;
 // ESP32 TIDAK connect langsung ke MQTT.
 static constexpr char SPFF_SITE_ID[] = "greenhouse-01";
 static constexpr char SPFF_DEVICE_ID[] = "esp32-s3-01";
-static constexpr char SPFF_FIRMWARE_VERSION[] = "1.4.9";
+static constexpr char SPFF_FIRMWARE_VERSION[] = "1.4.10";
 
 // Timer LCD/NVS legacy tidak boleh menjadi writer relay bersamaan dengan
 // backend atau snapshot device. Data legacy tetap dipertahankan untuk rollback.
@@ -536,6 +536,7 @@ struct SpffAutomaticDailyStore {
 
 SpffAutomaticControlStore spffAutomaticControl;
 bool spffAutomaticControlLoaded = false;
+bool spffAutomaticPaused = false; // Dashboard OFF pauses auto until settings are explicitly saved again.
 uint32_t spffLastAutoEvaluationMs = 0;
 bool spffShutdownPending = false;
 bool spffShutdownFaultLatched = false;
@@ -10607,9 +10608,6 @@ void processSpffAutomaticControlSyncLine(
     return;
   }
 
-  // Schedule mode never enables sensor-driven dosing.
-  candidate.water.enabled = 0U;
-  candidate.fertilizer.enabled = 0U;
   candidate.checksum = spffAutomaticControlChecksum(candidate);
 
   if (
@@ -10651,6 +10649,7 @@ void processSpffAutomaticControlSyncLine(
   }
 
   spffStopAutomaticOutputs("automatic_config_change");
+  spffAutomaticPaused = false;
   spffAutomaticControl = candidate;
   spffAutomaticControlLoaded = true;
   spffStatusDirty = true;
@@ -10776,11 +10775,29 @@ static void spffStopAutomaticWater(uint32_t nowMs) {
   }
 }
 
+static bool spffSyncedScheduleMatchesToday(const SpffSyncedSchedule &schedule);
+
+static bool spffScheduleWindowOpen(uint8_t target) {
+  if (!spffSyncedScheduleLoaded ||
+      spffSyncedScheduleStore.authority != SPFF_SCHEDULE_AUTHORITY_DEVICE ||
+      !rtcReady || !rtcNow.valid) return false;
+  const uint32_t second = (uint32_t)rtcNow.hour * 3600UL +
+    (uint32_t)rtcNow.minute * 60UL + rtcNow.second;
+  for (uint8_t i = 0; i < spffSyncedScheduleStore.count; ++i) {
+    const SpffSyncedSchedule &schedule = spffSyncedScheduleStore.schedules[i];
+    if (schedule.enabled && schedule.target == target &&
+        spffSyncedScheduleMatchesToday(schedule) &&
+        second >= schedule.onSecond && second < schedule.offSecond) return true;
+  }
+  return false;
+}
+
 static void spffServiceAutomaticWater(uint32_t nowMs) {
   const SpffWaterAutomaticConfig &config =
     spffAutomaticControl.water;
 
-  if (!config.enabled) {
+  if (!config.enabled || !spffScheduleWindowOpen(SPFF_SCHEDULE_TARGET_WATER)) {
+    spffWaterLowSampleCount = 0;
     if (spffWaterAutoActive) {
       spffStopAutomaticWater(nowMs);
     }
@@ -10905,7 +10922,8 @@ static void spffServiceAutomaticFertilizer(uint32_t nowMs) {
   const SpffFertilizerAutomaticConfig &config =
     spffAutomaticControl.fertilizer;
 
-  if (!config.enabled) {
+  if (!config.enabled || !spffScheduleWindowOpen(SPFF_SCHEDULE_TARGET_FERT)) {
+    spffFertLowSampleCount = 0;
     if (spffFertState != SPFF_FERT_IDLE) {
       spffFinishFertilizerCycle(nowMs);
     }
@@ -11098,7 +11116,8 @@ void serviceSpffAutomaticControl() {
   }
   spffLastAutoEvaluationMs = nowMs;
 
-  const bool automatic = false; // Sensor-driven control is disabled in this release.
+  const bool automatic = spffAutomaticControlLoaded &&
+    spffAutomaticControl.desiredMode == SPFF_MODE_AUTOMATIC && !spffAutomaticPaused;
 
   if (spffShutdownPending) {
     if (
@@ -11195,74 +11214,8 @@ static void spffApplySyncedScheduleTarget(
 }
 
 void serviceSpffSyncedScheduleOutput() {
-  static uint32_t lastEvaluationMs = 0;
-  const uint32_t nowMs = millis();
-
-  if (
-    (uint32_t)(nowMs - lastEvaluationMs) < 500UL ||
-    !spffSyncedScheduleLoaded ||
-    (!spffAutomaticControlLoaded ||
-      spffAutomaticControl.desiredMode != SPFF_MODE_AUTOMATIC) ||
-    spffSyncedScheduleStore.authority != SPFF_SCHEDULE_AUTHORITY_DEVICE ||
-    !relayReady
-  ) {
-    return;
-  }
-
-  lastEvaluationMs = nowMs;
-  updateRTC();
-
-  if (!rtcReady || !rtcNow.valid) {
-    return;
-  }
-
-  const uint32_t nowSecond =
-    (uint32_t)rtcNow.hour * 3600UL +
-    (uint32_t)rtcNow.minute * 60UL +
-    rtcNow.second;
-
-  bool waterActive = false;
-  bool fertActive = false;
-
-  for (uint8_t i = 0; i < spffSyncedScheduleStore.count; i++) {
-    const SpffSyncedSchedule &schedule =
-      spffSyncedScheduleStore.schedules[i];
-
-    if (
-      schedule.enabled == 0U ||
-      !spffSyncedScheduleMatchesToday(schedule) ||
-      nowSecond < schedule.onSecond ||
-      nowSecond >= schedule.offSecond
-    ) {
-      continue;
-    }
-
-    if (schedule.target == SPFF_SCHEDULE_TARGET_WATER) {
-      waterActive = true;
-    } else if (schedule.target == SPFF_SCHEDULE_TARGET_FERT) {
-      fertActive = true;
-    }
-  }
-
-  // Safety: snapshot device tidak boleh menyalakan pompa selama OTA.
-  if (otaMaintenanceActive()) {
-    waterActive = false;
-    fertActive = false;
-  }
-
-  spffApplySyncedScheduleTarget(
-    "pump_water",
-    PUMP_WATER_RELAY,
-    waterActive,
-    spffWaterStateTracker
-  );
-
-  spffApplySyncedScheduleTarget(
-    "pump_fert",
-    PUMP_FERTILIZER_RELAY,
-    fertActive,
-    spffFertStateTracker
-  );
+  // Scheduling is a permission window only. The sensor controller is the
+  // sole automatic relay writer; this service must never turn a pump ON.
 }
 
 void processSpffCommandLine(const String &line) {
@@ -11564,7 +11517,7 @@ void processSpffCommandLine(const String &line) {
   const bool scheduleCommand = requestedBy.startsWith("schedule:");
   const bool scheduleMode = spffAutomaticControlLoaded &&
     spffAutomaticControl.desiredMode == SPFF_MODE_AUTOMATIC;
-  if (requestedActive && (scheduleCommand != scheduleMode)) {
+  if (requestedActive && (scheduleCommand || scheduleMode)) {
     bool actualActive = false;
     const bool actualKnown =
       relayOutputReadback(relayChannel, actualActive);
@@ -11577,6 +11530,11 @@ void processSpffCommandLine(const String &line) {
       "automatic_mode"
     );
     return;
+  }
+
+  if (!requestedActive && scheduleMode) {
+    spffAutomaticPaused = true;
+    spffStopAutomaticOutputs("manual_stop");
   }
 
   // OFF tetap boleh untuk membawa sistem ke kondisi aman saat maintenance.

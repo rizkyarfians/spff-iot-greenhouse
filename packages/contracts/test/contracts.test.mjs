@@ -155,11 +155,11 @@ test('schedule sync acknowledgement validates revision and stored count', () => 
   }), false);
 });
 
-test('schedule mode accepts disabled sensor profiles and rejects sensor automation', () => {
+test('automatic control validates sensor profiles and MQTT topic', () => {
   const config = {
     desiredMode: 'automatic',
     water: {
-      enabled: false,
+      enabled: true,
       sensorKey: 'soil_1_moisture',
       moistureLowPercent: 35,
       moistureTargetPercent: 55,
@@ -200,7 +200,7 @@ test('schedule mode accepts disabled sensor profiles and rejects sensor automati
   assert.equal(isAutomaticControlSyncMessage(message), true);
   assert.equal(isAutomaticControlConfig({
     ...config,
-    water: { ...config.water, enabled: true },
+    water: { ...config.water, moistureTargetPercent: 30 },
   }), false);
   assert.deepEqual(
     parseMqttTopic(mqttTopics.automaticControl('greenhouse-01', 'esp32-s3-01')),

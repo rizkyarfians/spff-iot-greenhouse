@@ -1,41 +1,45 @@
-# Manual and scheduled operation
+# Manual and automatic: schedules plus sensors
 
-Manual allows dashboard pump commands. Automatic runs enabled schedules, not
-moisture/EC control. Sensor-driven dosing and AI are disabled. OFF is always
-permitted as a safety action. Mode changes stop both pumps in firmware.
+Manual uses dashboard ON/OFF. Automatic runs each pump only inside its enabled
+schedule window AND when its sensor controller calls for it. Water retains
+moisture hysteresis, runtime limits and cooldown. Fertilizer retains EC dosing,
+mixing and flow/volume/daily limits. Smart Soil is unchanged.
 
-The server scheduler requires the current mode revision to be acknowledged as
-applied/automatic. Pending ON commands are checked against the current mode
-before publication; firmware checks command source again at execution.
-`requestedBy` beginning `schedule:` identifies a server schedule command. This
-is internal source metadata, not an authentication boundary; MQTT ACLs remain
-necessary. The frontend switches its selection only after the save succeeds.
+No schedule, invalid RTC, or closed window means no automatic start. Window end
+stops the corresponding pump even during dosing. ON is inclusive, OFF exclusive.
+Firmware supports same-day windows in Asia/Jakarta and Asia/Bangkok; overnight
+windows are rejected. Overlapping windows form a union.
 
-Schedule editing remains available under Automatic. Manual pauses execution
-without deleting schedules. A mode selected without any enabled schedules does
-not start any pumps. Existing scheduler lookback behavior remains: switching
-back to Automatic may catch up an occurrence within the configured lookback
-window, but does not reconcile all earlier occurrences.
+The worker publishes device-authority snapshots, ignoring the old
+SCHEDULE_EXECUTION_MODE setting, and no longer starts the direct server
+scheduler. Firmware uses schedules only as permission windows, never as a
+second relay writer. Legacy scheduled ON commands are rejected.
 
-## Coordinated deployment required
+Dashboard OFF in Automatic stops both pumps and pauses automatic control until
+the configuration is explicitly saved again (new revision) or mode is changed.
+This pause is in RAM: reboot clears it. Isolate physical power for maintenance.
+Mode changes stop both pumps. Notifications distinguish server save from ESP ACK.
 
-Do not deploy only the UI or only the worker. Back up the database and existing
-firmware first. Stop the MQTT worker during upgrade. Use migration
-`019_schedule_operating_modes.sql`, build contracts/API/frontend/worker/edge,
-and flash `firmware/SPFF_MASTER_1.4.9_SCHEDULE_MODES/` with the same board and
-library settings used for the supplied MASTER.ino (1.4.8).
-The original Downloads/MASTER.ino is unchanged.
+## Coordinated deployment
 
-Migration disables existing sensor profiles and bumps their configuration
-revision without activating schedules or changing the chosen mode. Old
-firmware rejects Automatic with both profiles disabled; firmware update is
-required. Historical rows remain unchanged. Restart services after the matching
-firmware is installed. Select Manual and verify the current revision ACK before
-testing ON/OFF. Then create a safe short future schedule, select Automatic,
-verify its ACK and test ON/OFF plus return to Manual. Keep the physical pump
-power isolated for initial checks. No hardware flash or server deployment was
-performed by the local implementation.
+Back up DB and firmware. Stop the MQTT worker and isolate pump power before
+upgrading. Flash firmware/SPFF_MASTER_1.4.10_SCHEDULE_SENSOR/ using board and
+library settings from the supplied MASTER.ino (1.4.8). The abandoned 1.4.9
+schedule-only firmware was removed; it remains recoverable in Git. Do not use it.
 
-Default deployment uses `SCHEDULE_EXECUTION_MODE=server`. Firmware also gates
-device-authority schedules on Automatic, but continuous device scheduling can
-reassert an active schedule after a dashboard OFF; use Manual to stop scheduling.
+Corrected migration 019 restores the sensor-profile check without modifying
+profiles, thresholds, enabled flags, selected modes or revisions. NOT VALID
+permits existing rows from the abandoned migration to remain until corrected;
+new writes must have at least one enabled profile in Automatic. If old 019 was
+already applied, enabled flags it cleared must be reviewed/restored from backup.
+Run corrected SQL explicitly if a migration tracker already recorded 019.
+
+Build contracts, API, frontend, edge and worker together. Restart after firmware
+is compatible. Save settings; confirm mode and schedule ACKs before pump tests.
+With pump power isolated, verify Manual ON/OFF, no auto output outside windows,
+dry soil inside window, target moisture stop, fertilizer dosing/mixing limits,
+window closure during dosing, stale sensor stop, and dashboard OFF pause.
+
+No real database migration, firmware compilation or board flash has been done
+locally. Source regression checks are not a substitute for Arduino build and
+hardware validation before reconnecting pump power.

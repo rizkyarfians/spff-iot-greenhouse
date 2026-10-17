@@ -22,22 +22,27 @@ test('schedule execution requires applied mode while snapshots can precede ACK',
   assert.deepEqual(queries.find(q => q.sql.includes('FROM spff.actuators actuator')).values, [false]);
 });
 
-test('pending ON commands are mode-gated but OFF remains allowed', async () => {
+test('pending manual ON is mode-gated and legacy schedule ON cannot bypass sensors', async () => {
   let sql;
   const repository = new PostgresIngestionRepository({ query: async text => { sql = text; return { rows: [] }; } });
   await repository.pendingCommands(20);
-  assert.match(sql, /requested_is_active = false OR EXISTS/);
-  assert.match(sql, /WHEN requested_by LIKE 'schedule:%' THEN 'automatic'/);
-  assert.match(sql, /ELSE 'manual'/);
+  assert.match(sql, /requested_is_active = false OR/);
+  assert.match(sql, /requested_by NOT LIKE 'schedule:%'/);
+  assert.match(sql, /mode_config.desired_mode = 'manual'/);
   assert.match(sql, /acknowledged_revision = mode_config.revision/);
 });
 
-test('firmware source gates schedule commands and disables sensor-driven loop', () => {
-  const firmware = readFileSync(new URL('../../firmware/SPFF_MASTER_1.4.9_SCHEDULE_MODES/SPFF_MASTER_1.4.9_SCHEDULE_MODES.ino', import.meta.url), 'utf8');
-  assert.match(firmware, /const bool automatic = false;/);
-  assert.match(firmware, /requestedActive && \(scheduleCommand != scheduleMode\)/);
+test('firmware keeps sensor controllers, gated by independent schedule windows', () => {
+  const firmware = readFileSync(new URL('../../firmware/SPFF_MASTER_1.4.10_SCHEDULE_SENSOR/SPFF_MASTER_1.4.10_SCHEDULE_SENSOR.ino', import.meta.url), 'utf8');
+  assert.doesNotMatch(firmware, /const bool automatic = false;/);
+  assert.match(firmware, /requestedActive && \(scheduleCommand \|\| scheduleMode\)/);
   assert.match(firmware, /requestedBy.startsWith\("schedule:"\)/);
-  assert.match(firmware, /spffAutomaticControl.desiredMode != SPFF_MODE_AUTOMATIC/);
-  assert.match(firmware, /candidate.water.enabled = 0U;/);
-  assert.match(firmware, /candidate.fertilizer.enabled = 0U;/);
+  assert.match(firmware, /!spffScheduleWindowOpen\(SPFF_SCHEDULE_TARGET_WATER\)/);
+  assert.match(firmware, /!spffScheduleWindowOpen\(SPFF_SCHEDULE_TARGET_FERT\)/);
+  assert.match(firmware, /second >= schedule.onSecond && second < schedule.offSecond/);
+  assert.match(firmware, /spffAutomaticPaused = true;/);
+  assert.doesNotMatch(firmware, /candidate.water.enabled = 0U;/);
+  assert.doesNotMatch(firmware, /candidate.fertilizer.enabled = 0U;/);
+  const scheduleLoop = firmware.slice(firmware.indexOf('void serviceSpffSyncedScheduleOutput() {'), firmware.indexOf('void processSpffCommandLine(const String &line) {'));
+  assert.doesNotMatch(scheduleLoop, /spffApplySyncedScheduleTarget\(/);
 });

@@ -544,7 +544,7 @@ export const updateAutomaticControl = run(async (req, res) => {
   if (!isAutomaticControlConfig(req.body)) {
     return res.status(400).json({
       success: false,
-      message: 'Pengaturan mode tidak valid. Kontrol berdasarkan sensor harus dinonaktifkan; Otomatis menggunakan jadwal.',
+      message: 'Lengkapi batas sensor yang valid untuk pompa yang diaktifkan.',
       errors: ['automaticControl'],
     });
   }
