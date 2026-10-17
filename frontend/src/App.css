@@ -1497,6 +1497,12 @@ input:focus-visible {
 
 .sensor-panel {
   display: grid;
+  min-width: 0;
+  padding: clamp(12px, 1.2vmin, 20px);
+  background: #fff;
+  border: 1px solid #d7dcda;
+  border-radius: 18px;
+  align-content: start;
 
   grid-template-columns:
     repeat(
@@ -1527,12 +1533,18 @@ input:focus-visible {
 
   gap: 16px;
 
-  border: 1px solid #dce3df;
-  border-radius: 13px;
+  border: 0;
+  border-bottom: 1px solid #e5ebe7;
+  border-radius: 0;
 
   background: #fff;
 
-  padding: 11px 12px 11px 16px;
+  padding: 0 2px 12px;
+}
+
+.sensor-panel .metric-card {
+  box-shadow: none;
+  border-bottom-width: 1px;
 }
 
 .sensor-panel-toolbar > div {
