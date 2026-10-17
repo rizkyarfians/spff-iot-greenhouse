@@ -1386,7 +1386,6 @@ function ControlsPage({
             <div className="automatic-profile-heading">
               <div>
                 <strong>Pompa Air</strong>
-                <small>Menyala saat tanah kering, berhenti saat cukup lembap</small>
               </div>
               <label className="automatic-enable">
                 <input
@@ -1484,7 +1483,6 @@ function ControlsPage({
             <div className="automatic-profile-heading">
               <div>
                 <strong>Pompa Pupuk</strong>
-                <small>Pemberian pupuk bertahap sesuai EC larutan</small>
               </div>
               <label className="automatic-enable">
                 <input
