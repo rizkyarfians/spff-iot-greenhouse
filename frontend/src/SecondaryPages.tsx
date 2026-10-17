@@ -327,10 +327,6 @@ function PlantStatusPage({
               Kondisi per Zona
             </h2>
 
-            <p>
-              Pemantauan pertumbuhan
-              dan lingkungan tanaman.
-            </p>
           </div>
 
 
@@ -1263,20 +1259,7 @@ function ControlsPage({
           <h2>
             Cara Kerja Pompa
           </h2>
-          <p>Manual: tombol dashboard. Otomatis: sensor mengatur pompa selama jadwal aktif. Di luar jadwal pompa berhenti.</p>
-          <p>Matikan Semua menjeda kontrol otomatis. Untuk melanjutkan, simpan ulang pengaturan atau pilih Otomatis lagi.</p>
 
-          <p>
-            {
-              `Pilihan Anda: ${desiredMode === 'automatic' ? 'otomatis' : 'manual'}. Mode pada alat: ${
-                mode === 'automatic'
-                  ? 'otomatis'
-                  : mode === 'manual'
-                    ? 'manual'
-                    : 'belum tersedia'
-              }`
-            }
-          </p>
           <span className={automaticApplied ? 'sync-state is-applied' : 'sync-state'}>
             {
               automaticApplied
@@ -1384,9 +1367,6 @@ function ControlsPage({
         <div className="automatic-control-header">
           <div>
             <h2>Pengaturan Sensor</h2>
-            <p>
-              Isi batas sesuai kebutuhan tanaman. Pompa hanya bekerja di dalam jadwal dan jika sensor menunjukkan kebutuhan. Pengaman isi tandon belum digunakan.
-            </p>
           </div>
           <button
             className="primary-button"
@@ -1749,13 +1729,6 @@ function ControlsPage({
               Jadwal Pompa
             </h2>
 
-            <p>
-              {
-                isAdmin
-                  ? 'Atur waktu pompa menyala dan berhenti.'
-                  : 'Operator dapat melihat jadwal; perubahan jadwal hanya untuk admin.'
-              }
-            </p>
           </div>
 
 
@@ -3786,9 +3759,6 @@ function AlarmPage({
               Daftar Peringatan
             </h2>
 
-            <p>
-              Periksa kondisi yang bermasalah dan catat penanganannya.
-            </p>
           </div>
 
 
@@ -4812,9 +4782,6 @@ function SettingsPage({
                 Profil Lokasi
               </h2>
 
-              <p>
-                Nama lokasi yang ditampilkan di Dashboard.
-              </p>
             </div>
           </div>
 
@@ -4847,9 +4814,6 @@ function SettingsPage({
                 Notifikasi Alarm
               </strong>
 
-              <p>
-                Atur pemberitahuan alarm untuk lokasi ini.
-              </p>
             </div>
 
             <button
@@ -4884,9 +4848,6 @@ function SettingsPage({
                 Suara Alarm
               </strong>
 
-              <p>
-                Atur suara pemberitahuan di Dashboard.
-              </p>
             </div>
 
             <button
@@ -4921,9 +4882,6 @@ function SettingsPage({
                 Jadwal Otomatis
               </strong>
 
-              <p>
-                Jalankan pompa sesuai jadwal yang disimpan.
-              </p>
             </div>
 
             <button

@@ -226,7 +226,6 @@ export function SmartSoilPage({ connectionState, onRefresh }: Props) {
           <div className="page-card-header">
             <div>
               <h2>Kebutuhan tanaman</h2>
-              <p>Isi batas bawah dan atas sesuai arahan pendamping pertanian.</p>
             </div>
           </div>
 

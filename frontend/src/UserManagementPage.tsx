@@ -508,10 +508,6 @@ export function UserManagementPage() {
               Daftar Akun
             </h2>
 
-            <p>
-              Atur hak akses, aktifkan akun, atau ubah kata sandi.
-              Operator baru dapat membuat akun melalui halaman pendaftaran.
-            </p>
           </div>
 
 
