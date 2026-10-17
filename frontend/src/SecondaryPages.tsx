@@ -81,6 +81,7 @@ import {
 } from './SmartSoilPage'
 
 import './SecondaryPages.css'
+import './ControlsPage.css'
 
 
 
@@ -688,6 +689,10 @@ function ControlsPage({
     mode: 'manual' | 'automatic'; revision: number
   } | null>(null)
   const [modeSaveError, setModeSaveError] = useState('')
+  const [controlTab, setControlTab] = useState<'schedule' | 'sensor'>('schedule')
+  const [sensorPump, setSensorPump] = useState<'water' | 'fertilizer'>('water')
+  const scheduleDialog = useRef<HTMLDialogElement>(null)
+  const [savingSchedule, setSavingSchedule] = useState(false)
 
 
   const [
@@ -1118,6 +1123,7 @@ function ControlsPage({
 
 
       try {
+        setSavingSchedule(true)
         await createScheduleRequest({
           deviceId:
             actuator.deviceId,
@@ -1145,6 +1151,7 @@ function ControlsPage({
         setCommandNotice(
           'Jadwal berhasil disimpan.',
         )
+        scheduleDialog.current?.close()
 
         onRefresh()
       } catch (error) {
@@ -1153,7 +1160,7 @@ function ControlsPage({
             ? error.message
             : 'Jadwal gagal disimpan.',
         )
-      }
+      } finally { setSavingSchedule(false) }
     }
 
 
@@ -1244,7 +1251,7 @@ function ControlsPage({
 
   return (
     <section
-      className="secondary-page"
+      className="secondary-page controls-page"
       aria-label="Kontrol perangkat"
     >
       <div role="status" aria-live="polite" aria-atomic="true">
@@ -1257,9 +1264,10 @@ function ControlsPage({
       <div className="control-toolbar page-card">
         <div>
           <h2>
-            Cara Kerja Pompa
+            Mode Kontrol
           </h2>
 
+          <small className="controls-actual-mode">Mode alat: {mode === 'automatic' ? 'Otomatis' : mode === 'manual' ? 'Manual' : 'Belum diketahui'}</small>
           <span className={automaticApplied ? 'sync-state is-applied' : 'sync-state'}>
             {
               automaticApplied
@@ -1323,46 +1331,128 @@ function ControlsPage({
         </div>
 
 
-        {
-          (
-        <div className="toolbar-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() =>
-              void setAll(false)
-            }
-            disabled={
-              connectionState
-              !== 'connected'
-            }
-          >
-            Matikan Semua
-          </button>
 
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() =>
-              void setAll(true)
-            }
-            disabled={
-              connectionState
-              !== 'connected'
-              || automaticModeRequested
-            }
-          >
-            Aktifkan Semua
-          </button>
-        </div>
-          )
-        }
       </div>
 
 
 
-      {
-        (
+      <div className="controls-actuators page-card">
+        <div className="controls-section-heading"><h2>Aktuator</h2><button className="secondary-button" type="button" onClick={() => void setAll(false)} disabled={connectionState !== 'connected'}>Matikan Semua</button></div>
+      <div className="control-grid">
+        {
+          controls.length > 0
+            ? controls.map(
+                (control) => (
+                  <article
+                    className="control-card"
+                    key={control.id}
+                  >
+                    <div
+                      className="control-icon"
+                      aria-hidden="true"
+                    >
+                      <ControlGlyph
+                        icon={
+                          control.icon
+                        }
+                      />
+                    </div>
+
+
+                    <div className="control-copy">
+                      <h3>
+                        {control.name}
+                      </h3>
+
+
+
+                      <span
+                        className={
+                          control.isActive
+                            ? 'device-active'
+                            : 'device-inactive'
+                        }
+                      >
+                        {
+                          control.pending
+                            ? `Menunggu pompa ${
+                                control.requestedIsActive
+                                  ? 'ON'
+                                  : 'OFF'
+                              }`
+
+                            : control.state
+                              === 'offline'
+                              ? 'Offline'
+
+                              : control.isActive
+                                ? 'Aktif'
+                                : 'Nonaktif'
+                        }
+                      </span>
+                      {['rejected', 'failed', 'timed_out'].includes(control.commandStatus ?? '') && (
+                        <small>{farmerReasonLabel(data?.actuatorLog.find((event) => event.commandId === control.commandId && event.reason)?.reason)
+                          || 'Perintah terakhir gagal. Periksa Detail Alarm.'}</small>
+                      )}
+                    </div>
+
+
+                    <button
+                      className={
+                        `switch ${
+                          control.isActive
+                            ? 'is-on'
+                            : ''
+                        }`
+                      }
+                      type="button"
+                      role="switch"
+                      aria-checked={
+                        control.isActive
+                      }
+                      aria-label={
+                        `${
+                          control.isActive
+                            ? 'Matikan'
+                            : 'Aktifkan'
+                        } ${control.name}`
+                      }
+                      onClick={() =>
+                        void toggleControl(
+                          control.id,
+                        )
+                      }
+                      disabled={
+                        control.pending
+                        || connectionState
+                          !== 'connected'
+                        || (
+                          automaticModeRequested
+                          && !control.isActive
+                        )
+                      }
+                    >
+                      <span />
+                    </button>
+                  </article>
+                ),
+              )
+
+            : (
+              <div className="schedule-empty">
+                Belum ada aktuator aktif yang tersedia.
+              </div>
+            )
+        }
+      </div>
+      </div>
+
+
+      <div className="controls-tabs" role="group" aria-label="Tampilan pengaturan">
+        <button type="button" aria-pressed={controlTab === 'schedule'} onClick={() => setControlTab('schedule')}>Jadwal</button>
+        <button type="button" aria-pressed={controlTab === 'sensor'} onClick={() => setControlTab('sensor')}>Pengaturan Sensor</button>
+      </div>
+      {controlTab === 'sensor' && (
       <div className="automatic-control-card page-card">
         <div className="automatic-control-header">
           <div>
@@ -1381,8 +1471,12 @@ function ControlsPage({
           </button>
         </div>
 
+        <div className="segmented-control controls-pump-selector" role="group" aria-label="Pilih pompa">
+          <button type="button" className={sensorPump === 'water' ? 'is-selected' : ''} onClick={() => setSensorPump('water')}>Pompa Air</button>
+          <button type="button" className={sensorPump === 'fertilizer' ? 'is-selected' : ''} onClick={() => setSensorPump('fertilizer')}>Pompa Pupuk</button>
+        </div>
         <div className="automatic-profile-grid">
-          <section className="automatic-profile">
+          <section className="automatic-profile" hidden={sensorPump !== 'water'}>
             <div className="automatic-profile-heading">
               <div>
                 <strong>Pompa Air</strong>
@@ -1433,6 +1527,8 @@ function ControlsPage({
                 disabled={!isAdmin}
                 onChange={(value) => updateWater({ moistureTargetPercent: value })}
               />
+            </div>
+            <details className="controls-advanced"><summary>Pengaturan tambahan</summary><div className="automatic-fields">
               <AutomaticNumberField
                 label="Batas waktu menyala"
                 value={automaticDraft.water.maxRuntimeSeconds}
@@ -1476,10 +1572,10 @@ function ControlsPage({
                 disabled={!isAdmin}
                 onChange={(value) => updateWater({ sensorStaleSeconds: value ?? 120 })}
               />
-            </div>
+            </div></details>
           </section>
 
-          <section className="automatic-profile">
+          <section className="automatic-profile" hidden={sensorPump !== 'fertilizer'}>
             <div className="automatic-profile-heading">
               <div>
                 <strong>Pompa Pupuk</strong>
@@ -1527,6 +1623,8 @@ function ControlsPage({
                 disabled={!isAdmin}
                 onChange={(value) => updateFertilizer({ ecHighUsCm: value })}
               />
+            </div>
+            <details className="controls-advanced"><summary>Pengaturan tambahan</summary><div className="automatic-fields">
               <AutomaticNumberField
                 label="Lama pompa sekali jalan"
                 value={automaticDraft.fertilizer.dosePulseSeconds}
@@ -1600,7 +1698,7 @@ function ControlsPage({
                 disabled={!isAdmin}
                 onChange={(value) => updateFertilizer({ sensorStaleSeconds: value ?? 120 })}
               />
-            </div>
+            </div></details>
           </section>
         </div>
       </div>
@@ -1608,118 +1706,7 @@ function ControlsPage({
       }
 
       {
-        selectedMode === 'manual' && (
-      <div className="control-grid">
-        {
-          controls.length > 0
-            ? controls.map(
-                (control) => (
-                  <article
-                    className="control-card"
-                    key={control.id}
-                  >
-                    <div
-                      className="control-icon"
-                      aria-hidden="true"
-                    >
-                      <ControlGlyph
-                        icon={
-                          control.icon
-                        }
-                      />
-                    </div>
-
-
-                    <div className="control-copy">
-                      <h3>
-                        {control.name}
-                      </h3>
-
-                      <p>
-                        {control.zone}
-                      </p>
-
-                      <span
-                        className={
-                          control.isActive
-                            ? 'device-active'
-                            : 'device-inactive'
-                        }
-                      >
-                        {
-                          control.pending
-                            ? `Menunggu pompa ${
-                                control.requestedIsActive
-                                  ? 'ON'
-                                  : 'OFF'
-                              }`
-
-                            : control.state
-                              === 'offline'
-                              ? 'Offline'
-
-                              : control.isActive
-                                ? 'Aktif'
-                                : 'Nonaktif'
-                        }
-                      </span>
-                    </div>
-
-
-                    <button
-                      className={
-                        `switch ${
-                          control.isActive
-                            ? 'is-on'
-                            : ''
-                        }`
-                      }
-                      type="button"
-                      role="switch"
-                      aria-checked={
-                        control.isActive
-                      }
-                      aria-label={
-                        `${
-                          control.isActive
-                            ? 'Matikan'
-                            : 'Aktifkan'
-                        } ${control.name}`
-                      }
-                      onClick={() =>
-                        void toggleControl(
-                          control.id,
-                        )
-                      }
-                      disabled={
-                        control.pending
-                        || connectionState
-                          !== 'connected'
-                        || (
-                          automaticModeRequested
-                          && !control.isActive
-                        )
-                      }
-                    >
-                      <span />
-                    </button>
-                  </article>
-                ),
-              )
-
-            : (
-              <div className="schedule-empty">
-                Belum ada aktuator aktif yang tersedia.
-              </div>
-            )
-        }
-      </div>
-        )
-      }
-
-
-      {
-        selectedMode === 'automatic' && (
+        controlTab === 'schedule' && (
       <div className="actuator-schedule-card page-card">
         <div className="schedule-card-header">
           <div>
@@ -1730,6 +1717,7 @@ function ControlsPage({
           </div>
 
 
+          <button className="primary-button" type="button" onClick={() => { setCommandNotice(''); scheduleDialog.current?.showModal() }} disabled={!isAdmin || connectionState !== 'connected'}>Tambah Jadwal</button>
           <div className="schedule-summary">
             <CalendarClock
               size={19}
@@ -1752,6 +1740,9 @@ function ControlsPage({
         </div>
 
 
+        <dialog className="controls-schedule-dialog" ref={scheduleDialog} aria-labelledby="schedule-dialog-title">
+          <div className="controls-section-heading"><h2 id="schedule-dialog-title">Tambah Jadwal</h2><button type="button" className="secondary-button" onClick={() => scheduleDialog.current?.close()}>Tutup</button></div>
+          {commandNotice && <p role="status">{commandNotice}</p>}
         <form
           className="schedule-builder"
           onSubmit={addSchedule}
@@ -2044,6 +2035,7 @@ function ControlsPage({
             type="submit"
             disabled={
               !isAdmin
+              || savingSchedule
               || controls.length === 0
               || connectionState
                 !== 'connected'
@@ -2055,10 +2047,10 @@ function ControlsPage({
               aria-hidden="true"
             />
 
-            Tambah Jadwal
+            {savingSchedule ? 'Menyimpan...' : 'Simpan Jadwal'}
           </button>
         </form>
-
+        </dialog>
 
         <div className="actuator-schedule-list">
           {
@@ -2101,7 +2093,7 @@ function ControlsPage({
 
                           <small>
                             {
-                              schedule.deviceId
+                              schedule.repeatRule === 'once' ? schedule.runDate : ''
                             }
                             {' · '}
                             {
