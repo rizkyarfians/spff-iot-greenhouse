@@ -2487,6 +2487,7 @@ const soilNpkGroups =
                     actuators={backendData?.actuators ?? []}
                     devices={backendData?.devices ?? []}
                     connected={connectionState === 'connected'}
+                    configuration={backendData?.automaticControl ?? null}
                     automatic={backendData?.automaticControl?.desiredMode === 'automatic'
                       || backendData?.automaticControl?.appliedMode === 'automatic'
                       || (backendData?.devices ?? []).some((device) => device.mode === 'automatic')}

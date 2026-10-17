@@ -1,14 +1,15 @@
-import type { ApiActuator, ApiDevice } from '@spff/contracts'
+import type { ApiActuator, ApiAutomaticControl, ApiDevice } from '@spff/contracts'
 import { useRef, useState } from 'react'
 import { Droplets, FlaskConical } from 'lucide-react'
 import { updateActuator } from './api'
 import './ActuatorSummary.css'
 
-export function ActuatorSummary({ actuators, devices, connected, automatic, onUpdated }: {
+export function ActuatorSummary({ actuators, devices, connected, automatic, configuration, onUpdated }: {
   actuators: ApiActuator[]
   devices: ApiDevice[]
   connected: boolean
   automatic: boolean
+  configuration: ApiAutomaticControl | null
   onUpdated: (actuator: ApiActuator) => void
 }) {
   const inFlight = useRef(new Set<string>())
@@ -42,6 +43,13 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, onUp
           const id = pump.id
           const device = devices.find((item) => item.deviceId === pump?.deviceId)
           const available = connected && device?.connectionStatus === 'online'
+          const config = configuration?.deviceId === pump.deviceId ? configuration : null
+          const modeLabel = device?.mode === 'automatic' ? 'Otomatis'
+            : device?.mode === 'manual' ? 'Manual' : 'Belum diketahui'
+          const modeWaiting = config && (config.acknowledgedRevision !== config.revision
+            || config.acknowledgementStatus === null)
+          const modeRejected = config && config.acknowledgedRevision === config.revision
+            && config.acknowledgementStatus === 'rejected'
           const pending = sending.includes(id) || ['pending', 'published', 'accepted'].includes(pump.commandStatus ?? '')
           const label = !pump ? 'Belum ada data'
             : !available ? 'Koneksi terputus'
@@ -60,6 +68,9 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, onUp
               <Icon size={18} aria-hidden="true" />
               <span className="actuator-summary-copy">
                 <span className="actuator-summary-name">{pump.name}</span>
+                <small>{available ? 'Mode' : 'Mode terakhir'}: {modeLabel}</small>
+                {modeWaiting && <small>Menunggu mode {config.desiredMode === 'automatic' ? 'Otomatis' : 'Manual'}</small>}
+                {modeRejected && <small>Perubahan mode ditolak alat</small>}
                 {pending && <small>Menunggu konfirmasi alat</small>}
                 {failed && <small>Perintah terakhir gagal</small>}
               </span>
