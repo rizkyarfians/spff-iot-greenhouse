@@ -693,13 +693,8 @@ function ControlsPage({
   const commandInFlight = useRef(false)
   const [sendingCommand, setSendingCommand] = useState(false)
   const [controlTab, setControlTab] = useState<'schedule' | 'sensor' | null>(null)
-  const settingsDialog = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    if (controlTab) settingsDialog.current?.showModal()
-    else settingsDialog.current?.close()
-  }, [controlTab])
   const [sensorPump, setSensorPump] = useState<'water' | 'fertilizer'>('water')
-  const scheduleDialog = useRef<HTMLDialogElement>(null)
+  const [showScheduleForm, setShowScheduleForm] = useState(false)
   const [savingSchedule, setSavingSchedule] = useState(false)
 
 
@@ -1185,7 +1180,7 @@ function ControlsPage({
         setCommandNotice(
           'Jadwal berhasil disimpan.',
         )
-        scheduleDialog.current?.close()
+        setShowScheduleForm(false)
 
         onRefresh()
       } catch (error) {
@@ -1447,19 +1442,19 @@ function ControlsPage({
 
       <div className="controls-automation page-card">
         <h2>Otomasi</h2>
-        <button className="controls-setting-row" type="button" aria-haspopup="dialog" onClick={() => { setCommandNotice(''); setControlTab('schedule') }}>
+        <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'schedule'} aria-controls="controls-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'schedule' ? null : 'schedule') }}>
           <span className="control-icon"><CalendarClock aria-hidden="true" size={20} /></span>
           <span><strong>Jadwal</strong><small>{activeScheduleCount ? `${activeScheduleCount} jadwal aktif` : 'Atur waktu nyala dan mati'}</small></span>
           <ChevronRight aria-hidden="true" size={18} />
         </button>
-        <button className="controls-setting-row" type="button" aria-haspopup="dialog" onClick={() => { setCommandNotice(''); setControlTab('sensor') }}>
+        <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'sensor'} aria-controls="controls-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'sensor' ? null : 'sensor') }}>
           <span className="control-icon"><SlidersHorizontal aria-hidden="true" size={20} /></span>
           <span><strong>Pengaturan Sensor</strong><small>Atur batas sensor untuk setiap pompa</small></span>
           <ChevronRight aria-hidden="true" size={18} />
         </button>
       </div>
-      <dialog className="controls-settings-dialog" ref={settingsDialog} aria-labelledby="controls-settings-title" onClose={() => setControlTab(null)}>
-        <div className="controls-section-heading"><h2 id="controls-settings-title">{controlTab === 'sensor' ? 'Pengaturan Sensor' : 'Jadwal'}</h2><button type="button" className="secondary-button" onClick={() => settingsDialog.current?.close()}>Tutup</button></div>
+      <section className="controls-settings-panel page-card" id="controls-settings-panel" hidden={!controlTab} aria-labelledby="controls-settings-title">
+        <div className="controls-section-heading"><h2 id="controls-settings-title">{controlTab === 'sensor' ? 'Pengaturan Sensor' : 'Jadwal'}</h2><button type="button" className="secondary-button" onClick={() => setControlTab(null)}>Tutup</button></div>
         {visibleModeFeedback && controlTab === 'sensor' && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
         {modeFeedback?.tone === 'success' && controlTab === 'sensor' && <p className="controls-message" role="status">Pengaturan tersimpan dan diterapkan pada alat.</p>}
         {commandNotice && <p role="status">{commandNotice}</p>}
@@ -1719,7 +1714,7 @@ function ControlsPage({
         <div className="schedule-card-header">
 
 
-          <button className="primary-button" type="button" onClick={() => { setCommandNotice(''); scheduleDialog.current?.showModal() }} disabled={!isAdmin || connectionState !== 'connected'}>Tambah Jadwal</button>
+          <button className="primary-button" type="button" aria-expanded={showScheduleForm} aria-controls="schedule-form-panel" onClick={() => { setCommandNotice(''); setShowScheduleForm(!showScheduleForm) }} disabled={!isAdmin || connectionState !== 'connected'}>Tambah Jadwal</button>
           <div className="schedule-summary">
             <CalendarClock
               size={19}
@@ -1742,8 +1737,8 @@ function ControlsPage({
         </div>
 
 
-        <dialog className="controls-schedule-dialog" ref={scheduleDialog} aria-labelledby="schedule-dialog-title">
-          <div className="controls-section-heading"><h2 id="schedule-dialog-title">Tambah Jadwal</h2><button type="button" className="secondary-button" onClick={() => scheduleDialog.current?.close()}>Tutup</button></div>
+        <section className="controls-schedule-panel" id="schedule-form-panel" hidden={!showScheduleForm} aria-labelledby="schedule-form-title">
+          <div className="controls-section-heading"><h2 id="schedule-form-title">Tambah Jadwal</h2><button type="button" className="secondary-button" onClick={() => setShowScheduleForm(false)}>Tutup</button></div>
           {commandNotice && <p role="status">{commandNotice}</p>}
         <form
           className="schedule-builder"
@@ -2052,7 +2047,7 @@ function ControlsPage({
             {savingSchedule ? 'Menyimpan...' : 'Simpan Jadwal'}
           </button>
         </form>
-        </dialog>
+        </section>
 
         <div className="actuator-schedule-list">
           {
@@ -2235,7 +2230,7 @@ function ControlsPage({
       }
 
 
-      </dialog>
+      </section>
     </section>
   )
 }

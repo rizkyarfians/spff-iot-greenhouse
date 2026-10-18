@@ -5,11 +5,11 @@ import assert from 'node:assert/strict'
 const source = readFileSync(new URL('../src/SecondaryPages.tsx', import.meta.url), 'utf8')
 const controls = source.slice(source.indexOf('function ControlsPage('), source.indexOf('function LogsPage('))
 
-test('controls keeps pumps visible and opens automation in a labelled dialog', () => {
+test('controls keeps pumps visible and opens automation inline below its buttons', () => {
   assert.ok(controls.indexOf('controls-actuators') < controls.indexOf('controls-automation'))
-  assert.match(controls, /<dialog[^>]+aria-labelledby="controls-settings-title"/)
-  assert.match(controls, /settingsDialog.current\?\.showModal\(\)/)
-  assert.match(controls, /onClose=\{\(\) => setControlTab\(null\)\}/)
+  assert.match(controls, /<section[^>]+id="controls-settings-panel"[^>]+hidden=\{!controlTab\}/)
+  assert.ok(controls.indexOf('controls-automation') < controls.indexOf('<section className="controls-settings-panel'))
+  assert.doesNotMatch(controls, /showModal|<dialog/)
   assert.doesNotMatch(controls, /Mode alat:|Pengaturan mode sudah diterapkan|operation-note/)
   assert.match(controls, /controlTab === 'schedule' &&/)
   assert.match(controls, /controlTab === 'sensor' &&/)
@@ -17,10 +17,10 @@ test('controls keeps pumps visible and opens automation in a labelled dialog', (
   assert.doesNotMatch(controls, /Aktifkan Semua/)
 })
 
-test('schedule creation uses a labelled native dialog and closes after success', () => {
-  assert.match(controls, /<dialog[^>]+aria-labelledby="schedule-dialog-title"/)
-  assert.match(controls, /scheduleDialog.current\?\.showModal\(\)/)
-  assert.match(controls, /Jadwal berhasil disimpan\.[\s\S]*?scheduleDialog.current\?\.close\(\)/)
+test('schedule creation expands inline and closes after success', () => {
+  assert.match(controls, /<section[^>]+id="schedule-form-panel"[^>]+hidden=\{!showScheduleForm\}/)
+  assert.match(controls, /setShowScheduleForm\(!showScheduleForm\)/)
+  assert.match(controls, /Jadwal berhasil disimpan\.[\s\S]*?setShowScheduleForm\(false\)/)
   assert.match(controls, /onSubmit=\{addSchedule\}/)
 })
 
