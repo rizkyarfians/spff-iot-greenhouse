@@ -40,6 +40,10 @@ export const fertigationRecipeSchema = fertigationRecipeInputSchema.safeExtend({
   approvalReference: reference.nullable(),
   approvedBy: z.string().nullable(),
   approvedAt: z.string().datetime({ offset: true }).nullable(),
+  plantingDate: z.iso.date().nullable(),
+  applicationDate: z.iso.date().nullable(),
+  revision: z.number().int().positive(),
+  updatedAt: z.string().datetime({ offset: true }),
 });
 export type FertigationRecipe = z.infer<typeof fertigationRecipeSchema>;
 
@@ -97,3 +101,39 @@ export const fertigationSessionEventSchema = z.object({
   }
 });
 export type FertigationSessionEvent = z.infer<typeof fertigationSessionEventSchema>;
+
+/** Only IDs from the HTTP request; all sensor values originate from PostgreSQL. */
+export const fertigationLiveEvaluationInputSchema = z.object({
+  recipeId: z.string().uuid(),
+  deviceId: limitedId,
+}).strict();
+export type FertigationLiveEvaluationInput = z.infer<typeof fertigationLiveEvaluationInputSchema>;
+
+export const fertigationRecipeMutationSchema = fertigationRecipeInputSchema.safeExtend({
+  plantingDate: z.iso.date().nullable(),
+  applicationDate: z.iso.date().nullable(),
+}).strict();
+export type FertigationRecipeMutation = z.infer<typeof fertigationRecipeMutationSchema>;
+
+export const fertigationRecipeUpdateSchema = fertigationRecipeMutationSchema.safeExtend({
+  expectedRevision: z.number().int().positive(),
+}).strict();
+export type FertigationRecipeUpdate = z.infer<typeof fertigationRecipeUpdateSchema>;
+
+export const fertigationRecipeApprovalSchema = z.object({
+  expectedRevision: z.number().int().positive(),
+  approvalReference: reference,
+}).strict();
+export type FertigationRecipeApproval = z.infer<typeof fertigationRecipeApprovalSchema>;
+
+export const fertigationLiveDecisionSchema = z.object({
+  recipeId: z.string().uuid(),
+  deviceId: limitedId,
+  source: z.literal('site-postgresql'),
+  siteObservedAt: z.string().datetime({ offset: true }),
+  hst: z.number().int().nullable(),
+  telemetryRecordedAt: z.string().datetime({ offset: true }).nullable(),
+  deviceRecordedAt: z.string().datetime({ offset: true }).nullable(),
+  decision: fertigationDecisionSchema,
+}).strict();
+export type FertigationLiveDecision = z.infer<typeof fertigationLiveDecisionSchema>;
