@@ -55,6 +55,7 @@ import {
   registerController,
 } from '../controllers/registrationController.js'
 import { getDatalogExport } from '../controllers/datalogExportController.js';
+import { simulateFertigationController, getFertigationSessionsController } from '../controllers/fertigationController.js';
 
 
 export const apiRouter =
@@ -191,6 +192,19 @@ apiRouter.get('/datalog/export', getDatalogExport);
 apiRouter.get(
   '/pumps',
   getPumps,
+);
+
+// Simulation is advisory-only and never publishes commands to MQTT.
+apiRouter.post(
+  '/fertigation/simulate',
+  requireOperator,
+  requireCsrf,
+  simulateFertigationController,
+);
+
+apiRouter.get(
+  '/fertigation/sessions',
+  getFertigationSessionsController,
 );
 
 apiRouter.get(
