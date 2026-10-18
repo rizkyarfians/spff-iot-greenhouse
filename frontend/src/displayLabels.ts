@@ -6,7 +6,7 @@ const reasonLabels: Record<string, string> = {
   automatic_mode_exit: 'Beralih ke cara manual',
   device_schedule: 'Jadwal penyiraman',
   relay_fault: 'Saklar pompa bermasalah',
-  command_expired: 'Perintah terlambat diterima',
+  command_expired: 'Batas waktu perintah habis',
   automatic_mode: 'Sedang memakai cara otomatis',
   safety_interlock: 'Dihentikan demi keamanan',
   tank_level_ignored: 'Pengukuran isi tandon belum digunakan',

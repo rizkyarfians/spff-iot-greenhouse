@@ -1,18 +1,27 @@
 .controls-page { gap: 16px; }
-.controls-page .control-toolbar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.controls-page .control-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
 .controls-page h2 { margin: 0; font-size: var(--font-size-section, 20px); font-weight: 700; }
-.controls-page .controls-actual-mode { display: block; margin: 8px 0; color: var(--muted); font-size: var(--font-size-body); }
 .controls-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .controls-page .control-grid { display: block; margin-top: 12px; }
-.controls-page .control-card { display: flex; align-items: center; gap: 16px; padding: 16px 0; border: 0; border-radius: 0; box-shadow: none; }
-.controls-page .control-card + .control-card { border-top: 1px solid var(--line); }
+.controls-page .control-card { display: flex; align-items: center; gap: 16px; padding: 16px; border: 0; border-radius: 14px; box-shadow: none; background: #f5f7f6; }
+.controls-page .control-card + .control-card { margin-top: 10px; }
 .controls-page .control-copy { flex: 1; min-width: 0; }
 .controls-page .control-copy h3 { margin: 0 0 6px; font-size: var(--font-size-body); }
-.controls-page .control-copy small { display: block; margin-top: 6px; color: #b83030; font-size: var(--font-size-label); }
-.controls-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--line); }
-.controls-tabs button { padding: 12px 16px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: var(--font-size-body); font-weight: 700; cursor: pointer; }
-.controls-tabs button[aria-pressed="true"] { color: var(--green-dark); border-bottom-color: var(--green-dark); }
-.controls-tabs button:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
+.controls-pump-status, .controls-message { color: #536560; font-size: var(--font-size-label); }
+.controls-page .control-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--green-soft); color: var(--green-dark); flex-shrink: 0; }
+.controls-pump-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
+.controls-text-button { border: 0; background: transparent; color: #536560; font: inherit; font-size: var(--font-size-label); padding: 10px 0; cursor: pointer; }
+.controls-text-button:disabled { opacity: .5; cursor: default; }
+.controls-setting-row { display: flex; align-items: center; gap: 16px; width: 100%; margin-top: 12px; padding: 16px; border: 0; border-radius: 14px; background: #f5f7f6; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.controls-setting-row:hover { background: var(--green-soft); }
+.controls-setting-row > span:nth-child(2) { flex: 1; min-width: 0; }
+.controls-setting-row small { display: block; margin-top: 5px; color: #536560; font-size: var(--font-size-label); }
+.controls-command-history { margin-top: 8px; font-size: var(--font-size-label); color: #536560; }
+.controls-command-history summary { cursor: pointer; }
+.controls-command-history p { color: #b83030; margin: 8px 0; }
+.controls-command-error { margin-top: 8px; font-size: var(--font-size-label); color: #b83030; }
+.controls-command-error p { margin: 0 0 4px; }
+.controls-setting-row:focus-visible, .controls-text-button:focus-visible, .controls-command-history summary:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
 .controls-page .automatic-profile-grid { display: block; }
 .controls-page .automatic-profile[hidden] { display: none; }
 .controls-page .automatic-profile { padding: 0; border: 0; background: transparent; }
@@ -26,7 +35,7 @@
 .controls-page .actuator-schedule-list { margin-top: 18px; }
 .controls-page .actuator-schedule-item { border-radius: 0; border: 0; border-top: 1px solid var(--line); background: transparent; }
 .controls-page .schedule-item-copy small { font-size: var(--font-size-label); }
-.controls-schedule-dialog {
+.controls-schedule-dialog, .controls-settings-dialog {
   position: fixed;
   inset: 0 0 0 auto;
   margin: 0;
@@ -42,7 +51,13 @@
   color: inherit;
   overflow-y: auto;
 }
-.controls-schedule-dialog::backdrop { background: rgb(15 35 27 / 35%); }
+.controls-schedule-dialog::backdrop, .controls-settings-dialog::backdrop { background: rgb(15 35 27 / 35%); }
+.controls-settings-dialog > .controls-section-heading { margin-bottom: 24px; }
+.controls-settings-dialog .automatic-control-card, .controls-settings-dialog .actuator-schedule-card { padding: 0; border: 0; box-shadow: none; background: transparent; }
+.controls-settings-dialog .automatic-fields { grid-template-columns: 1fr; }
+.controls-settings-dialog .automatic-control-header { margin-bottom: 16px; }
+.controls-settings-dialog .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
+.controls-settings-dialog .schedule-item-copy { flex: 1; min-width: 60%; }
 .controls-schedule-dialog .schedule-builder { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 0; border: 0; margin-top: 24px; background: transparent; }
 .controls-schedule-dialog .schedule-field { grid-column: auto; }
 .controls-schedule-dialog .schedule-add-button { width: 100%; }
@@ -53,5 +68,5 @@
   .controls-page .automatic-control-header { align-items: flex-start; flex-wrap: wrap; }
   .controls-page .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
   .controls-page .schedule-item-copy { flex: 1; min-width: 60%; }
-  .controls-tabs button { padding-inline: 10px; }
+  .controls-setting-row, .controls-page .control-card { padding: 12px; gap: 12px; }
 }

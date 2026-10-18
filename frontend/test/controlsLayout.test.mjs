@@ -5,8 +5,12 @@ import assert from 'node:assert/strict'
 const source = readFileSync(new URL('../src/SecondaryPages.tsx', import.meta.url), 'utf8')
 const controls = source.slice(source.indexOf('function ControlsPage('), source.indexOf('function LogsPage('))
 
-test('controls keeps actuators visible and separates view tabs from operating mode', () => {
-  assert.ok(controls.indexOf('controls-actuators') < controls.indexOf('controls-tabs'))
+test('controls keeps pumps visible and opens automation in a labelled dialog', () => {
+  assert.ok(controls.indexOf('controls-actuators') < controls.indexOf('controls-automation'))
+  assert.match(controls, /<dialog[^>]+aria-labelledby="controls-settings-title"/)
+  assert.match(controls, /settingsDialog.current\?\.showModal\(\)/)
+  assert.match(controls, /onClose=\{\(\) => setControlTab\(null\)\}/)
+  assert.doesNotMatch(controls, /Mode alat:|Pengaturan mode sudah diterapkan|operation-note/)
   assert.match(controls, /controlTab === 'schedule' &&/)
   assert.match(controls, /controlTab === 'sensor' &&/)
   assert.doesNotMatch(controls, /selectedMode === '(manual|automatic)' &&/)

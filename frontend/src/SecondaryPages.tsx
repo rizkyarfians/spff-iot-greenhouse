@@ -10,15 +10,16 @@ import {
   BellRing,
   CalendarClock,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   Cpu,
   FlaskConical,
-  Info,
   Leaf,
   MapPin,
   Plus,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   ShowerHead,
   Trash2,
   type LucideIcon,
@@ -689,7 +690,14 @@ function ControlsPage({
     mode: 'manual' | 'automatic'; revision: number
   } | null>(null)
   const [modeSaveError, setModeSaveError] = useState('')
-  const [controlTab, setControlTab] = useState<'schedule' | 'sensor'>('schedule')
+  const commandInFlight = useRef(false)
+  const [sendingCommand, setSendingCommand] = useState(false)
+  const [controlTab, setControlTab] = useState<'schedule' | 'sensor' | null>(null)
+  const settingsDialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (controlTab) settingsDialog.current?.showModal()
+    else settingsDialog.current?.close()
+  }, [controlTab])
   const [sensorPump, setSensorPump] = useState<'water' | 'fertilizer'>('water')
   const scheduleDialog = useRef<HTMLDialogElement>(null)
   const [savingSchedule, setSavingSchedule] = useState(false)
@@ -787,8 +795,7 @@ function ControlsPage({
     automaticControl?.desiredMode
     ?? automaticDraft.desiredMode
 
-  const selectedMode =
-    automaticDraft.desiredMode
+  const selectedMode = mode
 
   const automaticModeRequested =
     desiredMode === 'automatic'
@@ -799,6 +806,17 @@ function ControlsPage({
     && automaticControl.acknowledgedRevision === automaticControl.revision
     && automaticControl.acknowledgementStatus === 'applied'
     && automaticControl.appliedMode === automaticControl.desiredMode
+
+  const visibleModeFeedback = modeFeedback?.tone !== 'success' && modeFeedback
+    ? modeFeedback
+    : automaticControl && !automaticApplied
+      ? {
+          tone: automaticControl.acknowledgementStatus === 'rejected' && automaticControl.acknowledgedRevision === automaticControl.revision ? 'error' : 'pending',
+          text: automaticControl.acknowledgementStatus === 'rejected' && automaticControl.acknowledgedRevision === automaticControl.revision
+            ? `Pengaturan ditolak: ${farmerReasonLabel(automaticControl.acknowledgementReason) || 'periksa isian.'}`
+            : 'Menunggu alat menerapkan pengaturan.',
+        }
+      : null
 
   useEffect(
     () => {
@@ -876,6 +894,7 @@ function ControlsPage({
   const updateWater = (
     patch: Partial<ApiAutomaticControlUpdateRequest['water']>,
   ) => {
+    setModeSaveError('')
     setAutomaticDraft((current) => ({
       ...current,
       water: {
@@ -888,6 +907,7 @@ function ControlsPage({
   const updateFertilizer = (
     patch: Partial<ApiAutomaticControlUpdateRequest['fertilizer']>,
   ) => {
+    setModeSaveError('')
     setAutomaticDraft((current) => ({
       ...current,
       fertilizer: {
@@ -915,6 +935,8 @@ function ControlsPage({
     if (supportedNext.desiredMode === 'automatic'
       && !supportedNext.water.enabled && !supportedNext.fertilizer.enabled) {
       setModeSaveError('Aktifkan dan lengkapi pengaturan sensor untuk minimal satu pompa.')
+      setModeRequest(null)
+      setControlTab('sensor')
       return
     }
     setSavingAutomatic(true)
@@ -949,6 +971,7 @@ function ControlsPage({
     async (
       active: boolean,
     ) => {
+      if (commandInFlight.current) return
       if (
         connectionState
         !== 'connected'
@@ -982,6 +1005,10 @@ function ControlsPage({
       }
 
 
+      commandInFlight.current = true
+      setSendingCommand(true)
+      setModeSaveError('')
+      setModeRequest(null)
       setCommandNotice(
         'Mengirim perintah...',
       )
@@ -999,9 +1026,7 @@ function ControlsPage({
         }
 
 
-        setCommandNotice(
-          'Perintah terkirim. Status akan berubah setelah pompa merespons.',
-        )
+        setCommandNotice('')
 
         onRefresh()
       } catch (error) {
@@ -1012,6 +1037,9 @@ function ControlsPage({
         )
 
         onRefresh()
+      } finally {
+        commandInFlight.current = false
+        setSendingCommand(false)
       }
     }
 
@@ -1020,6 +1048,7 @@ function ControlsPage({
     async (
       id: string,
     ) => {
+      if (commandInFlight.current) return
       const target =
         controls.find(
           (control) =>
@@ -1044,6 +1073,10 @@ function ControlsPage({
       }
 
 
+      commandInFlight.current = true
+      setSendingCommand(true)
+      setModeSaveError('')
+      setModeRequest(null)
       setCommandNotice(
         `Menyimpan command ${target.name}...`,
       )
@@ -1056,9 +1089,7 @@ function ControlsPage({
         )
 
 
-        setCommandNotice(
-          `${target.name}: perintah dikirim. Menunggu kondisi pompa.`,
-        )
+        setCommandNotice('')
 
         onRefresh()
       } catch (error) {
@@ -1069,6 +1100,9 @@ function ControlsPage({
         )
 
         onRefresh()
+      } finally {
+        commandInFlight.current = false
+        setSendingCommand(false)
       }
     }
 
@@ -1235,13 +1269,6 @@ function ControlsPage({
     }
 
 
-  const activeCount =
-    controls.filter(
-      (control) =>
-        control.isActive,
-    ).length
-
-
   const activeScheduleCount =
     schedules.filter(
       (schedule) =>
@@ -1254,48 +1281,13 @@ function ControlsPage({
       className="secondary-page controls-page"
       aria-label="Kontrol perangkat"
     >
-      <div role="status" aria-live="polite" aria-atomic="true">
-        {modeFeedback && (
-          <div className={`mode-feedback mode-feedback--${modeFeedback.tone}`}>
-            {modeFeedback.text}
-          </div>
-        )}
-      </div>
-      <div className="control-toolbar page-card">
-        <div>
-          <h2>
-            Mode Kontrol
-          </h2>
-
-          <small className="controls-actual-mode">Mode alat: {mode === 'automatic' ? 'Otomatis' : mode === 'manual' ? 'Manual' : 'Belum diketahui'}</small>
-          <span className={automaticApplied ? 'sync-state is-applied' : 'sync-state'}>
-            {
-              automaticApplied
-                ? 'Pengaturan sudah diterapkan'
-                : automaticControl?.acknowledgementStatus === 'rejected'
-                  ? 'Pengaturan ditolak: '
-                    + (
-                      farmerReasonLabel(automaticControl.acknowledgementReason)
-                      || 'silakan periksa isian'
-                    )
-                  : 'Menunggu alat menerapkan pengaturan'
-            }
-          </span>
-          {
-            commandNotice
-              ? (
-                  <small className="mode-operation-notice">
-                    {commandNotice}
-                  </small>
-                )
-              : null
-          }
-        </div>
-
-
+      <div className="controls-actuators page-card">
+      <div className="control-toolbar">
+        <h2>Pompa</h2>
         <div
           className="segmented-control"
           aria-label="Pilih mode operasi yang diinginkan"
+          role="group"
         >
           <button
             className={
@@ -1304,6 +1296,7 @@ function ControlsPage({
                 : ''
             }
             type="button"
+            aria-pressed={selectedMode === 'automatic'}
             onClick={() => selectMode('automatic')}
             disabled={
               !isAdmin
@@ -1320,6 +1313,7 @@ function ControlsPage({
                 : ''
             }
             type="button"
+            aria-pressed={selectedMode === 'manual'}
             onClick={() => selectMode('manual')}
             disabled={
               !isAdmin
@@ -1336,13 +1330,20 @@ function ControlsPage({
 
 
 
-      <div className="controls-actuators page-card">
-        <div className="controls-section-heading"><h2>Aktuator</h2><button className="secondary-button" type="button" onClick={() => void setAll(false)} disabled={connectionState !== 'connected'}>Matikan Semua</button></div>
+      {!controlTab && visibleModeFeedback && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
+      {!mode && <p className="controls-message">Mode alat belum diketahui.</p>}
+      {connectionState !== 'connected' && <p className="controls-message" role="status">Sistem belum tersambung.</p>}
+      {!controlTab && commandNotice && <p className="controls-message" role="status">{commandNotice}</p>}
       <div className="control-grid">
         {
           controls.length > 0
             ? controls.map(
-                (control) => (
+                (control) => {
+                  const failure = data?.actuatorLog.find((event) => event.commandId === control.commandId && event.reason)
+                  const recentFailure = failure && Date.now() - Date.parse(failure.receivedAt) < 120_000
+                  const failureText = farmerReasonLabel(failure?.reason) || 'Perintah terakhir gagal.'
+                  const failureTime = failure && <time dateTime={failure.receivedAt}>{new Date(failure.receivedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB</time>
+                  return (
                   <article
                     className="control-card"
                     key={control.id}
@@ -1367,32 +1368,25 @@ function ControlsPage({
 
 
                       <span
-                        className={
-                          control.isActive
-                            ? 'device-active'
-                            : 'device-inactive'
-                        }
+                        className="controls-pump-status"
                       >
                         {
                           control.pending
-                            ? `Menunggu pompa ${
-                                control.requestedIsActive
-                                  ? 'ON'
-                                  : 'OFF'
-                              }`
-
-                            : control.state
-                              === 'offline'
-                              ? 'Offline'
-
-                              : control.isActive
-                                ? 'Aktif'
-                                : 'Nonaktif'
+                            ? 'Menunggu konfirmasi'
+                            : connectionState !== 'connected' || control.state === 'offline'
+                              || getTelemetryFreshness(control.updatedAt, true) !== 'fresh'
+                              ? 'Status belum terbarui'
+                              : control.state === 'fault' ? 'Bermasalah'
+                                : control.isActive ? 'Menyala' : 'Mati'
                         }
                       </span>
                       {['rejected', 'failed', 'timed_out'].includes(control.commandStatus ?? '') && (
-                        <small>{farmerReasonLabel(data?.actuatorLog.find((event) => event.commandId === control.commandId && event.reason)?.reason)
-                          || 'Perintah terakhir gagal. Periksa Detail Alarm.'}</small>
+                        recentFailure ? <div className="controls-command-error" role="status"><p>{failureText}</p>{failureTime}</div> :
+                        <details className="controls-command-history">
+                          <summary>Riwayat perintah terakhir</summary>
+                          <p>{failureText}</p>
+                          {failureTime}
+                        </details>
                       )}
                     </div>
 
@@ -1423,7 +1417,8 @@ function ControlsPage({
                         )
                       }
                       disabled={
-                        control.pending
+                        sendingCommand
+                        || control.pending
                         || connectionState
                           !== 'connected'
                         || (
@@ -1435,7 +1430,8 @@ function ControlsPage({
                       <span />
                     </button>
                   </article>
-                ),
+                  )
+                },
               )
 
             : (
@@ -1445,19 +1441,31 @@ function ControlsPage({
             )
         }
       </div>
+      <div className="controls-pump-footer"><button className="controls-text-button" type="button" onClick={() => void setAll(false)} disabled={sendingCommand || connectionState !== 'connected'}>Matikan semua</button></div>
       </div>
 
 
-      <div className="controls-tabs" role="group" aria-label="Tampilan pengaturan">
-        <button type="button" aria-pressed={controlTab === 'schedule'} onClick={() => setControlTab('schedule')}>Jadwal</button>
-        <button type="button" aria-pressed={controlTab === 'sensor'} onClick={() => setControlTab('sensor')}>Pengaturan Sensor</button>
+      <div className="controls-automation page-card">
+        <h2>Otomasi</h2>
+        <button className="controls-setting-row" type="button" aria-haspopup="dialog" onClick={() => { setCommandNotice(''); setControlTab('schedule') }}>
+          <span className="control-icon"><CalendarClock aria-hidden="true" size={20} /></span>
+          <span><strong>Jadwal</strong><small>{activeScheduleCount ? `${activeScheduleCount} jadwal aktif` : 'Atur waktu nyala dan mati'}</small></span>
+          <ChevronRight aria-hidden="true" size={18} />
+        </button>
+        <button className="controls-setting-row" type="button" aria-haspopup="dialog" onClick={() => { setCommandNotice(''); setControlTab('sensor') }}>
+          <span className="control-icon"><SlidersHorizontal aria-hidden="true" size={20} /></span>
+          <span><strong>Pengaturan Sensor</strong><small>Atur batas sensor untuk setiap pompa</small></span>
+          <ChevronRight aria-hidden="true" size={18} />
+        </button>
       </div>
+      <dialog className="controls-settings-dialog" ref={settingsDialog} aria-labelledby="controls-settings-title" onClose={() => setControlTab(null)}>
+        <div className="controls-section-heading"><h2 id="controls-settings-title">{controlTab === 'sensor' ? 'Pengaturan Sensor' : 'Jadwal'}</h2><button type="button" className="secondary-button" onClick={() => settingsDialog.current?.close()}>Tutup</button></div>
+        {visibleModeFeedback && controlTab === 'sensor' && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
+        {modeFeedback?.tone === 'success' && controlTab === 'sensor' && <p className="controls-message" role="status">Pengaturan tersimpan dan diterapkan pada alat.</p>}
+        {commandNotice && <p role="status">{commandNotice}</p>}
       {controlTab === 'sensor' && (
-      <div className="automatic-control-card page-card">
+      <div className="automatic-control-card">
         <div className="automatic-control-header">
-          <div>
-            <h2>Pengaturan Sensor</h2>
-          </div>
           <button
             className="primary-button"
             type="button"
@@ -1707,14 +1715,8 @@ function ControlsPage({
 
       {
         controlTab === 'schedule' && (
-      <div className="actuator-schedule-card page-card">
+      <div className="actuator-schedule-card">
         <div className="schedule-card-header">
-          <div>
-            <h2>
-              Jadwal Pompa
-            </h2>
-
-          </div>
 
 
           <button className="primary-button" type="button" onClick={() => { setCommandNotice(''); scheduleDialog.current?.showModal() }} disabled={!isAdmin || connectionState !== 'connected'}>Tambah Jadwal</button>
@@ -2233,26 +2235,7 @@ function ControlsPage({
       }
 
 
-      <div className="operation-note page-card">
-        <span aria-hidden="true">
-          <Info
-            size={17}
-            strokeWidth={2}
-          />
-        </span>
-
-        <p>
-          {
-            commandNotice
-            || (
-              connectionState
-              === 'connected'
-                ? `${activeCount} dari ${controls.length} aktuator aktif berdasarkan status terakhir.`
-                : 'Sistem belum tersambung.'
-            )
-          }
-        </p>
-      </div>
+      </dialog>
     </section>
   )
 }
