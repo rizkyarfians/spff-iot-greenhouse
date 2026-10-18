@@ -2,6 +2,7 @@ export type PageKey =
   | 'dashboard'
   | 'plants'
   | 'smart-soil'
+  | 'fertigation'
   | 'controls'
   | 'logs'
   | 'alarms'
@@ -23,6 +24,7 @@ Record<
   'smart-soil':
     'Smart Soil',
 
+  fertigation: 'Uji Fertigasi',
   controls:
     'Kontrol Perangkat',
 
@@ -56,6 +58,7 @@ Record<
   'smart-soil':
     'Bandingkan kondisi tanah dan udara dengan kebutuhan tanaman.',
 
+  fertigation: 'Uji Fertigasi',
   controls:
     'Nyalakan pompa, pilih cara kerja, dan atur jadwal.',
 

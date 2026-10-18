@@ -1,3 +1,4 @@
+import { FertigationPage } from './FertigationPage'
 import {
   useEffect,
   useMemo,
@@ -4938,6 +4939,8 @@ export function SecondaryPage({
   connectionState,
   onRefresh,
 }: SecondaryPageProps) {
+  if (page === 'fertigation') return <FertigationPage devices={data?.devices ?? []} />
+
   const connectedProps = {
     data,
     connectionState,

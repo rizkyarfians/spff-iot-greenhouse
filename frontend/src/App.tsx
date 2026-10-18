@@ -476,6 +476,11 @@ Array<{
     label: 'Smart Soil',
   },
   {
+    key: 'fertigation',
+    icon: FlaskConical,
+    label: 'Uji Fertigasi',
+  },
+  {
     key: 'controls',
     icon: SlidersHorizontal,
     label: 'Kontrol Perangkat',
