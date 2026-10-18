@@ -1,7 +1,16 @@
 import type { Request, Response, NextFunction } from 'express';
-import { fertigationSimulationInputSchema } from '@spff/contracts';
-import { getFertigationRecipe, getRecentFertigationSessions } from '../services/fertigationRepository.js';
+import {
+  fertigationSimulationInputSchema, fertigationLiveEvaluationInputSchema,
+  fertigationRecipeMutationSchema, fertigationRecipeUpdateSchema, fertigationRecipeApprovalSchema,
+} from '@spff/contracts';
+import {
+  createFertigationRecipe, updateFertigationRecipe, approveFertigationRecipe,
+  listFertigationRecipes, loadSiteFertigationSnapshot, recordFertigationEvaluation,
+  getFertigationRecipe, getRecentFertigationSessions,
+} from '../services/fertigationRepository.js';
 import { simulateFertigation } from '../services/fertigationRules.js';
+import { evaluateSiteFertigation } from '../services/fertigationLiveEvaluation.js';
+import { requestActor } from '../middleware/operatorAuth.js';
 
 export async function simulateFertigationController(req: Request, res: Response, next: NextFunction) {
   try {
@@ -32,4 +41,48 @@ export async function getFertigationSessionsController(req: Request, res: Respon
     const sessions = await getRecentFertigationSessions(deviceId);
     res.set('Cache-Control', 'no-store').json({ success: true, data: sessions, message: 'Riwayat sesi yang benar-benar diterima dari perangkat.' });
   } catch (error) { next(error); }
+}
+
+export async function listRecipesController(_req: Request,res:Response,next:NextFunction) {
+  try { res.json({success:true,data:await listFertigationRecipes(),message:'Daftar resep fertigasi.'}); }
+  catch(error){next(error);}
+}
+export async function createRecipeController(req:Request,res:Response,next:NextFunction) {
+  try {
+    const p=fertigationRecipeMutationSchema.safeParse(req.body);
+    if(!p.success){res.status(400).json({success:false,data:null,message:'Resep tidak valid.',errors:p.error.issues.map(x=>x.path.join('.'))});return;}
+    res.status(201).json({success:true,data:await createFertigationRecipe(p.data,requestActor(req)),message:'Resep draft dibuat. Belum dapat digunakan sebelum persetujuan.'});
+  }catch(error){next(error);}
+}
+export async function updateRecipeController(req:Request,res:Response,next:NextFunction) {
+  try {
+    const p=fertigationRecipeUpdateSchema.safeParse(req.body);
+    const recipeId=req.params.id;
+    if(!p.success||typeof recipeId!=='string'||!/^[0-9a-f-]{36}$/i.test(recipeId)){res.status(400).json({success:false,data:null,message:'Permintaan update tidak valid.'});return;}
+    const result=await updateFertigationRecipe(recipeId,p.data,requestActor(req));
+    if(!result){res.status(409).json({success:false,data:null,message:'Resep tidak ditemukan atau revisi sudah berubah.'});return;}
+    res.json({success:true,data:result,message:'Resep diperbarui dan persetujuan direset ke draft.'});
+  }catch(error){next(error);}
+}
+export async function approveRecipeController(req:Request,res:Response,next:NextFunction) {
+  try{
+    const p=fertigationRecipeApprovalSchema.safeParse(req.body);
+    const recipeId=req.params.id;
+    if(!p.success||typeof recipeId!=='string'||!/^[0-9a-f-]{36}$/i.test(recipeId)){res.status(400).json({success:false,data:null,message:'Persetujuan tidak valid.'});return;}
+    const result=await approveFertigationRecipe(recipeId,p.data.expectedRevision,p.data.approvalReference,requestActor(req));
+    if(!result){res.status(409).json({success:false,data:null,message:'Resep tidak ditemukan atau revisi sudah berubah.'});return;}
+    res.json({success:true,data:result,message:'Persetujuan agronomi tercatat.'});
+  }catch(error){next(error);}
+}
+export async function evaluateLiveRecipeController(req:Request,res:Response,next:NextFunction) {
+  try{
+    const p=fertigationLiveEvaluationInputSchema.safeParse(req.body);
+    if(!p.success){res.status(400).json({success:false,data:null,message:'recipeId/deviceId tidak valid.'});return;}
+    const recipe=await getFertigationRecipe(p.data.recipeId);
+    if(!recipe){res.status(404).json({success:false,data:null,message:'Resep tidak ditemukan.'});return;}
+    const snapshot=await loadSiteFertigationSnapshot(p.data.deviceId);
+    const decision=evaluateSiteFertigation(recipe,p.data.deviceId,snapshot);
+    await recordFertigationEvaluation(recipe.recipeId,p.data.deviceId,requestActor(req),snapshot.telemetryRecordedAt,snapshot.deviceRecordedAt,decision);
+    res.set('Cache-Control','no-store').json({success:true,data:decision,message:'Evaluasi berdasarkan PostgreSQL site; tidak mengirim command pompa.'});
+  }catch(error){next(error);}
 }
