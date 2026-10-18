@@ -1442,272 +1442,13 @@ function ControlsPage({
 
       <div className="controls-automation page-card">
         <h2>Otomasi</h2>
-        <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'schedule'} aria-controls="controls-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'schedule' ? null : 'schedule') }}>
+        <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'schedule'} id="schedule-settings-button" aria-controls="schedule-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'schedule' ? null : 'schedule') }}>
           <span className="control-icon"><CalendarClock aria-hidden="true" size={20} /></span>
           <span><strong>Jadwal</strong><small>{activeScheduleCount ? `${activeScheduleCount} jadwal aktif` : 'Atur waktu nyala dan mati'}</small></span>
           <ChevronRight aria-hidden="true" size={18} />
         </button>
-        <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'sensor'} aria-controls="controls-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'sensor' ? null : 'sensor') }}>
-          <span className="control-icon"><SlidersHorizontal aria-hidden="true" size={20} /></span>
-          <span><strong>Pengaturan Sensor</strong><small>Atur batas sensor untuk setiap pompa</small></span>
-          <ChevronRight aria-hidden="true" size={18} />
-        </button>
-      </div>
-      <section className="controls-settings-panel page-card" id="controls-settings-panel" hidden={!controlTab} aria-labelledby="controls-settings-title">
-        <div className="controls-section-heading"><h2 id="controls-settings-title">{controlTab === 'sensor' ? 'Pengaturan Sensor' : 'Jadwal'}</h2><button type="button" className="secondary-button" onClick={() => setControlTab(null)}>Tutup</button></div>
-        {visibleModeFeedback && controlTab === 'sensor' && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
-        {modeFeedback?.tone === 'success' && controlTab === 'sensor' && <p className="controls-message" role="status">Pengaturan tersimpan dan diterapkan pada alat.</p>}
-        {commandNotice && <p role="status">{commandNotice}</p>}
-      {controlTab === 'sensor' && (
-      <div className="automatic-control-card">
-        <div className="automatic-control-header">
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() => void saveAutomatic()}
-            disabled={
-              !isAdmin
-              || savingAutomatic
-            }
-          >
-            {savingAutomatic ? 'Menyimpan...' : 'Simpan Parameter'}
-          </button>
-        </div>
-
-        <div className="segmented-control controls-pump-selector" role="group" aria-label="Pilih pompa">
-          <button type="button" className={sensorPump === 'water' ? 'is-selected' : ''} onClick={() => setSensorPump('water')}>Pompa Air</button>
-          <button type="button" className={sensorPump === 'fertilizer' ? 'is-selected' : ''} onClick={() => setSensorPump('fertilizer')}>Pompa Pupuk</button>
-        </div>
-        <div className="automatic-profile-grid">
-          <section className="automatic-profile" hidden={sensorPump !== 'water'}>
-            <div className="automatic-profile-heading">
-              <div>
-                <strong>Pompa Air</strong>
-              </div>
-              <label className="automatic-enable">
-                <input
-                  type="checkbox"
-                  checked={automaticDraft.water.enabled}
-                  disabled={!isAdmin}
-                  onChange={(event) => updateWater({ enabled: event.target.checked })}
-                />
-                Aktif
-              </label>
-            </div>
-
-            <label className="automatic-field">
-              <span>Sensor utama</span>
-              <select
-                value={automaticDraft.water.sensorKey}
-                disabled={!isAdmin}
-                onChange={(event) => updateWater({
-                  sensorKey: event.target.value === 'soil_2_moisture'
-                    ? 'soil_2_moisture'
-                    : 'soil_1_moisture',
-                })}
-              >
-                <option value="soil_1_moisture">Kelembapan Tanah 1</option>
-                <option value="soil_2_moisture">Kelembapan Tanah 2</option>
-              </select>
-            </label>
-
-            <div className="automatic-fields">
-              <AutomaticNumberField
-                label="Minimum (pompa ON)"
-                value={automaticDraft.water.moistureLowPercent}
-                unit="%"
-                max={100}
-                step={0.1}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ moistureLowPercent: value })}
-              />
-              <AutomaticNumberField
-                label="Target (pompa OFF)"
-                value={automaticDraft.water.moistureTargetPercent}
-                unit="%"
-                max={100}
-                step={0.1}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ moistureTargetPercent: value })}
-              />
-            </div>
-            <details className="controls-advanced"><summary>Pengaturan tambahan</summary><div className="automatic-fields">
-              <AutomaticNumberField
-                label="Batas waktu menyala"
-                value={automaticDraft.water.maxRuntimeSeconds}
-                unit="detik"
-                max={86400}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ maxRuntimeSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Jeda sebelum menyala lagi"
-                value={automaticDraft.water.cooldownSeconds}
-                unit="detik"
-                max={86400}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ cooldownSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Minimum debit"
-                value={automaticDraft.water.minFlowLpm}
-                unit="L/min"
-                max={10000}
-                step={0.01}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ minFlowLpm: value })}
-              />
-              <AutomaticNumberField
-                label="Jumlah pembacaan pemicu"
-                value={automaticDraft.water.triggerSampleCount}
-                unit="sampel"
-                min={1}
-                max={20}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ triggerSampleCount: value ?? 3 })}
-              />
-              <AutomaticNumberField
-                label="Batas menunggu data"
-                value={automaticDraft.water.sensorStaleSeconds}
-                unit="detik"
-                min={10}
-                max={3600}
-                disabled={!isAdmin}
-                onChange={(value) => updateWater({ sensorStaleSeconds: value ?? 120 })}
-              />
-            </div></details>
-          </section>
-
-          <section className="automatic-profile" hidden={sensorPump !== 'fertilizer'}>
-            <div className="automatic-profile-heading">
-              <div>
-                <strong>Pompa Pupuk</strong>
-              </div>
-              <label className="automatic-enable">
-                <input
-                  type="checkbox"
-                  checked={automaticDraft.fertilizer.enabled}
-                  disabled={!isAdmin}
-                  onChange={(event) => updateFertilizer({ enabled: event.target.checked })}
-                />
-                Aktif
-              </label>
-            </div>
-
-            <label className="automatic-field">
-              <span>Sensor utama</span>
-              <select value="liquid_ec_us_cm" disabled>
-                <option value="liquid_ec_us_cm">EC Larutan</option>
-              </select>
-            </label>
-
-            <div className="automatic-fields">
-              <AutomaticNumberField
-                label="EC minimum (mulai dosis)"
-                value={automaticDraft.fertilizer.ecLowUsCm}
-                unit="uS/cm"
-                max={100000}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ ecLowUsCm: value })}
-              />
-              <AutomaticNumberField
-                label="EC target (stop)"
-                value={automaticDraft.fertilizer.ecTargetUsCm}
-                unit="uS/cm"
-                max={100000}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ ecTargetUsCm: value })}
-              />
-              <AutomaticNumberField
-                label="EC maksimum"
-                value={automaticDraft.fertilizer.ecHighUsCm}
-                unit="uS/cm"
-                max={100000}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ ecHighUsCm: value })}
-              />
-            </div>
-            <details className="controls-advanced"><summary>Pengaturan tambahan</summary><div className="automatic-fields">
-              <AutomaticNumberField
-                label="Lama pompa sekali jalan"
-                value={automaticDraft.fertilizer.dosePulseSeconds}
-                unit="detik"
-                min={1}
-                max={3600}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ dosePulseSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Waktu tunggu agar tercampur"
-                value={automaticDraft.fertilizer.mixingDelaySeconds}
-                unit="detik"
-                min={1}
-                max={86400}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ mixingDelaySeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Jeda sebelum pemberian berikutnya"
-                value={automaticDraft.fertilizer.cooldownSeconds}
-                unit="detik"
-                max={86400}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ cooldownSeconds: value })}
-              />
-              <AutomaticNumberField
-                label="Batas pupuk sekali jalan"
-                value={automaticDraft.fertilizer.maxDoseVolumeL}
-                unit="L"
-                min={0.001}
-                max={100000}
-                step={0.001}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ maxDoseVolumeL: value })}
-              />
-              <AutomaticNumberField
-                label="Batas pupuk per hari"
-                value={automaticDraft.fertilizer.maxDailyVolumeL}
-                unit="L"
-                min={0.001}
-                max={1000000}
-                step={0.001}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ maxDailyVolumeL: value })}
-              />
-              <AutomaticNumberField
-                label="Minimum debit"
-                value={automaticDraft.fertilizer.minFlowLpm}
-                unit="L/min"
-                max={10000}
-                step={0.01}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ minFlowLpm: value })}
-              />
-              <AutomaticNumberField
-                label="Jumlah pembacaan pemicu"
-                value={automaticDraft.fertilizer.triggerSampleCount}
-                unit="sampel"
-                min={1}
-                max={20}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ triggerSampleCount: value ?? 3 })}
-              />
-              <AutomaticNumberField
-                label="Batas menunggu data"
-                value={automaticDraft.fertilizer.sensorStaleSeconds}
-                unit="detik"
-                min={10}
-                max={3600}
-                disabled={!isAdmin}
-                onChange={(value) => updateFertilizer({ sensorStaleSeconds: value ?? 120 })}
-              />
-            </div></details>
-          </section>
-        </div>
-      </div>
-        )
-      }
-
+        <section className="controls-settings-panel" id="schedule-settings-panel" hidden={controlTab !== 'schedule'} aria-labelledby="schedule-settings-button">
+          {commandNotice && <p role="status">{commandNotice}</p>}
       {
         controlTab === 'schedule' && (
       <div className="actuator-schedule-card">
@@ -2230,7 +1971,271 @@ function ControlsPage({
       }
 
 
-      </section>
+
+        </section>
+        <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'sensor'} id="sensor-settings-button" aria-controls="sensor-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'sensor' ? null : 'sensor') }}>
+          <span className="control-icon"><SlidersHorizontal aria-hidden="true" size={20} /></span>
+          <span><strong>Pengaturan Sensor</strong><small>Atur batas sensor untuk setiap pompa</small></span>
+          <ChevronRight aria-hidden="true" size={18} />
+        </button>
+        <section className="controls-settings-panel" id="sensor-settings-panel" hidden={controlTab !== 'sensor'} aria-labelledby="sensor-settings-button">
+        {visibleModeFeedback && controlTab === 'sensor' && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
+        {modeFeedback?.tone === 'success' && controlTab === 'sensor' && <p className="controls-message" role="status">Pengaturan tersimpan dan diterapkan pada alat.</p>}
+        {commandNotice && <p role="status">{commandNotice}</p>}
+
+      {controlTab === 'sensor' && (
+      <div className="automatic-control-card">
+        <div className="automatic-control-header">
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => void saveAutomatic()}
+            disabled={
+              !isAdmin
+              || savingAutomatic
+            }
+          >
+            {savingAutomatic ? 'Menyimpan...' : 'Simpan Parameter'}
+          </button>
+        </div>
+
+        <div className="segmented-control controls-pump-selector" role="group" aria-label="Pilih pompa">
+          <button type="button" className={sensorPump === 'water' ? 'is-selected' : ''} onClick={() => setSensorPump('water')}>Pompa Air</button>
+          <button type="button" className={sensorPump === 'fertilizer' ? 'is-selected' : ''} onClick={() => setSensorPump('fertilizer')}>Pompa Pupuk</button>
+        </div>
+        <div className="automatic-profile-grid">
+          <section className="automatic-profile" hidden={sensorPump !== 'water'}>
+            <div className="automatic-profile-heading">
+              <div>
+                <strong>Pompa Air</strong>
+              </div>
+              <label className="automatic-enable">
+                <input
+                  type="checkbox"
+                  checked={automaticDraft.water.enabled}
+                  disabled={!isAdmin}
+                  onChange={(event) => updateWater({ enabled: event.target.checked })}
+                />
+                Aktif
+              </label>
+            </div>
+
+            <label className="automatic-field">
+              <span>Sensor utama</span>
+              <select
+                value={automaticDraft.water.sensorKey}
+                disabled={!isAdmin}
+                onChange={(event) => updateWater({
+                  sensorKey: event.target.value === 'soil_2_moisture'
+                    ? 'soil_2_moisture'
+                    : 'soil_1_moisture',
+                })}
+              >
+                <option value="soil_1_moisture">Kelembapan Tanah 1</option>
+                <option value="soil_2_moisture">Kelembapan Tanah 2</option>
+              </select>
+            </label>
+
+            <div className="automatic-fields">
+              <AutomaticNumberField
+                label="Minimum (pompa ON)"
+                value={automaticDraft.water.moistureLowPercent}
+                unit="%"
+                max={100}
+                step={0.1}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ moistureLowPercent: value })}
+              />
+              <AutomaticNumberField
+                label="Target (pompa OFF)"
+                value={automaticDraft.water.moistureTargetPercent}
+                unit="%"
+                max={100}
+                step={0.1}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ moistureTargetPercent: value })}
+              />
+            </div>
+            <details className="controls-advanced"><summary>Pengaturan tambahan</summary><div className="automatic-fields">
+              <AutomaticNumberField
+                label="Batas waktu menyala"
+                value={automaticDraft.water.maxRuntimeSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ maxRuntimeSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Jeda sebelum menyala lagi"
+                value={automaticDraft.water.cooldownSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ cooldownSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Minimum debit"
+                value={automaticDraft.water.minFlowLpm}
+                unit="L/min"
+                max={10000}
+                step={0.01}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ minFlowLpm: value })}
+              />
+              <AutomaticNumberField
+                label="Jumlah pembacaan pemicu"
+                value={automaticDraft.water.triggerSampleCount}
+                unit="sampel"
+                min={1}
+                max={20}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ triggerSampleCount: value ?? 3 })}
+              />
+              <AutomaticNumberField
+                label="Batas menunggu data"
+                value={automaticDraft.water.sensorStaleSeconds}
+                unit="detik"
+                min={10}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateWater({ sensorStaleSeconds: value ?? 120 })}
+              />
+            </div></details>
+          </section>
+
+          <section className="automatic-profile" hidden={sensorPump !== 'fertilizer'}>
+            <div className="automatic-profile-heading">
+              <div>
+                <strong>Pompa Pupuk</strong>
+              </div>
+              <label className="automatic-enable">
+                <input
+                  type="checkbox"
+                  checked={automaticDraft.fertilizer.enabled}
+                  disabled={!isAdmin}
+                  onChange={(event) => updateFertilizer({ enabled: event.target.checked })}
+                />
+                Aktif
+              </label>
+            </div>
+
+            <label className="automatic-field">
+              <span>Sensor utama</span>
+              <select value="liquid_ec_us_cm" disabled>
+                <option value="liquid_ec_us_cm">EC Larutan</option>
+              </select>
+            </label>
+
+            <div className="automatic-fields">
+              <AutomaticNumberField
+                label="EC minimum (mulai dosis)"
+                value={automaticDraft.fertilizer.ecLowUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecLowUsCm: value })}
+              />
+              <AutomaticNumberField
+                label="EC target (stop)"
+                value={automaticDraft.fertilizer.ecTargetUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecTargetUsCm: value })}
+              />
+              <AutomaticNumberField
+                label="EC maksimum"
+                value={automaticDraft.fertilizer.ecHighUsCm}
+                unit="uS/cm"
+                max={100000}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ ecHighUsCm: value })}
+              />
+            </div>
+            <details className="controls-advanced"><summary>Pengaturan tambahan</summary><div className="automatic-fields">
+              <AutomaticNumberField
+                label="Lama pompa sekali jalan"
+                value={automaticDraft.fertilizer.dosePulseSeconds}
+                unit="detik"
+                min={1}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ dosePulseSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Waktu tunggu agar tercampur"
+                value={automaticDraft.fertilizer.mixingDelaySeconds}
+                unit="detik"
+                min={1}
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ mixingDelaySeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Jeda sebelum pemberian berikutnya"
+                value={automaticDraft.fertilizer.cooldownSeconds}
+                unit="detik"
+                max={86400}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ cooldownSeconds: value })}
+              />
+              <AutomaticNumberField
+                label="Batas pupuk sekali jalan"
+                value={automaticDraft.fertilizer.maxDoseVolumeL}
+                unit="L"
+                min={0.001}
+                max={100000}
+                step={0.001}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ maxDoseVolumeL: value })}
+              />
+              <AutomaticNumberField
+                label="Batas pupuk per hari"
+                value={automaticDraft.fertilizer.maxDailyVolumeL}
+                unit="L"
+                min={0.001}
+                max={1000000}
+                step={0.001}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ maxDailyVolumeL: value })}
+              />
+              <AutomaticNumberField
+                label="Minimum debit"
+                value={automaticDraft.fertilizer.minFlowLpm}
+                unit="L/min"
+                max={10000}
+                step={0.01}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ minFlowLpm: value })}
+              />
+              <AutomaticNumberField
+                label="Jumlah pembacaan pemicu"
+                value={automaticDraft.fertilizer.triggerSampleCount}
+                unit="sampel"
+                min={1}
+                max={20}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ triggerSampleCount: value ?? 3 })}
+              />
+              <AutomaticNumberField
+                label="Batas menunggu data"
+                value={automaticDraft.fertilizer.sensorStaleSeconds}
+                unit="detik"
+                min={10}
+                max={3600}
+                disabled={!isAdmin}
+                onChange={(value) => updateFertilizer({ sensorStaleSeconds: value ?? 120 })}
+              />
+            </div></details>
+          </section>
+        </div>
+      </div>
+        )
+      }
+
+
+        </section>
+      </div>
     </section>
   )
 }

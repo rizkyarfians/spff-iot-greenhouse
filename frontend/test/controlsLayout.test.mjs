@@ -7,7 +7,11 @@ const controls = source.slice(source.indexOf('function ControlsPage('), source.i
 
 test('controls keeps pumps visible and opens automation inline below its buttons', () => {
   assert.ok(controls.indexOf('controls-actuators') < controls.indexOf('controls-automation'))
-  assert.match(controls, /<section[^>]+id="controls-settings-panel"[^>]+hidden=\{!controlTab\}/)
+  assert.match(controls, /<section[^>]+id="schedule-settings-panel"[^>]+hidden=\{controlTab !== 'schedule'\}/)
+  assert.match(controls, /<section[^>]+id="sensor-settings-panel"[^>]+hidden=\{controlTab !== 'sensor'\}/)
+  assert.ok(controls.indexOf('id="schedule-settings-button"') < controls.indexOf('id="schedule-settings-panel"'))
+  assert.ok(controls.indexOf('id="schedule-settings-panel"') < controls.indexOf('id="sensor-settings-button"'))
+  assert.ok(controls.indexOf('id="sensor-settings-button"') < controls.indexOf('id="sensor-settings-panel"'))
   assert.ok(controls.indexOf('controls-automation') < controls.indexOf('<section className="controls-settings-panel'))
   assert.doesNotMatch(controls, /showModal|<dialog/)
   assert.doesNotMatch(controls, /Mode alat:|Pengaturan mode sudah diterapkan|operation-note/)
