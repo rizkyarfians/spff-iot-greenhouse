@@ -1091,9 +1091,9 @@
 }
 
 .datalog-chart-visual {
-  display: grid;
+  display: block;
+  box-sizing: border-box;
   height: 230px;
-  place-items: center;
   margin-top: 12px;
   border-radius: 12px;
   background: linear-gradient(180deg, #fbfdfc 0%, #f7faf8 100%);
@@ -1105,6 +1105,9 @@
   display: block;
   width: min(100%, 1440px);
   height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  margin-inline: auto;
   overflow: visible;
 }
 
