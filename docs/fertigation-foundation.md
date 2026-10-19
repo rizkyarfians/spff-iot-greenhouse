@@ -1,4 +1,4 @@
-# Fertigation foundation (simulation only)
+# Program Fertigasi — Fondasi backend (simulasi saja)
 
 Migration `020_fertigation_foundation.sql` introduces agronomic recipe metadata and session/event tables. No recipes are inserted by default; every recipe requires an agronomic source and explicit approval before a decision can be suggested.
 
@@ -12,7 +12,7 @@ This release **does not ingest live session events**, create pump commands, publ
 
 Apply the migration *only after* review of database owner/permissions and backup on the Orange Pi. Do not automatically deploy or enable pump controls.
 
-## Adjustable recipes (API only, no new UI)
+## Pengaturan Program Fertigasi (API saja, belum ada UI)
 Run migration `021_editable_recipes_live_evaluation.sql` after migration 020 in a reviewed maintenance window. The service now supports:
 - `GET /api/fertigation/recipes` — logged-in user, all recipes in active site.
 - `POST /api/fertigation/recipes` — admin + CSRF, create draft. Body: `FertigationRecipeMutation` in `@spff/contracts`.
@@ -41,3 +41,7 @@ The supplied workbook includes 6 crops: Ubi Jalar, Kacang Tanah, Jagung Manis, T
 - Response menampilkan `controlStrategy.active='legacy_sensor'`, `deviceAuthority='esp32'`, `recipeMode='advisory_only'`, dan `canDispatch=false`. Firmware legacy adalah satu-satunya otoritas relay; **tidak ada dua pengendali yang bersaing**.
 - Sensor yang hilang/stale, crop mismatch, pemilihan tanaman yang belum dikonfigurasi, atau recipe draft menghasilkan `DELAY`.
 - **Masih dibutuhkan** kalibrasi sensor, pengukuran flow per sesi, interlock dan selector fisik, pengecekan schedule window aktual, validasi dosis dan mapping zona sebelum production closed-loop recipe mode bisa diaktifkan.
+
+## Istilah untuk pengguna
+
+Nama fitur yang ditampilkan kepada petani/operator adalah **Program Fertigasi**. Gunakan **Daftar Program Fertigasi**, **Buat Program Fertigasi**, **Ubah Program Fertigasi**, **Persetujuan Program Fertigasi**, dan **Evaluasi Program Fertigasi** pada UI nantinya. Nama internal database `fertigation_recipes`, `recipeId`, endpoint `/api/fertigation/recipes`, dan kontrak TypeScript tidak diganti demi kompatibilitas. Semua pesan HTTP untuk pengguna memakai istilah **Program Fertigasi**, bukan **Resep**.
