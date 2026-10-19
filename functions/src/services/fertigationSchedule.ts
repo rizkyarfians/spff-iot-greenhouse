@@ -18,6 +18,7 @@ export function calculateHst(plantingDate: string | null, today: string): number
 export function applicationDue(recipe: FertigationRecipe, today: string): boolean {
   const hst = calculateHst(recipe.plantingDate, today);
   if (hst === null || hst < recipe.hstFrom || hst > recipe.hstTo) return false;
+  if (recipe.applicationMode === 'sensor') return true;
   if (recipe.applicationMode === 'interval') {
     const interval = recipe.applicationIntervalDays;
     return interval !== null && Number.isSafeInteger(interval) && interval > 0 &&

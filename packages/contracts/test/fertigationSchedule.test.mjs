@@ -12,3 +12,10 @@ test('recurring schedule validates interval and preserves legacy defaults',()=>{
   for(const interval of [null,0,-1,1.5,1001]) assert.equal(parse({...base,applicationMode:'interval',applicationIntervalDays:interval}).success,false);
   assert.equal(parse({...base,applicationMode:'once',applicationIntervalDays:7}).success,false);
 });
+
+test('sensor trigger requires no calendar schedule and validates sample count',()=>{
+  const sensor={...base,applicationMode:'sensor',applicationIntervalDays:null};
+  assert.equal(fertigationRecipeMutationSchema.parse(sensor).triggerSampleCount,3);
+  for(const count of [0,21,1.5]) assert.equal(fertigationRecipeMutationSchema.safeParse({...sensor,triggerSampleCount:count}).success,false);
+  assert.equal(fertigationRecipeMutationSchema.safeParse({...sensor,applicationIntervalDays:1}).success,false);
+});

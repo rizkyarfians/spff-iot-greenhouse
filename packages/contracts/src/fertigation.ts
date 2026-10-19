@@ -21,8 +21,9 @@ export const fertigationRecipeInputSchema = z.object({
   minWaterTankPercent: percent,
   minStockTankPercent: percent,
   sourceReference: reference,
-  applicationMode: z.enum(['once', 'interval']).default('once'),
+  applicationMode: z.enum(['once', 'interval', 'sensor']).default('once'),
   applicationIntervalDays: z.number().int().min(1).max(1000).nullable().default(null),
+  triggerSampleCount: z.number().int().min(1).max(20).default(3),
   /** Batas agronomi per Program Fertigasi. NULL berarti belum disetujui, bukan menggunakan default kontrol lama. */
   moistureLowPercent: percent.nullable().default(null),
   moistureTargetPercent: percent.nullable().default(null),

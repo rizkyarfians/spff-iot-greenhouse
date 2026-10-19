@@ -23,6 +23,40 @@ const snapshot = {
   liquidEcUsCm:400,liquidEcValid:true,ecLowUsCm:500,ecHighUsCm:1200,
 };
 const run=(p,s=snapshot)=>evaluateAutomaticRuleBased(p,'esp32-s3-01',s,now);
+
+const sensorProgram={...program,applicationMode:'sensor',applicationDate:null,applicationIntervalDays:null,triggerSampleCount:3};
+const history=()=>[5,35,65].map(seconds=>({recordedAt:new Date(now.getTime()-seconds*1000),
+  moisture:30,moistureValid:true,ec:400,ecValid:true}));
+test('sensor rules stay eligible across days by HST with no application date or interval',()=>{
+  const nextDay=new Date(now.getTime()+86400000);
+  const current={...snapshot,moisture:30,recentSamples:history()};
+  assert.equal(run([sensorProgram],current).status,'suggested');
+  const shifted={...current,telemetryRecordedAt:new Date(snapshot.telemetryRecordedAt.getTime()+86400000),
+    deviceRecordedAt:new Date(snapshot.deviceRecordedAt.getTime()+86400000),
+    recentSamples:history().map(s=>({...s,recordedAt:new Date(s.recordedAt.getTime()+86400000)}))};
+  assert.equal(evaluateAutomaticRuleBased([sensorProgram],'esp32-s3-01',shifted,nextDay).status,'suggested');
+  assert.equal(run([{...sensorProgram,hstTo:29}],current).eligibleCount,0);
+});
+test('moisture must be at or below minimum for distinct fresh consecutive samples',()=>{
+  const current={...snapshot,moisture:30,recentSamples:history()};
+  assert.equal(run([sensorProgram],current).status,'suggested');
+  for(const samples of [[],history().slice(0,2),[history()[0],history()[0],history()[0]],
+    history().map((s,i)=>i===1?{...s,moisture:31}:s),
+    history().map((s,i)=>i===1?{...s,moistureValid:false}:s),
+    history().map((s,i)=>i===2?{...s,recordedAt:new Date(now.getTime()-121000)}:s)]) {
+    assert.equal(run([sensorProgram],{...current,recentSamples:samples}).status,'hold');
+  }
+  assert.equal(run([sensorProgram],{...current,moisture:31}).status,'hold');
+  assert.equal(run([sensorProgram],current).canDispatch,false);
+});
+test('fertilizer confirmation also needs consecutive EC readings below rule threshold',()=>{
+  const fert={...sensorProgram,targetStockL:1,ecLowUsCm:500,ecTargetUsCm:800,ecHighUsCm:1000};
+  assert.equal(run([fert],{...snapshot,recentSamples:history()}).action,'FERTIGATE');
+  for(const fault of [{ec:600},{ecValid:false},{ec:null}]) {
+    const samples=history().map((s,i)=>i===1?{...s,...fault}:s);
+    assert.equal(run([fert],{...snapshot,recentSamples:samples}).status,'hold');
+  }
+});
 test('rule demand thresholds are independent of missing or stricter legacy thresholds',()=>{
   for (const legacy of [null, 10, 90]) {
     const result=run([program],{...snapshot,moistureLowPercent:legacy,moistureTargetPercent:legacy});

@@ -18,12 +18,14 @@ test('create and edit persist recurring schedules alongside dosage and revision 
       assert.equal(columns.length,expressions.length);
       const stored=Object.fromEntries(columns.map((column,i)=>[column,expressions[i].startsWith('$')?values[Number(expressions[i].slice(1))-1]:'soil-1']));
       assert.equal(stored.application_mode,'interval');assert.equal(stored.application_interval_days,7);
+      assert.equal(stored.trigger_sample_count,3);
       row={...stored,revision:1,approval_status:'draft',approval_reference:null,approved_by:null,approved_at:null,updated_at:new Date()};
       return {rows:[row],rowCount:1};
     }
     if(sql.includes('UPDATE spff.fertigation_recipes SET')) {
       assert.match(sql,/application_mode=\$22,application_interval_days=\$23/);
       assert.equal(values[21],'interval');assert.equal(values[22],1);
+      assert.match(sql,/trigger_sample_count=\$24/);assert.equal(values[23],3);
       assert.match(sql,/approval_status='draft'/);
       row={...row,application_interval_days:1,revision:2};
       return {rows:[row],rowCount:1};

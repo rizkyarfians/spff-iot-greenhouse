@@ -4,21 +4,22 @@ import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, approveFertig
 import { useAuth } from './authContext'
 import './FertigationPage.css'
 
-const empty = () => ({ cropId: '', cropName: '', hstFrom: '', hstTo: '', targetWaterL: '', targetStockL: '0', fertilizerName: '', stockConcentrationGPerL: '', minWaterTankPercent: '', minStockTankPercent: '', sourceReference: '', plantingDate: '', applicationDate: '', applicationMode: 'interval', applicationIntervalDays: '1', moistureLowPercent: '', moistureTargetPercent: '', ecLowUsCm: '', ecTargetUsCm: '', ecHighUsCm: '' })
+const empty = () => ({ cropId: '', cropName: '', hstFrom: '', hstTo: '', targetWaterL: '', targetStockL: '0', fertilizerName: '', stockConcentrationGPerL: '', minWaterTankPercent: '', minStockTankPercent: '', sourceReference: '', plantingDate: '', applicationDate: '', applicationMode: 'sensor', applicationIntervalDays: '', triggerSampleCount: '3', moistureLowPercent: '', moistureTargetPercent: '', ecLowUsCm: '', ecTargetUsCm: '', ecHighUsCm: '' })
 type Form = ReturnType<typeof empty>
 const fields: { key: keyof Form; label: string; type: string; max?: number }[] = [
   { key: 'plantingDate', label: 'Tanggal tanam', type: 'date' },
   { key: 'hstFrom', label: 'HST awal', type: 'number', max: 1000 },
   { key: 'hstTo', label: 'HST akhir', type: 'number', max: 1000 },
-  { key: 'targetWaterL', label: 'Target air (L)', type: 'number', max: 100000 },
+  { key: 'triggerSampleCount', label: 'Jumlah pembacaan pemicu', type: 'number', max: 20 },
+  { key: 'targetWaterL', label: 'Batas air per sesi (L)', type: 'number', max: 100000 },
   { key: 'targetStockL', label: 'Target larutan stok (L)', type: 'number', max: 100000 },
   { key: 'fertilizerName', label: 'Nama pupuk', type: 'text' },
   { key: 'stockConcentrationGPerL', label: 'Konsentrasi stok (g/L)', type: 'number', max: 10000 },
   { key: 'minWaterTankPercent', label: 'Minimum tangki air (%)', type: 'number', max: 100 },
   { key: 'minStockTankPercent', label: 'Minimum tangki stok (%)', type: 'number', max: 100 },
   { key: 'sourceReference', label: 'Referensi sumber dosis (min. 5 karakter)', type: 'text' },
-  { key: 'moistureLowPercent', label: 'Kelembapan minimum (%)', type: 'number', max: 100 },
-  { key: 'moistureTargetPercent', label: 'Target kelembapan (%)', type: 'number', max: 100 },
+  { key: 'moistureLowPercent', label: 'Mulai menyiram saat kelembapan ≤ (%)', type: 'number', max: 100 },
+  { key: 'moistureTargetPercent', label: 'Berhenti saat kelembapan ≥ (%)', type: 'number', max: 100 },
   { key: 'ecLowUsCm', label: 'EC minimum (µS/cm)', type: 'number', max: 100000 },
   { key: 'ecTargetUsCm', label: 'EC target (µS/cm)', type: 'number', max: 100000 },
   { key: 'ecHighUsCm', label: 'EC maksimum (µS/cm)', type: 'number', max: 100000 },
@@ -48,6 +49,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     setSelected(recipe); setReference(''); setConfirmed(false); setResult(undefined); setError(''); setNotice('')
     const next = empty()
     if (recipe) for (const key of Object.keys(next) as (keyof Form)[]) next[key] = recipe[key] == null ? '' : String(recipe[key])
+    next.applicationMode = 'sensor'; next.applicationDate = ''; next.applicationIntervalDays = ''
     setForm(next)
   }
   async function run(action: () => Promise<void>) {
@@ -66,10 +68,10 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     const input = Object.fromEntries(fields.map(({key, type}) => [key, type === 'number' ? (form[key].trim() === '' ? null : Number(form[key])) : form[key].trim()]))
     input.cropId = form.cropId
     input.cropName = cropProfiles.find(crop => crop.id === form.cropId)?.commonName ?? ''
-    input.applicationMode = form.applicationMode
-    input.applicationIntervalDays = form.applicationMode === 'interval' ? Number(form.applicationIntervalDays) : null
+    input.applicationMode = 'sensor'
+    input.applicationIntervalDays = null
     input.plantingDate = form.plantingDate || null
-    input.applicationDate = form.applicationMode === 'once' ? form.applicationDate || null : null
+    input.applicationDate = null
     if (withFertilizer && !(Number(form.targetStockL) > 0)) throw new Error('Isi volume larutan pupuk lebih dari 0 liter untuk pilihan Air dan pupuk.')
     if (!withFertilizer) {
       input.targetStockL = 0; input.fertilizerName = null; input.stockConcentrationGPerL = null
@@ -91,7 +93,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
       {loaded && recipes.length === 0 && <p>Belum ada program. Admin dapat membuat draft melalui form di samping.</p>}
       {recipes.map(recipe => <button className={`ft-recipe ${selected?.recipeId === recipe.recipeId ? 'active' : ''}`} key={recipe.recipeId} disabled={busy} onClick={() => select(recipe)}><strong>{recipe.cropName}</strong><span>{recipe.approvalStatus} · revisi {recipe.revision}</span><span>Air {recipe.targetWaterL} L · stok {recipe.targetStockL} L</span></button>)}
     </aside><div className="ft-panel"><h3>{selected ? `Program Fertigasi ${selected.cropName}` : 'Program Fertigasi baru'}</h3>
-      <p>Jadwal berulang dimulai pada HST awal dan berhenti setelah HST akhir.</p>
+      <p>Aktif sepanjang rentang HST. Penyiraman dipicu kelembapan tanah yang mencapai batas minimum.</p>
       {!admin && <p>Tambah, edit, dan persetujuan program tersedia untuk Admin.</p>}
       <form onSubmit={e => { e.preventDefault(); void run(save) }}><fieldset disabled={!admin || busy}><div className="ft-fields">
         <label>Tanaman Smart Soil<select required value={form.cropId} onChange={e => {
@@ -100,14 +102,13 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
           setConfirmed(false); setReference(''); setResult(undefined)
         }}><option value="">Pilih tanaman</option>{cropProfiles.map(crop => <option key={crop.id} value={crop.id}>{crop.commonName}</option>)}</select></label>
         <label>Jenis pemberian<select value={withFertilizer ? 'fertilizer' : 'water'} onChange={e => { setWithFertilizer(e.target.value === 'fertilizer'); setResult(undefined) }}><option value="water">Air saja</option><option value="fertilizer">Air dan pupuk</option></select></label>
-        <label>Jadwal aplikasi<select value={form.applicationMode} onChange={e => { setForm({...form, applicationMode: e.target.value, applicationDate: '', applicationIntervalDays: e.target.value === 'interval' ? '1' : ''}); setResult(undefined) }}><option value="interval">Berulang berdasarkan umur tanaman</option><option value="once">Sekali pada tanggal tertentu</option></select></label>
-        {form.applicationMode === 'interval' ? <label>Ulangi setiap (hari)<input required type="number" min={1} max={1000} step={1} value={form.applicationIntervalDays} onChange={e => { setForm({...form, applicationIntervalDays: e.target.value}); setResult(undefined) }} /></label> : <label>Tanggal aplikasi (WIB)<input required type="date" value={form.applicationDate} onChange={e => { setForm({...form, applicationDate: e.target.value}); setResult(undefined) }} /></label>}
+        {selected && selected.applicationMode !== 'sensor' && <p role="status">Simpan ulang untuk memakai pemicu sensor. Jadwal lama tetap berlaku sampai perubahan disimpan dan disetujui.</p>}
         {selected && !selected.cropId && <p role="status">Program lama belum terhubung ke tanaman Smart Soil. Pilih tanaman lalu simpan ulang sebelum meminta persetujuan.</p>}
         {fields.map(({key, label, type, max}) => {
           const stockField = key === 'targetStockL' || key === 'fertilizerName' || key === 'stockConcentrationGPerL' || key.startsWith('ec')
           const inactive = stockField && !withFertilizer
           const thresholdField = ['moistureLowPercent', 'moistureTargetPercent', 'ecLowUsCm', 'ecTargetUsCm', 'ecHighUsCm'].includes(key)
-          return <label key={key}>{label}<input type={type} value={inactive ? '' : form[key]} disabled={inactive} min={type === 'number' ? 0 : undefined} max={max} step={key === 'hstFrom' || key === 'hstTo' ? 1 : 'any'} required={type !== 'date' && !inactive && !thresholdField} maxLength={key === 'sourceReference' ? 500 : key === 'cropName' ? 100 : 120} onChange={e => { setForm({...form, [key]: e.target.value}); setResult(undefined) }} /></label>
+          return <label key={key}>{label}<input type={type} value={inactive ? '' : form[key]} disabled={inactive} min={type === 'number' ? (key === 'triggerSampleCount' ? 1 : 0) : undefined} max={max} step={key === 'hstFrom' || key === 'hstTo' || key === 'triggerSampleCount' ? 1 : 'any'} required={type !== 'date' && !inactive && !thresholdField} maxLength={key === 'sourceReference' ? 500 : key === 'cropName' ? 100 : 120} onChange={e => { setForm({...form, [key]: e.target.value}); setResult(undefined) }} /></label>
         })}
       </div><button className="ft-primary" type="submit">{busy ? 'Memproses…' : selected ? 'Simpan perubahan sebagai draft' : 'Simpan draft'}</button></fieldset></form>
       {selected && <><hr/><h3>Persetujuan & evaluasi</h3><p>Status: <strong>{selected.approvalStatus}</strong> · revisi {selected.revision}. Evaluasi menggunakan versi tersimpan.</p>

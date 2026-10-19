@@ -38,7 +38,7 @@ export function evaluateAutomaticRuleBased(
   if (eligible.length !== 1) return {
     ...base, selectedProgramId: null, status: 'hold', action: 'DELAY',
     reasons: [eligible.length === 0
-      ? 'Tidak ada aturan budidaya yang disetujui untuk tanaman, HST, dan tanggal hari ini.'
+      ? 'Tidak ada aturan budidaya yang disetujui dan aktif untuk tanaman serta umur tanaman saat ini.'
       : 'Ada lebih dari satu aturan aktif. Tim agronomi harus mengatasi konflik sebelum otomatisasi.'],
   };
   const program = eligible[0]!;
@@ -51,7 +51,7 @@ export function evaluateAutomaticRuleBased(
       (program.ecLowUsCm === null || program.ecTargetUsCm === null || program.ecHighUsCm === null))
     reasons.push('Ambang EC pada aturan budidaya belum lengkap.');
   if (program.moistureLowPercent !== null && snapshot.moisture !== null &&
-      snapshot.moisture >= program.moistureLowPercent)
+      snapshot.moisture > program.moistureLowPercent)
     reasons.push('Moisture belum berada di bawah ambang Rule-Based.');
   if (program.targetStockL > 0 && program.ecLowUsCm !== null &&
       snapshot.liquidEcUsCm !== null && snapshot.liquidEcUsCm > program.ecLowUsCm)

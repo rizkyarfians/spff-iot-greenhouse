@@ -12,7 +12,7 @@ export function evaluateSiteFertigation(
   deviceId: string,
   snapshot: SiteEvaluationSnapshot,
   now = new Date(),
-  demandThresholds = {
+  demandThresholds = recipe.applicationMode === 'sensor' ? recipe : {
     moistureLowPercent: snapshot.moistureLowPercent,
     moistureTargetPercent: snapshot.moistureTargetPercent,
     ecLowUsCm: snapshot.ecLowUsCm,
@@ -51,7 +51,7 @@ export function evaluateSiteFertigation(
       demandThresholds.moistureLowPercent === null || demandThresholds.moistureTargetPercent === null ||
       demandThresholds.moistureLowPercent >= demandThresholds.moistureTargetPercent) {
     reasons.push('Kelembapan atau batas penyiraman tidak valid.');
-  } else if (snapshot.moisture >= demandThresholds.moistureLowPercent) {
+  } else if (snapshot.moisture > demandThresholds.moistureLowPercent) {
     reasons.push('Moisture belum mencapai ambang penyiraman; tunda aplikasi.');
   }
   if (recipe.targetStockL > 0) {
@@ -64,6 +64,26 @@ export function evaluateSiteFertigation(
     } else if (snapshot.liquidEcUsCm > demandThresholds.ecLowUsCm) {
       reasons.push('EC belum berada di bawah ambang pemupukan.');
     }
+  }
+
+  if (recipe.applicationMode === 'sensor') {
+    const count = recipe.triggerSampleCount;
+    const samples = snapshot.recentSamples ?? [];
+    const latest = samples.slice(0, count);
+    const distinct = new Set(latest.map(sample => sample.recordedAt.getTime()));
+    const confirmed = Number.isInteger(count) && count >= 1 && count <= 20 &&
+      latest.length === count && distinct.size === count &&
+      latest[0]?.recordedAt.getTime() === snapshot.telemetryRecordedAt?.getTime() &&
+      latest.every(sample => {
+        const age = now.getTime() - sample.recordedAt.getTime();
+        return age >= 0 && age <= 120000 && sample.moistureValid &&
+          sample.moisture !== null && Number.isFinite(sample.moisture) && sample.moisture >= 0 &&
+          recipe.moistureLowPercent !== null && sample.moisture <= recipe.moistureLowPercent &&
+          (recipe.targetStockL === 0 || (sample.ecValid && sample.ec !== null &&
+            Number.isFinite(sample.ec) && sample.ec >= 0 && recipe.ecLowUsCm !== null &&
+            sample.ec <= recipe.ecLowUsCm));
+      });
+    if (!confirmed) reasons.push(`Menunggu ${count} pembacaan sensor terbaru berturut-turut mencapai batas minimum.`);
   }
 
   const ready = reasons.length === 0;

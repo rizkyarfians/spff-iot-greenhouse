@@ -1,5 +1,15 @@
 # Program Fertigasi — Fondasi backend (simulasi saja)
 
+## Pemicu sensor sepanjang rentang HST (migration 025)
+
+Alur Rule-Based terbaru mengisi tanaman, tanggal tanam, rentang HST, dan ambang sekali saja. Form tidak lagi meminta tanggal aplikasi atau interval hari. Program yang disimpan memakai `applicationMode='sensor'` dan aktif sepanjang HST awal–akhir; rekomendasi penyiraman memerlukan kelembapan <= batas minimum. Untuk pupuk, syarat EC aturan juga harus dipenuhi. Tanggal tanam tetap dipakai menghitung HST menurut Asia/Jakarta.
+
+Jalankan `025_fertigation_sensor_trigger.sql` setelah 024. Migrasi mempertahankan jadwal dan persetujuan program lama. Buka dan simpan ulang program lama untuk pindah ke pemicu sensor; perubahan tersebut mereset persetujuan. Mode once/interval tetap didukung untuk kompatibilitas data lama, tetapi tidak ditampilkan sebagai opsi pada form Rule-Based terbaru.
+
+`triggerSampleCount` (1–20, awal 3) membutuhkan sampel telemetry berbeda berturut-turut, semuanya valid dan berumur maksimal 120 detik. Bacaan di atas ambang, hilang, atau invalid memutus konfirmasi; refresh HTTP tidak menambah hitungan. Jika telemetry jarang masuk, jumlah sampel harus sesuai jendela freshness. Pemeriksaan ini digunakan oleh evaluasi program maupun pemilihan otomatis.
+
+Batas air per sesi dan target kelembapan tersimpan sebagai parameter. Pelaksanaan penghentian pompa, hysteresis saat sesi berlangsung, jeda meresap/mencampur, serta batas dosis harian belum diimplementasikan pada pelaksana Model 1. Evaluator tetap `canDispatch=false`; firmware lama tetap menjalankan pengaman dan kontrolnya sendiri. Tidak ada klaim penghematan air fisik sebelum pelaksana tersebut divalidasi.
+
 ## Jadwal aplikasi berulang (migration 024)
 
 Setelah migrasi 020–023, jalankan `024_fertigation_recurring_schedule.sql` satu kali. Program lama tetap `applicationMode='once'` dengan tanggal aplikasi aslinya. Untuk sekali pengaturan, pilih jadwal berulang dan isi interval hari: 1 berarti setiap hari; 7 berarti HST awal, HST awal + 7, dan seterusnya hingga HST akhir. Perhitungan mengikuti kalender Asia/Jakarta dan tanggal tanam. Interval adalah konfigurasi pengguna, bukan rekomendasi agronomi bawaan. Hari terlewat tidak diulang secara otomatis. Mengubah jadwal mereset persetujuan sebagaimana perubahan program lainnya.

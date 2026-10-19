@@ -12,7 +12,8 @@ export async function getFertigationRecipe(recipeId: string): Promise<Fertigatio
     min_stock_tank_percent: number; source_reference: string; approval_status: 'draft' | 'approved';
     approval_reference: string | null; approved_by: string | null; approved_at: Date | null;
     planting_date: string | null; application_date: string | null;
-    application_mode: 'once' | 'interval'; application_interval_days: number | null;
+    application_mode: 'once' | 'interval' | 'sensor'; application_interval_days: number | null;
+    trigger_sample_count: number;
     revision: number; updated_at: Date; zone_id: string; crop_id: string | null;
     moisture_low_percent: number | null; moisture_target_percent: number | null;
     ec_low_us_cm: number | null; ec_target_us_cm: number | null; ec_high_us_cm: number | null;
@@ -23,7 +24,7 @@ export async function getFertigationRecipe(recipeId: string): Promise<Fertigatio
            approval_reference,approved_by,approved_at,
            to_char(planting_date, 'YYYY-MM-DD') AS planting_date,
            to_char(application_date, 'YYYY-MM-DD') AS application_date,
-           revision,updated_at,zone_id,crop_id,application_mode,application_interval_days,
+           revision,updated_at,zone_id,crop_id,application_mode,application_interval_days,trigger_sample_count,
            moisture_low_percent,moisture_target_percent,ec_low_us_cm,ec_target_us_cm,ec_high_us_cm
     FROM spff.fertigation_recipes WHERE site_id = $1 AND recipe_id = $2
   `, [configuredSiteId, recipeId]);
@@ -55,6 +56,7 @@ export async function getFertigationRecipe(recipeId: string): Promise<Fertigatio
     applicationDate: row.application_date,
     applicationMode: row.application_mode,
     applicationIntervalDays: row.application_interval_days,
+    triggerSampleCount: row.trigger_sample_count,
     revision: row.revision,
     updatedAt: row.updated_at.toISOString(),
   });
@@ -93,13 +95,13 @@ export async function createFertigationRecipe(input: FertigationRecipeMutation, 
        fertilizer_name,stock_concentration_g_per_l,min_water_tank_percent,min_stock_tank_percent,
        source_reference,planting_date,application_date,zone_id,crop_id,
        moisture_low_percent,moisture_target_percent,ec_low_us_cm,ec_target_us_cm,ec_high_us_cm,
-       application_mode,application_interval_days)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'soil-1',$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *
+       application_mode,application_interval_days,trigger_sample_count)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'soil-1',$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *
     `, [id,configuredSiteId,input.cropName,input.hstFrom,input.hstTo,input.targetWaterL,
       input.targetStockL,input.fertilizerName,input.stockConcentrationGPerL,
       input.minWaterTankPercent,input.minStockTankPercent,input.sourceReference,
       input.plantingDate,input.applicationDate,input.cropId,
-      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm,input.applicationMode,input.applicationIntervalDays]);
+      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm,input.applicationMode,input.applicationIntervalDays,input.triggerSampleCount]);
     await client.query(
       'INSERT INTO spff.fertigation_recipe_revisions (recipe_id,revision,snapshot,changed_by) VALUES ($1,1,$2,$3)',
       [id,inserted.rows[0],actor],
@@ -119,7 +121,7 @@ export async function updateFertigationRecipe(recipeId: string, input: Fertigati
         crop_name=$4,hst_from=$5,hst_to=$6,target_water_l=$7,target_stock_l=$8,
         fertilizer_name=$9,stock_concentration_g_per_l=$10,min_water_tank_percent=$11,
         min_stock_tank_percent=$12,source_reference=$13,planting_date=$14,application_date=$15,crop_id=$16,
-        moisture_low_percent=$17,moisture_target_percent=$18,ec_low_us_cm=$19,ec_target_us_cm=$20,ec_high_us_cm=$21,application_mode=$22,application_interval_days=$23,
+        moisture_low_percent=$17,moisture_target_percent=$18,ec_low_us_cm=$19,ec_target_us_cm=$20,ec_high_us_cm=$21,application_mode=$22,application_interval_days=$23,trigger_sample_count=$24,
         approval_status='draft',approval_reference=NULL,approved_by=NULL,approved_at=NULL,
         revision=revision+1,updated_at=now()
       WHERE site_id=$1 AND recipe_id=$2 AND revision=$3 RETURNING *
@@ -127,7 +129,7 @@ export async function updateFertigationRecipe(recipeId: string, input: Fertigati
       input.hstTo,input.targetWaterL,input.targetStockL,input.fertilizerName,
       input.stockConcentrationGPerL,input.minWaterTankPercent,input.minStockTankPercent,
       input.sourceReference,input.plantingDate,input.applicationDate,input.cropId,
-      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm,input.applicationMode,input.applicationIntervalDays]);
+      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm,input.applicationMode,input.applicationIntervalDays,input.triggerSampleCount]);
     updated = result.rowCount === 1;
     if (updated) await client.query(
       'INSERT INTO spff.fertigation_recipe_revisions(recipe_id,revision,snapshot,changed_by) VALUES($1,$2,$3,$4)',
@@ -160,6 +162,10 @@ export async function approveFertigationRecipe(recipeId: string, expectedRevisio
   return updated ? getFertigationRecipe(recipeId) : null;
 }
 export interface SiteEvaluationSnapshot {
+  recentSamples?: Array<{
+    recordedAt: Date; moisture: number | null; moistureValid: boolean;
+    ec: number | null; ecValid: boolean;
+  }>;
   telemetryRecordedAt: Date | null;
   deviceRecordedAt: Date | null;
   deviceOnline: boolean | null;
@@ -233,7 +239,24 @@ export async function loadSiteFertigationSnapshot(deviceId: string): Promise<Sit
   const valid=(name:string,value:number|null)=>value!==null && r.sensor_health?.[name]?.valid!==false;
   const moistureKey=r.water_sensor_key==='soil_1_moisture'||r.water_sensor_key==='soil_2_moisture'?r.water_sensor_key:null;
   const moisture=moistureKey==='soil_1_moisture'?r.soil_1_moisture:moistureKey==='soil_2_moisture'?r.soil_2_moisture:null;
+  const recent = await pool.query<{
+    recorded_at: Date; soil_1_moisture: number | null; soil_2_moisture: number | null;
+    liquid_ec_us_cm: number | null; sensor_health: Record<string,{valid?:boolean}> | null;
+  }>(`SELECT DISTINCT ON (recorded_at) recorded_at,soil_1_moisture,soil_2_moisture,
+         liquid_ec_us_cm,sensor_health
+       FROM spff.telemetry_samples WHERE site_id=$1 AND device_id=$2
+         AND recorded_at <= $3 AND recorded_at >= $3::timestamptz - interval '120 seconds'
+       ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 20`,
+  [configuredSiteId,deviceId,r.telemetry_recorded_at]);
   return {
+    recentSamples: recent.rows.map(sample => {
+      const value = moistureKey === 'soil_1_moisture' ? sample.soil_1_moisture :
+        moistureKey === 'soil_2_moisture' ? sample.soil_2_moisture : null;
+      return {recordedAt:sample.recorded_at,moisture:value,
+        moistureValid:moistureKey !== null && value !== null && sample.sensor_health?.[moistureKey]?.valid !== false,
+        ec:sample.liquid_ec_us_cm,
+        ecValid:sample.liquid_ec_us_cm !== null && sample.sensor_health?.liquid_ec_us_cm?.valid !== false};
+    }),
     activeCropId:r.crop_id,
     moistureSensorKey:moistureKey,moisture,moistureValid:moistureKey!==null && valid(moistureKey,moisture),
     moistureLowPercent:r.water_moisture_low_pct,moistureTargetPercent:r.water_moisture_target_pct,
