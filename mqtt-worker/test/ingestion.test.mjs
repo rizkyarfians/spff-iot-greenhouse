@@ -7,6 +7,7 @@ function repositorySpy() {
   return {
     calls,
     saveTelemetry: async (message) => calls.push(['telemetry', message]),
+    saveFertigationSession: async (message) => calls.push(['session', message]),
     saveActuatorState: async (message) => calls.push(['state', message]),
     saveAcknowledgement: async (message) => calls.push(['ack', message]),
     saveScheduleSyncAck: async (message) => calls.push(['schedule_ack', message]),
@@ -88,4 +89,35 @@ test('automatic control acknowledgement is validated and stored', async () => {
   assert.equal(repository.calls.length, 1);
   assert.equal(repository.calls[0][0], 'automatic_control_ack');
   assert.equal(repository.calls[0][1].revision, 9);
+});
+
+test('device-origin session receives DB ACK only after saving to repository', async () => {
+  const repository=repositorySpy();
+  const service=new IngestionService(repository);
+  const message={
+    kind:'fertigation_session_event',schemaVersion:1,
+    siteId:'greenhouse-01',deviceId:'esp32-s3-01',
+    messageId:'session-event-1',sequence:1,
+    sessionId:'f247bd02-6c3e-4826-bd10-5fa3bb6fbd26',
+    recipeId:'e247bd02-6c3e-4826-bd10-5fa3bb6fbd26',
+    recordedAt:'2026-10-19T08:00:00.000Z',
+    status:'started',targetWaterL:10,targetStockL:0,
+    actualWaterL:0,actualStockL:0,pumpsOff:true,completionReason:null,
+  };
+  const ack=await service.process('spff/v1/greenhouse-01/esp32-s3-01/sessions',Buffer.from(JSON.stringify(message)));
+  assert.equal(repository.calls[0][0],'session');
+  assert.equal(ack.kind,'fertigation_session_persisted_ack');
+  assert.equal(ack.messageId,message.messageId);
+  await assert.rejects(()=>service.process('spff/v1/other-site/esp32-s3-01/sessions',Buffer.from(JSON.stringify(message))));
+  assert.equal(repository.calls.length,1);
+});
+test('session persistence failure does not emit ACK',async()=>{
+  const repository=repositorySpy();
+  repository.saveFertigationSession=async()=>{throw new Error('database offline')};
+  const service=new IngestionService(repository);
+  const message={kind:'fertigation_session_event',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',
+    sessionId:'f247bd02-6c3e-4826-bd10-5fa3bb6fbd26',recipeId:'e247bd02-6c3e-4826-bd10-5fa3bb6fbd26',
+    messageId:'session-event-1',sequence:1,recordedAt:'2026-10-19T08:00:00.000Z',
+    status:'started',targetWaterL:10,targetStockL:0,actualWaterL:0,actualStockL:0,pumpsOff:true,completionReason:null};
+  await assert.rejects(()=>service.process('spff/v1/greenhouse-01/esp32-s3-01/sessions',Buffer.from(JSON.stringify(message))));
 });
