@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { cropProfiles, fertigationRecipeMutationSchema, fertigationLiveDecisionSchema, type ApiDevice, type FertigationRecipe, type FertigationLiveDecision } from '@spff/contracts'
 import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, evaluateFertigationSite } from './api'
 import { useAuth } from './authContext'
@@ -8,8 +9,8 @@ const empty = () => ({ cropId: '', cropName: '', hstFrom: '', hstTo: '', targetW
 type Form = ReturnType<typeof empty>
 const fields: { key: keyof Form; label: string; type: string; max?: number; hint?: string; placeholder?: string }[] = [
   { key: 'plantingDate', label: 'Tanggal tanam', type: 'date' },
-  { key: 'hstFrom', label: 'Mulai dipakai saat tanaman berumur (hari)', type: 'number', max: 1000 },
-  { key: 'hstTo', label: 'Dipakai sampai tanaman berumur (hari)', type: 'number', max: 1000 },
+  { key: 'hstFrom', label: 'Mulai umur (hari)', type: 'number', max: 1000 },
+  { key: 'hstTo', label: 'Sampai umur (hari)', type: 'number', max: 1000 },
   { key: 'triggerSampleCount', label: 'Konfirmasi tanah kering (kali pembacaan)', type: 'number', max: 20, hint: 'Jumlah bacaan rendah berturut-turut sebelum menyarankan penyiraman.' },
   { key: 'targetWaterL', label: 'Air paling banyak sekali penyiraman (liter)', type: 'number', max: 100000 },
   { key: 'targetStockL', label: 'Larutan dari tandon pupuk sekali pemberian (liter)', type: 'number', max: 100000 },
@@ -24,7 +25,7 @@ const fields: { key: keyof Form; label: string; type: string; max?: number; hint
   { key: 'ecHighUsCm', label: 'Batas EC larutan tertinggi (µS/cm)', type: 'number', max: 100000 },
 ]
 const fieldGroups: { title: string; keys: (keyof Form)[]; fertilizerOnly?: boolean }[] = [
-  {title: 'Umur tanaman yang memakai aturan ini', keys: ['plantingDate', 'hstFrom', 'hstTo']},
+  {title: 'Masa berlaku', keys: ['plantingDate', 'hstFrom', 'hstTo']},
   {title: 'Penyiraman', keys: ['moistureLowPercent', 'moistureTargetPercent', 'targetWaterL', 'triggerSampleCount']},
   {title: 'Pemberian pupuk', fertilizerOnly: true, keys: ['fertilizerName', 'stockConcentrationGPerL', 'targetStockL', 'ecLowUsCm', 'ecTargetUsCm', 'ecHighUsCm']},
   {title: 'Isi tandon', keys: ['minWaterTankPercent', 'minStockTankPercent']},
@@ -37,6 +38,7 @@ function effectiveDate(plantingDate: string, days: string) {
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('id-ID', {timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric'}).format(date) : null
 }
 function message(error: unknown) {
+  if (error instanceof ApiError && error.status === 530) return 'Koneksi ke server belum tersedia. Coba muat ulang beberapa saat lagi. (HTTP 530)'
   return error instanceof ApiError ? `${error.message}${error.errors.length ? ' — '+error.errors.join(', ') : ''}${error.status === 409 ? ' Muat ulang daftar lalu pilih ulang program sebelum mengedit.' : ''}` : error instanceof Error ? error.message : 'Permintaan gagal.'
 }
 export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
@@ -103,12 +105,12 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     <header><span className="ft-badge">Simulasi saja · pompa tidak digerakkan</span></header>
     {error && <div role="alert" className="ft-error">{error}</div>}
     {notice && <div role="status" className="ft-notice">{notice}</div>}
-    <div className="ft-layout"><aside className="ft-panel"><div className="ft-actions"><h3>Daftar program</h3><button disabled={busy} onClick={() => void run(reload)}>Muat ulang</button></div>
-      {admin && <button disabled={busy} onClick={() => select()}>+ Program Fertigasi baru</button>}
+    <div className="ft-layout"><aside className="ft-panel ft-sidebar"><div className="ft-actions"><h3>Program</h3><button className="ft-icon-button" title="Muat ulang program" aria-label="Muat ulang program" disabled={busy} onClick={() => void run(reload)}><RefreshCw size={16}/></button></div>
+      {admin && <button className="ft-new-button" disabled={busy} onClick={() => select()}><Plus size={16}/> Program baru</button>}
       {!loaded && !error && <p>Memuat program…</p>}
       {loaded && recipes.length === 0 && <p>Belum ada program. Admin dapat mengisi aturan melalui form.</p>}
       {recipes.map(recipe => <button className={`ft-recipe ${selected?.recipeId === recipe.recipeId ? 'active' : ''}`} key={recipe.recipeId} disabled={busy} onClick={() => select(recipe)}><strong>{recipe.cropName}</strong><span>{recipe.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</span><span>Air {recipe.targetWaterL} L · stok {recipe.targetStockL} L</span></button>)}
-    </aside><div className="ft-panel"><h3>{selected ? `Program Fertigasi ${selected.cropName}` : 'Program Fertigasi baru'}</h3>
+    </aside><div className="ft-panel ft-editor"><div className="ft-editor-heading"><h3>{selected ? selected.cropName : 'Program baru'}</h3><span>{selected ? 'Ubah program' : 'Buat program'}</span></div>
       {!admin && <p>Hanya Admin yang dapat mengubah aturan.</p>}
       <form onSubmit={e => { e.preventDefault(); void run(save) }}><fieldset disabled={!admin || busy}><div className="ft-fields">
         <label>Tanaman<select required value={form.cropId} onChange={e => {
@@ -119,7 +121,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
         <label>Jenis pemberian<select value={withFertilizer ? 'fertilizer' : 'water'} onChange={e => { setWithFertilizer(e.target.value === 'fertilizer'); setResult(undefined) }}><option value="water">Air saja</option><option value="fertilizer">Air dan pupuk</option></select></label>
         {selected && selected.applicationMode !== 'sensor' && <p role="status">Simpan ulang untuk memakai pemicu sensor. Jadwal lama tetap berlaku sampai perubahan disimpan.</p>}
         {selected && !selected.cropId && <p role="status">Program lama belum terhubung ke tanaman Smart Soil. Pilih tanaman lalu simpan ulang.</p>}
-        {fieldGroups.filter(group => !group.fertilizerOnly || withFertilizer).map(group => <section className="ft-field-group" key={group.title} aria-label={group.title}>
+        {fieldGroups.filter(group => !group.fertilizerOnly || withFertilizer).map(group => <section className={`ft-field-group${group.keys.includes('plantingDate') ? ' ft-age-group' : ''}`} key={group.title} aria-label={group.title}>
           <h4>{group.title}</h4>
           <div className="ft-fields">{group.keys.map(key => fields.find(field => field.key === key)!).filter(field => withFertilizer || field.key !== 'minStockTankPercent').map(({key, label, type, max, hint, placeholder}) => {
           const thresholdField = ['moistureLowPercent', 'moistureTargetPercent', 'ecLowUsCm', 'ecTargetUsCm', 'ecHighUsCm'].includes(key)
@@ -127,7 +129,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
         })}</div>
           {group.keys.includes('plantingDate') && <p className="ft-field-hint">Tanggal tanam dipakai menghitung umur. Hari tanam dihitung sebagai umur 0 hari.{effectiveDate(form.plantingDate, form.hstFrom) && effectiveDate(form.plantingDate, form.hstTo) && <> Aturan ini berlaku {effectiveDate(form.plantingDate, form.hstFrom)} sampai {effectiveDate(form.plantingDate, form.hstTo)}.</>}</p>}
         </section>)}
-      </div><button className="ft-primary" type="submit">{busy ? 'Memproses…' : 'Simpan dan gunakan aturan'}</button></fieldset></form>
+      </div><div className="ft-save-row"><button className="ft-primary" type="submit">{busy ? 'Memproses…' : 'Simpan dan gunakan aturan'}</button></div></fieldset></form>
       {selected && <><hr/><h3>Periksa kondisi tanaman</h3><p>Status aturan: <strong>{selected.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</strong></p>
         {dirty && <p className="ft-error">Ada perubahan belum disimpan. Simpan dahulu atau pilih ulang program.</p>}
         <label>Perangkat<select disabled={busy} value={deviceId} onChange={e => { setDeviceId(e.target.value); setResult(undefined) }}><option value="">Pilih perangkat</option>{devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}</select></label>
