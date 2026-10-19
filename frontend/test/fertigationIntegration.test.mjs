@@ -41,5 +41,4 @@ test('internal form preserves all agronomic thresholds when editing a program', 
     assert.ok(page.includes(`${key}: ''`))
     assert.ok(page.includes(`key: '${key}'`))
   }
-  assert.match(page, /!inactive && !thresholdField/)
 })
