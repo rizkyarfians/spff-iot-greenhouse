@@ -2032,6 +2032,10 @@ input:focus-visible {
   overflow: hidden;
 }
 
+.chart-visual .chart-time-label {
+  font-size: 10px;
+}
+
 .chart-visual svg {
   display: block;
 

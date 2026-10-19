@@ -2,6 +2,7 @@ import { ChartHover } from './ChartHover'
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from 'react'
@@ -1516,6 +1517,23 @@ const soilNpkGroups =
       )
 
 
+  const dashboardChartSvg = useRef<SVGSVGElement | null>(null)
+  const [dashboardChartSize, setDashboardChartSize] = useState({ width: 760, height: 238 })
+
+  useEffect(() => {
+    const svg = dashboardChartSvg.current
+    if (!svg) return
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.round(entry.contentRect.width)
+      const height = Math.round(entry.contentRect.height)
+      if (width <= 0 || height <= 0) return
+      setDashboardChartSize(current => current.width === width && current.height === height
+        ? current : { width, height })
+    })
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [activePage, currentHistory.length])
+
   const chartGeometry =
     useMemo(
       () => {
@@ -1523,10 +1541,10 @@ const soilNpkGroups =
           28
 
         const plotRight =
-          732
+          dashboardChartSize.width - 28
 
         const plotBottom =
-          202
+          dashboardChartSize.height - 36
 
 
         const values =
@@ -1603,7 +1621,7 @@ const soilNpkGroups =
                   )
                   / range
                 )
-                * 132,
+                * Math.max(1, plotBottom - 70),
             }),
           )
 
@@ -1682,6 +1700,7 @@ const soilNpkGroups =
       },
       [
         currentHistory,
+        dashboardChartSize,
       ],
     )
 
@@ -1691,7 +1710,7 @@ const soilNpkGroups =
       chartGeometry
         .points
         .length,
-      6,
+      Math.max(2, Math.min(6, Math.floor(dashboardChartSize.width / 100))),
     )
 
 
@@ -2807,8 +2826,9 @@ const soilNpkGroups =
 
                             : (
                                 <svg
-                                  viewBox="0 0 760 238"
-                                  preserveAspectRatio="none"
+                                  ref={dashboardChartSvg}
+                                  viewBox={`0 0 ${dashboardChartSize.width} ${dashboardChartSize.height}`}
+                                  preserveAspectRatio="xMidYMid meet"
                                   role="img"
                                   aria-label={
                                     `Grafik ${currentSensor.label}`
@@ -2856,7 +2876,7 @@ const soilNpkGroups =
                                     y1={
                                       chartGeometry.plotBottom
                                     }
-                                    x2="732"
+                                    x2={dashboardChartSize.width - 28}
                                     y2={
                                       chartGeometry.plotBottom
                                     }
@@ -2965,7 +2985,7 @@ const soilNpkGroups =
                                               x={
                                                 point.x
                                               }
-                                              y="226"
+                                              y={chartGeometry.plotBottom + 24}
                                               textAnchor="middle"
                                             >
                                               {
@@ -2980,7 +3000,7 @@ const soilNpkGroups =
                                       },
                                     )
                                   }
-                                  <ChartHover data={currentHistory} points={chartGeometry.points} unit={currentSensor.unit} label={currentSensor.label} plotBottom={chartGeometry.plotBottom}/>
+                                  <ChartHover data={currentHistory} points={chartGeometry.points} unit={currentSensor.unit} label={currentSensor.label} plotBottom={chartGeometry.plotBottom} viewWidth={dashboardChartSize.width}/>
                                 </svg>
                               )
                         }
