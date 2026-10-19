@@ -29,7 +29,7 @@ export const fertigationRecipeInputSchema = z.object({
     ctx.addIssue({ code: 'custom', path: ['targetStockL'], message: 'Dosis stok membutuhkan nama pupuk dan konsentrasi stok tervalidasi.' });
   }
   if (value.targetStockL === 0 && (value.fertilizerName !== null || value.stockConcentrationGPerL !== null)) {
-    ctx.addIssue({ code: 'custom', path: ['fertilizerName'], message: 'Resep air saja tidak boleh memuat konsentrasi pupuk.' });
+    ctx.addIssue({ code: 'custom', path: ['fertilizerName'], message: 'Program Fertigasi untuk penyiraman saja tidak boleh memuat konsentrasi pupuk.' });
   }
 });
 export type FertigationRecipeInput = z.infer<typeof fertigationRecipeInputSchema>;
