@@ -53,3 +53,10 @@ Nama fitur yang ditampilkan kepada petani/operator adalah **Program Fertigasi**.
 - Existing settings are still the legacy control thresholds. Device-level protections (tandon **in %**, max runtime, minimum flow, pulse/mixing/cooldown, interlocks) stay under authorized equipment configuration, not silently overridden by program data.
 - A real `program_volume` implementation requires a new command and ACK contract, strategy arbitration and mutually exclusive relay ownership in ESP32, calibrated session volume counters, schedule/physical selector checks, and failure/restart persistence; **none are active here**.
 - Validate migration 020–023 and run `npm run build`, `npm run lint` and `npm test` before merge; these were not executed in a checked-out repository in this environment.
+
+## Automatic Control: Rule-Based Model 1 ONLY (19 October 2026)
+- Fokus user: **Automatic → Rule-Based**, belum Random Forest. Tidak perlu halaman aktivasi `Program Fertigasi` terpisah.
+- `GET /api/automatic-control/rule-based?deviceId=esp32-s3-01` membaca tanaman aktif site dari PostgreSQL, mencari **tepat satu** aturan agronomi approved yang cocok dengan tanggal/HST, lalu mengevaluasi data perangkat terbaru. Jika tidak ada/lebih dari satu kandidat, fail closed (`DELAY`).
+- Resep/program di database sekarang diperlakukan sebagai **data aturan agronomi internal**; nama schema dan endpoint lama tetap dipertahankan demi kompatibilitas. Petani tidak memasukkan `recipeId` untuk keputusan Model 1.
+- `canDispatch:false` selalu. Pemilih metode firmware **belum tersedia** di firmware Master 1.4.15. ESP32 masih menjalankan sensor-based scheduler/controller, sehingga model ini **belum benar-benar menggantikan controller itu** dan tidak boleh mengirim ON/OFF paralel.
+- Sebelum eksekusi fisik: definisikan kontrol tunggal pada ESP32 (legacy vs rule-based), kontrak serta ACK mode/command dan expiry, selector fisik, safety tandon dalam persen (%), stop-on-fault, schedule validation, dan test broker + hardware. Tidak ada flash/deployment sekarang.
