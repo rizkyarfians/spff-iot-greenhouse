@@ -5,6 +5,12 @@ import { fertigationRecipeMutationSchema } from '../dist/index.js';
 const base={cropId:'sweet-potato',cropName:'Ubi Jalar',hstFrom:1,hstTo:35,targetWaterL:1,targetStockL:0,
   fertilizerName:null,stockConcentrationGPerL:null,minWaterTankPercent:20,minStockTankPercent:20,
   sourceReference:'Synthetic test fixture',plantingDate:'2026-10-18',applicationDate:null};
+test('a draft can omit the source without inventing a reference or approval',()=>{
+  const {sourceReference,...withoutSource}=base;
+  assert.ok(sourceReference);
+  assert.equal(fertigationRecipeMutationSchema.parse(withoutSource).sourceReference,'');
+  assert.equal(fertigationRecipeMutationSchema.parse({...base,sourceReference:'Tes'}).sourceReference,'Tes');
+});
 test('recurring schedule validates interval and preserves legacy defaults',()=>{
   const parse=input=>fertigationRecipeMutationSchema.safeParse(input);
   assert.equal(parse(base).data.applicationMode,'once');

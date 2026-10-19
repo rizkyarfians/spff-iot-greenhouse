@@ -27,6 +27,7 @@ test('create and edit persist recurring schedules alongside dosage and revision 
       assert.equal(values[21],'interval');assert.equal(values[22],1);
       assert.match(sql,/trigger_sample_count=\$24/);assert.equal(values[23],3);
       assert.match(sql,/approval_status='draft'/);
+      assert.match(sql,/source_reference=COALESCE\(NULLIF\(\$13,''\),source_reference\)/);
       row={...row,application_interval_days:1,revision:2};
       return {rows:[row],rowCount:1};
     }

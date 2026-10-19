@@ -20,7 +20,7 @@ export const fertigationRecipeInputSchema = z.object({
   stockConcentrationGPerL: finite.positive().max(10000).nullable(),
   minWaterTankPercent: percent,
   minStockTankPercent: percent,
-  sourceReference: reference,
+  sourceReference: z.string().trim().max(500).default(''),
   applicationMode: z.enum(['once', 'interval', 'sensor']).default('once'),
   applicationIntervalDays: z.number().int().min(1).max(1000).nullable().default(null),
   triggerSampleCount: z.number().int().min(1).max(20).default(3),

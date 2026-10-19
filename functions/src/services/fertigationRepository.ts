@@ -120,7 +120,7 @@ export async function updateFertigationRecipe(recipeId: string, input: Fertigati
       UPDATE spff.fertigation_recipes SET
         crop_name=$4,hst_from=$5,hst_to=$6,target_water_l=$7,target_stock_l=$8,
         fertilizer_name=$9,stock_concentration_g_per_l=$10,min_water_tank_percent=$11,
-        min_stock_tank_percent=$12,source_reference=$13,planting_date=$14,application_date=$15,crop_id=$16,
+        min_stock_tank_percent=$12,source_reference=COALESCE(NULLIF($13,''),source_reference),planting_date=$14,application_date=$15,crop_id=$16,
         moisture_low_percent=$17,moisture_target_percent=$18,ec_low_us_cm=$19,ec_target_us_cm=$20,ec_high_us_cm=$21,application_mode=$22,application_interval_days=$23,trigger_sample_count=$24,
         approval_status='draft',approval_reference=NULL,approved_by=NULL,approved_at=NULL,
         revision=revision+1,updated_at=now()

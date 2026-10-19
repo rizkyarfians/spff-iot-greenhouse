@@ -17,7 +17,6 @@ const fields: { key: keyof Form; label: string; type: string; max?: number; hint
   { key: 'stockConcentrationGPerL', label: 'Pupuk dalam setiap 1 liter larutan tandon (gram)', type: 'number', max: 10000, hint: 'Isi gram pupuk dibagi liter larutan. Contoh hitung: 100 gram dalam 10 liter = 10 g/L, bukan anjuran dosis.' },
   { key: 'minWaterTankPercent', label: 'Sisa air minimum di tandon (%)', type: 'number', max: 100, hint: 'Penyiraman ditahan jika isi tandon di bawah angka ini.' },
   { key: 'minStockTankPercent', label: 'Sisa larutan pupuk minimum di tandon (%)', type: 'number', max: 100 },
-  { key: 'sourceReference', label: 'Sumber aturan dan dosis', type: 'text', placeholder: 'Judul jurnal, protokol, atau catatan agronom', hint: 'Tulis sumber yang benar-benar dipakai, minimal 5 karakter.' },
   { key: 'moistureLowPercent', label: 'Mulai menyiram saat kelembapan tanah mencapai (%)', type: 'number', max: 100, hint: 'Penyiraman disarankan saat bacaan sama dengan atau lebih rendah dari batas ini.' },
   { key: 'moistureTargetPercent', label: 'Target kelembapan tanah setelah disiram (%)', type: 'number', max: 100 },
   { key: 'ecLowUsCm', label: 'Mulai memberi pupuk saat EC larutan mencapai (µS/cm)', type: 'number', max: 100000 },
@@ -28,7 +27,7 @@ const fieldGroups: { title: string; keys: (keyof Form)[]; fertilizerOnly?: boole
   {title: 'Umur tanaman yang memakai aturan ini', keys: ['plantingDate', 'hstFrom', 'hstTo']},
   {title: 'Penyiraman', keys: ['moistureLowPercent', 'moistureTargetPercent', 'targetWaterL', 'triggerSampleCount']},
   {title: 'Pemberian pupuk', fertilizerOnly: true, keys: ['fertilizerName', 'stockConcentrationGPerL', 'targetStockL', 'ecLowUsCm', 'ecTargetUsCm', 'ecHighUsCm']},
-  {title: 'Isi tandon dan sumber aturan', keys: ['minWaterTankPercent', 'minStockTankPercent', 'sourceReference']},
+  {title: 'Isi tandon', keys: ['minWaterTankPercent', 'minStockTankPercent']},
 ]
 
 function effectiveDate(plantingDate: string, days: string) {
@@ -81,6 +80,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     const input = Object.fromEntries(fields.map(({key, type}) => [key, type === 'number' ? (form[key].trim() === '' ? null : Number(form[key])) : form[key].trim()]))
     input.cropId = form.cropId
     input.cropName = cropProfiles.find(crop => crop.id === form.cropId)?.commonName ?? ''
+    input.sourceReference = selected?.sourceReference ?? ''
     input.applicationMode = 'sensor'
     input.applicationIntervalDays = null
     input.plantingDate = form.plantingDate || null

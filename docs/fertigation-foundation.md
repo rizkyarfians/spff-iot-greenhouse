@@ -1,5 +1,9 @@
 # Program Fertigasi — Fondasi backend (simulasi saja)
 
+## Kolom sumber pada form
+
+Form tidak lagi meminta "Sumber aturan dan dosis". Metadata `sourceReference` tetap tersedia pada API tetapi opsional, dengan nilai kosong jika tidak diberikan. Saat program diperbarui tanpa sumber baru, repository mempertahankan sumber lama. Tidak ada sumber atau persetujuan yang dibuat otomatis. Persetujuan program tetap mengikuti alur yang sudah ada. Perubahan ini tidak memerlukan migrasi database.
+
 ## Pemicu sensor sepanjang rentang HST (migration 025)
 
 Alur Rule-Based terbaru mengisi tanaman, tanggal tanam, rentang HST, dan ambang sekali saja. Form tidak lagi meminta tanggal aplikasi atau interval hari. Program yang disimpan memakai `applicationMode='sensor'` dan aktif sepanjang HST awal–akhir; rekomendasi penyiraman memerlukan kelembapan <= batas minimum. Untuk pupuk, syarat EC aturan juga harus dipenuhi. Tanggal tanam tetap dipakai menghitung HST menurut Asia/Jakarta.
