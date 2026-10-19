@@ -1,6 +1,7 @@
 import {
   Router,
 } from 'express';
+import { requireAiEvaluationEnabled } from '../middleware/aiEvaluation.js';
 
 import {
   auditMutation,
@@ -115,6 +116,13 @@ apiRouter.post(
  * Semua endpoint setelah ini
  * wajib session login.
  */
+apiRouter.all([
+  '/automatic-control/rule-based',
+  '/fertigation/evaluate-site',
+  '/fertigation/automatic-preview',
+  '/fertigation/simulate',
+], requireAiEvaluationEnabled);
+
 apiRouter.use(
   requireAuth,
 );

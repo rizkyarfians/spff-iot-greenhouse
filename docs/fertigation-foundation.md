@@ -1,5 +1,11 @@
 # Program Fertigasi — Fondasi backend (simulasi saja)
 
+## Sakelar pemeliharaan evaluasi AI
+
+Set `AI_EVALUATION_ENABLED=false` pada environment proses `spff-api`, kemudian restart API. Endpoint `/automatic-control/rule-based`, `/fertigation/evaluate-site`, `/fertigation/automatic-preview`, dan `/fertigation/simulate` mengembalikan HTTP 503 dengan kode `AI_EVALUATION_DISABLED` sebelum autentikasi database maupun evaluasi. Login, dashboard, konfigurasi aturan, dan kontrol perangkat tetap melalui jalur normal; switch ini tidak mematikan otomatisasi legacy ESP32 atau memperbaiki storage database.
+
+Default tetap `true` untuk kompatibilitas. Mengaktifkan lagi memerlukan nilai `true` dan restart API. Tidak ada migrasi atau build frontend untuk perubahan ini.
+
 ## Simpan dan gunakan aturan
 
 UI menggabungkan penyimpanan dan penggunaan aturan untuk evaluasi menjadi satu aksi admin: **Simpan dan gunakan aturan**. Form referensi persetujuan, checkbox, dan tombol persetujuan terpisah dihapus. Bagian bawah hanya memilih perangkat dan memeriksa kondisi tanaman.
