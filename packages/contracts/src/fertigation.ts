@@ -21,7 +21,25 @@ export const fertigationRecipeInputSchema = z.object({
   minWaterTankPercent: percent,
   minStockTankPercent: percent,
   sourceReference: reference,
+  /** Batas agronomi per Program Fertigasi. NULL berarti belum disetujui, bukan menggunakan default kontrol lama. */
+  moistureLowPercent: percent.nullable().default(null),
+  moistureTargetPercent: percent.nullable().default(null),
+  ecLowUsCm: finite.nonnegative().max(100000).nullable().default(null),
+  ecTargetUsCm: finite.nonnegative().max(100000).nullable().default(null),
+  ecHighUsCm: finite.nonnegative().max(100000).nullable().default(null),
 }).strict().superRefine((value, ctx) => {
+  const hasMoisture = value.moistureLowPercent !== null || value.moistureTargetPercent !== null;
+  if (hasMoisture && (value.moistureLowPercent === null || value.moistureTargetPercent === null ||
+    value.moistureLowPercent >= value.moistureTargetPercent)) {
+    ctx.addIssue({ code: 'custom', path: ['moistureTargetPercent'],
+      message: 'Batas kelembapan Program Fertigasi harus lengkap dan meningkat.' });
+  }
+  const hasEc = value.ecLowUsCm !== null || value.ecTargetUsCm !== null || value.ecHighUsCm !== null;
+  if (hasEc && (value.ecLowUsCm === null || value.ecTargetUsCm === null || value.ecHighUsCm === null ||
+    value.ecLowUsCm >= value.ecTargetUsCm || value.ecTargetUsCm >= value.ecHighUsCm)) {
+    ctx.addIssue({ code: 'custom', path: ['ecTargetUsCm'],
+      message: 'Batas EC Program Fertigasi harus lengkap dan berurutan.' });
+  }
   if (value.hstFrom > value.hstTo) {
     ctx.addIssue({ code: 'custom', path: ['hstTo'], message: 'HST akhir harus >= HST awal.' });
   }
