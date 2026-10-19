@@ -95,3 +95,12 @@ Nama fitur yang ditampilkan kepada petani/operator adalah **Program Fertigasi**.
 - MQTT Worker tetap memproses telemetry lama menggunakan `deriveTelemetrySensorHealth`, termasuk `valid:true` untuk field yang dilaporkan tanpa status eksplisit dari device; backend hanya mempercayai status yang sudah tercatat di PostgreSQL, tidak membuat status sehat baru.
 - Perubahan dibatasi di service evaluasi dan test. Tidak mengubah kontrol legacy pada ESP32, UI, schema, maupun MQTT. Jalur Model 1 tetap advisory-only (`canDispatch:false`).
 - Sebelum deploy, cek versi migration, hasil status historis telemetry, `npm run build`, `npm run lint`, dan test dengan DB sesungguhnya.
+
+## Tahap 2 — Read-only duplicate/repeat guard (19 Oktober 2026)
+- Endpoint `GET /api/automatic-control/rule-based` sekarang membaca `spff.fertigation_sessions` dari PostgreSQL **sebelum** mengeluarkan status `suggested`. Jika bukti sesi gagal dibaca, request gagal; `evaluateAutomaticRuleBased` tanpa `repeatEvidence` menghasilkan `hold`.
+- Perangkat masih satu-satunya sumber kebenaran status sesi: tidak ada catatan sesi sintetis dari evaluasi API. `started/running` (perangkat mana pun pada device) menahan aplikasi; `fault/aborted` dari program yang sama menahan retry sampai ada penanganan operator.
+- Mode `once/interval` menolak duplikasi sesi pada tanggal aplikasi WIB, termasuk status yang belum selesai.
+- Mode `sensor` setelah sesi completed memerlukan bukti moisture sehat mencapai target **setelah** sesi berakhir dan kemudian rangkaian sampel baru memenuhi ambang rendah. Jika riwayat recovery tidak tersedia, hasil `DELAY`; tidak memakai status moisture saat ini sebagai bukti pernah pulih.
+- Sesi pupuk yang sudah completed pada perangkat pada tanggal WIB yang sama menahan dosis ulang lintas aturan.
+- Riwayat yang tersedia hanya bisa membuktikan sesi yang memang sudah dikirim dan diingest ESP32; saat ini jalur device-origin session ingest **belum tervalidasi**. Karena itu pengunci ini tidak memberi jaminan at-most-once terhadap sesi yang tidak tercatat. Sebelum mengaktifkan aktuator wajib ada reservation atomik per aplikasi (`runId` unik), ACK perangkat, retry idempotent, dan uji restart/outage.
+- Nilai `canDispatch:false` dan `simulationOnly:true` tetap berlaku. Tidak ada perubahan firmware, MQTT publish, UI, maupun deployment.
