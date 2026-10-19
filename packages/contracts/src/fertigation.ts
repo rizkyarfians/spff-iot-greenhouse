@@ -21,6 +21,8 @@ export const fertigationRecipeInputSchema = z.object({
   minWaterTankPercent: percent,
   minStockTankPercent: percent,
   sourceReference: reference,
+  applicationMode: z.enum(['once', 'interval']).default('once'),
+  applicationIntervalDays: z.number().int().min(1).max(1000).nullable().default(null),
   /** Batas agronomi per Program Fertigasi. NULL berarti belum disetujui, bukan menggunakan default kontrol lama. */
   moistureLowPercent: percent.nullable().default(null),
   moistureTargetPercent: percent.nullable().default(null),
@@ -28,6 +30,9 @@ export const fertigationRecipeInputSchema = z.object({
   ecTargetUsCm: finite.nonnegative().max(100000).nullable().default(null),
   ecHighUsCm: finite.nonnegative().max(100000).nullable().default(null),
 }).strict().superRefine((value, ctx) => {
+  if ((value.applicationMode === 'interval') !== (value.applicationIntervalDays !== null)) {
+    ctx.addIssue({ code: 'custom', path: ['applicationIntervalDays'], message: 'Jadwal berulang memerlukan interval hari; jadwal sekali tidak memakai interval.' });
+  }
   const hasMoisture = value.moistureLowPercent !== null || value.moistureTargetPercent !== null;
   if (hasMoisture && (value.moistureLowPercent === null || value.moistureTargetPercent === null ||
     value.moistureLowPercent >= value.moistureTargetPercent)) {

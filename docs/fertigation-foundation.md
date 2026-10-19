@@ -1,5 +1,13 @@
 # Program Fertigasi — Fondasi backend (simulasi saja)
 
+## Jadwal aplikasi berulang (migration 024)
+
+Setelah migrasi 020–023, jalankan `024_fertigation_recurring_schedule.sql` satu kali. Program lama tetap `applicationMode='once'` dengan tanggal aplikasi aslinya. Untuk sekali pengaturan, pilih jadwal berulang dan isi interval hari: 1 berarti setiap hari; 7 berarti HST awal, HST awal + 7, dan seterusnya hingga HST akhir. Perhitungan mengikuti kalender Asia/Jakarta dan tanggal tanam. Interval adalah konfigurasi pengguna, bukan rekomendasi agronomi bawaan. Hari terlewat tidak diulang secara otomatis. Mengubah jadwal mereset persetujuan sebagaimana perubahan program lainnya.
+
+Form memiliki pilihan Air saja / Air dan pupuk. Pilihan pupuk membuka volume stok, nama pupuk, konsentrasi dan ambang EC; volume stok harus lebih dari nol. Program air saja disimpan dengan stok nol dan parameter pupuk kosong. Field pupuk tidak lagi menunggu pengguna mengubah volume stok sebelum dapat diketik.
+
+Jadwal ini menentukan hari saat aturan dapat memberi rekomendasi. Ini belum merupakan pelaksana sesi, jaminan sekali per hari, atau pencatat dosis yang sudah dijalankan. `canDispatch` tetap false; firmware dan otoritas relay tetap mengikuti kontrol yang sudah ada.
+
 ## Pemisahan ambang Model 1
 
 Model 1 dan pratinjau program menggunakan ambang kelembapan/EC dari aturan agronomi yang dipilih, bukan ambang kebutuhan tanaman pada konfigurasi Sensor-Based lama. Sensor yang digunakan masih mengikuti `water_sensor_key` perangkat. Pemeriksaan kesehatan/kesegaran sensor, level tandon, status online, mode otomatis, dan ACK revisi tetap berlaku. Endpoint evaluasi legacy tetap memakai ambang konfigurasi lama. Semua jalur ini tetap advisory-only; tidak ada perubahan otoritas relay atau firmware.

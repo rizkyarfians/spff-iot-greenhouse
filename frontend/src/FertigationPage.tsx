@@ -4,11 +4,10 @@ import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, approveFertig
 import { useAuth } from './authContext'
 import './FertigationPage.css'
 
-const empty = () => ({ cropId: '', cropName: '', hstFrom: '', hstTo: '', targetWaterL: '', targetStockL: '0', fertilizerName: '', stockConcentrationGPerL: '', minWaterTankPercent: '', minStockTankPercent: '', sourceReference: '', plantingDate: '', applicationDate: '', moistureLowPercent: '', moistureTargetPercent: '', ecLowUsCm: '', ecTargetUsCm: '', ecHighUsCm: '' })
+const empty = () => ({ cropId: '', cropName: '', hstFrom: '', hstTo: '', targetWaterL: '', targetStockL: '0', fertilizerName: '', stockConcentrationGPerL: '', minWaterTankPercent: '', minStockTankPercent: '', sourceReference: '', plantingDate: '', applicationDate: '', applicationMode: 'interval', applicationIntervalDays: '1', moistureLowPercent: '', moistureTargetPercent: '', ecLowUsCm: '', ecTargetUsCm: '', ecHighUsCm: '' })
 type Form = ReturnType<typeof empty>
 const fields: { key: keyof Form; label: string; type: string; max?: number }[] = [
   { key: 'plantingDate', label: 'Tanggal tanam', type: 'date' },
-  { key: 'applicationDate', label: 'Tanggal aplikasi (WIB)', type: 'date' },
   { key: 'hstFrom', label: 'HST awal', type: 'number', max: 1000 },
   { key: 'hstTo', label: 'HST akhir', type: 'number', max: 1000 },
   { key: 'targetWaterL', label: 'Target air (L)', type: 'number', max: 100000 },
@@ -43,7 +42,9 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
   const [confirmed, setConfirmed] = useState(false)
   const [deviceId, setDeviceId] = useState('')
   const [result, setResult] = useState<FertigationLiveDecision>()
+  const [withFertilizer, setWithFertilizer] = useState(false)
   function select(recipe?: FertigationRecipe) {
+    setWithFertilizer((recipe?.targetStockL ?? 0) > 0)
     setSelected(recipe); setReference(''); setConfirmed(false); setResult(undefined); setError(''); setNotice('')
     const next = empty()
     if (recipe) for (const key of Object.keys(next) as (keyof Form)[]) next[key] = recipe[key] == null ? '' : String(recipe[key])
@@ -60,13 +61,20 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     if (selected) select(rows.find(row => row.recipeId === selected.recipeId))
   }
   useEffect(() => { let active = true; fetchFertigationRecipes().then(rows => { if (active) { setRecipes(rows); setLoaded(true) } }).catch(e => { if (active) setError(message(e)) }); return () => { active = false } }, [])
-  const dirty = selected && (Object.keys(form) as (keyof Form)[]).some(key => form[key] !== (selected[key] == null ? '' : String(selected[key])))
+  const dirty = selected && (withFertilizer !== (selected.targetStockL > 0) || (Object.keys(form) as (keyof Form)[]).some(key => form[key] !== (selected[key] == null ? '' : String(selected[key]))))
   async function save() {
     const input = Object.fromEntries(fields.map(({key, type}) => [key, type === 'number' ? (form[key].trim() === '' ? null : Number(form[key])) : form[key].trim()]))
     input.cropId = form.cropId
     input.cropName = cropProfiles.find(crop => crop.id === form.cropId)?.commonName ?? ''
-    input.plantingDate = form.plantingDate || null; input.applicationDate = form.applicationDate || null
-    if (Number(form.targetStockL) === 0) { input.fertilizerName = null; input.stockConcentrationGPerL = null }
+    input.applicationMode = form.applicationMode
+    input.applicationIntervalDays = form.applicationMode === 'interval' ? Number(form.applicationIntervalDays) : null
+    input.plantingDate = form.plantingDate || null
+    input.applicationDate = form.applicationMode === 'once' ? form.applicationDate || null : null
+    if (withFertilizer && !(Number(form.targetStockL) > 0)) throw new Error('Isi volume larutan pupuk lebih dari 0 liter untuk pilihan Air dan pupuk.')
+    if (!withFertilizer) {
+      input.targetStockL = 0; input.fertilizerName = null; input.stockConcentrationGPerL = null
+      input.ecLowUsCm = null; input.ecTargetUsCm = null; input.ecHighUsCm = null
+    }
     const parsed = fertigationRecipeMutationSchema.safeParse(input)
     if (!parsed.success) throw new Error(parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '))
     const saved = await saveFertigationRecipe(parsed.data, selected)
@@ -83,7 +91,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
       {loaded && recipes.length === 0 && <p>Belum ada program. Admin dapat membuat draft melalui form di samping.</p>}
       {recipes.map(recipe => <button className={`ft-recipe ${selected?.recipeId === recipe.recipeId ? 'active' : ''}`} key={recipe.recipeId} disabled={busy} onClick={() => select(recipe)}><strong>{recipe.cropName}</strong><span>{recipe.approvalStatus} · revisi {recipe.revision}</span><span>Air {recipe.targetWaterL} L · stok {recipe.targetStockL} L</span></button>)}
     </aside><div className="ft-panel"><h3>{selected ? `Program Fertigasi ${selected.cropName}` : 'Program Fertigasi baru'}</h3>
-      <p>Dosis diisi berdasarkan referensi yang sudah diperiksa. Target stok 0 berarti air saja.</p>
+      <p>Jadwal berulang dimulai pada HST awal dan berhenti setelah HST akhir.</p>
       {!admin && <p>Tambah, edit, dan persetujuan program tersedia untuk Admin.</p>}
       <form onSubmit={e => { e.preventDefault(); void run(save) }}><fieldset disabled={!admin || busy}><div className="ft-fields">
         <label>Tanaman Smart Soil<select required value={form.cropId} onChange={e => {
@@ -91,10 +99,13 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
           setForm({...form, cropId: crop?.id ?? '', cropName: crop?.commonName ?? ''})
           setConfirmed(false); setReference(''); setResult(undefined)
         }}><option value="">Pilih tanaman</option>{cropProfiles.map(crop => <option key={crop.id} value={crop.id}>{crop.commonName}</option>)}</select></label>
+        <label>Jenis pemberian<select value={withFertilizer ? 'fertilizer' : 'water'} onChange={e => { setWithFertilizer(e.target.value === 'fertilizer'); setResult(undefined) }}><option value="water">Air saja</option><option value="fertilizer">Air dan pupuk</option></select></label>
+        <label>Jadwal aplikasi<select value={form.applicationMode} onChange={e => { setForm({...form, applicationMode: e.target.value, applicationDate: '', applicationIntervalDays: e.target.value === 'interval' ? '1' : ''}); setResult(undefined) }}><option value="interval">Berulang berdasarkan umur tanaman</option><option value="once">Sekali pada tanggal tertentu</option></select></label>
+        {form.applicationMode === 'interval' ? <label>Ulangi setiap (hari)<input required type="number" min={1} max={1000} step={1} value={form.applicationIntervalDays} onChange={e => { setForm({...form, applicationIntervalDays: e.target.value}); setResult(undefined) }} /></label> : <label>Tanggal aplikasi (WIB)<input required type="date" value={form.applicationDate} onChange={e => { setForm({...form, applicationDate: e.target.value}); setResult(undefined) }} /></label>}
         {selected && !selected.cropId && <p role="status">Program lama belum terhubung ke tanaman Smart Soil. Pilih tanaman lalu simpan ulang sebelum meminta persetujuan.</p>}
         {fields.map(({key, label, type, max}) => {
-          const stockField = key === 'fertilizerName' || key === 'stockConcentrationGPerL'
-          const inactive = stockField && Number(form.targetStockL) === 0
+          const stockField = key === 'targetStockL' || key === 'fertilizerName' || key === 'stockConcentrationGPerL' || key.startsWith('ec')
+          const inactive = stockField && !withFertilizer
           const thresholdField = ['moistureLowPercent', 'moistureTargetPercent', 'ecLowUsCm', 'ecTargetUsCm', 'ecHighUsCm'].includes(key)
           return <label key={key}>{label}<input type={type} value={inactive ? '' : form[key]} disabled={inactive} min={type === 'number' ? 0 : undefined} max={max} step={key === 'hstFrom' || key === 'hstTo' ? 1 : 'any'} required={type !== 'date' && !inactive && !thresholdField} maxLength={key === 'sourceReference' ? 500 : key === 'cropName' ? 100 : 120} onChange={e => { setForm({...form, [key]: e.target.value}); setResult(undefined) }} /></label>
         })}

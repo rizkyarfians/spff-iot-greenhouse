@@ -1,22 +1,10 @@
 import type { FertigationLiveDecision, FertigationRecipe } from '@spff/contracts';
 import type { SiteEvaluationSnapshot } from './fertigationRepository.js';
 
+import { applicationDue, calculateHst, jakartaDay } from './fertigationSchedule.js';
+
 const fresh = (date: Date | null, now: Date, seconds: number): boolean =>
   date !== null && now.getTime() - date.getTime() >= 0 && now.getTime() - date.getTime() <= seconds * 1000;
-
-function jakartaDay(now: Date): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(now);
-  const part = (key: string) => parts.find(value => value.type === key)?.value ?? '';
-  return [part('year'), part('month'), part('day')].join('-');
-}
-
-function calculateHst(plantingDate: string | null, today: string): number | null {
-  if (!plantingDate) return null;
-  const value = (Date.parse(today + 'T00:00:00Z') - Date.parse(plantingDate + 'T00:00:00Z')) / 86400000;
-  return Number.isSafeInteger(value) && value >= 0 ? value : null;
-}
 
 /** Evaluasi hanya rekomendasi. ESP32 legacy tetap pemegang satu-satunya otoritas relay. */
 export function evaluateSiteFertigation(
@@ -40,7 +28,7 @@ export function evaluateSiteFertigation(
   if (recipe.approvalStatus !== 'approved' || !recipe.approvalReference) reasons.push('Program Fertigasi belum disetujui tim agronomi.');
   if (!cropMatches) reasons.push('Tanaman pada Program Fertigasi tidak cocok dengan tanaman aktif Smart Soil soil-1 atau belum dipilih.');
   if (hst === null || hst < recipe.hstFrom || hst > recipe.hstTo) reasons.push('Umur tanaman (HST) di luar rentang Program Fertigasi.');
-  if (recipe.applicationDate !== jakartaDay(now)) reasons.push('Hari ini bukan jadwal aplikasi Program Fertigasi.');
+  if (!applicationDue(recipe, jakartaDay(now))) reasons.push('Hari ini bukan jadwal aplikasi Program Fertigasi.');
   if (!telemetryFresh) reasons.push('Telemetry tidak tersedia atau stale.');
   if (!deviceFresh || snapshot.deviceOnline !== true) reasons.push('ESP32 offline atau status stale.');
   if (snapshot.deviceMode !== 'automatic' || snapshot.automaticMode !== 'automatic' ||

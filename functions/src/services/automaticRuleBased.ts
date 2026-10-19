@@ -2,6 +2,8 @@ import type { FertigationRecipe } from '@spff/contracts';
 import type { SiteEvaluationSnapshot } from './fertigationRepository.js';
 import { evaluateSiteFertigation } from './fertigationLiveEvaluation.js';
 
+import { applicationDue, jakartaDay } from './fertigationSchedule.js';
+
 export interface RuleBasedAutomaticResult {
   method: 'rule_based';
   status: 'hold' | 'suggested';
@@ -21,18 +23,12 @@ export function evaluateAutomaticRuleBased(
   snapshot: SiteEvaluationSnapshot,
   now = new Date(),
 ): RuleBasedAutomaticResult {
-  const dayParts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric',
-  }).formatToParts(now);
-  const datePart = (type: string) => dayParts.find(p => p.type === type)?.value ?? '';
-  const today = [datePart('year'),datePart('month'),datePart('day')].join('-');
+  const today = jakartaDay(now);
   const eligible = programs.filter(program => {
     if (program.approvalStatus !== 'approved' || !program.approvalReference ||
         program.cropId === null || program.cropId !== snapshot.activeCropId ||
-        program.zoneId !== 'soil-1' || program.applicationDate !== today || !program.plantingDate) return false;
-    const hst = (Date.parse(today + 'T00:00:00Z') -
-      Date.parse(program.plantingDate + 'T00:00:00Z')) / 86400000;
-    return Number.isSafeInteger(hst) && hst >= program.hstFrom && hst <= program.hstTo;
+        program.zoneId !== 'soil-1' || !program.plantingDate) return false;
+    return applicationDue(program, today);
   });
   const base = {
     method: 'rule_based' as const, eligibleCount: eligible.length,
