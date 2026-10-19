@@ -9,6 +9,7 @@ import type {
   ScheduleSyncAckMessage,
   ScheduleSyncMessage,
   TelemetryMessage,
+  FertigationSessionEvent,
 } from "@spff/contracts";
 import { Pool, type PoolClient } from "pg";
 import { config } from "./config.js";
@@ -22,6 +23,7 @@ import type {
 
 export interface IngestionRepository {
   saveTelemetry(message: TelemetryMessage): Promise<void>;
+  saveFertigationSession(message: FertigationSessionEvent): Promise<void>;
   saveAcknowledgement(message: CommandAckMessage): Promise<void>;
   saveScheduleSyncAck(message: ScheduleSyncAckMessage): Promise<void>;
   saveAutomaticControlAck(message: AutomaticControlAckMessage): Promise<void>;
@@ -940,6 +942,99 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       return true;
     } catch (error) {
       await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveFertigationSession(message: FertigationSessionEvent): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Serializes *all* sessions per device, preventing concurrent active sessions.
+      const device = await client.query(
+        'SELECT device_id FROM spff.devices WHERE site_id=$1 AND device_id=$2 FOR UPDATE',
+        [message.siteId, message.deviceId],
+      );
+      if ((device.rowCount ?? 0) !== 1) throw new Error('Unknown session device.');
+      const previous = await client.query<{
+        session_id: string; recipe_id: string | null; status: string;
+        last_recorded_at: Date;
+      }>('SELECT session_id,recipe_id,status,last_recorded_at FROM spff.fertigation_sessions WHERE session_id=$1 FOR UPDATE',
+        [message.sessionId]);
+      const last = previous.rows[0];
+      const already = await client.query<{ payload: FertigationSessionEvent }>(
+        'SELECT payload FROM spff.fertigation_session_events WHERE site_id=$1 AND device_id=$2 AND message_id=$3',
+        [message.siteId,message.deviceId,message.messageId],
+      );
+      if (already.rows.length) {
+        if (JSON.stringify(already.rows[0]!.payload) !== JSON.stringify(message)) {
+          // pg jsonb may reorder keys: compare semantic JSONB in database below.
+          const same = await client.query('SELECT payload=$4::jsonb AS same FROM spff.fertigation_session_events WHERE site_id=$1 AND device_id=$2 AND message_id=$3',
+            [message.siteId,message.deviceId,message.messageId,JSON.stringify(message)]);
+          if (same.rows[0]?.same !== true) throw new Error('Conflicting session messageId replay.');
+        }
+        await client.query('COMMIT');
+        return;
+      }
+      const replay = await client.query(
+        'SELECT 1 FROM spff.fertigation_session_events WHERE session_id=$1 AND sequence=$2 LIMIT 1',
+        [message.sessionId,message.sequence],
+      );
+      if (replay.rowCount) throw new Error('Session sequence already used.');
+      if (!last && message.status !== 'started') throw new Error('Session must begin with started.');
+      if (last && last.recipe_id !== message.recipeId) throw new Error('Session recipe mismatch.');
+      if (last && ['completed','aborted','fault'].includes(last.status))
+        throw new Error('Terminal session cannot transition.');
+      if (last && new Date(message.recordedAt).getTime() <= new Date(last.last_recorded_at).getTime())
+        throw new Error('Session timestamp must advance.');
+      const maxSequence = await client.query<{ max_seq: string | null }>(
+        'SELECT MAX(sequence)::text AS max_seq FROM spff.fertigation_session_events WHERE session_id=$1',
+        [message.sessionId],
+      );
+      if (maxSequence.rows[0]?.max_seq !== null && maxSequence.rows[0]?.max_seq !== undefined &&
+          message.sequence <= Number(maxSequence.rows[0].max_seq))
+        throw new Error('Session sequence must advance.');
+      if (message.status === 'started' && last) throw new Error('Session already started.');
+      if (message.status === 'completed' && (!message.pumpsOff ||
+          message.actualWaterL === null || message.actualStockL === null))
+        throw new Error('Completion requires actual volumes and pumps OFF.');
+      if (!last) {
+        const active = await client.query(
+          "SELECT 1 FROM spff.fertigation_sessions WHERE site_id=$1 AND device_id=$2 AND status IN ('started','running') LIMIT 1",
+          [message.siteId,message.deviceId],
+        );
+        if (active.rowCount) throw new Error('Another application session is active.');
+        await client.query(`INSERT INTO spff.fertigation_sessions
+          (session_id,site_id,device_id,recipe_id,target_water_l,target_stock_l,actual_water_l,
+           actual_stock_l,status,pumps_off,completion_reason,started_at,finished_at,last_recorded_at)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL,$13::timestamptz)`,
+          [message.sessionId,message.siteId,message.deviceId,message.recipeId,message.targetWaterL,
+           message.targetStockL,message.actualWaterL,message.actualStockL,message.status,
+           message.pumpsOff,message.completionReason,message.recordedAt]);
+      } else {
+        const original = await client.query<{target_water_l:number;target_stock_l:number}>(
+          'SELECT target_water_l,target_stock_l FROM spff.fertigation_sessions WHERE session_id=$1',
+          [message.sessionId]);
+        if (original.rows[0]?.target_water_l !== message.targetWaterL ||
+            original.rows[0]?.target_stock_l !== message.targetStockL)
+          throw new Error('Session targets cannot change.');
+        await client.query(`UPDATE spff.fertigation_sessions SET status=$2,actual_water_l=$3,
+           actual_stock_l=$4,pumps_off=$5,completion_reason=$6,
+           finished_at=CASE WHEN $2 IN ('completed','aborted','fault') THEN $7::timestamptz ELSE NULL END,
+           last_recorded_at=$7::timestamptz,updated_at=now() WHERE session_id=$1`,
+          [message.sessionId,message.status,message.actualWaterL,message.actualStockL,
+           message.pumpsOff,message.completionReason,message.recordedAt]);
+      }
+      await client.query(`INSERT INTO spff.fertigation_session_events
+        (session_id,site_id,device_id,message_id,sequence,status,recorded_at,payload)
+        VALUES($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::jsonb)`,
+        [message.sessionId,message.siteId,message.deviceId,message.messageId,message.sequence,
+         message.status,message.recordedAt,JSON.stringify(message)]);
+      await client.query('COMMIT');
+    } catch(error) {
+      await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
