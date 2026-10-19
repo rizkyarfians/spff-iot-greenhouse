@@ -13,11 +13,14 @@ export async function getFertigationRecipe(recipeId: string): Promise<Fertigatio
     approval_reference: string | null; approved_by: string | null; approved_at: Date | null;
     planting_date: Date | string | null; application_date: Date | string | null;
     revision: number; updated_at: Date; zone_id: string; crop_id: string | null;
+    moisture_low_percent: number | null; moisture_target_percent: number | null;
+    ec_low_us_cm: number | null; ec_target_us_cm: number | null; ec_high_us_cm: number | null;
   }>(`
     SELECT recipe_id,site_id,crop_name,hst_from,hst_to,target_water_l,target_stock_l,
            fertilizer_name,stock_concentration_g_per_l,min_water_tank_percent,
            min_stock_tank_percent,source_reference,approval_status,
-           approval_reference,approved_by,approved_at,planting_date,application_date,revision,updated_at,zone_id,crop_id
+           approval_reference,approved_by,approved_at,planting_date,application_date,revision,updated_at,zone_id,crop_id,
+           moisture_low_percent,moisture_target_percent,ec_low_us_cm,ec_target_us_cm,ec_high_us_cm
     FROM spff.fertigation_recipes WHERE site_id = $1 AND recipe_id = $2
   `, [configuredSiteId, recipeId]);
   const row = result.rows[0];
@@ -28,6 +31,9 @@ export async function getFertigationRecipe(recipeId: string): Promise<Fertigatio
     zoneId: 'soil-1',
     cropId: row.crop_id,
     cropName: row.crop_name,
+    moistureLowPercent: row.moisture_low_percent,
+    moistureTargetPercent: row.moisture_target_percent,
+    ecLowUsCm: row.ec_low_us_cm, ecTargetUsCm: row.ec_target_us_cm, ecHighUsCm: row.ec_high_us_cm,
     hstFrom: row.hst_from,
     hstTo: row.hst_to,
     targetWaterL: row.target_water_l,
@@ -79,12 +85,14 @@ export async function createFertigationRecipe(input: FertigationRecipeMutation, 
       INSERT INTO spff.fertigation_recipes
       (recipe_id,site_id,crop_name,hst_from,hst_to,target_water_l,target_stock_l,
        fertilizer_name,stock_concentration_g_per_l,min_water_tank_percent,min_stock_tank_percent,
-       source_reference,planting_date,application_date,zone_id,crop_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'soil-1',$15) RETURNING *
+       source_reference,planting_date,application_date,zone_id,crop_id,
+       moisture_low_percent,moisture_target_percent,ec_low_us_cm,ec_target_us_cm,ec_high_us_cm)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'soil-1',$15,$16,$17,$18,$19,$20) RETURNING *
     `, [id,configuredSiteId,input.cropName,input.hstFrom,input.hstTo,input.targetWaterL,
       input.targetStockL,input.fertilizerName,input.stockConcentrationGPerL,
       input.minWaterTankPercent,input.minStockTankPercent,input.sourceReference,
-      input.plantingDate,input.applicationDate,input.cropId]);
+      input.plantingDate,input.applicationDate,input.cropId,
+      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm]);
     await client.query(
       'INSERT INTO spff.fertigation_recipe_revisions (recipe_id,revision,snapshot,changed_by) VALUES ($1,1,$2,$3)',
       [id,inserted.rows[0],actor],
@@ -104,13 +112,15 @@ export async function updateFertigationRecipe(recipeId: string, input: Fertigati
         crop_name=$4,hst_from=$5,hst_to=$6,target_water_l=$7,target_stock_l=$8,
         fertilizer_name=$9,stock_concentration_g_per_l=$10,min_water_tank_percent=$11,
         min_stock_tank_percent=$12,source_reference=$13,planting_date=$14,application_date=$15,crop_id=$16,
+        moisture_low_percent=$17,moisture_target_percent=$18,ec_low_us_cm=$19,ec_target_us_cm=$20,ec_high_us_cm=$21,
         approval_status='draft',approval_reference=NULL,approved_by=NULL,approved_at=NULL,
         revision=revision+1,updated_at=now()
       WHERE site_id=$1 AND recipe_id=$2 AND revision=$3 RETURNING *
     `, [configuredSiteId,recipeId,input.expectedRevision,input.cropName,input.hstFrom,
       input.hstTo,input.targetWaterL,input.targetStockL,input.fertilizerName,
       input.stockConcentrationGPerL,input.minWaterTankPercent,input.minStockTankPercent,
-      input.sourceReference,input.plantingDate,input.applicationDate,input.cropId]);
+      input.sourceReference,input.plantingDate,input.applicationDate,input.cropId,
+      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm]);
     updated = result.rowCount === 1;
     if (updated) await client.query(
       'INSERT INTO spff.fertigation_recipe_revisions(recipe_id,revision,snapshot,changed_by) VALUES($1,$2,$3,$4)',

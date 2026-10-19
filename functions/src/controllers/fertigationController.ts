@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import {
   fertigationSimulationInputSchema, fertigationLiveEvaluationInputSchema,
   fertigationRecipeMutationSchema, fertigationRecipeUpdateSchema, fertigationRecipeApprovalSchema,
+  fertigationAutomaticPreviewInputSchema,
 } from '@spff/contracts';
 import {
   createFertigationRecipe, updateFertigationRecipe, approveFertigationRecipe,
@@ -10,6 +11,8 @@ import {
 } from '../services/fertigationRepository.js';
 import { simulateFertigation } from '../services/fertigationRules.js';
 import { evaluateSiteFertigation } from '../services/fertigationLiveEvaluation.js';
+import { previewAutomaticProgram } from '../services/fertigationAutomaticPreview.js';
+import { evaluateAutomaticRuleBased } from '../services/automaticRuleBased.js';
 import { requestActor } from '../middleware/operatorAuth.js';
 
 export async function simulateFertigationController(req: Request, res: Response, next: NextFunction) {
@@ -85,4 +88,47 @@ export async function evaluateLiveRecipeController(req:Request,res:Response,next
     await recordFertigationEvaluation(recipe.recipeId,p.data.deviceId,requestActor(req),snapshot.telemetryRecordedAt,snapshot.deviceRecordedAt,decision);
     res.set('Cache-Control','no-store').json({success:true,data:decision,message:'Evaluasi berdasarkan PostgreSQL site; tidak mengirim command pompa.'});
   }catch(error){next(error);}
+}
+
+export async function previewAutomaticProgramController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = fertigationAutomaticPreviewInputSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, data: null, message: 'ID Program Fertigasi atau perangkat tidak valid.' });
+      return;
+    }
+    const program = await getFertigationRecipe(parsed.data.recipeId);
+    if (!program) {
+      res.status(404).json({ success: false, data: null, message: 'Program Fertigasi tidak ditemukan.' });
+      return;
+    }
+    const snapshot = await loadSiteFertigationSnapshot(parsed.data.deviceId);
+    const preview = previewAutomaticProgram(program, parsed.data.deviceId, snapshot);
+    res.set('Cache-Control', 'no-store').json({
+      success: true, data: preview,
+      message: 'Pratinjau Automatic Control. Tidak mengubah konfigurasi ESP32 atau mengirim perintah pompa.',
+    });
+  } catch (error) { next(error); }
+}
+
+/** Automatic Control Model 1: resolves approved rule by site crop + HST without user-supplied recipe ID. */
+export async function getRuleBasedAutomaticController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const deviceId = req.query.deviceId;
+    if (typeof deviceId !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(deviceId)) {
+      res.status(400).json({ success: false, data: null, message: 'deviceId tidak valid.' });
+      return;
+    }
+    const [snapshot, programs] = await Promise.all([
+      loadSiteFertigationSnapshot(deviceId), listFertigationRecipes(),
+    ]);
+    const decision = evaluateAutomaticRuleBased(
+      programs.filter((program): program is NonNullable<typeof program> => program !== null),
+      deviceId, snapshot,
+    );
+    res.set('Cache-Control', 'no-store').json({
+      success: true, data: decision,
+      message: 'Automatic Control Rule-Based (Model 1): evaluasi saja, belum mengendalikan relay.',
+    });
+  } catch (error) { next(error); }
 }

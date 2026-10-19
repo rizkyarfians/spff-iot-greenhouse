@@ -55,7 +55,7 @@ import {
   registerController,
 } from '../controllers/registrationController.js'
 import { getDatalogExport } from '../controllers/datalogExportController.js';
-import { simulateFertigationController, getFertigationSessionsController, listRecipesController, createRecipeController, updateRecipeController, approveRecipeController, evaluateLiveRecipeController } from '../controllers/fertigationController.js';
+import { simulateFertigationController, getFertigationSessionsController, listRecipesController, createRecipeController, updateRecipeController, approveRecipeController, evaluateLiveRecipeController, previewAutomaticProgramController, getRuleBasedAutomaticController } from '../controllers/fertigationController.js';
 
 
 export const apiRouter =
@@ -200,6 +200,8 @@ apiRouter.post('/fertigation/recipes',requireAdmin,requireCsrf,createRecipeContr
 apiRouter.put('/fertigation/recipes/:id',requireAdmin,requireCsrf,updateRecipeController);
 apiRouter.post('/fertigation/recipes/:id/approve',requireAdmin,requireCsrf,approveRecipeController);
 apiRouter.post('/fertigation/evaluate-site',requireOperator,requireCsrf,evaluateLiveRecipeController);
+apiRouter.post('/fertigation/automatic-preview',requireOperator,requireCsrf,previewAutomaticProgramController);
+apiRouter.get('/automatic-control/rule-based',requireOperator,getRuleBasedAutomaticController);
 
 apiRouter.post(
   '/fertigation/simulate',

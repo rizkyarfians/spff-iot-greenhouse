@@ -45,3 +45,18 @@ The supplied workbook includes 6 crops: Ubi Jalar, Kacang Tanah, Jagung Manis, T
 ## Istilah untuk pengguna
 
 Nama fitur yang ditampilkan kepada petani/operator adalah **Program Fertigasi**. Gunakan **Daftar Program Fertigasi**, **Buat Program Fertigasi**, **Ubah Program Fertigasi**, **Persetujuan Program Fertigasi**, dan **Evaluasi Program Fertigasi** pada UI nantinya. Nama internal database `fertigation_recipes`, `recipeId`, endpoint `/api/fertigation/recipes`, dan kontrak TypeScript tidak diganti demi kompatibilitas. Semua pesan HTTP untuk pengguna memakai istilah **Program Fertigasi**, bukan **Resep**.
+
+## Automatic Control integration — staging only (migration 023)
+- Migration `023_fertigation_program_thresholds.sql` adds nullable, validated per-program agronomic thresholds: `moisture_low_percent`, `moisture_target_percent`, `ec_low_us_cm`, `ec_target_us_cm`, `ec_high_us_cm`. NULL means **not approved/not set**, never silently copied from old settings.
+- New backend endpoint `POST /api/fertigation/automatic-preview` (operator/admin with CSRF, `{recipeId,deviceId}`) returns the current strategy `legacy_sensor`, proposed `program_volume`, agronomic values, hold reasons, and **`canActivate:false`**. Nothing is written to `device_automatic_control_configs` or MQTT. This is deliberate safety behavior.
+- Program input and versioned history now include moisture and EC agronomic thresholds. Operator need not manually re-enter them at every use; an agronomy-authorized admin defines them once in Program Fertigasi.
+- Existing settings are still the legacy control thresholds. Device-level protections (tandon **in %**, max runtime, minimum flow, pulse/mixing/cooldown, interlocks) stay under authorized equipment configuration, not silently overridden by program data.
+- A real `program_volume` implementation requires a new command and ACK contract, strategy arbitration and mutually exclusive relay ownership in ESP32, calibrated session volume counters, schedule/physical selector checks, and failure/restart persistence; **none are active here**.
+- Validate migration 020–023 and run `npm run build`, `npm run lint` and `npm test` before merge; these were not executed in a checked-out repository in this environment.
+
+## Automatic Control: Rule-Based Model 1 ONLY (19 October 2026)
+- Fokus user: **Automatic → Rule-Based**, belum Random Forest. Tidak perlu halaman aktivasi `Program Fertigasi` terpisah.
+- `GET /api/automatic-control/rule-based?deviceId=esp32-s3-01` membaca tanaman aktif site dari PostgreSQL, mencari **tepat satu** aturan agronomi approved yang cocok dengan tanggal/HST, lalu mengevaluasi data perangkat terbaru. Jika tidak ada/lebih dari satu kandidat, fail closed (`DELAY`).
+- Resep/program di database sekarang diperlakukan sebagai **data aturan agronomi internal**; nama schema dan endpoint lama tetap dipertahankan demi kompatibilitas. Petani tidak memasukkan `recipeId` untuk keputusan Model 1.
+- `canDispatch:false` selalu. Pemilih metode firmware **belum tersedia** di firmware Master 1.4.15. ESP32 masih menjalankan sensor-based scheduler/controller, sehingga model ini **belum benar-benar menggantikan controller itu** dan tidak boleh mengirim ON/OFF paralel.
+- Sebelum eksekusi fisik: definisikan kontrol tunggal pada ESP32 (legacy vs rule-based), kontrak serta ACK mode/command dan expiry, selector fisik, safety tandon dalam persen (%), stop-on-fault, schedule validation, dan test broker + hardware. Tidak ada flash/deployment sekarang.
