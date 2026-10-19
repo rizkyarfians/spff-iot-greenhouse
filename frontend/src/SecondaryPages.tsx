@@ -1,4 +1,5 @@
 import { FertigationPage } from './FertigationPage'
+import { ChartHover } from './ChartHover'
 import {
   useEffect,
   useMemo,
@@ -3385,6 +3386,7 @@ function LogsPage({
                   </g>
                 )
               })}
+              <ChartHover data={chartPoints} points={chartGeometry.points} unit={chartSeries?.unit ?? ''} label="Riwayat sensor" plotBottom={chartGeometry.plotBottom}/>
             </svg>
           )}
         </div>

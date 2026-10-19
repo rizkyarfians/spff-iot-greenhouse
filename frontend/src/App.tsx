@@ -1,3 +1,4 @@
+import { ChartHover } from './ChartHover'
 import {
   useEffect,
   useMemo,
@@ -2979,6 +2980,7 @@ const soilNpkGroups =
                                       },
                                     )
                                   }
+                                  <ChartHover data={currentHistory} points={chartGeometry.points} unit={currentSensor.unit} label={currentSensor.label} plotBottom={chartGeometry.plotBottom}/>
                                 </svg>
                               )
                         }
