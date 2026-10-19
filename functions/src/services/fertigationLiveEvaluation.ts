@@ -31,10 +31,10 @@ export function evaluateSiteFertigation(
   const deviceFresh = fresh(snapshot.deviceRecordedAt, now, 90);
   const cropMatches = recipe.cropId !== null && recipe.zoneId === 'soil-1'
     && recipe.cropId === snapshot.activeCropId;
-  if (recipe.approvalStatus !== 'approved' || !recipe.approvalReference) reasons.push('Resep belum disetujui tim agronomi.');
-  if (!cropMatches) reasons.push('Tanaman resep tidak sama dengan tanaman aktif Smart Soil soil-1 atau belum dipasangkan.');
-  if (hst === null || hst < recipe.hstFrom || hst > recipe.hstTo) reasons.push('HST di luar rentang resep.');
-  if (recipe.applicationDate !== jakartaDay(now)) reasons.push('Bukan tanggal aplikasi resep.');
+  if (recipe.approvalStatus !== 'approved' || !recipe.approvalReference) reasons.push('Program Fertigasi belum disetujui tim agronomi.');
+  if (!cropMatches) reasons.push('Tanaman pada Program Fertigasi tidak cocok dengan tanaman aktif Smart Soil soil-1 atau belum dipilih.');
+  if (hst === null || hst < recipe.hstFrom || hst > recipe.hstTo) reasons.push('Umur tanaman (HST) di luar rentang Program Fertigasi.');
+  if (recipe.applicationDate !== jakartaDay(now)) reasons.push('Hari ini bukan jadwal aplikasi Program Fertigasi.');
   if (!telemetryFresh) reasons.push('Telemetry tidak tersedia atau stale.');
   if (!deviceFresh || snapshot.deviceOnline !== true) reasons.push('ESP32 offline atau status stale.');
   if (snapshot.deviceMode !== 'automatic' || snapshot.automaticMode !== 'automatic' ||
@@ -86,7 +86,7 @@ export function evaluateSiteFertigation(
     controlStrategy: {
       active: 'legacy_sensor', deviceAuthority: 'esp32', recipeMode: 'advisory_only',
       canDispatch: false,
-      reason: 'Firmware saat ini hanya mendukung kontrol sensor lama. Rekomendasi resep tidak mengirim perintah relay.',
+      reason: 'Firmware saat ini menggunakan kontrol sensor lama. Rekomendasi Program Fertigasi tidak mengirim perintah relay.',
     },
     decision: {
       modelId: 'rule-based-v1', simulationOnly: true,
