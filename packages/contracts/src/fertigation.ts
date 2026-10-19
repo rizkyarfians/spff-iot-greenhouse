@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cropIdSchema } from './smartSoil.js';
 
 const finite = z.number().finite();
 const percent = finite.min(0).max(100);
@@ -28,7 +29,7 @@ export const fertigationRecipeInputSchema = z.object({
     ctx.addIssue({ code: 'custom', path: ['targetStockL'], message: 'Dosis stok membutuhkan nama pupuk dan konsentrasi stok tervalidasi.' });
   }
   if (value.targetStockL === 0 && (value.fertilizerName !== null || value.stockConcentrationGPerL !== null)) {
-    ctx.addIssue({ code: 'custom', path: ['fertilizerName'], message: 'Resep air saja tidak boleh memuat konsentrasi pupuk.' });
+    ctx.addIssue({ code: 'custom', path: ['fertilizerName'], message: 'Program Fertigasi untuk penyiraman saja tidak boleh memuat konsentrasi pupuk.' });
   }
 });
 export type FertigationRecipeInput = z.infer<typeof fertigationRecipeInputSchema>;
@@ -36,6 +37,8 @@ export type FertigationRecipeInput = z.infer<typeof fertigationRecipeInputSchema
 export const fertigationRecipeSchema = fertigationRecipeInputSchema.safeExtend({
   recipeId: z.string().uuid(),
   siteId: limitedId,
+  zoneId: z.literal('soil-1'),
+  cropId: cropIdSchema.nullable(),
   approvalStatus: z.enum(['draft', 'approved']),
   approvalReference: reference.nullable(),
   approvedBy: z.string().nullable(),
@@ -110,6 +113,7 @@ export const fertigationLiveEvaluationInputSchema = z.object({
 export type FertigationLiveEvaluationInput = z.infer<typeof fertigationLiveEvaluationInputSchema>;
 
 export const fertigationRecipeMutationSchema = fertigationRecipeInputSchema.safeExtend({
+  cropId: cropIdSchema,
   plantingDate: z.iso.date().nullable(),
   applicationDate: z.iso.date().nullable(),
 }).strict();
@@ -134,6 +138,19 @@ export const fertigationLiveDecisionSchema = z.object({
   hst: z.number().int().nullable(),
   telemetryRecordedAt: z.string().datetime({ offset: true }).nullable(),
   deviceRecordedAt: z.string().datetime({ offset: true }).nullable(),
+  activeCropId: cropIdSchema.nullable(),
+  observations: z.object({
+    moistureSensorKey: z.enum(['soil_1_moisture', 'soil_2_moisture']).nullable(),
+    soilMoisturePercent: percent.nullable(),
+    liquidEcUsCm: finite.nonnegative().nullable(),
+  }).strict(),
+  controlStrategy: z.object({
+    active: z.literal('legacy_sensor'),
+    deviceAuthority: z.literal('esp32'),
+    recipeMode: z.literal('advisory_only'),
+    canDispatch: z.literal(false),
+    reason: z.string().min(1),
+  }).strict(),
   decision: fertigationDecisionSchema,
 }).strict();
 export type FertigationLiveDecision = z.infer<typeof fertigationLiveDecisionSchema>;
