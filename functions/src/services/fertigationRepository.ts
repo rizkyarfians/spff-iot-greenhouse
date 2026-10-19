@@ -85,7 +85,8 @@ export async function createFertigationRecipe(input: FertigationRecipeMutation, 
       INSERT INTO spff.fertigation_recipes
       (recipe_id,site_id,crop_name,hst_from,hst_to,target_water_l,target_stock_l,
        fertilizer_name,stock_concentration_g_per_l,min_water_tank_percent,min_stock_tank_percent,
-       source_reference,planting_date,application_date,zone_id,crop_id)
+       source_reference,planting_date,application_date,zone_id,crop_id,
+       moisture_low_percent,moisture_target_percent,ec_low_us_cm,ec_target_us_cm,ec_high_us_cm)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'soil-1',$15,$16,$17,$18,$19,$20) RETURNING *
     `, [id,configuredSiteId,input.cropName,input.hstFrom,input.hstTo,input.targetWaterL,
       input.targetStockL,input.fertilizerName,input.stockConcentrationGPerL,
