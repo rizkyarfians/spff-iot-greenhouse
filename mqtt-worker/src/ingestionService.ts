@@ -1,5 +1,7 @@
 import {
   decodeJsonMessage,
+  isFertigationSessionEvent,
+  isFertigationSessionPersistedAck,
   isAutomaticControlAckMessage,
   isActuatorStateMessage,
   isCommandAckMessage,
@@ -9,6 +11,7 @@ import {
   isTelemetryPersistedAckMessage,
   parseMqttTopic,
   type TelemetryPersistedAckMessage,
+  type FertigationSessionPersistedAck,
 } from '@spff/contracts';
 import type { IngestionRepository } from './repository.js';
 import type { AlarmIngestionObserver } from './alarmEvaluator.js';
@@ -22,7 +25,7 @@ export class IngestionService {
   async process(
     topic: string,
     payload: Uint8Array,
-  ): Promise<TelemetryPersistedAckMessage | null> {
+  ): Promise<TelemetryPersistedAckMessage | FertigationSessionPersistedAck | null> {
     const topicParts = parseMqttTopic(topic);
     if (!topicParts) throw new Error(`Unsupported MQTT topic: ${topic}`);
 
@@ -50,6 +53,16 @@ export class IngestionService {
         messageId: message.messageId,
         sequence: message.sequence,
         persistedAt: new Date().toISOString(),
+      };
+    }
+
+    if (topicParts.channel === 'sessions' && isFertigationSessionEvent(message) && matchesTopic(message)) {
+      await this.repository.saveFertigationSession(message);
+      return {
+        kind: 'fertigation_session_persisted_ack',
+        schemaVersion: 1, siteId: message.siteId, deviceId: message.deviceId,
+        sessionId: message.sessionId, messageId: message.messageId,
+        sequence: message.sequence, persistedAt: new Date().toISOString(),
       };
     }
 
@@ -94,6 +107,10 @@ export class IngestionService {
       matchesTopic(message)
     ) {
       await this.repository.saveAutomaticControlAck(message);
+      return null;
+    }
+
+    if (topicParts.channel === 'ack' && isFertigationSessionPersistedAck(message) && matchesTopic(message)) {
       return null;
     }
 
