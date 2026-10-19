@@ -61,7 +61,7 @@ export function ruleBasedRepeatHoldReasons(
     // Recovery must be *after* completion and before fresh, dry trigger samples.
     if (!endedAt || !latest.completionProven || !recovery ||
         recovery.getTime() <= endedAt.getTime() || recovery.getTime() > now.getTime() ||
-        snapshot.moistureTargetPercent === null && recipe.moistureTargetPercent === null) {
+        recipe.moistureTargetPercent === null) {
       reasons.push('Tanah belum terbukti pulih setelah sesi terakhir; pemicu sensor belum boleh aktif ulang.');
     } else {
       const confirmedCount = recipe.triggerSampleCount;
