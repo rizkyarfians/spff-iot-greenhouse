@@ -13,6 +13,7 @@ import { simulateFertigation } from '../services/fertigationRules.js';
 import { evaluateSiteFertigation } from '../services/fertigationLiveEvaluation.js';
 import { previewAutomaticProgram } from '../services/fertigationAutomaticPreview.js';
 import { evaluateAutomaticRuleBased } from '../services/automaticRuleBased.js';
+import { loadRepeatEvidence } from '../services/fertigationRepeatRepository.js';
 import { requestActor } from '../middleware/operatorAuth.js';
 
 export async function simulateFertigationController(req: Request, res: Response, next: NextFunction) {
@@ -122,10 +123,13 @@ export async function getRuleBasedAutomaticController(req: Request, res: Respons
     const [snapshot, programs] = await Promise.all([
       loadSiteFertigationSnapshot(deviceId), listFertigationRecipes(),
     ]);
-    const decision = evaluateAutomaticRuleBased(
-      programs.filter((program): program is NonNullable<typeof program> => program !== null),
-      deviceId, snapshot,
-    );
+    const available = programs.filter((program): program is NonNullable<typeof program> => program !== null);
+    const initial = evaluateAutomaticRuleBased(available, deviceId, snapshot);
+    const selected = available.find(program => program.recipeId === initial.selectedProgramId);
+    const decision = selected
+      ? evaluateAutomaticRuleBased(available, deviceId, snapshot, new Date(),
+          await loadRepeatEvidence(selected, deviceId))
+      : initial;
     res.set('Cache-Control', 'no-store').json({
       success: true, data: decision,
       message: 'Automatic Control Rule-Based (Model 1): evaluasi saja, belum mengendalikan relay.',
