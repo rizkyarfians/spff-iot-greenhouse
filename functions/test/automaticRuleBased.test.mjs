@@ -22,7 +22,8 @@ const snapshot = {
   moisture:20,moistureValid:true,moistureLowPercent:30,moistureTargetPercent:50,
   liquidEcUsCm:400,liquidEcValid:true,ecLowUsCm:500,ecHighUsCm:1200,
 };
-const run=(p,s=snapshot)=>evaluateAutomaticRuleBased(p,'esp32-s3-01',s,now);
+const cleared = {sessions:[],recoveredAt:null};
+const run=(p,s=snapshot)=>evaluateAutomaticRuleBased(p,'esp32-s3-01',s,now,cleared);
 
 const sensorProgram={...program,applicationMode:'sensor',applicationDate:null,applicationIntervalDays:null,triggerSampleCount:3};
 const history=()=>[5,35,65].map(seconds=>({recordedAt:new Date(now.getTime()-seconds*1000),
@@ -34,7 +35,7 @@ test('sensor rules stay eligible across days by HST with no application date or 
   const shifted={...current,telemetryRecordedAt:new Date(snapshot.telemetryRecordedAt.getTime()+86400000),
     deviceRecordedAt:new Date(snapshot.deviceRecordedAt.getTime()+86400000),
     recentSamples:history().map(s=>({...s,recordedAt:new Date(s.recordedAt.getTime()+86400000)}))};
-  assert.equal(evaluateAutomaticRuleBased([sensorProgram],'esp32-s3-01',shifted,nextDay).status,'suggested');
+  assert.equal(evaluateAutomaticRuleBased([sensorProgram],'esp32-s3-01',shifted,nextDay,cleared).status,'suggested');
   assert.equal(run([{...sensorProgram,hstTo:29}],current).eligibleCount,0);
 });
 test('moisture must be at or below minimum for distinct fresh consecutive samples',()=>{
@@ -94,4 +95,10 @@ test('crop mismatch, old sensor and missing agronomic threshold fail closed',()=
   assert.equal(run([program],{...snapshot,activeCropId:'tomato'}).status,'hold');
   assert.equal(run([program],{...snapshot,deviceOnline:false}).status,'hold');
   assert.equal(run([{...program,moistureLowPercent:null}]).status,'hold');
+});
+
+test('missing device-origin session evidence fails closed',()=>{
+  const result=evaluateAutomaticRuleBased([program],'esp32-s3-01',snapshot,now);
+  assert.equal(result.status,'hold');
+  assert.equal(result.canDispatch,false);
 });
