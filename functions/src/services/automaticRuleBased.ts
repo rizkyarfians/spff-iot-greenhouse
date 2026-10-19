@@ -46,8 +46,9 @@ export function evaluateAutomaticRuleBased(
       : 'Ada lebih dari satu aturan aktif. Tim agronomi harus mengatasi konflik sebelum otomatisasi.'],
   };
   const program = eligible[0]!;
-  const decision = evaluateSiteFertigation(program, deviceId, snapshot, now);
-  const reasons = [...decision.decision.reasons];
+  // Keep device/sensor safety checks, but use only this approved rule's demand thresholds.
+  const decision = evaluateSiteFertigation(program, deviceId, snapshot, now, program);
+  const reasons = decision.decision.status === 'hold' ? [...decision.decision.reasons] : [];
   if (program.moistureLowPercent === null || program.moistureTargetPercent === null)
     reasons.push('Ambang moisture pada aturan budidaya belum lengkap.');
   if (program.targetStockL > 0 &&
@@ -59,14 +60,13 @@ export function evaluateAutomaticRuleBased(
   if (program.targetStockL > 0 && program.ecLowUsCm !== null &&
       snapshot.liquidEcUsCm !== null && snapshot.liquidEcUsCm > program.ecLowUsCm)
     reasons.push('EC belum berada di bawah ambang Rule-Based.');
-  const ready = decision.decision.status === 'suggested' && reasons.length === 1 &&
-    reasons[0] === 'Kondisi memenuhi syarat rekomendasi; bukan izin eksekusi pompa.';
+  const ready = reasons.length === 0;
   return {
     ...base, selectedProgramId: program.recipeId,
     status: ready ? 'suggested' : 'hold',
     action: ready ? (program.targetStockL > 0 ? 'FERTIGATE' : 'IRRIGATE') : 'DELAY',
     reasons: ready
       ? ['Evaluasi Model 1 memenuhi syarat. Kontrol relay tetap berada pada ESP32; tidak ada command yang dikirim.']
-      : reasons.filter(reason => reason !== 'Kondisi memenuhi syarat rekomendasi; bukan izin eksekusi pompa.'),
+      : reasons,
   };
 }

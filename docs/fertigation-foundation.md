@@ -1,5 +1,11 @@
 # Program Fertigasi — Fondasi backend (simulasi saja)
 
+## Pemisahan ambang Model 1
+
+Model 1 dan pratinjau program menggunakan ambang kelembapan/EC dari aturan agronomi yang dipilih, bukan ambang kebutuhan tanaman pada konfigurasi Sensor-Based lama. Sensor yang digunakan masih mengikuti `water_sensor_key` perangkat. Pemeriksaan kesehatan/kesegaran sensor, level tandon, status online, mode otomatis, dan ACK revisi tetap berlaku. Endpoint evaluasi legacy tetap memakai ambang konfigurasi lama. Semua jalur ini tetap advisory-only; tidak ada perubahan otoritas relay atau firmware.
+
+Tanggal tanam dan aplikasi dibaca dari PostgreSQL sebagai teks kalender `YYYY-MM-DD`, bukan timestamp UTC. Form administrasi internal memuat lima ambang agronomi; nilai kosong tetap null (draft belum lengkap), bukan angka default. Perubahan aturan tetap mereset persetujuan. Migrasi 023 tetap diperlukan; perbaikan ini tidak menambahkan migrasi baru.
+
 Migration `020_fertigation_foundation.sql` introduces agronomic recipe metadata and session/event tables. No recipes are inserted by default; every recipe requires an agronomic source and explicit approval before a decision can be suggested.
 
 ## API

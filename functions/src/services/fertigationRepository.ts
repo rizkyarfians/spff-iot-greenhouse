@@ -11,7 +11,7 @@ export async function getFertigationRecipe(recipeId: string): Promise<Fertigatio
     stock_concentration_g_per_l: number | null; min_water_tank_percent: number;
     min_stock_tank_percent: number; source_reference: string; approval_status: 'draft' | 'approved';
     approval_reference: string | null; approved_by: string | null; approved_at: Date | null;
-    planting_date: Date | string | null; application_date: Date | string | null;
+    planting_date: string | null; application_date: string | null;
     revision: number; updated_at: Date; zone_id: string; crop_id: string | null;
     moisture_low_percent: number | null; moisture_target_percent: number | null;
     ec_low_us_cm: number | null; ec_target_us_cm: number | null; ec_high_us_cm: number | null;
@@ -19,7 +19,10 @@ export async function getFertigationRecipe(recipeId: string): Promise<Fertigatio
     SELECT recipe_id,site_id,crop_name,hst_from,hst_to,target_water_l,target_stock_l,
            fertilizer_name,stock_concentration_g_per_l,min_water_tank_percent,
            min_stock_tank_percent,source_reference,approval_status,
-           approval_reference,approved_by,approved_at,planting_date,application_date,revision,updated_at,zone_id,crop_id,
+           approval_reference,approved_by,approved_at,
+           to_char(planting_date, 'YYYY-MM-DD') AS planting_date,
+           to_char(application_date, 'YYYY-MM-DD') AS application_date,
+           revision,updated_at,zone_id,crop_id,
            moisture_low_percent,moisture_target_percent,ec_low_us_cm,ec_target_us_cm,ec_high_us_cm
     FROM spff.fertigation_recipes WHERE site_id = $1 AND recipe_id = $2
   `, [configuredSiteId, recipeId]);
@@ -47,8 +50,8 @@ export async function getFertigationRecipe(recipeId: string): Promise<Fertigatio
     approvalReference: row.approval_reference,
     approvedBy: row.approved_by,
     approvedAt: row.approved_at?.toISOString() ?? null,
-    plantingDate: row.planting_date ? new Date(row.planting_date).toISOString().slice(0,10) : null,
-    applicationDate: row.application_date ? new Date(row.application_date).toISOString().slice(0,10) : null,
+    plantingDate: row.planting_date,
+    applicationDate: row.application_date,
     revision: row.revision,
     updatedAt: row.updated_at.toISOString(),
   });

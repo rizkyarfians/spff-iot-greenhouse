@@ -24,6 +24,12 @@ export function evaluateSiteFertigation(
   deviceId: string,
   snapshot: SiteEvaluationSnapshot,
   now = new Date(),
+  demandThresholds = {
+    moistureLowPercent: snapshot.moistureLowPercent,
+    moistureTargetPercent: snapshot.moistureTargetPercent,
+    ecLowUsCm: snapshot.ecLowUsCm,
+    ecHighUsCm: snapshot.ecHighUsCm,
+  },
 ): FertigationLiveDecision {
   const reasons: string[] = [];
   const hst = calculateHst(recipe.plantingDate, jakartaDay(now));
@@ -54,19 +60,20 @@ export function evaluateSiteFertigation(
 
   if (!snapshot.moistureValid || snapshot.moisture === null || !Number.isFinite(snapshot.moisture) ||
       snapshot.moisture < 0 || snapshot.moisture > 100 ||
-      snapshot.moistureLowPercent === null || snapshot.moistureTargetPercent === null) {
-    reasons.push('Moisture atau batas hysteresis Automatic Control tidak valid.');
-  } else if (snapshot.moisture >= snapshot.moistureLowPercent) {
+      demandThresholds.moistureLowPercent === null || demandThresholds.moistureTargetPercent === null ||
+      demandThresholds.moistureLowPercent >= demandThresholds.moistureTargetPercent) {
+    reasons.push('Kelembapan atau batas penyiraman tidak valid.');
+  } else if (snapshot.moisture >= demandThresholds.moistureLowPercent) {
     reasons.push('Moisture belum mencapai ambang penyiraman; tunda aplikasi.');
   }
   if (recipe.targetStockL > 0) {
     if (!snapshot.liquidEcValid || snapshot.liquidEcUsCm === null ||
-        snapshot.ecLowUsCm === null || snapshot.ecHighUsCm === null ||
-        snapshot.ecLowUsCm >= snapshot.ecHighUsCm) {
+        demandThresholds.ecLowUsCm === null || demandThresholds.ecHighUsCm === null ||
+        demandThresholds.ecLowUsCm >= demandThresholds.ecHighUsCm) {
       reasons.push('EC aktual atau batas EC otomatis tidak valid.');
-    } else if (snapshot.liquidEcUsCm >= snapshot.ecHighUsCm) {
+    } else if (snapshot.liquidEcUsCm >= demandThresholds.ecHighUsCm) {
       reasons.push('EC sudah mencapai batas tinggi; jangan injeksi pupuk.');
-    } else if (snapshot.liquidEcUsCm > snapshot.ecLowUsCm) {
+    } else if (snapshot.liquidEcUsCm > demandThresholds.ecLowUsCm) {
       reasons.push('EC belum berada di bawah ambang pemupukan.');
     }
   }

@@ -9,7 +9,7 @@ export function previewAutomaticProgram(
   snapshot: SiteEvaluationSnapshot,
   now = new Date(),
 ): FertigationAutomaticPreview {
-  const evaluation = evaluateSiteFertigation(recipe, deviceId, snapshot, now);
+  const evaluation = evaluateSiteFertigation(recipe, deviceId, snapshot, now, recipe);
   const reasons = evaluation.decision.status === 'hold' ? [...evaluation.decision.reasons] : [];
   if (recipe.moistureLowPercent === null || recipe.moistureTargetPercent === null)
     reasons.push('Batas kelembapan Program Fertigasi belum ditetapkan tim agronomi.');
@@ -23,7 +23,7 @@ export function previewAutomaticProgram(
     snapshot.liquidEcUsCm !== null && snapshot.liquidEcUsCm >= recipe.ecHighUsCm)
     reasons.push('EC aktual melewati batas tertinggi Program Fertigasi.');
 
-  // Legacy config may define stricter safety limits. No device config is overwritten here.
+  // Demand thresholds belong to the program. No device config is overwritten here.
   if (recipe.moistureLowPercent !== null &&
       recipe.moistureTargetPercent !== null &&
       recipe.moistureLowPercent >= recipe.moistureTargetPercent)

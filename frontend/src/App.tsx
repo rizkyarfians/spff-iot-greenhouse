@@ -478,7 +478,7 @@ Array<{
   {
     key: 'fertigation',
     icon: FlaskConical,
-    label: 'Uji Fertigasi',
+    label: 'Program Fertigasi',
   },
   {
     key: 'controls',

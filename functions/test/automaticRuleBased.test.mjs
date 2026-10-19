@@ -23,6 +23,29 @@ const snapshot = {
   liquidEcUsCm:400,liquidEcValid:true,ecLowUsCm:500,ecHighUsCm:1200,
 };
 const run=(p,s=snapshot)=>evaluateAutomaticRuleBased(p,'esp32-s3-01',s,now);
+test('rule demand thresholds are independent of missing or stricter legacy thresholds',()=>{
+  for (const legacy of [null, 10, 90]) {
+    const result=run([program],{...snapshot,moistureLowPercent:legacy,moistureTargetPercent:legacy});
+    assert.equal(result.status,'suggested');
+    assert.equal(result.canDispatch,false);
+  }
+  assert.equal(run([program],{...snapshot,moisture:35,moistureLowPercent:90}).status,'hold');
+});
+test('fertilizer uses rule EC thresholds without requiring legacy EC settings',()=>{
+  const fert={...program,targetStockL:1,ecLowUsCm:500,ecTargetUsCm:800,ecHighUsCm:1000};
+  for (const legacy of [null, 100]) {
+    assert.equal(run([fert],{...snapshot,ecLowUsCm:legacy,ecHighUsCm:legacy}).action,'FERTIGATE');
+  }
+  assert.equal(run([fert],{...snapshot,liquidEcUsCm:1100}).status,'hold');
+});
+test('rule-based still enforces safety when legacy demand settings are absent',()=>{
+  const base={...snapshot,moistureLowPercent:null,moistureTargetPercent:null};
+  for (const fault of [
+    {moistureValid:false}, {flowWaterValid:false}, {waterTankPercent:0},
+    {acknowledgedRevision:1}, {deviceMode:'manual'}, {deviceOnline:false},
+    {telemetryRecordedAt:new Date('2026-10-17T00:00:00Z')},
+  ]) assert.equal(run([program],{...base,...fault}).status,'hold');
+});
 test('one approved profile is chosen automatically with no MQTT dispatch',()=>{
   const output=run([program]);assert.equal(output.status,'suggested');
   assert.equal(output.action,'IRRIGATE');assert.equal(output.canDispatch,false);
