@@ -4,6 +4,7 @@ import {
   type PumpCommandMessage,
   type ScheduleSyncMessage,
   type TelemetryPersistedAckMessage,
+  type FertigationSessionPersistedAck,
 } from '@spff/contracts';
 import { connect, type IClientOptions, type MqttClient } from "mqtt";
 import { config } from "./config.js";
@@ -51,7 +52,9 @@ this.client.on('message', (topic, payload) => {
     .process(topic, payload)
     .then((acknowledgement) => {
       if (!acknowledgement) return;
-      return this.publishTelemetryPersistedAck(acknowledgement);
+      return acknowledgement.kind === 'fertigation_session_persisted_ack'
+        ? this.publishSessionPersistedAck(acknowledgement)
+        : this.publishTelemetryPersistedAck(acknowledgement);
     })
     .catch((error: unknown) =>
       console.error('[mqtt-worker] Message rejected', { topic, error }),
@@ -159,6 +162,14 @@ this.client.on('message', (topic, payload) => {
     });
   }
 
+private async publishSessionPersistedAck(message: FertigationSessionPersistedAck): Promise<void> {
+  const client = this.client;
+  if (!client?.connected) throw new Error('MQTT client is not connected.');
+  await new Promise<void>((resolve,reject) => client.publish(
+    mqttTopics.acknowledgements(message.siteId,message.deviceId),JSON.stringify(message),
+    {qos:1,retain:false},(error)=>error?reject(error):resolve()));
+}
+
 private async publishTelemetryPersistedAck(
   message: TelemetryPersistedAckMessage,
 ): Promise<void> {
@@ -201,6 +212,7 @@ private async publishTelemetryPersistedAck(
   private async restoreSubscriptions() {
     await this.subscribe([
       mqttTopics.allTelemetry,
+      mqttTopics.allSessions,
       mqttTopics.allStates,
       mqttTopics.allAcknowledgements,
       mqttTopics.allStatuses,
