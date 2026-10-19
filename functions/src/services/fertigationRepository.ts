@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isVerifiedFertigationReading } from './fertigationSensorHealth.js';
 import type { FertigationRecipeMutation, FertigationRecipeUpdate } from '@spff/contracts';
 import { pool, configuredSiteId } from './postgresRepository.js';
 import { fertigationRecipeSchema } from '@spff/contracts';
@@ -236,7 +237,7 @@ export async function loadSiteFertigationSnapshot(deviceId: string): Promise<Sit
   `,[configuredSiteId,deviceId]);
   const r=result.rows[0];
   if(!r) throw new Error('Perangkat tidak ditemukan atau tidak aktif.');
-  const valid=(name:string,value:number|null)=>value!==null && r.sensor_health?.[name]?.valid!==false;
+  const valid=(name:string,value:number|null)=>isVerifiedFertigationReading(name,value,r.sensor_health);
   const moistureKey=r.water_sensor_key==='soil_1_moisture'||r.water_sensor_key==='soil_2_moisture'?r.water_sensor_key:null;
   const moisture=moistureKey==='soil_1_moisture'?r.soil_1_moisture:moistureKey==='soil_2_moisture'?r.soil_2_moisture:null;
   const recent = await pool.query<{
@@ -253,9 +254,9 @@ export async function loadSiteFertigationSnapshot(deviceId: string): Promise<Sit
       const value = moistureKey === 'soil_1_moisture' ? sample.soil_1_moisture :
         moistureKey === 'soil_2_moisture' ? sample.soil_2_moisture : null;
       return {recordedAt:sample.recorded_at,moisture:value,
-        moistureValid:moistureKey !== null && value !== null && sample.sensor_health?.[moistureKey]?.valid !== false,
+        moistureValid:moistureKey !== null && isVerifiedFertigationReading(moistureKey,value,sample.sensor_health),
         ec:sample.liquid_ec_us_cm,
-        ecValid:sample.liquid_ec_us_cm !== null && sample.sensor_health?.liquid_ec_us_cm?.valid !== false};
+        ecValid:isVerifiedFertigationReading('liquid_ec_us_cm',sample.liquid_ec_us_cm,sample.sensor_health)};
     }),
     activeCropId:r.crop_id,
     moistureSensorKey:moistureKey,moisture,moistureValid:moistureKey!==null && valid(moistureKey,moisture),
