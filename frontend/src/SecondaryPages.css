@@ -1047,7 +1047,7 @@
 
 .datalog-chart-card {
   order: -1;
-  padding: 22px;
+  padding: 18px 20px;
 }
 
 .datalog-chart-header {
@@ -1059,6 +1059,7 @@
 
 .datalog-chart-header h2 {
   margin: 0 0 4px;
+  font-size: 18px;
 }
 
 .datalog-chart-header p {
@@ -1091,13 +1092,13 @@
 
 .datalog-chart-visual {
   display: grid;
-  height: clamp(320px, 29vw, 440px);
+  height: 230px;
   place-items: center;
-  margin-top: 18px;
+  margin-top: 12px;
   border-radius: 12px;
   background: linear-gradient(180deg, #fbfdfc 0%, #f7faf8 100%);
   overflow: hidden;
-  padding: 18px 20px 12px;
+  padding: 8px 12px;
 }
 
 .datalog-chart-visual svg {
@@ -1923,7 +1924,7 @@
   }
 
   .datalog-chart-visual {
-    height: 280px;
+    height: 230px;
     justify-content: start;
     overflow-x: auto;
     overflow-y: hidden;
@@ -1933,7 +1934,7 @@
   .datalog-chart-visual svg {
     width: 760px;
     min-width: 760px;
-    height: 230px;
+    height: 210px;
   }
 
   .log-actions .primary-button,
