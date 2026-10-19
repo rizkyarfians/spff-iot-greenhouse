@@ -88,3 +88,10 @@ Nama fitur yang ditampilkan kepada petani/operator adalah **Program Fertigasi**.
 - Resep/program di database sekarang diperlakukan sebagai **data aturan agronomi internal**; nama schema dan endpoint lama tetap dipertahankan demi kompatibilitas. Petani tidak memasukkan `recipeId` untuk keputusan Model 1.
 - `canDispatch:false` selalu. Pemilih metode firmware **belum tersedia** di firmware Master 1.4.15. ESP32 masih menjalankan sensor-based scheduler/controller, sehingga model ini **belum benar-benar menggantikan controller itu** dan tidak boleh mengirim ON/OFF paralel.
 - Sebelum eksekusi fisik: definisikan kontrol tunggal pada ESP32 (legacy vs rule-based), kontrak serta ACK mode/command dan expiry, selector fisik, safety tandon dalam persen (%), stop-on-fault, schedule validation, dan test broker + hardware. Tidak ada flash/deployment sekarang.
+
+## Tahap 1 — Rule-Based sensor-health fail-closed (19 Oktober 2026)
+- Backend mengevaluasi sensor terpilih berdasarkan `sensor_health[key].valid === true`, nilai numerik finite, dan batas fisik konservatif. `sensor_health` kosong, NULL, field hilang, dan `valid:false` semuanya menghasilkan status sensor tidak valid/keputusan `DELAY`.
+- Berlaku untuk snapshot terbaru dan semua pembacaan berturut-turut dalam jendela konfirmasi 120 detik. Moisture dan level tandon dibatasi 0–100%; EC 0–100000 µS/cm; flow 0–10000 L/min.
+- MQTT Worker tetap memproses telemetry lama menggunakan `deriveTelemetrySensorHealth`, termasuk `valid:true` untuk field yang dilaporkan tanpa status eksplisit dari device; backend hanya mempercayai status yang sudah tercatat di PostgreSQL, tidak membuat status sehat baru.
+- Perubahan dibatasi di service evaluasi dan test. Tidak mengubah kontrol legacy pada ESP32, UI, schema, maupun MQTT. Jalur Model 1 tetap advisory-only (`canDispatch:false`).
+- Sebelum deploy, cek versi migration, hasil status historis telemetry, `npm run build`, `npm run lint`, dan test dengan DB sesungguhnya.
