@@ -3,6 +3,7 @@ import type { SiteEvaluationSnapshot } from './fertigationRepository.js';
 import { evaluateSiteFertigation } from './fertigationLiveEvaluation.js';
 
 import { applicationDue, jakartaDay } from './fertigationSchedule.js';
+import { ruleBasedRepeatHoldReasons, type FertigationRepeatEvidence } from './fertigationRepeatGuard.js';
 
 export interface RuleBasedAutomaticResult {
   method: 'rule_based';
@@ -22,6 +23,7 @@ export function evaluateAutomaticRuleBased(
   deviceId: string,
   snapshot: SiteEvaluationSnapshot,
   now = new Date(),
+  repeatEvidence?: FertigationRepeatEvidence,
 ): RuleBasedAutomaticResult {
   const today = jakartaDay(now);
   const eligible = programs.filter(program => {
@@ -56,6 +58,11 @@ export function evaluateAutomaticRuleBased(
   if (program.targetStockL > 0 && program.ecLowUsCm !== null &&
       snapshot.liquidEcUsCm !== null && snapshot.liquidEcUsCm > program.ecLowUsCm)
     reasons.push('EC belum berada di bawah ambang Rule-Based.');
+  if (repeatEvidence === undefined) {
+    reasons.push('Riwayat sesi perangkat belum diperiksa; evaluasi Rule-Based ditahan.');
+  } else {
+    reasons.push(...ruleBasedRepeatHoldReasons(program, snapshot, repeatEvidence, now));
+  }
   const ready = reasons.length === 0;
   return {
     ...base, selectedProgramId: program.recipeId,
