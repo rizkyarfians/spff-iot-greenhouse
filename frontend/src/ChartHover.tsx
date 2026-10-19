@@ -9,12 +9,13 @@ const date = new Intl.DateTimeFormat('id-ID', {
 })
 
 /** Uses the SVG transform so pointer positions also work in letterboxed charts. */
-export function ChartHover({ data, points, unit, label, plotBottom }: {
+export function ChartHover({ data, points, unit, label, plotBottom, viewWidth = 760 }: {
   data: ApiHistoryPoint[]
   points: { x: number; y: number }[]
   unit: string
   label: string
   plotBottom: number
+  viewWidth?: number
 }) {
   const [selection, setSelection] = useState<{ data: ApiHistoryPoint[]; index: number }>()
   const index = selection?.data === data ? selection.index : undefined
@@ -50,7 +51,7 @@ export function ChartHover({ data, points, unit, label, plotBottom }: {
     {selected && point && <g pointerEvents="none">
       <line className="history-hover-guide" x1={point.x} x2={point.x} y1={12} y2={plotBottom}/>
       <circle className="history-hover-point" cx={point.x} cy={point.y} r={5}/>
-      <foreignObject x={Math.max(8, Math.min(point.x - 116, 520))} y={6} width={232} height={124}>
+      <foreignObject x={Math.max(8, Math.min(point.x - 116, viewWidth - 240))} y={6} width={232} height={124}>
         <div className="history-hover-tooltip" role="status">
           <span>{date.format(new Date(selected.recordedAt))} WIB</span>
           <strong>{number.format(selected.average)} {unit}</strong>
@@ -59,7 +60,7 @@ export function ChartHover({ data, points, unit, label, plotBottom }: {
         </div>
       </foreignObject>
     </g>}
-    <rect x={28} y={0} width={704} height={plotBottom} fill="transparent"
+    <rect x={28} y={0} width={Math.max(1, viewWidth - 56)} height={plotBottom} fill="transparent"
       tabIndex={0} role="group"
       aria-label={`${label}. Gunakan panah kiri dan kanan untuk melihat nilai, Escape untuk menutup.`}
       onPointerMove={move} onPointerDown={move}

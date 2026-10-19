@@ -2400,6 +2400,8 @@ function LogsPage({
   const [chartSensor, setChartSensor] = useState('soil_1_moisture')
   const [chartSeries, setChartSeries] = useState<ApiHistorySeries | null>(null)
   const [chartLoading, setChartLoading] = useState(false)
+  const chartSvg = useRef<SVGSVGElement | null>(null)
+  const [chartSize, setChartSize] = useState({ width: 760, height: 230 })
 
 
   const [
@@ -2683,11 +2685,25 @@ function LogsPage({
   )
 
 
+  useEffect(() => {
+    const svg = chartSvg.current
+    if (!svg) return
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.round(entry.contentRect.width)
+      const height = Math.round(entry.contentRect.height)
+      if (width <= 0 || height <= 0) return
+      setChartSize(current => current.width === width && current.height === height
+        ? current : { width, height })
+    })
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [chartLoading, chartPoints.length])
+
   const chartGeometry = useMemo(
     () => {
       const plotLeft = 28
-      const plotRight = 732
-      const plotBottom = 202
+      const plotRight = chartSize.width - 28
+      const plotBottom = chartSize.height - 28
       const values = chartPoints.map((point) => point.value)
 
       if (values.length === 0) {
@@ -2701,7 +2717,7 @@ function LogsPage({
         x: values.length === 1
           ? (plotLeft + plotRight) / 2
           : plotLeft + (index * (plotRight - plotLeft)) / (values.length - 1),
-        y: plotBottom - 18 - ((value - minimum) / valueRange) * 132,
+        y: plotBottom - 18 - ((value - minimum) / valueRange) * Math.max(1, plotBottom - 50),
       }))
       const linePath = points.reduce((path, point, index) => {
         if (index === 0) return `M ${point.x} ${point.y}`
@@ -2717,10 +2733,10 @@ function LogsPage({
         plotBottom,
       }
     },
-    [chartPoints],
+    [chartPoints, chartSize],
   )
 
-  const chartMarkerCount = Math.min(chartGeometry.points.length, 6)
+  const chartMarkerCount = Math.min(chartGeometry.points.length, Math.max(2, Math.min(6, Math.floor(chartSize.width / 125))))
   const chartMarkerIndexes = chartMarkerCount === 0
     ? []
     : chartMarkerCount === 1
@@ -3325,10 +3341,11 @@ function LogsPage({
             </div>
           ) : (
             <svg
-              viewBox="0 0 760 230"
+              ref={chartSvg}
+              viewBox={`0 0 ${chartSize.width} ${chartSize.height}`}
               role="img"
               aria-label="Grafik riwayat sensor sesuai rentang Datalog"
-              preserveAspectRatio="none"
+              preserveAspectRatio="xMidYMid meet"
             >
               <defs>
                 <linearGradient id="datalog-chart-fill" x1="0" y1="0" x2="0" y2="1">
@@ -3339,7 +3356,7 @@ function LogsPage({
               <line
                 className="datalog-chart-baseline"
                 x1="28"
-                x2="732"
+                x2={chartSize.width - 28}
                 y1={chartGeometry.plotBottom}
                 y2={chartGeometry.plotBottom}
               />
@@ -3378,7 +3395,7 @@ function LogsPage({
                     <text
                       className="datalog-chart-time-label"
                       x={point.x}
-                      y="222"
+                      y={chartGeometry.plotBottom + 20}
                       textAnchor={historyIndex === 0 ? 'start' : historyIndex === chartPoints.length - 1 ? 'end' : 'middle'}
                     >
                       {markerLabel}
@@ -3386,7 +3403,7 @@ function LogsPage({
                   </g>
                 )
               })}
-              <ChartHover data={chartPoints} points={chartGeometry.points} unit={chartSeries?.unit ?? ''} label="Riwayat sensor" plotBottom={chartGeometry.plotBottom}/>
+              <ChartHover data={chartPoints} points={chartGeometry.points} unit={chartSeries?.unit ?? ''} label="Riwayat sensor" plotBottom={chartGeometry.plotBottom} viewWidth={chartSize.width}/>
             </svg>
           )}
         </div>

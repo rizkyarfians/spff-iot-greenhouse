@@ -1143,7 +1143,7 @@
 
 .datalog-chart-time-label {
   fill: #71817a;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .datalog-chart-empty {
@@ -1935,9 +1935,9 @@
   }
 
   .datalog-chart-visual svg {
-    width: 760px;
-    min-width: 760px;
-    height: 210px;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
   }
 
   .log-actions .primary-button,
