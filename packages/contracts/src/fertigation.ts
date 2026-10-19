@@ -140,7 +140,18 @@ export const fertigationRecipeMutationSchema = fertigationRecipeInputSchema.safe
   cropId: cropIdSchema,
   plantingDate: z.iso.date().nullable(),
   applicationDate: z.iso.date().nullable(),
-}).strict();
+  useForEvaluation: z.boolean().default(false),
+}).strict().superRefine((value, ctx) => {
+  if (!value.useForEvaluation) return;
+  const required = (path: string, message: string) => ctx.addIssue({code:'custom',path:[path],message});
+  if (!value.plantingDate) required('plantingDate','Isi tanggal tanam sebelum menggunakan aturan.');
+  if (value.moistureLowPercent === null || value.moistureTargetPercent === null)
+    required('moistureLowPercent','Isi batas mulai menyiram dan target kelembapan.');
+  if (value.targetStockL > 0 && (value.ecLowUsCm === null || value.ecTargetUsCm === null || value.ecHighUsCm === null))
+    required('ecLowUsCm','Isi batas mulai pemberian pupuk, target EC, dan batas EC tertinggi.');
+  if (value.applicationMode === 'once' && !value.applicationDate)
+    required('applicationDate','Isi tanggal aplikasi untuk aturan sekali pakai.');
+});
 export type FertigationRecipeMutation = z.infer<typeof fertigationRecipeMutationSchema>;
 
 export const fertigationRecipeUpdateSchema = fertigationRecipeMutationSchema.safeExtend({

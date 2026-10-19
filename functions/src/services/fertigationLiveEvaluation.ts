@@ -25,7 +25,7 @@ export function evaluateSiteFertigation(
   const deviceFresh = fresh(snapshot.deviceRecordedAt, now, 90);
   const cropMatches = recipe.cropId !== null && recipe.zoneId === 'soil-1'
     && recipe.cropId === snapshot.activeCropId;
-  if (recipe.approvalStatus !== 'approved' || !recipe.approvalReference) reasons.push('Program Fertigasi belum disetujui tim agronomi.');
+  if (recipe.approvalStatus !== 'approved' || !recipe.approvalReference) reasons.push('Aturan belum digunakan. Admin perlu menyimpan dan menggunakan aturan terlebih dahulu.');
   if (!cropMatches) reasons.push('Tanaman pada Program Fertigasi tidak cocok dengan tanaman aktif Smart Soil soil-1 atau belum dipilih.');
   if (hst === null || hst < recipe.hstFrom || hst > recipe.hstTo) reasons.push('Umur tanaman (HST) di luar rentang Program Fertigasi.');
   if (!applicationDue(recipe, jakartaDay(now))) reasons.push('Hari ini bukan jadwal aplikasi Program Fertigasi.');

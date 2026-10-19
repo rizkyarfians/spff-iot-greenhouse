@@ -1,8 +1,16 @@
 # Program Fertigasi — Fondasi backend (simulasi saja)
 
+## Simpan dan gunakan aturan
+
+UI menggabungkan penyimpanan dan penggunaan aturan untuk evaluasi menjadi satu aksi admin: **Simpan dan gunakan aturan**. Form referensi persetujuan, checkbox, dan tombol persetujuan terpisah dihapus. Bagian bawah hanya memilih perangkat dan memeriksa kondisi tanaman.
+
+Request create/update mengirim `useForEvaluation=true`. Backend memvalidasi tanggal tanam, ambang kelembapan, dan ambang EC untuk pupuk; kemudian menyimpan aturan, identitas admin, waktu, serta snapshot revisi dalam transaksi yang sama. Kolom lama `approval_status='approved'` dipertahankan untuk kompatibilitas evaluator, dengan referensi eksplisit `Konfigurasi admin untuk evaluasi Rule-Based`. Status ini mencatat penggunaan konfigurasi oleh admin, bukan sertifikasi atau persetujuan agronom.
+
+Klien lama yang tidak mengirim flag tetap menyimpan draf dan mereset status penggunaan saat edit. Draf lama tidak diaktifkan massal; admin perlu membuka dan menyimpannya. Endpoint tetap memerlukan admin dan CSRF, pemeriksaan revisi tetap berlaku. Gate sensor, kecocokan tanaman/HST, konflik aturan, dan ACK perangkat tetap diperiksa. `canDispatch=false`: aksi ini tidak mengirim perintah pompa. Tidak ada migrasi tambahan untuk perubahan ini. Bagian historis di bawah yang menyebut persetujuan terpisah digantikan oleh alur ini untuk UI terbaru.
+
 ## Kolom sumber pada form
 
-Form tidak lagi meminta "Sumber aturan dan dosis". Metadata `sourceReference` tetap tersedia pada API tetapi opsional, dengan nilai kosong jika tidak diberikan. Saat program diperbarui tanpa sumber baru, repository mempertahankan sumber lama. Tidak ada sumber atau persetujuan yang dibuat otomatis. Persetujuan program tetap mengikuti alur yang sudah ada. Perubahan ini tidak memerlukan migrasi database.
+Form tidak lagi meminta "Sumber aturan dan dosis". Metadata `sourceReference` tetap tersedia pada API tetapi opsional, dengan nilai kosong jika tidak diberikan. Saat program diperbarui tanpa sumber baru, repository mempertahankan sumber lama. Tidak ada sumber agronomi yang dibuat otomatis. Penggunaan aturan mengikuti aksi admin di atas. Perubahan ini tidak memerlukan migrasi database.
 
 ## Pemicu sensor sepanjang rentang HST (migration 025)
 

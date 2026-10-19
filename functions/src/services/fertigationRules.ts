@@ -3,7 +3,7 @@ import type { FertigationDecision, FertigationRecipe, FertigationSimulationInput
 /** Deterministic, advisory-only decision. No hardware command is created. */
 export function simulateFertigation(recipe: FertigationRecipe, input: FertigationSimulationInput): FertigationDecision {
   const reasons: string[] = [];
-  if (recipe.approvalStatus !== 'approved' || !recipe.approvalReference) reasons.push('Program Fertigasi belum disetujui tim agronomi.');
+  if (recipe.approvalStatus !== 'approved' || !recipe.approvalReference) reasons.push('Aturan belum digunakan. Admin perlu menyimpan dan menggunakan aturan terlebih dahulu.');
   if (input.hst < recipe.hstFrom || input.hst > recipe.hstTo) reasons.push('Umur tanaman (HST) di luar rentang Program Fertigasi.');
   if (!input.scheduleDue) reasons.push('Belum masuk jadwal aplikasi.');
   if (input.selectorMode !== 'automatic') reasons.push('Selector perangkat bukan mode otomatis.');

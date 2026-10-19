@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { cropProfiles, fertigationRecipeMutationSchema, fertigationLiveDecisionSchema, type ApiDevice, type FertigationRecipe, type FertigationLiveDecision } from '@spff/contracts'
-import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, approveFertigationRecipe, evaluateFertigationSite } from './api'
+import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, evaluateFertigationSite } from './api'
 import { useAuth } from './authContext'
 import './FertigationPage.css'
 
@@ -51,14 +51,12 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [loaded, setLoaded] = useState(false)
-  const [reference, setReference] = useState('')
-  const [confirmed, setConfirmed] = useState(false)
   const [deviceId, setDeviceId] = useState('')
   const [result, setResult] = useState<FertigationLiveDecision>()
   const [withFertilizer, setWithFertilizer] = useState(false)
   function select(recipe?: FertigationRecipe) {
     setWithFertilizer((recipe?.targetStockL ?? 0) > 0)
-    setSelected(recipe); setReference(''); setConfirmed(false); setResult(undefined); setError(''); setNotice('')
+    setSelected(recipe); setResult(undefined); setError(''); setNotice('')
     const next = empty()
     if (recipe) for (const key of Object.keys(next) as (keyof Form)[]) next[key] = recipe[key] == null ? '' : String(recipe[key])
     next.applicationMode = 'sensor'; next.applicationDate = ''; next.applicationIntervalDays = ''
@@ -91,7 +89,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
       input.ecLowUsCm = null; input.ecTargetUsCm = null; input.ecHighUsCm = null
       input.minStockTankPercent = form.minStockTankPercent.trim() ? Number(form.minStockTankPercent) : 0
     }
-    const parsed = fertigationRecipeMutationSchema.safeParse(input)
+    const parsed = fertigationRecipeMutationSchema.safeParse({ ...input, useForEvaluation: true })
     if (!parsed.success) throw new Error(parsed.error.issues.map(i => {
       const key = i.path[0]
       const label = fields.find(field => field.key === key)?.label ?? (key === 'cropId' ? 'Tanaman' : 'Pengaturan program')
@@ -99,7 +97,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     }).join('; '))
     const saved = await saveFertigationRecipe(parsed.data, selected)
     select(saved); setRecipes(rows => [saved, ...rows.filter(r => r.recipeId !== saved.recipeId)]); setLoaded(true)
-    setNotice('Program Fertigasi tersimpan sebagai draft. Persetujuan sebelumnya direset.')
+    setNotice('Aturan tersimpan dan digunakan untuk evaluasi kondisi tanaman.')
   }
   return <section className="fertigation-test">
     <header><span className="ft-badge">Simulasi saja · pompa tidak digerakkan</span></header>
@@ -108,19 +106,19 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     <div className="ft-layout"><aside className="ft-panel"><div className="ft-actions"><h3>Daftar program</h3><button disabled={busy} onClick={() => void run(reload)}>Muat ulang</button></div>
       {admin && <button disabled={busy} onClick={() => select()}>+ Program Fertigasi baru</button>}
       {!loaded && !error && <p>Memuat program…</p>}
-      {loaded && recipes.length === 0 && <p>Belum ada program. Admin dapat membuat draft melalui form di samping.</p>}
-      {recipes.map(recipe => <button className={`ft-recipe ${selected?.recipeId === recipe.recipeId ? 'active' : ''}`} key={recipe.recipeId} disabled={busy} onClick={() => select(recipe)}><strong>{recipe.cropName}</strong><span>{recipe.approvalStatus} · revisi {recipe.revision}</span><span>Air {recipe.targetWaterL} L · stok {recipe.targetStockL} L</span></button>)}
+      {loaded && recipes.length === 0 && <p>Belum ada program. Admin dapat mengisi aturan melalui form.</p>}
+      {recipes.map(recipe => <button className={`ft-recipe ${selected?.recipeId === recipe.recipeId ? 'active' : ''}`} key={recipe.recipeId} disabled={busy} onClick={() => select(recipe)}><strong>{recipe.cropName}</strong><span>{recipe.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</span><span>Air {recipe.targetWaterL} L · stok {recipe.targetStockL} L</span></button>)}
     </aside><div className="ft-panel"><h3>{selected ? `Program Fertigasi ${selected.cropName}` : 'Program Fertigasi baru'}</h3>
-      {!admin && <p>Tambah, edit, dan persetujuan program tersedia untuk Admin.</p>}
+      {!admin && <p>Hanya Admin yang dapat mengubah aturan.</p>}
       <form onSubmit={e => { e.preventDefault(); void run(save) }}><fieldset disabled={!admin || busy}><div className="ft-fields">
         <label>Tanaman<select required value={form.cropId} onChange={e => {
           const crop = cropProfiles.find(item => item.id === e.target.value)
           setForm({...form, cropId: crop?.id ?? '', cropName: crop?.commonName ?? ''})
-          setConfirmed(false); setReference(''); setResult(undefined)
+          setResult(undefined)
         }}><option value="">Pilih tanaman</option>{cropProfiles.map(crop => <option key={crop.id} value={crop.id}>{crop.commonName}</option>)}</select></label>
         <label>Jenis pemberian<select value={withFertilizer ? 'fertilizer' : 'water'} onChange={e => { setWithFertilizer(e.target.value === 'fertilizer'); setResult(undefined) }}><option value="water">Air saja</option><option value="fertilizer">Air dan pupuk</option></select></label>
-        {selected && selected.applicationMode !== 'sensor' && <p role="status">Simpan ulang untuk memakai pemicu sensor. Jadwal lama tetap berlaku sampai perubahan disimpan dan disetujui.</p>}
-        {selected && !selected.cropId && <p role="status">Program lama belum terhubung ke tanaman Smart Soil. Pilih tanaman lalu simpan ulang sebelum meminta persetujuan.</p>}
+        {selected && selected.applicationMode !== 'sensor' && <p role="status">Simpan ulang untuk memakai pemicu sensor. Jadwal lama tetap berlaku sampai perubahan disimpan.</p>}
+        {selected && !selected.cropId && <p role="status">Program lama belum terhubung ke tanaman Smart Soil. Pilih tanaman lalu simpan ulang.</p>}
         {fieldGroups.filter(group => !group.fertilizerOnly || withFertilizer).map(group => <section className="ft-field-group" key={group.title} aria-label={group.title}>
           <h4>{group.title}</h4>
           <div className="ft-fields">{group.keys.map(key => fields.find(field => field.key === key)!).filter(field => withFertilizer || field.key !== 'minStockTankPercent').map(({key, label, type, max, hint, placeholder}) => {
@@ -129,10 +127,9 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
         })}</div>
           {group.keys.includes('plantingDate') && <p className="ft-field-hint">Tanggal tanam dipakai menghitung umur. Hari tanam dihitung sebagai umur 0 hari.{effectiveDate(form.plantingDate, form.hstFrom) && effectiveDate(form.plantingDate, form.hstTo) && <> Aturan ini berlaku {effectiveDate(form.plantingDate, form.hstFrom)} sampai {effectiveDate(form.plantingDate, form.hstTo)}.</>}</p>}
         </section>)}
-      </div><button className="ft-primary" type="submit">{busy ? 'Memproses…' : selected ? 'Simpan perubahan sebagai draft' : 'Simpan draft'}</button></fieldset></form>
-      {selected && <><hr/><h3>Persetujuan & evaluasi</h3><p>Status: <strong>{selected.approvalStatus}</strong> · revisi {selected.revision}. Evaluasi menggunakan versi tersimpan.</p>
+      </div><button className="ft-primary" type="submit">{busy ? 'Memproses…' : 'Simpan dan gunakan aturan'}</button></fieldset></form>
+      {selected && <><hr/><h3>Periksa kondisi tanaman</h3><p>Status aturan: <strong>{selected.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</strong></p>
         {dirty && <p className="ft-error">Ada perubahan belum disimpan. Simpan dahulu atau pilih ulang program.</p>}
-        {admin && selected.approvalStatus === 'draft' && <div className="ft-approval"><label>Referensi persetujuan agronomi<input value={reference} maxLength={500} onChange={e => setReference(e.target.value)} disabled={busy} /></label><label className="ft-check"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} disabled={busy}/>Saya sudah memeriksa dosis dan referensi persetujuan program ini.</label><button disabled={busy || !!dirty || !selected.cropId || !confirmed || reference.trim().length < 5} onClick={() => void run(async () => { const saved = await approveFertigationRecipe(selected, reference.trim()); select(saved); setRecipes(rows => rows.map(r => r.recipeId === saved.recipeId ? saved : r)); setNotice('Persetujuan tersimpan.'); })}>Catat persetujuan</button></div>}
         <label>Perangkat<select disabled={busy} value={deviceId} onChange={e => { setDeviceId(e.target.value); setResult(undefined) }}><option value="">Pilih perangkat</option>{devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}</select></label>
         <button className="ft-primary" disabled={busy || !!dirty || !operator || !deviceId} onClick={() => void run(async () => { setResult(undefined); const response = await evaluateFertigationSite(selected.recipeId, deviceId); setResult(fertigationLiveDecisionSchema.parse(response)) })}>Periksa kondisi tanaman</button>
         {result && <div className="ft-result" role="status"><h3>{result.decision.action === 'DELAY' ? 'Ditunda' : 'Rekomendasi tersedia'} · {result.decision.action}</h3><p>HST: {result.hst ?? 'belum tersedia'} · air: {result.decision.targetWaterL ?? '—'} L · stok: {result.decision.targetStockL ?? '—'} L</p><p>Tanaman cocok: {cropProfiles.find(crop => crop.id === result.activeCropId)?.commonName ?? 'Belum cocok / belum dipilih'} · kelembapan tanah: {result.observations.soilMoisturePercent ?? '—'} % · EC larutan: {result.observations.liquidEcUsCm ?? '—'} µS/cm</p><p>Pengendali pompa: kontrol sensor pada perangkat. Program Fertigasi hanya memberikan rekomendasi; tidak mengirim perintah pompa.</p><ul>{result.decision.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul><p>Waktu evaluasi: {result.siteObservedAt}<br/>Telemetry: {result.telemetryRecordedAt ?? 'Tidak tersedia'}<br/>Status perangkat: {result.deviceRecordedAt ?? 'Tidak tersedia'}</p><details><summary>Respons JSON</summary><pre>{JSON.stringify(result, null, 2)}</pre></details></div>}

@@ -25,3 +25,13 @@ test('sensor trigger requires no calendar schedule and validates sample count',(
   for(const count of [0,21,1.5]) assert.equal(fertigationRecipeMutationSchema.safeParse({...sensor,triggerSampleCount:count}).success,false);
   assert.equal(fertigationRecipeMutationSchema.safeParse({...sensor,applicationIntervalDays:1}).success,false);
 });
+
+test('explicit admin use validates complete settings while legacy clients still save drafts',()=>{
+  const input={...base,applicationMode:'sensor',useForEvaluation:true,moistureLowPercent:20,moistureTargetPercent:50};
+  const parse=x=>fertigationRecipeMutationSchema.safeParse(x);
+  assert.equal(parse(input).success,true);
+  assert.equal(fertigationRecipeMutationSchema.parse(base).useForEvaluation,false);
+  assert.equal(parse({...input,plantingDate:null}).success,false);
+  assert.equal(parse({...input,moistureTargetPercent:null}).success,false);
+  assert.equal(parse({...input,targetStockL:1,fertilizerName:'Test only',stockConcentrationGPerL:10}).success,false);
+});

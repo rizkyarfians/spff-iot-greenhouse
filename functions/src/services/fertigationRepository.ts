@@ -96,13 +96,17 @@ export async function createFertigationRecipe(input: FertigationRecipeMutation, 
        fertilizer_name,stock_concentration_g_per_l,min_water_tank_percent,min_stock_tank_percent,
        source_reference,planting_date,application_date,zone_id,crop_id,
        moisture_low_percent,moisture_target_percent,ec_low_us_cm,ec_target_us_cm,ec_high_us_cm,
-       application_mode,application_interval_days,trigger_sample_count)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'soil-1',$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *
+       application_mode,application_interval_days,trigger_sample_count,
+       approval_status,approval_reference,approved_by,approved_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'soil-1',$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27) RETURNING *
     `, [id,configuredSiteId,input.cropName,input.hstFrom,input.hstTo,input.targetWaterL,
       input.targetStockL,input.fertilizerName,input.stockConcentrationGPerL,
       input.minWaterTankPercent,input.minStockTankPercent,input.sourceReference,
       input.plantingDate,input.applicationDate,input.cropId,
-      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm,input.applicationMode,input.applicationIntervalDays,input.triggerSampleCount]);
+      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm,input.applicationMode,input.applicationIntervalDays,input.triggerSampleCount,
+      input.useForEvaluation ? 'approved' : 'draft',
+      input.useForEvaluation ? 'Konfigurasi admin untuk evaluasi Rule-Based' : null,
+      input.useForEvaluation ? actor : null, input.useForEvaluation ? new Date() : null]);
     await client.query(
       'INSERT INTO spff.fertigation_recipe_revisions (recipe_id,revision,snapshot,changed_by) VALUES ($1,1,$2,$3)',
       [id,inserted.rows[0],actor],
@@ -123,14 +127,17 @@ export async function updateFertigationRecipe(recipeId: string, input: Fertigati
         fertilizer_name=$9,stock_concentration_g_per_l=$10,min_water_tank_percent=$11,
         min_stock_tank_percent=$12,source_reference=COALESCE(NULLIF($13,''),source_reference),planting_date=$14,application_date=$15,crop_id=$16,
         moisture_low_percent=$17,moisture_target_percent=$18,ec_low_us_cm=$19,ec_target_us_cm=$20,ec_high_us_cm=$21,application_mode=$22,application_interval_days=$23,trigger_sample_count=$24,
-        approval_status='draft',approval_reference=NULL,approved_by=NULL,approved_at=NULL,
+        approval_status=$25,approval_reference=$26,approved_by=$27,approved_at=$28,
         revision=revision+1,updated_at=now()
       WHERE site_id=$1 AND recipe_id=$2 AND revision=$3 RETURNING *
     `, [configuredSiteId,recipeId,input.expectedRevision,input.cropName,input.hstFrom,
       input.hstTo,input.targetWaterL,input.targetStockL,input.fertilizerName,
       input.stockConcentrationGPerL,input.minWaterTankPercent,input.minStockTankPercent,
       input.sourceReference,input.plantingDate,input.applicationDate,input.cropId,
-      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm,input.applicationMode,input.applicationIntervalDays,input.triggerSampleCount]);
+      input.moistureLowPercent,input.moistureTargetPercent,input.ecLowUsCm,input.ecTargetUsCm,input.ecHighUsCm,input.applicationMode,input.applicationIntervalDays,input.triggerSampleCount,
+      input.useForEvaluation ? 'approved' : 'draft',
+      input.useForEvaluation ? 'Konfigurasi admin untuk evaluasi Rule-Based' : null,
+      input.useForEvaluation ? actor : null, input.useForEvaluation ? new Date() : null]);
     updated = result.rowCount === 1;
     if (updated) await client.query(
       'INSERT INTO spff.fertigation_recipe_revisions(recipe_id,revision,snapshot,changed_by) VALUES($1,$2,$3,$4)',

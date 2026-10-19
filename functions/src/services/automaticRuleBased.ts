@@ -40,8 +40,8 @@ export function evaluateAutomaticRuleBased(
   if (eligible.length !== 1) return {
     ...base, selectedProgramId: null, status: 'hold', action: 'DELAY',
     reasons: [eligible.length === 0
-      ? 'Tidak ada aturan budidaya yang disetujui dan aktif untuk tanaman serta umur tanaman saat ini.'
-      : 'Ada lebih dari satu aturan aktif. Tim agronomi harus mengatasi konflik sebelum otomatisasi.'],
+      ? 'Tidak ada aturan yang digunakan dan sesuai dengan tanaman serta umur tanaman saat ini.'
+      : 'Ada lebih dari satu aturan aktif. Admin perlu mengatasi konflik aturan.'],
   };
   const program = eligible[0]!;
   // Keep device/sensor safety checks, but use only this approved rule's demand thresholds.
