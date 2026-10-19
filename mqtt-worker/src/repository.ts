@@ -959,9 +959,9 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       );
       if ((device.rowCount ?? 0) !== 1) throw new Error('Unknown session device.');
       const previous = await client.query<{
-        session_id: string; recipe_id: string | null; status: string;
+        session_id: string; site_id: string; device_id: string; recipe_id: string | null; status: string;
         last_recorded_at: Date;
-      }>('SELECT session_id,recipe_id,status,last_recorded_at FROM spff.fertigation_sessions WHERE session_id=$1 FOR UPDATE',
+      }>('SELECT session_id,site_id,device_id,recipe_id,status,last_recorded_at FROM spff.fertigation_sessions WHERE session_id=$1 FOR UPDATE',
         [message.sessionId]);
       const last = previous.rows[0];
       const already = await client.query<{ payload: FertigationSessionEvent }>(
@@ -984,6 +984,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       );
       if (replay.rowCount) throw new Error('Session sequence already used.');
       if (!last && message.status !== 'started') throw new Error('Session must begin with started.');
+      if (last && (last.site_id !== message.siteId || last.device_id !== message.deviceId)) throw new Error('Session device mismatch.');
       if (last && last.recipe_id !== message.recipeId) throw new Error('Session recipe mismatch.');
       if (last && ['completed','aborted','fault'].includes(last.status))
         throw new Error('Terminal session cannot transition.');
@@ -1009,7 +1010,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         await client.query(`INSERT INTO spff.fertigation_sessions
           (session_id,site_id,device_id,recipe_id,target_water_l,target_stock_l,actual_water_l,
            actual_stock_l,status,pumps_off,completion_reason,started_at,finished_at,last_recorded_at)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL,$13::timestamptz)`,
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::timestamptz,NULL,$12::timestamptz)`,
           [message.sessionId,message.siteId,message.deviceId,message.recipeId,message.targetWaterL,
            message.targetStockL,message.actualWaterL,message.actualStockL,message.status,
            message.pumpsOff,message.completionReason,message.recordedAt]);
