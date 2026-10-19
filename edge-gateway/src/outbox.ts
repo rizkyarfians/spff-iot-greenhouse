@@ -8,10 +8,12 @@ import type {
   DeviceStatusMessage,
   ScheduleSyncAckMessage,
   TelemetryMessage,
+  FertigationSessionEvent,
 } from '@spff/contracts';
 
 export type OutboxRecord =
   | { kind: 'telemetry'; payload: TelemetryMessage }
+  | { kind: 'session'; payload: FertigationSessionEvent }
   | { kind: 'state'; payload: ActuatorStateMessage }
   | { kind: 'ack'; payload: CommandAckMessage }
   | { kind: 'schedule_ack'; payload: ScheduleSyncAckMessage }
@@ -52,7 +54,7 @@ export class DurableOutbox {
         const parsed = JSON.parse(await readFile(filePath, 'utf8')) as OutboxRecord;
 await publish(parsed);
 
-if (parsed.kind !== 'telemetry') {
+if (parsed.kind !== 'telemetry' && parsed.kind !== 'session') {
   await unlink(filePath);
 }
       }
@@ -62,6 +64,14 @@ if (parsed.kind !== 'telemetry') {
   }
 
 async acknowledgeTelemetry(messageId: string): Promise<boolean> {
+  return this.acknowledgePersisted('telemetry', messageId);
+}
+
+async acknowledgeSession(messageId: string): Promise<boolean> {
+  return this.acknowledgePersisted('session', messageId);
+}
+
+private async acknowledgePersisted(kind: 'telemetry' | 'session', messageId: string): Promise<boolean> {
   const files = await this.listFiles();
 
   for (const file of files) {
@@ -81,7 +91,7 @@ async acknowledgeTelemetry(messageId: string): Promise<boolean> {
     }
 
     if (
-      parsed.kind !== 'telemetry' ||
+      parsed.kind !== kind ||
       parsed.payload.messageId !== messageId
     ) {
       continue;
