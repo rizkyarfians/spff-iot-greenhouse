@@ -21,7 +21,7 @@ export async function simulateFertigationController(req: Request, res: Response,
     }
     const recipe = await getFertigationRecipe(parsed.data.recipeId);
     if (!recipe) {
-      res.status(404).json({ success: false, data: null, message: 'Resep tidak ditemukan.', errors: ['recipeId'] });
+      res.status(404).json({ success: false, data: null, message: 'Program Fertigasi tidak ditemukan.', errors: ['recipeId'] });
       return;
     }
     const decision = simulateFertigation(recipe, parsed.data);
@@ -44,42 +44,42 @@ export async function getFertigationSessionsController(req: Request, res: Respon
 }
 
 export async function listRecipesController(_req: Request,res:Response,next:NextFunction) {
-  try { res.json({success:true,data:await listFertigationRecipes(),message:'Daftar resep fertigasi.'}); }
+  try { res.json({success:true,data:await listFertigationRecipes(),message:'Daftar Program Fertigasi.'}); }
   catch(error){next(error);}
 }
 export async function createRecipeController(req:Request,res:Response,next:NextFunction) {
   try {
     const p=fertigationRecipeMutationSchema.safeParse(req.body);
-    if(!p.success){res.status(400).json({success:false,data:null,message:'Resep tidak valid.',errors:p.error.issues.map(x=>x.path.join('.'))});return;}
-    res.status(201).json({success:true,data:await createFertigationRecipe(p.data,requestActor(req)),message:'Resep draft dibuat. Belum dapat digunakan sebelum persetujuan.'});
+    if(!p.success){res.status(400).json({success:false,data:null,message:'Data Program Fertigasi tidak valid.',errors:p.error.issues.map(x=>x.path.join('.'))});return;}
+    res.status(201).json({success:true,data:await createFertigationRecipe(p.data,requestActor(req)),message:'Program Fertigasi berhasil dibuat sebagai draf. Program belum dapat digunakan sebelum disetujui.'});
   }catch(error){next(error);}
 }
 export async function updateRecipeController(req:Request,res:Response,next:NextFunction) {
   try {
     const p=fertigationRecipeUpdateSchema.safeParse(req.body);
     const recipeId=req.params.id;
-    if(!p.success||typeof recipeId!=='string'||!/^[0-9a-f-]{36}$/i.test(recipeId)){res.status(400).json({success:false,data:null,message:'Permintaan update tidak valid.'});return;}
+    if(!p.success||typeof recipeId!=='string'||!/^[0-9a-f-]{36}$/i.test(recipeId)){res.status(400).json({success:false,data:null,message:'Permintaan perubahan Program Fertigasi tidak valid.'});return;}
     const result=await updateFertigationRecipe(recipeId,p.data,requestActor(req));
-    if(!result){res.status(409).json({success:false,data:null,message:'Resep tidak ditemukan atau revisi sudah berubah.'});return;}
-    res.json({success:true,data:result,message:'Resep diperbarui dan persetujuan direset ke draft.'});
+    if(!result){res.status(409).json({success:false,data:null,message:'Program Fertigasi tidak ditemukan atau versinya sudah berubah.'});return;}
+    res.json({success:true,data:result,message:'Program Fertigasi diperbarui. Status persetujuan kembali menjadi draf.'});
   }catch(error){next(error);}
 }
 export async function approveRecipeController(req:Request,res:Response,next:NextFunction) {
   try{
     const p=fertigationRecipeApprovalSchema.safeParse(req.body);
     const recipeId=req.params.id;
-    if(!p.success||typeof recipeId!=='string'||!/^[0-9a-f-]{36}$/i.test(recipeId)){res.status(400).json({success:false,data:null,message:'Persetujuan tidak valid.'});return;}
+    if(!p.success||typeof recipeId!=='string'||!/^[0-9a-f-]{36}$/i.test(recipeId)){res.status(400).json({success:false,data:null,message:'Persetujuan Program Fertigasi tidak valid.'});return;}
     const result=await approveFertigationRecipe(recipeId,p.data.expectedRevision,p.data.approvalReference,requestActor(req));
-    if(!result){res.status(409).json({success:false,data:null,message:'Resep tidak ditemukan atau revisi sudah berubah.'});return;}
-    res.json({success:true,data:result,message:'Persetujuan agronomi tercatat.'});
+    if(!result){res.status(409).json({success:false,data:null,message:'Program Fertigasi tidak ditemukan atau versinya sudah berubah.'});return;}
+    res.json({success:true,data:result,message:'Persetujuan Program Fertigasi berhasil dicatat.'});
   }catch(error){next(error);}
 }
 export async function evaluateLiveRecipeController(req:Request,res:Response,next:NextFunction) {
   try{
     const p=fertigationLiveEvaluationInputSchema.safeParse(req.body);
-    if(!p.success){res.status(400).json({success:false,data:null,message:'recipeId/deviceId tidak valid.'});return;}
+    if(!p.success){res.status(400).json({success:false,data:null,message:'ID Program Fertigasi atau perangkat tidak valid.'});return;}
     const recipe=await getFertigationRecipe(p.data.recipeId);
-    if(!recipe){res.status(404).json({success:false,data:null,message:'Resep tidak ditemukan.'});return;}
+    if(!recipe){res.status(404).json({success:false,data:null,message:'Program Fertigasi tidak ditemukan.'});return;}
     const snapshot=await loadSiteFertigationSnapshot(p.data.deviceId);
     const decision=evaluateSiteFertigation(recipe,p.data.deviceId,snapshot);
     await recordFertigationEvaluation(recipe.recipeId,p.data.deviceId,requestActor(req),snapshot.telemetryRecordedAt,snapshot.deviceRecordedAt,decision);
