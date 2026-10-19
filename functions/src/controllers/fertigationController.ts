@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import {
   fertigationSimulationInputSchema, fertigationLiveEvaluationInputSchema,
   fertigationRecipeMutationSchema, fertigationRecipeUpdateSchema, fertigationRecipeApprovalSchema,
+  fertigationAutomaticPreviewInputSchema,
 } from '@spff/contracts';
 import {
   createFertigationRecipe, updateFertigationRecipe, approveFertigationRecipe,
@@ -10,6 +11,7 @@ import {
 } from '../services/fertigationRepository.js';
 import { simulateFertigation } from '../services/fertigationRules.js';
 import { evaluateSiteFertigation } from '../services/fertigationLiveEvaluation.js';
+import { previewAutomaticProgram } from '../services/fertigationAutomaticPreview.js';
 import { requestActor } from '../middleware/operatorAuth.js';
 
 export async function simulateFertigationController(req: Request, res: Response, next: NextFunction) {
@@ -85,4 +87,25 @@ export async function evaluateLiveRecipeController(req:Request,res:Response,next
     await recordFertigationEvaluation(recipe.recipeId,p.data.deviceId,requestActor(req),snapshot.telemetryRecordedAt,snapshot.deviceRecordedAt,decision);
     res.set('Cache-Control','no-store').json({success:true,data:decision,message:'Evaluasi berdasarkan PostgreSQL site; tidak mengirim command pompa.'});
   }catch(error){next(error);}
+}
+
+export async function previewAutomaticProgramController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = fertigationAutomaticPreviewInputSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, data: null, message: 'ID Program Fertigasi atau perangkat tidak valid.' });
+      return;
+    }
+    const program = await getFertigationRecipe(parsed.data.recipeId);
+    if (!program) {
+      res.status(404).json({ success: false, data: null, message: 'Program Fertigasi tidak ditemukan.' });
+      return;
+    }
+    const snapshot = await loadSiteFertigationSnapshot(parsed.data.deviceId);
+    const preview = previewAutomaticProgram(program, parsed.data.deviceId, snapshot);
+    res.set('Cache-Control', 'no-store').json({
+      success: true, data: preview,
+      message: 'Pratinjau Automatic Control. Tidak mengubah konfigurasi ESP32 atau mengirim perintah pompa.',
+    });
+  } catch (error) { next(error); }
 }
