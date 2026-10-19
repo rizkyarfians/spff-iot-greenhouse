@@ -114,6 +114,8 @@ export const fertigationSessionEventSchema = z.object({
   messageId: z.string().trim().min(1).max(128),
   sequence: z.number().int().nonnegative(),
   sessionId: z.string().uuid(),
+  /** Required for Rule-Based device-origin session correlation. */
+  recipeId: z.string().uuid(),
   recordedAt: z.string().datetime({ offset: true }),
   status: z.enum(['started', 'running', 'completed', 'aborted', 'fault']),
   targetWaterL: finite.positive(),
@@ -128,6 +130,26 @@ export const fertigationSessionEventSchema = z.object({
   }
 });
 export type FertigationSessionEvent = z.infer<typeof fertigationSessionEventSchema>;
+
+/** Worker emits only after PostgreSQL transaction commit. Not an actuator/command ACK. */
+export const fertigationSessionPersistedAckSchema = z.object({
+  kind: z.literal('fertigation_session_persisted_ack'),
+  schemaVersion: z.literal(1),
+  siteId: limitedId,
+  deviceId: limitedId,
+  sessionId: z.string().uuid(),
+  messageId: z.string().trim().min(1).max(128),
+  sequence: z.number().int().nonnegative(),
+  persistedAt: z.string().datetime({ offset: true }),
+}).strict();
+export type FertigationSessionPersistedAck = z.infer<typeof fertigationSessionPersistedAckSchema>;
+
+export const isFertigationSessionEvent = (value: unknown): value is FertigationSessionEvent =>
+  fertigationSessionEventSchema.safeParse(value).success;
+
+export const isFertigationSessionPersistedAck = (value: unknown): value is FertigationSessionPersistedAck =>
+  fertigationSessionPersistedAckSchema.safeParse(value).success;
+
 
 /** Only IDs from the HTTP request; all sensor values originate from PostgreSQL. */
 export const fertigationLiveEvaluationInputSchema = z.object({
