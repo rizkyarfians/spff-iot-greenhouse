@@ -240,6 +240,8 @@ const assertTopicPart = (value: string, field: string) => {
 export const mqttTopics = {
   telemetry: (siteId: string, deviceId: string) =>
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/telemetry`,
+  sessions: (siteId: string, deviceId: string) =>
+    `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/sessions`,
   state: (siteId: string, deviceId: string) =>
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/state`,
   commands: (siteId: string, deviceId: string) =>
@@ -254,6 +256,7 @@ export const mqttTopics = {
     `${topicPrefix}/${assertTopicPart(siteId, 'siteId')}/${assertTopicPart(deviceId, 'deviceId')}/status`,
   allTelemetry: `${topicPrefix}/+/+/telemetry`,
   allStates: `${topicPrefix}/+/+/state`,
+  allSessions: `${topicPrefix}/+/+/sessions`,
   allAcknowledgements: `${topicPrefix}/+/+/ack`,
   allStatuses: `${topicPrefix}/+/+/status`,
 } as const;
@@ -261,13 +264,13 @@ export const mqttTopics = {
 export interface ParsedMqttTopic {
   siteId: string;
   deviceId: string;
-  channel: 'telemetry' | 'state' | 'commands' | 'schedules' | 'automatic-control' | 'ack' | 'status';
+  channel: 'telemetry' | 'sessions' | 'state' | 'commands' | 'schedules' | 'automatic-control' | 'ack' | 'status';
 }
 
 export function parseMqttTopic(topic: string): ParsedMqttTopic | null {
   const [namespace, version, siteId, deviceId, channel, extra] = topic.split('/');
   if (namespace !== 'spff' || version !== 'v1' || !siteId || !deviceId || extra) return null;
-  if (!['telemetry', 'state', 'commands', 'schedules', 'automatic-control', 'ack', 'status'].includes(channel)) return null;
+  if (!['telemetry', 'sessions', 'state', 'commands', 'schedules', 'automatic-control', 'ack', 'status'].includes(channel)) return null;
   return { siteId, deviceId, channel: channel as ParsedMqttTopic['channel'] };
 }
 
