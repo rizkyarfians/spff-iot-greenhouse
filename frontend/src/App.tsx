@@ -2678,6 +2678,17 @@ const soilNpkGroups =
 
 
                         <div className="chart-filters">
+                          <label className="chart-select">
+                            <span className="sr-only">Kelompok grafik</span>
+                            <select value={selectedSensor.startsWith('ac_') ? 'energy' : 'greenhouse'} onChange={event => {
+                              const energy = event.target.value === 'energy'
+                              const first = chartSensorOptions.find(sensor => sensor.key.startsWith('ac_') === energy)
+                              if (first) setSelectedSensor(first.key)
+                            }}>
+                              <option value="greenhouse">Greenhouse</option>
+                              <option value="energy" disabled={!chartSensorOptions.some(sensor => sensor.key.startsWith('ac_'))}>Energi</option>
+                            </select>
+                          </label>
                           <label className="chart-select chart-sensor-select">
                             <span className="sr-only">
                               Pilih sensor untuk grafik
@@ -2694,7 +2705,7 @@ const soilNpkGroups =
                               }
                             >
                               {
-                                chartSensorOptions.map(
+                                chartSensorOptions.filter(sensor => sensor.key.startsWith('ac_') === selectedSensor.startsWith('ac_')).map(
                                   (sensor) => (
                                     <option
                                       value={

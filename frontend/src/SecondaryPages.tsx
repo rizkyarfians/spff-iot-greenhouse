@@ -3316,15 +3316,27 @@ function LogsPage({
             <p>{dateRangeLabel} · nilai rata-rata per interval</p>
           </div>
 
+          <div className="datalog-chart-controls">
+          <label className="page-select compact-select datalog-chart-group">
+            <span>Kelompok Grafik</span>
+            <select value={chartSensor.startsWith('ac_') ? 'energy' : 'greenhouse'} onChange={event => {
+              const energy = event.target.value === 'energy'
+              const first = data?.sensorDefinitions.find(definition => definition.sensorKey.startsWith('ac_') === energy)
+              if (first) setChartSensor(first.sensorKey)
+            }}>
+              <option value="greenhouse">Greenhouse</option>
+              <option value="energy" disabled={!data?.sensorDefinitions.some(definition => definition.sensorKey.startsWith('ac_'))}>Energi</option>
+            </select>
+          </label>
           <label className="page-select compact-select datalog-chart-select">
             <span>Parameter Grafik</span>
             <select
               value={chartSensor}
               onChange={(event) => setChartSensor(event.target.value)}
             >
-              {sensorGroups.map((group) => (
+              {sensorGroups.filter(group => group.definitions.some(definition => definition.sensorKey.startsWith('ac_') === chartSensor.startsWith('ac_'))).map((group) => (
                 <optgroup key={group.groupName} label={group.groupName}>
-                  {group.definitions.map((definition) => (
+                  {group.definitions.filter(definition => definition.sensorKey.startsWith('ac_') === chartSensor.startsWith('ac_')).map((definition) => (
                     <option key={definition.sensorKey} value={definition.sensorKey}>
                       {definition.displayName} · {definition.unit}
                     </option>
@@ -3333,6 +3345,7 @@ function LogsPage({
               ))}
             </select>
           </label>
+          </div>
         </div>
 
         <div className="datalog-chart-visual">
