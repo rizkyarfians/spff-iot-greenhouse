@@ -1673,7 +1673,7 @@ const soilNpkGroups =
           linePath,
 
           areaPath:
-            linePath
+            points.length < 2 ? '' : linePath
             + ' L '
             + plotRight
             + ' '

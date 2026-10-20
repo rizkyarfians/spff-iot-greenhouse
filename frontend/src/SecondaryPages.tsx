@@ -2732,7 +2732,7 @@ function LogsPage({
       return {
         points,
         linePath,
-        areaPath: `${linePath} L ${plotRight} ${plotBottom} L ${plotLeft} ${plotBottom} Z`,
+        areaPath: points.length < 2 ? '' : `${linePath} L ${plotRight} ${plotBottom} L ${plotLeft} ${plotBottom} Z`,
         plotBottom,
       }
     },
