@@ -1,5 +1,6 @@
 import {
   decodeJsonMessage,
+  isFertigationSessionEvent,
   isAutomaticControlAckMessage,
   isActuatorStateMessage,
   isCommandAckMessage,
@@ -29,6 +30,7 @@ let shuttingDown = false;
 
 const publishOutboxRecord = async (record: OutboxRecord) => {
   if (record.kind === 'telemetry') return mqttBridge.publishTelemetry(record.payload);
+  if (record.kind === 'session') return mqttBridge.publishSession(record.payload);
   if (record.kind === 'state') return mqttBridge.publishState(record.payload);
   if (record.kind === 'ack') return mqttBridge.publishAcknowledgement(record.payload);
   if (record.kind === 'schedule_ack') {
@@ -58,6 +60,10 @@ const serialGateway = new SerialGateway(
   config.serial,
   async (line) => {
     const message = decodeJsonMessage(line);
+    if (isFertigationSessionEvent(message) && belongsToConfiguredDevice(message)) {
+      await queue({kind:'session',payload:message});
+      return;
+    }
     if (isTelemetryMessage(message) && belongsToConfiguredDevice(message)) {
       await queue({ kind: 'telemetry', payload: message });
       return;
@@ -89,6 +95,13 @@ const serialGateway = new SerialGateway(
   },
 );
 
+
+mqttBridge.onSessionPersisted(async (acknowledgement) => {
+  const removed = await outbox.acknowledgeSession(acknowledgement.messageId);
+  console.log('[edge] Session persisted', {sessionId:acknowledgement.sessionId,messageId:acknowledgement.messageId,edgeOutboxRemoved:removed});
+  try { await serialGateway.send(acknowledgement); }
+  catch(error) { console.warn('[serial] Session persistence ACK forward failed',error); }
+});
 
 mqttBridge.onTelemetryPersisted(async (acknowledgement) => {
   const removed = await outbox.acknowledgeTelemetry(

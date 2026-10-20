@@ -1,6 +1,11 @@
+import { ChartHover } from './ChartHover'
+import { ChartYAxis } from './ChartYAxis'
+import { isEnergySensor } from './sensorCategory'
+import { chartDomain } from './chartScale'
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from 'react'
@@ -474,6 +479,11 @@ Array<{
     key: 'smart-soil',
     icon: Droplets,
     label: 'Smart Soil',
+  },
+  {
+    key: 'fertigation',
+    icon: FlaskConical,
+    label: 'Program Fertigasi',
   },
   {
     key: 'controls',
@@ -1510,17 +1520,36 @@ const soilNpkGroups =
       )
 
 
+  const dashboardChartSvg = useRef<SVGSVGElement | null>(null)
+  const [dashboardChartSize, setDashboardChartSize] = useState({ width: 760, height: 238 })
+
+  useEffect(() => {
+    const svg = dashboardChartSvg.current
+    if (!svg) return
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.round(entry.contentRect.width)
+      const height = Math.round(entry.contentRect.height)
+      if (width <= 0 || height <= 0) return
+      setDashboardChartSize(current => current.width === width && current.height === height
+        ? current : { width, height })
+    })
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [activePage, currentHistory.length])
+
+  const dashboardDomain = useMemo(() => chartDomain(selectedSensor, currentHistory.map(point => point.value)), [selectedSensor, currentHistory])
+
   const chartGeometry =
     useMemo(
       () => {
         const plotLeft =
-          28
+          56
 
         const plotRight =
-          732
+          dashboardChartSize.width - 28
 
         const plotBottom =
-          202
+          dashboardChartSize.height - 36
 
 
         const values =
@@ -1542,23 +1571,8 @@ const soilNpkGroups =
         }
 
 
-        const maxValue =
-          Math.max(
-            ...values,
-          )
-
-
-        const minValue =
-          Math.min(
-            ...values,
-          )
-
-
-        const range =
-          Math.max(
-            maxValue - minValue,
-            1,
-          )
+        const minValue = dashboardDomain.min
+        const range = dashboardDomain.max - dashboardDomain.min
 
 
         const points =
@@ -1597,7 +1611,7 @@ const soilNpkGroups =
                   )
                   / range
                 )
-                * 132,
+                * Math.max(1, plotBottom - 50),
             }),
           )
 
@@ -1660,7 +1674,7 @@ const soilNpkGroups =
           linePath,
 
           areaPath:
-            linePath
+            points.length < 2 ? '' : linePath
             + ' L '
             + plotRight
             + ' '
@@ -1676,6 +1690,8 @@ const soilNpkGroups =
       },
       [
         currentHistory,
+        dashboardChartSize,
+        dashboardDomain,
       ],
     )
 
@@ -1685,7 +1701,7 @@ const soilNpkGroups =
       chartGeometry
         .points
         .length,
-      6,
+      Math.max(2, Math.min(6, Math.floor(dashboardChartSize.width / 100))),
     )
 
 
@@ -2663,6 +2679,17 @@ const soilNpkGroups =
 
 
                         <div className="chart-filters">
+                          <label className="chart-select">
+                            <span className="sr-only">Kelompok grafik</span>
+                            <select value={isEnergySensor(selectedSensor) ? 'energy' : 'greenhouse'} onChange={event => {
+                              const energy = event.target.value === 'energy'
+                              const first = chartSensorOptions.find(sensor => isEnergySensor(sensor.key) === energy)
+                              if (first) setSelectedSensor(first.key)
+                            }}>
+                              <option value="greenhouse">Greenhouse</option>
+                              <option value="energy" disabled={!chartSensorOptions.some(sensor => isEnergySensor(sensor.key))}>Energi</option>
+                            </select>
+                          </label>
                           <label className="chart-select chart-sensor-select">
                             <span className="sr-only">
                               Pilih sensor untuk grafik
@@ -2679,7 +2706,7 @@ const soilNpkGroups =
                               }
                             >
                               {
-                                chartSensorOptions.map(
+                                chartSensorOptions.filter(sensor => isEnergySensor(sensor.key) === isEnergySensor(selectedSensor)).map(
                                   (sensor) => (
                                     <option
                                       value={
@@ -2801,8 +2828,9 @@ const soilNpkGroups =
 
                             : (
                                 <svg
-                                  viewBox="0 0 760 238"
-                                  preserveAspectRatio="none"
+                                  ref={dashboardChartSvg}
+                                  viewBox={`0 0 ${dashboardChartSize.width} ${dashboardChartSize.height}`}
+                                  preserveAspectRatio="xMidYMid meet"
                                   role="img"
                                   aria-label={
                                     `Grafik ${currentSensor.label}`
@@ -2846,17 +2874,18 @@ const soilNpkGroups =
 
                                   <line
                                     className="chart-baseline"
-                                    x1="28"
+                                    x1="56"
                                     y1={
                                       chartGeometry.plotBottom
                                     }
-                                    x2="732"
+                                    x2={dashboardChartSize.width - 28}
                                     y2={
                                       chartGeometry.plotBottom
                                     }
                                   />
 
 
+                                  <ChartYAxis domain={dashboardDomain} width={dashboardChartSize.width} bottom={chartGeometry.plotBottom - 18}/>
                                   <path
                                     className="chart-area"
                                     d={
@@ -2959,7 +2988,7 @@ const soilNpkGroups =
                                               x={
                                                 point.x
                                               }
-                                              y="226"
+                                              y={chartGeometry.plotBottom + 24}
                                               textAnchor="middle"
                                             >
                                               {
@@ -2974,6 +3003,7 @@ const soilNpkGroups =
                                       },
                                     )
                                   }
+                                  <ChartHover data={currentHistory} points={chartGeometry.points} unit={currentSensor.unit} label={currentSensor.label} plotBottom={chartGeometry.plotBottom} viewWidth={dashboardChartSize.width}/>
                                 </svg>
                               )
                         }

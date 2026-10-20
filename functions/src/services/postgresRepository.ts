@@ -347,6 +347,7 @@ async function history(
       `SELECT max(recorded_at) AS recorded_at
        FROM spff.telemetry_samples
        WHERE site_id = $1
+         AND recorded_at <= CURRENT_TIMESTAMP
          AND ${safeColumn} IS NOT NULL`,
       [siteId],
     );

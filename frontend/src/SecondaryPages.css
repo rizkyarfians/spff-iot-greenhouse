@@ -1047,19 +1047,25 @@
 
 .datalog-chart-card {
   order: -1;
-  padding: 22px;
+  padding: 18px 20px;
 }
 
 .datalog-chart-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px 24px;
 }
 
 .datalog-chart-header h2 {
   margin: 0 0 4px;
+  font-size: 18px;
 }
+
+.datalog-chart-controls { display: grid; grid-template-columns: 145px 260px; align-items: end; gap: 12px; min-width: 0; }
+.datalog-chart-group { display: grid; width: 100%; min-width: 0; gap: 6px; }
+.datalog-chart-group > span { font-size: var(--font-size-label); font-weight: 700; color: #4f5c56; }
+.datalog-chart-group select { min-height: var(--control-height); border: 1px solid #d7dfdb; border-radius: var(--control-radius); background: #fff; padding: 0 12px; color: #24372f; font: inherit; }
 
 .datalog-chart-header p {
   margin: 0;
@@ -1068,8 +1074,19 @@
 
 .datalog-chart-select {
   display: grid;
-  width: min(260px, 100%);
+  width: 100%;
+  min-width: 0;
   gap: 6px;
+}
+
+.datalog-chart-controls select { width: 100%; min-width: 0; box-sizing: border-box; }
+
+@media (max-width: 1100px) {
+  .datalog-chart-header { grid-template-columns: minmax(0, 1fr); }
+  .datalog-chart-controls { grid-template-columns: minmax(0, 145px) minmax(0, 260px); }
+}
+@media (max-width: 480px) {
+  .datalog-chart-controls { grid-template-columns: minmax(0, 1fr); }
 }
 
 .datalog-chart-select > span {
@@ -1090,20 +1107,23 @@
 }
 
 .datalog-chart-visual {
-  display: grid;
-  height: clamp(320px, 29vw, 440px);
-  place-items: center;
-  margin-top: 18px;
+  display: block;
+  box-sizing: border-box;
+  height: 230px;
+  margin-top: 12px;
   border-radius: 12px;
   background: linear-gradient(180deg, #fbfdfc 0%, #f7faf8 100%);
   overflow: hidden;
-  padding: 18px 20px 12px;
+  padding: 8px 12px;
 }
 
 .datalog-chart-visual svg {
   display: block;
   width: min(100%, 1440px);
   height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  margin-inline: auto;
   overflow: visible;
 }
 
@@ -1139,7 +1159,7 @@
 
 .datalog-chart-time-label {
   fill: #71817a;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .datalog-chart-empty {
@@ -1922,8 +1942,11 @@
     width: 100%;
   }
 
+  .datalog-chart-controls { width: 100%; }
+  .datalog-chart-group { width: 100%; }
+
   .datalog-chart-visual {
-    height: 280px;
+    height: 230px;
     justify-content: start;
     overflow-x: auto;
     overflow-y: hidden;
@@ -1931,9 +1954,9 @@
   }
 
   .datalog-chart-visual svg {
-    width: 760px;
-    min-width: 760px;
-    height: 230px;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
   }
 
   .log-actions .primary-button,

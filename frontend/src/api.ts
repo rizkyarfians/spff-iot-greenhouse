@@ -859,3 +859,21 @@ export function saveAutomaticControl(
     },
   )
 }
+
+
+// Uses the existing session cookie, CSRF token and API error handling.
+export const fetchFertigationRecipes = () => request<import('@spff/contracts').FertigationRecipe[]>('/fertigation/recipes')
+export const saveFertigationRecipe = (input: import('@spff/contracts').FertigationRecipeMutation, recipe?: import('@spff/contracts').FertigationRecipe) =>
+  request<import('@spff/contracts').FertigationRecipe>(recipe ? `/fertigation/recipes/${recipe.recipeId}` : '/fertigation/recipes', {
+    method: recipe ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(recipe ? { ...input, expectedRevision: recipe.revision } : input),
+  })
+export const approveFertigationRecipe = (recipe: import('@spff/contracts').FertigationRecipe, approvalReference: string) =>
+  request<import('@spff/contracts').FertigationRecipe>(`/fertigation/recipes/${recipe.recipeId}/approve`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expectedRevision: recipe.revision, approvalReference }),
+  })
+export const evaluateFertigationSite = (recipeId: string, deviceId: string) =>
+  request<import('@spff/contracts').FertigationLiveDecision>('/fertigation/evaluate-site', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipeId, deviceId }),
+  })

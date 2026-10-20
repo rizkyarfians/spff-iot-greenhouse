@@ -1,6 +1,7 @@
 import {
   Router,
 } from 'express';
+import { requireAiEvaluationEnabled } from '../middleware/aiEvaluation.js';
 
 import {
   auditMutation,
@@ -55,6 +56,7 @@ import {
   registerController,
 } from '../controllers/registrationController.js'
 import { getDatalogExport } from '../controllers/datalogExportController.js';
+import { simulateFertigationController, getFertigationSessionsController, listRecipesController, createRecipeController, updateRecipeController, approveRecipeController, evaluateLiveRecipeController, previewAutomaticProgramController, getRuleBasedAutomaticController } from '../controllers/fertigationController.js';
 
 
 export const apiRouter =
@@ -114,6 +116,13 @@ apiRouter.post(
  * Semua endpoint setelah ini
  * wajib session login.
  */
+apiRouter.all([
+  '/automatic-control/rule-based',
+  '/fertigation/evaluate-site',
+  '/fertigation/automatic-preview',
+  '/fertigation/simulate',
+], requireAiEvaluationEnabled);
+
 apiRouter.use(
   requireAuth,
 );
@@ -191,6 +200,27 @@ apiRouter.get('/datalog/export', getDatalogExport);
 apiRouter.get(
   '/pumps',
   getPumps,
+);
+
+// Simulation is advisory-only and never publishes commands to MQTT.
+apiRouter.get('/fertigation/recipes',listRecipesController);
+apiRouter.post('/fertigation/recipes',requireAdmin,requireCsrf,createRecipeController);
+apiRouter.put('/fertigation/recipes/:id',requireAdmin,requireCsrf,updateRecipeController);
+apiRouter.post('/fertigation/recipes/:id/approve',requireAdmin,requireCsrf,approveRecipeController);
+apiRouter.post('/fertigation/evaluate-site',requireOperator,requireCsrf,evaluateLiveRecipeController);
+apiRouter.post('/fertigation/automatic-preview',requireOperator,requireCsrf,previewAutomaticProgramController);
+apiRouter.get('/automatic-control/rule-based',requireOperator,getRuleBasedAutomaticController);
+
+apiRouter.post(
+  '/fertigation/simulate',
+  requireOperator,
+  requireCsrf,
+  simulateFertigationController,
+);
+
+apiRouter.get(
+  '/fertigation/sessions',
+  getFertigationSessionsController,
 );
 
 apiRouter.get(

@@ -1,3 +1,8 @@
+import { FertigationPage } from './FertigationPage'
+import { ChartHover } from './ChartHover'
+import { ChartYAxis } from './ChartYAxis'
+import { isEnergySensor } from './sensorCategory'
+import { chartDomain } from './chartScale'
 import {
   useEffect,
   useMemo,
@@ -2398,6 +2403,8 @@ function LogsPage({
   const [chartSensor, setChartSensor] = useState('soil_1_moisture')
   const [chartSeries, setChartSeries] = useState<ApiHistorySeries | null>(null)
   const [chartLoading, setChartLoading] = useState(false)
+  const chartSvg = useRef<SVGSVGElement | null>(null)
+  const [chartSize, setChartSize] = useState({ width: 760, height: 230 })
 
 
   const [
@@ -2427,9 +2434,10 @@ function LogsPage({
             ?.sensorDefinitions
             ?? []
         ) {
+          const chartGroupName = isEnergySensor(definition.sensorKey) ? 'Energi' : definition.groupName
           const definitions =
             groups.get(
-              definition.groupName,
+              chartGroupName,
             )
             ?? []
 
@@ -2440,7 +2448,7 @@ function LogsPage({
 
 
           groups.set(
-            definition.groupName,
+            chartGroupName,
             definitions,
           )
         }
@@ -2681,25 +2689,40 @@ function LogsPage({
   )
 
 
+  useEffect(() => {
+    const svg = chartSvg.current
+    if (!svg) return
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.round(entry.contentRect.width)
+      const height = Math.round(entry.contentRect.height)
+      if (width <= 0 || height <= 0) return
+      setChartSize(current => current.width === width && current.height === height
+        ? current : { width, height })
+    })
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [chartLoading, chartPoints.length])
+
+  const datalogDomain = useMemo(() => chartDomain(chartSensor, chartPoints.map(point => point.value)), [chartSensor, chartPoints])
+
   const chartGeometry = useMemo(
     () => {
-      const plotLeft = 28
-      const plotRight = 732
-      const plotBottom = 202
+      const plotLeft = 56
+      const plotRight = chartSize.width - 28
+      const plotBottom = chartSize.height - 28
       const values = chartPoints.map((point) => point.value)
 
       if (values.length === 0) {
         return { points: [], linePath: '', areaPath: '', plotBottom }
       }
 
-      const maximum = Math.max(...values)
-      const minimum = Math.min(...values)
-      const valueRange = Math.max(maximum - minimum, 1)
+      const minimum = datalogDomain.min
+      const valueRange = datalogDomain.max - datalogDomain.min
       const points = values.map((value, index) => ({
         x: values.length === 1
           ? (plotLeft + plotRight) / 2
           : plotLeft + (index * (plotRight - plotLeft)) / (values.length - 1),
-        y: plotBottom - 18 - ((value - minimum) / valueRange) * 132,
+        y: plotBottom - 18 - ((value - minimum) / valueRange) * Math.max(1, plotBottom - 50),
       }))
       const linePath = points.reduce((path, point, index) => {
         if (index === 0) return `M ${point.x} ${point.y}`
@@ -2711,14 +2734,14 @@ function LogsPage({
       return {
         points,
         linePath,
-        areaPath: `${linePath} L ${plotRight} ${plotBottom} L ${plotLeft} ${plotBottom} Z`,
+        areaPath: points.length < 2 ? '' : `${linePath} L ${plotRight} ${plotBottom} L ${plotLeft} ${plotBottom} Z`,
         plotBottom,
       }
     },
-    [chartPoints],
+    [chartPoints, chartSize, datalogDomain],
   )
 
-  const chartMarkerCount = Math.min(chartGeometry.points.length, 6)
+  const chartMarkerCount = Math.min(chartGeometry.points.length, Math.max(2, Math.min(6, Math.floor(chartSize.width / 125))))
   const chartMarkerIndexes = chartMarkerCount === 0
     ? []
     : chartMarkerCount === 1
@@ -3295,15 +3318,27 @@ function LogsPage({
             <p>{dateRangeLabel} · nilai rata-rata per interval</p>
           </div>
 
+          <div className="datalog-chart-controls">
+          <label className="page-select compact-select datalog-chart-group">
+            <span>Kelompok Grafik</span>
+            <select value={isEnergySensor(chartSensor) ? 'energy' : 'greenhouse'} onChange={event => {
+              const energy = event.target.value === 'energy'
+              const first = data?.sensorDefinitions.find(definition => isEnergySensor(definition.sensorKey) === energy)
+              if (first) setChartSensor(first.sensorKey)
+            }}>
+              <option value="greenhouse">Greenhouse</option>
+              <option value="energy" disabled={!data?.sensorDefinitions.some(definition => isEnergySensor(definition.sensorKey))}>Energi</option>
+            </select>
+          </label>
           <label className="page-select compact-select datalog-chart-select">
             <span>Parameter Grafik</span>
             <select
               value={chartSensor}
               onChange={(event) => setChartSensor(event.target.value)}
             >
-              {sensorGroups.map((group) => (
+              {sensorGroups.filter(group => group.definitions.some(definition => isEnergySensor(definition.sensorKey) === isEnergySensor(chartSensor))).map((group) => (
                 <optgroup key={group.groupName} label={group.groupName}>
-                  {group.definitions.map((definition) => (
+                  {group.definitions.filter(definition => isEnergySensor(definition.sensorKey) === isEnergySensor(chartSensor)).map((definition) => (
                     <option key={definition.sensorKey} value={definition.sensorKey}>
                       {definition.displayName} · {definition.unit}
                     </option>
@@ -3312,6 +3347,7 @@ function LogsPage({
               ))}
             </select>
           </label>
+          </div>
         </div>
 
         <div className="datalog-chart-visual">
@@ -3323,7 +3359,8 @@ function LogsPage({
             </div>
           ) : (
             <svg
-              viewBox="0 0 760 230"
+              ref={chartSvg}
+              viewBox={`0 0 ${chartSize.width} ${chartSize.height}`}
               role="img"
               aria-label="Grafik riwayat sensor sesuai rentang Datalog"
               preserveAspectRatio="xMidYMid meet"
@@ -3336,11 +3373,12 @@ function LogsPage({
               </defs>
               <line
                 className="datalog-chart-baseline"
-                x1="28"
-                x2="732"
+                x1="56"
+                x2={chartSize.width - 28}
                 y1={chartGeometry.plotBottom}
                 y2={chartGeometry.plotBottom}
               />
+              <ChartYAxis domain={datalogDomain} width={chartSize.width} bottom={chartGeometry.plotBottom - 18}/>
               <path
                 className="datalog-chart-area"
                 d={chartGeometry.areaPath}
@@ -3376,7 +3414,7 @@ function LogsPage({
                     <text
                       className="datalog-chart-time-label"
                       x={point.x}
-                      y="222"
+                      y={chartGeometry.plotBottom + 20}
                       textAnchor={historyIndex === 0 ? 'start' : historyIndex === chartPoints.length - 1 ? 'end' : 'middle'}
                     >
                       {markerLabel}
@@ -3384,6 +3422,7 @@ function LogsPage({
                   </g>
                 )
               })}
+              <ChartHover data={chartPoints} points={chartGeometry.points} unit={chartSeries?.unit ?? ''} label="Riwayat sensor" plotBottom={chartGeometry.plotBottom} viewWidth={chartSize.width}/>
             </svg>
           )}
         </div>
@@ -4938,6 +4977,8 @@ export function SecondaryPage({
   connectionState,
   onRefresh,
 }: SecondaryPageProps) {
+  if (page === 'fertigation') return <FertigationPage devices={data?.devices ?? []} />
+
   const connectedProps = {
     data,
     connectionState,

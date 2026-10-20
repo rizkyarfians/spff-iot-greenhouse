@@ -1,5 +1,6 @@
 import {
   decodeJsonMessage,
+  isFertigationSessionPersistedAck,
   isAutomaticControlSyncMessage,
   isPumpCommandMessage,
   isScheduleSyncMessage,
@@ -13,6 +14,8 @@ import {
   type ScheduleSyncAckMessage,
   type ScheduleSyncMessage,
   type TelemetryMessage,isTelemetryPersistedAckMessage,
+  type FertigationSessionEvent,
+  type FertigationSessionPersistedAck,
 type TelemetryPersistedAckMessage,
 } from '@spff/contracts';
 import { connect, type IClientOptions, type MqttClient } from 'mqtt';
@@ -23,6 +26,7 @@ export class MqttBridge {
   private commandHandler: ((command: PumpCommandMessage) => Promise<void>) | null = null;
   private scheduleHandler: ((message: ScheduleSyncMessage) => Promise<void>) | null = null;
   private automaticControlHandler: ((message: AutomaticControlSyncMessage) => Promise<void>) | null = null;
+  private sessionPersistedHandler: ((message: FertigationSessionPersistedAck) => Promise<void>) | null = null;
   private connectedHandler: (() => Promise<void>) | null = null;
   private deviceAvailable = false;
   private lastStatus: DeviceStatusMessage | null = null;
@@ -95,6 +99,14 @@ onTelemetryPersisted(
   async setDeviceAvailable(available: boolean) {
     this.deviceAvailable = available;
     if (this.client?.connected) await this.publishStatus(this.createStatus(available));
+  }
+
+  onSessionPersisted(handler: (message: FertigationSessionPersistedAck) => Promise<void>) {
+    this.sessionPersistedHandler = handler;
+  }
+
+  publishSession(message: FertigationSessionEvent) {
+    return this.publish(mqttTopics.sessions(this.config.siteId, this.config.deviceId), message);
   }
 
   publishTelemetry(message: TelemetryMessage) {
@@ -270,6 +282,12 @@ private async handleMessage(topic: string, payload: Buffer) {
     ) {
       // Ignore command_ack messages that Edge itself may receive
       // from the shared /ack topic.
+      if (isFertigationSessionPersistedAck(message)) {
+        if (message.siteId === this.config.siteId && message.deviceId === this.config.deviceId) {
+          await this.sessionPersistedHandler?.(message);
+        }
+        return;
+      }
       if (!isTelemetryPersistedAckMessage(message)) return;
 
       if (

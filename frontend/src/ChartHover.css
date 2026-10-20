@@ -1,0 +1,7 @@
+.history-hover > rect { cursor: crosshair; touch-action: pan-y; }
+.history-hover > rect:focus-visible { outline: 2px solid #22ad7b; outline-offset: -2px; }
+.history-hover-guide { stroke: #18996e; stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.history-hover-point { fill: #22ad7b; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.history-hover-tooltip { display: flex; flex-direction: column; gap: 4px; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d6e0dc; border-radius: 10px; background: #fff; color: #123c35; font-family: inherit; box-shadow: 0 3px 10px #123c3514; }
+.history-hover-tooltip span { font-size: 11px; font-weight: 400; line-height: 1.4; color: #526b63; }
+.history-hover-tooltip strong { font-size: 18px; font-weight: 700; line-height: 1.3; }
