@@ -1,4 +1,6 @@
 import { ChartHover } from './ChartHover'
+import { ChartYAxis } from './ChartYAxis'
+import { chartDomain } from './chartScale'
 import {
   useEffect,
   useMemo,
@@ -1534,11 +1536,13 @@ const soilNpkGroups =
     return () => observer.disconnect()
   }, [activePage, currentHistory.length])
 
+  const dashboardDomain = useMemo(() => chartDomain(selectedSensor, currentHistory.map(point => point.value)), [selectedSensor, currentHistory])
+
   const chartGeometry =
     useMemo(
       () => {
         const plotLeft =
-          28
+          56
 
         const plotRight =
           dashboardChartSize.width - 28
@@ -1566,23 +1570,8 @@ const soilNpkGroups =
         }
 
 
-        const maxValue =
-          Math.max(
-            ...values,
-          )
-
-
-        const minValue =
-          Math.min(
-            ...values,
-          )
-
-
-        const range =
-          Math.max(
-            maxValue - minValue,
-            1,
-          )
+        const minValue = dashboardDomain.min
+        const range = dashboardDomain.max - dashboardDomain.min
 
 
         const points =
@@ -1621,7 +1610,7 @@ const soilNpkGroups =
                   )
                   / range
                 )
-                * Math.max(1, plotBottom - 70),
+                * Math.max(1, plotBottom - 50),
             }),
           )
 
@@ -1701,6 +1690,7 @@ const soilNpkGroups =
       [
         currentHistory,
         dashboardChartSize,
+        dashboardDomain,
       ],
     )
 
@@ -2872,7 +2862,7 @@ const soilNpkGroups =
 
                                   <line
                                     className="chart-baseline"
-                                    x1="28"
+                                    x1="56"
                                     y1={
                                       chartGeometry.plotBottom
                                     }
@@ -2883,6 +2873,7 @@ const soilNpkGroups =
                                   />
 
 
+                                  <ChartYAxis domain={dashboardDomain} width={dashboardChartSize.width} bottom={chartGeometry.plotBottom - 18}/>
                                   <path
                                     className="chart-area"
                                     d={

@@ -1,5 +1,7 @@
 import { FertigationPage } from './FertigationPage'
 import { ChartHover } from './ChartHover'
+import { ChartYAxis } from './ChartYAxis'
+import { chartDomain } from './chartScale'
 import {
   useEffect,
   useMemo,
@@ -2699,9 +2701,11 @@ function LogsPage({
     return () => observer.disconnect()
   }, [chartLoading, chartPoints.length])
 
+  const datalogDomain = useMemo(() => chartDomain(chartSensor, chartPoints.map(point => point.value)), [chartSensor, chartPoints])
+
   const chartGeometry = useMemo(
     () => {
-      const plotLeft = 28
+      const plotLeft = 56
       const plotRight = chartSize.width - 28
       const plotBottom = chartSize.height - 28
       const values = chartPoints.map((point) => point.value)
@@ -2710,9 +2714,8 @@ function LogsPage({
         return { points: [], linePath: '', areaPath: '', plotBottom }
       }
 
-      const maximum = Math.max(...values)
-      const minimum = Math.min(...values)
-      const valueRange = Math.max(maximum - minimum, 1)
+      const minimum = datalogDomain.min
+      const valueRange = datalogDomain.max - datalogDomain.min
       const points = values.map((value, index) => ({
         x: values.length === 1
           ? (plotLeft + plotRight) / 2
@@ -2733,7 +2736,7 @@ function LogsPage({
         plotBottom,
       }
     },
-    [chartPoints, chartSize],
+    [chartPoints, chartSize, datalogDomain],
   )
 
   const chartMarkerCount = Math.min(chartGeometry.points.length, Math.max(2, Math.min(6, Math.floor(chartSize.width / 125))))
@@ -3355,11 +3358,12 @@ function LogsPage({
               </defs>
               <line
                 className="datalog-chart-baseline"
-                x1="28"
+                x1="56"
                 x2={chartSize.width - 28}
                 y1={chartGeometry.plotBottom}
                 y2={chartGeometry.plotBottom}
               />
+              <ChartYAxis domain={datalogDomain} width={chartSize.width} bottom={chartGeometry.plotBottom - 18}/>
               <path
                 className="datalog-chart-area"
                 d={chartGeometry.areaPath}
