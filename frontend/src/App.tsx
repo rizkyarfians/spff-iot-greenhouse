@@ -1,5 +1,6 @@
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
+import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
   useEffect,
@@ -2680,13 +2681,13 @@ const soilNpkGroups =
                         <div className="chart-filters">
                           <label className="chart-select">
                             <span className="sr-only">Kelompok grafik</span>
-                            <select value={selectedSensor.startsWith('ac_') ? 'energy' : 'greenhouse'} onChange={event => {
+                            <select value={isEnergySensor(selectedSensor) ? 'energy' : 'greenhouse'} onChange={event => {
                               const energy = event.target.value === 'energy'
-                              const first = chartSensorOptions.find(sensor => sensor.key.startsWith('ac_') === energy)
+                              const first = chartSensorOptions.find(sensor => isEnergySensor(sensor.key) === energy)
                               if (first) setSelectedSensor(first.key)
                             }}>
                               <option value="greenhouse">Greenhouse</option>
-                              <option value="energy" disabled={!chartSensorOptions.some(sensor => sensor.key.startsWith('ac_'))}>Energi</option>
+                              <option value="energy" disabled={!chartSensorOptions.some(sensor => isEnergySensor(sensor.key))}>Energi</option>
                             </select>
                           </label>
                           <label className="chart-select chart-sensor-select">
@@ -2705,7 +2706,7 @@ const soilNpkGroups =
                               }
                             >
                               {
-                                chartSensorOptions.filter(sensor => sensor.key.startsWith('ac_') === selectedSensor.startsWith('ac_')).map(
+                                chartSensorOptions.filter(sensor => isEnergySensor(sensor.key) === isEnergySensor(selectedSensor)).map(
                                   (sensor) => (
                                     <option
                                       value={

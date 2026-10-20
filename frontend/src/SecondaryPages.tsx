@@ -1,6 +1,7 @@
 import { FertigationPage } from './FertigationPage'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
+import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
   useEffect,
@@ -2433,9 +2434,10 @@ function LogsPage({
             ?.sensorDefinitions
             ?? []
         ) {
+          const chartGroupName = isEnergySensor(definition.sensorKey) ? 'Energi' : definition.groupName
           const definitions =
             groups.get(
-              definition.groupName,
+              chartGroupName,
             )
             ?? []
 
@@ -2446,7 +2448,7 @@ function LogsPage({
 
 
           groups.set(
-            definition.groupName,
+            chartGroupName,
             definitions,
           )
         }
@@ -3319,13 +3321,13 @@ function LogsPage({
           <div className="datalog-chart-controls">
           <label className="page-select compact-select datalog-chart-group">
             <span>Kelompok Grafik</span>
-            <select value={chartSensor.startsWith('ac_') ? 'energy' : 'greenhouse'} onChange={event => {
+            <select value={isEnergySensor(chartSensor) ? 'energy' : 'greenhouse'} onChange={event => {
               const energy = event.target.value === 'energy'
-              const first = data?.sensorDefinitions.find(definition => definition.sensorKey.startsWith('ac_') === energy)
+              const first = data?.sensorDefinitions.find(definition => isEnergySensor(definition.sensorKey) === energy)
               if (first) setChartSensor(first.sensorKey)
             }}>
               <option value="greenhouse">Greenhouse</option>
-              <option value="energy" disabled={!data?.sensorDefinitions.some(definition => definition.sensorKey.startsWith('ac_'))}>Energi</option>
+              <option value="energy" disabled={!data?.sensorDefinitions.some(definition => isEnergySensor(definition.sensorKey))}>Energi</option>
             </select>
           </label>
           <label className="page-select compact-select datalog-chart-select">
@@ -3334,9 +3336,9 @@ function LogsPage({
               value={chartSensor}
               onChange={(event) => setChartSensor(event.target.value)}
             >
-              {sensorGroups.filter(group => group.definitions.some(definition => definition.sensorKey.startsWith('ac_') === chartSensor.startsWith('ac_'))).map((group) => (
+              {sensorGroups.filter(group => group.definitions.some(definition => isEnergySensor(definition.sensorKey) === isEnergySensor(chartSensor))).map((group) => (
                 <optgroup key={group.groupName} label={group.groupName}>
-                  {group.definitions.filter(definition => definition.sensorKey.startsWith('ac_') === chartSensor.startsWith('ac_')).map((definition) => (
+                  {group.definitions.filter(definition => isEnergySensor(definition.sensorKey) === isEnergySensor(chartSensor)).map((definition) => (
                     <option key={definition.sensorKey} value={definition.sensorKey}>
                       {definition.displayName} · {definition.unit}
                     </option>
