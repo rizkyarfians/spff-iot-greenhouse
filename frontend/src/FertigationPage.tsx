@@ -12,14 +12,14 @@ const fields: { key: keyof Form; label: string; type: string; max?: number; hint
   { key: 'hstFrom', label: 'Mulai umur (hari)', type: 'number', max: 1000 },
   { key: 'hstTo', label: 'Sampai umur (hari)', type: 'number', max: 1000 },
   { key: 'triggerSampleCount', label: 'Konfirmasi tanah kering (kali pembacaan)', type: 'number', max: 20, hint: 'Jumlah bacaan rendah berturut-turut sebelum menyarankan penyiraman.' },
-  { key: 'targetWaterL', label: 'Air paling banyak sekali penyiraman (liter)', type: 'number', max: 100000 },
+  { key: 'targetWaterL', label: 'Air paling banyak sekali penyiraman (liter)', type: 'number', max: 100000, hint: 'Batas untuk rekomendasi program; belum menjadi pembatas volume pompa pada perangkat.' },
   { key: 'targetStockL', label: 'Larutan dari tandon pupuk sekali pemberian (liter)', type: 'number', max: 100000 },
   { key: 'fertilizerName', label: 'Nama pupuk', type: 'text' },
   { key: 'stockConcentrationGPerL', label: 'Pupuk dalam setiap 1 liter larutan tandon (gram)', type: 'number', max: 10000, hint: 'Isi gram pupuk dibagi liter larutan. Contoh hitung: 100 gram dalam 10 liter = 10 g/L, bukan anjuran dosis.' },
-  { key: 'minWaterTankPercent', label: 'Sisa air minimum di tandon (%)', type: 'number', max: 100, hint: 'Penyiraman ditahan jika isi tandon di bawah angka ini.' },
-  { key: 'minStockTankPercent', label: 'Sisa larutan pupuk minimum di tandon (%)', type: 'number', max: 100 },
+  { key: 'minWaterTankPercent', label: 'Sisa air minimum di tandon (%)', type: 'number', max: 100, hint: 'Evaluasi rekomendasi ditahan jika isi tandon di bawah angka ini. Ini bukan konfirmasi proteksi tandon pada perangkat.' },
+  { key: 'minStockTankPercent', label: 'Sisa larutan pupuk minimum di tandon (%)', type: 'number', max: 100, hint: 'Batas evaluasi rekomendasi; proteksi pompa tetap mengikuti firmware yang terpasang.' },
   { key: 'moistureLowPercent', label: 'Mulai menyiram saat kelembapan tanah mencapai (%)', type: 'number', max: 100, hint: 'Penyiraman disarankan saat bacaan sama dengan atau lebih rendah dari batas ini.' },
-  { key: 'moistureTargetPercent', label: 'Target kelembapan tanah setelah disiram (%)', type: 'number', max: 100 },
+  { key: 'moistureTargetPercent', label: 'Target kelembapan tanah setelah disiram (%)', type: 'number', max: 100, hint: 'Target program untuk evaluasi; menyimpan aturan ini tidak mengubah parameter kontrol sensor pada perangkat.' },
   { key: 'ecLowUsCm', label: 'Mulai memberi pupuk saat EC larutan mencapai (µS/cm)', type: 'number', max: 100000 },
   { key: 'ecTargetUsCm', label: 'Target EC larutan setelah diberi pupuk (µS/cm)', type: 'number', max: 100000 },
   { key: 'ecHighUsCm', label: 'Batas EC larutan tertinggi (µS/cm)', type: 'number', max: 100000 },
@@ -103,6 +103,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
   }
   return <section className="fertigation-test">
     <header><span className="ft-badge">Simulasi saja · pompa tidak digerakkan</span></header>
+    <p className="ft-field-hint">Program mengevaluasi kondisi tanaman dari data perangkat. Menyimpan atau memeriksa aturan tidak menjalankan pompa dan tidak mengubah pengaturan kontrol sensor pada perangkat.</p>
     {error && <div role="alert" className="ft-error">{error}</div>}
     {notice && <div role="status" className="ft-notice">{notice}</div>}
     <div className="ft-layout"><aside className="ft-panel ft-sidebar"><div className="ft-actions"><h3>Program</h3><button className="ft-icon-button" title="Muat ulang program" aria-label="Muat ulang program" disabled={busy} onClick={() => void run(reload)}><RefreshCw size={16}/></button></div>

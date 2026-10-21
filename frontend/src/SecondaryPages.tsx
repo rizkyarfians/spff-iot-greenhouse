@@ -2008,6 +2008,13 @@ function ControlsPage({
           <button type="button" className={sensorPump === 'water' ? 'is-selected' : ''} onClick={() => setSensorPump('water')}>Pompa Air</button>
           <button type="button" className={sensorPump === 'fertilizer' ? 'is-selected' : ''} onClick={() => setSensorPump('fertilizer')}>Pompa Pupuk</button>
         </div>
+        <p className="controls-message" role="status">
+          {(sensorPump === 'water' ? automaticDraft.water.minFlowLpm : automaticDraft.fertilizer.minFlowLpm) == null
+            ? 'Minimum debit belum diisi.'
+            : (sensorPump === 'water' ? automaticDraft.water.minFlowLpm : automaticDraft.fertilizer.minFlowLpm) === 0
+              ? 'Minimum debit 0: pemeriksaan debit rendah dinonaktifkan pada konfigurasi ini.'
+              : 'Minimum debit sudah diisi. Gunakan nilai hasil kalibrasi dan pastikan konfigurasi diterapkan pada alat.'}
+        </p>
         <div className="automatic-profile-grid">
           <section className="automatic-profile" hidden={sensorPump !== 'water'}>
             <div className="automatic-profile-heading">
