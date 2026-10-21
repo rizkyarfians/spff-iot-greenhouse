@@ -2003,6 +2003,9 @@ function ControlsPage({
           <button type="button" className={sensorPump === 'water' ? 'is-selected' : ''} onClick={() => setSensorPump('water')}>Pompa Air</button>
           <button type="button" className={sensorPump === 'fertilizer' ? 'is-selected' : ''} onClick={() => setSensorPump('fertilizer')}>Pompa Pupuk</button>
         </div>
+        <p className="controls-message">Proteksi level tandon belum tersedia pada firmware ini. Periksa isi tandon sebelum menjalankan pompa.</p>
+        <p className="controls-message">Minimum debit 0 menonaktifkan proteksi debit rendah. Gunakan nilai hasil kalibrasi untuk mengaktifkannya.</p>
+        <p className="controls-message">Fault sensor, debit, atau batas waktu air mengunci penyiraman otomatis, termasuk setelah restart. Setelah penyebab diperbaiki, simpan ulang parameter untuk reset.</p>
         <div className="automatic-profile-grid">
           <section className="automatic-profile" hidden={sensorPump !== 'water'}>
             <div className="automatic-profile-heading">
