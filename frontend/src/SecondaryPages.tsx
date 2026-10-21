@@ -4774,7 +4774,6 @@ function SettingsPage({
       className="secondary-page"
       aria-label="Pengaturan sistem"
     >
-      <WaterInterlockSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
       <form
         className="settings-form"
         onSubmit={save}
@@ -4929,6 +4928,7 @@ function SettingsPage({
               <span />
             </button>
           </div>
+          <WaterInterlockSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
         </div>
 
 

@@ -1,12 +1,12 @@
 # Switch interlock tandon air CH3 dari Settings
 
-Settings → Interlock tandon air → pilih perangkat → switch → Simpan interlock. Khusus admin, login + CSRF mengikuti API lama. Operator hanya membaca. Pengaturan terpisah per perangkat, bukan seluruh greenhouse sekaligus.
+Settings → baris Interlock Tandon Air di bawah Jadwal Otomatis → klik switch → konfirmasi pada modal. Jika ada beberapa perangkat, pilih perangkat di modal. Perubahan interlock langsung disimpan setelah konfirmasi, terpisah dari tombol Simpan Pengaturan umum. Khusus admin, login + CSRF mengikuti API lama. Operator hanya membaca. Pengaturan terpisah per perangkat, bukan seluruh greenhouse sekaligus.
 
 Default **enabled**. Enabled mempertahankan perilaku firmware 1.4.28/29: tinggi air ≤20 cm atau JSN invalid/stale memblokir CH3; level ≥25 cm melepas latch setelah OFF terverifikasi. Disabled hanya melewati pemeriksaan level tandon/validitas JSN tersebut. Proteksi flow, runtime, OTA/shutdown, kepemilikan relay dan kegagalan output tetap berjalan. Gate tandon minimum dalam evaluasi server/recipe juga tidak dinonaktifkan oleh switch CH3 ini.
 
 Saat setting berubah, firmware menghentikan output dan memverifikasi relay OFF sebelum menyimpan perubahan. Tidak ada perintah ON dari perubahan setting. Trigger moisture lama dibuang; pompa memerlukan keputusan kontrol/command berikutnya. Selama OFF belum terverifikasi, flag pending tetap memblokir CH3 meskipun switch disabled.
 
-## Status yang terlihat
+## Status di modal konfirmasi
 
 - Permintaan server: enabled/disabled, revisi.
 - Menunggu diterapkan: tersimpan di database, belum mendapat ACK yang cocok.
@@ -14,7 +14,7 @@ Saat setting berubah, firmware menghentikan output dan memverifikasi relay OFF s
 - Pernah dikonfirmasi; menunggu status terbaru: ACK applied ada, tetapi belum ada laporan fresh yang cocok.
 - Sudah diterapkan dan dilaporkan perangkat: ACK applied dan status perangkat fresh mengonfirmasi nilai + revisi yang sama.
 
-Status perangkat dianggap fresh selama 90 detik. Menyimpan saat perangkat offline/firmware lama hanya mengantrekan permintaan; tidak dianggap sudah mengubah pompa. UI mempertahankan nilai edit selama polling dan memakai expectedRevision agar edit dari dua admin tidak saling menimpa. Batalkan perubahan/muat ulang untuk menyelesaikan konflik.
+Status perangkat dianggap fresh selama 90 detik. Menyimpan saat perangkat offline/firmware lama hanya mengantrekan permintaan; tidak dianggap sudah mengubah pompa. UI membekukan revisi saat modal dibuka dan memakai expectedRevision agar edit dari dua admin tidak saling menimpa. Tutup dan buka ulang modal untuk menyelesaikan konflik. Switch menunjukkan permintaan server; modal membedakan status tersimpan dan diterapkan. Escape/klik backdrop membatalkan sebelum konfirmasi, dan penutupan diblokir selama request simpan berlangsung.
 
 ## Kontrak dan ketahanan
 

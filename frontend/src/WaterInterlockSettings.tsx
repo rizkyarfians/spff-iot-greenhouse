@@ -1,70 +1,102 @@
-import { useEffect,useRef,useState } from 'react'
+import { useEffect,useId,useRef,useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ApiDevice,WaterInterlockView } from '@spff/contracts'
 import { fetchWaterInterlock,saveWaterInterlock } from './api'
+import './WaterInterlockSettings.css'
 
+type Proposal={deviceId:string;revision:number;enabled:boolean}
 export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDevice[];admin:boolean;connected:boolean}){
   const [chosen,setChosen]=useState('')
   const deviceId=devices.some(d=>d.deviceId===chosen)?chosen:devices[0]?.deviceId??''
-  const [view,setView]=useState<WaterInterlockView|null>(null)
-  const [draft,setDraft]=useState(true)
-  const [dirty,setDirty]=useState(false)
+  const [storedView,setView]=useState<WaterInterlockView|null>(null)
+  const view=storedView?.deviceId===deviceId?storedView:null
+  const [open,setOpen]=useState(false)
+  const [proposal,setProposal]=useState<Proposal|null>(null)
+  const [saved,setSaved]=useState(false)
   const [busy,setBusy]=useState(false)
-  const [error,setError]=useState('')
-  const [notice,setNotice]=useState('')
-  const dirtyRef=useRef(false),busyRef=useRef(false),generation=useRef(0),requestEpoch=useRef(0),draftRevision=useRef<number|null>(null)
+  const [loadError,setLoadError]=useState('')
+  const [saveError,setSaveError]=useState('')
+  const dialog=useRef<HTMLDialogElement>(null)
+  const busyRef=useRef(false),generation=useRef(0),requestEpoch=useRef(0)
+  const titleId=useId(),descriptionId=useId()
+  const deviceName=devices.find(d=>d.deviceId===deviceId)?.displayName??deviceId
+
   useEffect(()=>{
     const current=++generation.current
     let cancelled=false,running=false
-    setView(null);setDirty(false);dirtyRef.current=false;draftRevision.current=null;setError('');setNotice('')
+    setView(null);setLoadError('')
     if(!deviceId)return
     const refresh=async()=>{
-      if(running||busyRef.current)return;running=true;const epoch=requestEpoch.current
+      if(running||busyRef.current)return
+      running=true;const epoch=requestEpoch.current
       try{
         const next=await fetchWaterInterlock(deviceId)
-        if(!cancelled&&current===generation.current&&epoch===requestEpoch.current){setView(next);setError('');if(!dirtyRef.current)setDraft(next.enabled)}
-      }catch(e){if(!cancelled&&epoch===requestEpoch.current)setError(e instanceof Error?e.message:'Gagal membaca interlock')}
+        if(!cancelled&&current===generation.current&&epoch===requestEpoch.current){setView(next);setLoadError('')}
+      }catch(e){if(!cancelled&&epoch===requestEpoch.current)setLoadError(e instanceof Error?e.message:'Gagal membaca pengaturan interlock.')}
       finally{running=false}
     }
     void refresh();const timer=setInterval(()=>void refresh(),5000)
     return()=>{cancelled=true;clearInterval(timer)}
   },[deviceId])
-  async function save(){
-    if(!view||busyRef.current||!admin||!connected)return
-    busyRef.current=true;requestEpoch.current++;setBusy(true);setError('');setNotice('')
+
+  useEffect(()=>{
+    if(open&&view&&!proposal&&!saved)setProposal({deviceId,revision:view.revision,enabled:!view.enabled})
+  },[open,view,proposal,saved,deviceId])
+
+  useEffect(()=>{
+    if(!open)return
+    const element=dialog.current
+    element?.showModal()
+    return()=>{element?.close()}
+  },[open])
+
+  function show(){
+    setProposal(view?{deviceId,revision:view.revision,enabled:!view.enabled}:null)
+    setSaved(false);setSaveError('');setOpen(true)
+  }
+  function close(){if(!busyRef.current)setOpen(false)}
+  async function confirm(){
+    if(!proposal||proposal.deviceId!==deviceId||!admin||!connected||busyRef.current||saved)return
+    busyRef.current=true;requestEpoch.current++;setBusy(true);setSaveError('')
     const current=generation.current
     try{
-      const next=await saveWaterInterlock(deviceId,draftRevision.current??view.revision,draft)
-      if(current!==generation.current)return
-      setView(next);setDraft(next.enabled);setDirty(false);dirtyRef.current=false;draftRevision.current=null
-      setNotice('Tersimpan di server. Status diterapkan menunggu konfirmasi perangkat.')
-    }catch(e){if(current===generation.current)setError(e instanceof Error?e.message:'Gagal menyimpan interlock')}
+      const next=await saveWaterInterlock(deviceId,proposal.revision,proposal.enabled)
+      if(current===generation.current){setView(next);setSaved(true)}
+    }catch(e){if(current===generation.current)setSaveError(e instanceof Error?e.message:'Gagal menyimpan interlock.')}
     finally{busyRef.current=false;setBusy(false)}
   }
   const confirmed=view?.acknowledgementStatus==='applied'&&view.acknowledgedRevision===view.revision&&view.appliedEnabled===view.enabled
   const reported=view?.online&&view.reportedRevision===view.revision&&view.reportedEnabled===view.enabled
-  return <article className="page-card settings-section" aria-label="Interlock tandon air CH3">
-    <div className="page-card-header"><h2>Interlock tandon air · CH3</h2></div>
-    <label className="field-label"><span>Perangkat</span><select value={deviceId} disabled={busy} onChange={e=>setChosen(e.target.value)}>
-      {devices.map(d=><option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}
-    </select></label>
-    {!deviceId&&<p>Belum ada perangkat.</p>}
-    {view&&<>
-      <label style={{display:'flex',alignItems:'center',gap:10}}>
-        <input type="checkbox" role="switch" aria-label="Aktifkan interlock tandon air CH3"
-          checked={draft} disabled={!admin||!connected||busy||!!error}
-          onChange={e=>{if(!dirtyRef.current)draftRevision.current=view.revision;setDraft(e.target.checked);setDirty(true);dirtyRef.current=true;setNotice('')}}/>
-        Aktifkan interlock level tandon air
-      </label>
-      <p>Aktif: CH3 diblokir jika tinggi air ≤20 cm atau sensor tidak valid/terlambat. Terbuka kembali saat tinggi air ≥25 cm dan OFF sudah diverifikasi.</p>
-      {!draft&&<p role="alert">Jika dinonaktifkan, proteksi level rendah dan sensor level tidak valid tidak memblokir CH3. Proteksi flow, batas durasi, dan fault output tetap berlaku.</p>}
-      <p>Permintaan server: <strong>{view.enabled?'Enabled':'Disabled'}</strong> · revisi {view.revision}</p>
-      <p role="status">{view.online&&view.reportedEnabled!==null&&!reported?'Konfigurasi perangkat berbeda; menunggu sinkronisasi':view.acknowledgementStatus==='rejected'?'Ditolak perangkat':confirmed&&reported?'Sudah diterapkan dan dilaporkan perangkat':confirmed?'Pernah dikonfirmasi; menunggu status perangkat terbaru':'Menunggu diterapkan'}
-        {view.reason?` · ${view.reason}`:''}</p>
-      {view.reportedEnabled!==null&&<p>Laporan perangkat saat ini: {view.reportedEnabled?'Enabled':'Disabled'} · revisi {view.reportedRevision??'—'}</p>}
-      {!view.capable&&<p>Perangkat offline atau belum melaporkan dukungan setting ini. Perubahan akan menunggu firmware yang mendukung.</p>}
-      {admin&&dirty&&<button type="button" disabled={busy} onClick={()=>{setDraft(view.enabled);setDirty(false);dirtyRef.current=false;draftRevision.current=null;setError('');setNotice('')}}>Batalkan perubahan</button>}
-      {admin&&<button type="button" className="primary-button" disabled={!connected||busy||!dirty||!!error} onClick={()=>void save()}>{busy?'Menyimpan…':'Simpan interlock'}</button>}
-    </>}
-    {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-  </article>
+  const rejected=view?.acknowledgementStatus==='rejected'
+  const status=rejected?'Perangkat menolak perubahan.':confirmed&&reported?'Perubahan sudah diterapkan pada perangkat.':'Tersimpan. Menunggu konfirmasi perangkat.'
+  const action=proposal?.enabled?'Aktifkan':'Nonaktifkan'
+  return <div className="setting-toggle-row">
+    <div><strong>Interlock Tandon Air</strong></div>
+    <button className={`switch ${view?.enabled!==false?'is-on':''}`} type="button" role="switch"
+      aria-label="Interlock tandon air" aria-checked={view?.enabled??true} aria-busy={busy}
+      aria-haspopup="dialog" disabled={!admin||!connected||!deviceId||busy} onClick={show}><span/></button>
+    {open&&createPortal(<dialog ref={dialog} className="water-interlock-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
+      onCancel={event=>{if(busyRef.current)event.preventDefault();else setOpen(false)}}
+      onClick={event=>{if(event.target===event.currentTarget)close()}}>
+      <h2 id={titleId}>{saved?'Interlock Tandon Air':`${action} interlock tandon air?`}</h2>
+      {devices.length>1&&!saved&&<label className="field-label"><span>Perangkat</span>
+        <select value={deviceId} disabled={busy} onChange={event=>{setChosen(event.target.value);setProposal(null);setSaveError('')}}>
+          {devices.map(device=><option key={device.deviceId} value={device.deviceId}>{device.displayName}</option>)}
+        </select></label>}
+      <p id={descriptionId}>{saved?status:proposal?.enabled
+        ?'Proteksi level tandon air akan diaktifkan. Pompa yang sedang berjalan akan dihentikan saat perubahan diterapkan.'
+        :'Pompa air bisa menyala meskipun tandon kosong atau sensor level tidak terbaca. Pompa yang sedang berjalan akan dihentikan saat perubahan diterapkan.'}</p>
+      <p className="water-interlock-device">{deviceName}</p>
+      {!saved&&view&&!view.capable&&<p>Perangkat belum tersambung atau belum mendukung pengaturan ini. Perubahan akan menunggu perangkat siap.</p>}
+      {!view&&!loadError&&<p role="status">Memuat pengaturan…</p>}
+      {loadError&&<p role="alert">{loadError}</p>}
+      {saveError&&<p role="alert">{saveError}</p>}
+      {saved&&<p role="status" aria-live="polite">{rejected?'Periksa perangkat sebelum mencoba kembali.':confirmed&&reported?'Interlock '+(view?.enabled?'aktif.':'nonaktif.'):'Switch belum dianggap diterapkan sampai perangkat mengonfirmasi.'}</p>}
+      <div className="water-interlock-dialog-actions">
+        <button className="secondary-button" type="button" disabled={busy} onClick={close}>{saved?'Tutup':'Batal'}</button>
+        {!saved&&<button className="primary-button" type="button" disabled={busy||!connected||!view||!proposal||!!loadError}
+          onClick={()=>void confirm()}>{busy?'Menyimpan…':`${action} interlock`}</button>}
+      </div>
+    </dialog>,document.body)}
+  </div>
 }
