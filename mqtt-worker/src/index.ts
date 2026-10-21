@@ -1,3 +1,4 @@
+import { WaterInterlockSyncService } from './waterInterlockSync.js';
 import { SoilEcPulseTransport } from './soilEcPulseTransport.js';
 import { CommandDispatchService } from "./commandDispatchService.js";
 import { IngestionService } from "./ingestionService.js";
@@ -15,8 +16,9 @@ const alarmEvaluator = new AlarmEvaluator(
 );
 const pulseTransport: SoilEcPulseTransport = new SoilEcPulseTransport((message): Promise<void> => worker.publishSoilEcPulse(message));
 const ingestionService: IngestionService = new IngestionService(repository, alarmEvaluator,
-  ack => pulseTransport.saveAck(ack));
+  ack => pulseTransport.saveAck(ack),ack=>waterInterlockSync.saveAck(ack));
 const worker: MqttWorker = new MqttWorker(ingestionService);
+const waterInterlockSync:WaterInterlockSyncService=new WaterInterlockSyncService((message):Promise<void>=>worker.publishWaterInterlock(message));
 const commandDispatcher = new CommandDispatchService(repository, worker);
 const scheduleSyncService = new ScheduleSyncService(
   repository,
@@ -29,6 +31,7 @@ const automaticControlSyncService = new AutomaticControlSyncService(
   worker,
   config.automaticControl.syncPollIntervalMs,
 );
+worker.onConnected(async()=>{if(await waterInterlockSync.installed())await waterInterlockSync.runOnce(true);});
 worker.onConnected(() => scheduleSyncService.runOnce(true));
 worker.onConnected(() => automaticControlSyncService.runOnce(true));
 let shuttingDown = false; 
@@ -42,6 +45,7 @@ async function shutdown(signal: string) {
   automaticControlSyncService.stop();
   commandDispatcher.stop();
   alarmEvaluator.stop();
+  await waterInterlockSync.stop();
   await pulseTransport.stop();
   try {
     await worker.stop();
@@ -76,6 +80,7 @@ void repository
     automaticControlSyncService.start();
     console.log("[schedule-evaluator] Disabled: ESP32 combines schedule windows with sensor control.");
     commandDispatcher.start();
+    if(await waterInterlockSync.installed())waterInterlockSync.start();
     if (await pulseTransport.isInstalled()) pulseTransport.start();
     alarmEvaluator.start();
   })

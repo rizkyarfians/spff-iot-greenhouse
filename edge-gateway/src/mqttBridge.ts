@@ -1,3 +1,4 @@
+import { waterInterlockSyncSchema,type WaterInterlockSync,type WaterInterlockAck } from '@spff/contracts';
 import { isFertigationPulseCommand, type FertigationPulseCommand, type FertigationPulseAck } from '@spff/contracts';
 import {
   decodeJsonMessage,
@@ -24,6 +25,9 @@ import type { EdgeConfig } from './config.js';
 
 export class MqttBridge {
   private client: MqttClient | null = null;
+  private waterInterlockHandler:((v:WaterInterlockSync)=>Promise<void>)|null=null;
+  onWaterInterlock(handler:(v:WaterInterlockSync)=>Promise<void>){this.waterInterlockHandler=handler;}
+  publishWaterInterlockAck(message:WaterInterlockAck){return this.publish(mqttTopics.acknowledgements(this.config.siteId,this.config.deviceId),message);}
   private pulseHandler: ((message:FertigationPulseCommand)=>Promise<void>) | null = null;
   onPulse(handler:(message:FertigationPulseCommand)=>Promise<void>){this.pulseHandler=handler;}
   publishPulseAck(message:FertigationPulseAck){
@@ -214,6 +218,12 @@ private async handleMessage(topic: string, payload: Buffer) {
         this.config.deviceId,
       )
     ) {
+      const water=waterInterlockSyncSchema.safeParse(message);
+      if(water.success){
+        if(water.data.siteId===this.config.siteId&&water.data.deviceId===this.config.deviceId)
+          await this.waterInterlockHandler?.(water.data);
+        return;
+      }
       if (isFertigationPulseCommand(message)) {
         if (message.siteId === this.config.siteId && message.deviceId === this.config.deviceId)
           await this.pulseHandler?.(message);

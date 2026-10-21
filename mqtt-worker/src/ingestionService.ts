@@ -1,3 +1,4 @@
+import { waterInterlockAckSchema,type WaterInterlockAck } from '@spff/contracts';
 import { isFertigationPulseAck, type FertigationPulseAck } from '@spff/contracts';
 import {
   decodeJsonMessage,
@@ -22,6 +23,7 @@ export class IngestionService {
     private readonly repository: IngestionRepository,
     private readonly alarmObserver?: AlarmIngestionObserver,
     private readonly savePulseAck?: (ack: FertigationPulseAck) => Promise<void>,
+    private readonly saveWaterInterlockAck?: (ack:WaterInterlockAck)=>Promise<void>,
   ) {}
 
   async process(
@@ -35,6 +37,12 @@ export class IngestionService {
     const matchesTopic = (value: { siteId: string; deviceId: string }) =>
       value.siteId === topicParts.siteId &&
       value.deviceId === topicParts.deviceId;
+
+    const waterAck=waterInterlockAckSchema.safeParse(message);
+    if(topicParts.channel==='ack'&&waterAck.success&&matchesTopic(waterAck.data)){
+      if(!this.saveWaterInterlockAck)throw new Error('Water interlock ACK transport unavailable');
+      await this.saveWaterInterlockAck(waterAck.data);return null;
+    }
 
     if (topicParts.channel === 'ack' && isFertigationPulseAck(message) && matchesTopic(message)) {
       if (!this.savePulseAck) throw new Error('Pulse ACK transport disabled');

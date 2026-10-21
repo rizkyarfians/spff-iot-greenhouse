@@ -895,3 +895,12 @@ export function stopSoilEcPulseSession(id:string) {
 export function releaseSoilEcPulseSession(id:string) {
   return request<null>(`/fertigation/pulse-sessions/${encodeURIComponent(id)}/release`,{method:'POST'})
 }
+
+export function fetchWaterInterlock(deviceId:string){
+  return request<import('@spff/contracts').WaterInterlockView>(`/settings/water-interlock?deviceId=${encodeURIComponent(deviceId)}`)
+}
+export function saveWaterInterlock(deviceId:string,expectedRevision:number,enabled:boolean){
+  return request<import('@spff/contracts').WaterInterlockView>('/settings/water-interlock',{
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,expectedRevision,enabled}),
+  })
+}

@@ -11,3 +11,20 @@ test('production firmware pulse handler: deadlines, durable dedup, reset, interl
   execFileSync(join(directory,'test'),[],{stdio:'pipe'});
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
+
+test('web water interlock firmware: hysteresis, enable/disable, durable revision and storage/readback failures',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'spff-interlock-'));
+ try{
+  execFileSync('g++',['-std=c++11','-Wall','-Wextra','-Werror','-I',resolve('firmware/SPFF_MASTER_1_4_30_WEB_WATER_INTERLOCK'),
+    resolve('firmware/test/water-interlock.cpp'),'-o',join(directory,'test')],{stdio:'pipe'});
+  execFileSync(join(directory,'test'),[],{stdio:'pipe'});
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
+test('pulse handler stays compatible with firmware 1.4.30',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'spff-pulse-130-'));
+ try{
+  execFileSync('g++',['-std=c++11','-Wall','-Wextra','-Werror','-I',resolve('firmware/SPFF_MASTER_1_4_30_WEB_WATER_INTERLOCK'),
+    resolve('firmware/test/server-soil-ec-pulse.cpp'),'-o',join(directory,'test')],{stdio:'pipe'});
+  execFileSync(join(directory,'test'),[],{stdio:'pipe'});
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
