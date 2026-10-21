@@ -1,3 +1,4 @@
+import { isFertigationPulseAck } from '@spff/contracts';
 import {
   decodeJsonMessage,
   isFertigationSessionEvent,
@@ -29,6 +30,7 @@ const belongsToConfiguredDevice = (message: { siteId: string; deviceId: string }
 let shuttingDown = false;
 
 const publishOutboxRecord = async (record: OutboxRecord) => {
+  if (record.kind === 'pulse_ack') return mqttBridge.publishPulseAck(record.payload);
   if (record.kind === 'telemetry') return mqttBridge.publishTelemetry(record.payload);
   if (record.kind === 'session') return mqttBridge.publishSession(record.payload);
   if (record.kind === 'state') return mqttBridge.publishState(record.payload);
@@ -60,6 +62,9 @@ const serialGateway = new SerialGateway(
   config.serial,
   async (line) => {
     const message = decodeJsonMessage(line);
+    if (isFertigationPulseAck(message) && belongsToConfiguredDevice(message)) {
+      await queue({kind:'pulse_ack',payload:message});return;
+    }
     if (isFertigationSessionEvent(message) && belongsToConfiguredDevice(message)) {
       await queue({kind:'session',payload:message});
       return;
@@ -124,6 +129,10 @@ mqttBridge.onTelemetryPersisted(async (acknowledgement) => {
   }
 });
 mqttBridge.onConnected(flushOutbox);
+mqttBridge.onPulse(async message => {
+  if (Date.parse(message.expiresAt) <= Date.now()) throw new Error('Expired pulse command');
+  await serialGateway.send(message);
+});
 
 mqttBridge.onCommand(async (command: PumpCommandMessage) => {
   const expiresAt = Date.parse(command.expiresAt);

@@ -121,3 +121,18 @@ test('session persistence failure does not emit ACK',async()=>{
     status:'started',targetWaterL:10,targetStockL:0,actualWaterL:0,actualStockL:0,pumpsOff:true,completionReason:null};
   await assert.rejects(()=>service.process('spff/v1/greenhouse-01/esp32-s3-01/sessions',Buffer.from(JSON.stringify(message))));
 });
+
+test('pulse OFF ACK requires matching topic, valid readback and durable store success',async()=>{
+  const repository=repositorySpy(),acks=[];
+  const service=new IngestionService(repository,undefined,async ack=>{acks.push(ack)});
+  const ack={kind:'fertigation_pulse_ack',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',
+    sessionId:'00000000-0000-4000-8000-000000000001',commandId:'00000000-0000-4000-8000-000000000002',
+    cycle:1,status:'completed',pumpsOff:true,reason:'pulse_duration_elapsed',acknowledgedAt:'2026-10-21T04:00:00Z'};
+  const send=(value,topic='spff/v1/greenhouse-01/esp32-s3-01/ack')=>service.process(topic,Buffer.from(JSON.stringify(value)));
+  await assert.rejects(send({...ack,pumpsOff:false}));
+  await assert.rejects(send(ack,'spff/v1/other/esp32-s3-01/ack'));
+  assert.equal(acks.length,0);
+  assert.equal(await send(ack),null);assert.equal(acks.length,1);assert.equal(repository.calls.length,0);
+  const broken=new IngestionService(repository,undefined,async()=>{throw new Error('DB unavailable')});
+  await assert.rejects(broken.process('spff/v1/greenhouse-01/esp32-s3-01/ack',Buffer.from(JSON.stringify(ack))),/DB unavailable/);
+});

@@ -1,3 +1,4 @@
+import { SoilEcPulsePanel } from './SoilEcPulsePanel'
 import { useEffect, useRef, useState } from 'react'
 import { Plus, RefreshCw } from 'lucide-react'
 import { cropProfiles, fertigationRecipeMutationSchema, fertigationLiveDecisionSchema, type ApiDevice, type FertigationRecipe, type FertigationLiveDecision } from '@spff/contracts'
@@ -20,9 +21,9 @@ const fields: { key: keyof Form; label: string; type: string; max?: number; hint
   { key: 'minStockTankPercent', label: 'Sisa larutan pupuk minimum di tandon (%)', type: 'number', max: 100, hint: 'Batas evaluasi rekomendasi; proteksi pompa tetap mengikuti firmware yang terpasang.' },
   { key: 'moistureLowPercent', label: 'Mulai menyiram saat kelembapan tanah mencapai (%)', type: 'number', max: 100, hint: 'Penyiraman disarankan saat bacaan sama dengan atau lebih rendah dari batas ini.' },
   { key: 'moistureTargetPercent', label: 'Target kelembapan tanah setelah disiram (%)', type: 'number', max: 100, hint: 'Target program untuk evaluasi; menyimpan aturan ini tidak mengubah parameter kontrol sensor pada perangkat.' },
-  { key: 'ecLowUsCm', label: 'Mulai memberi pupuk saat EC larutan mencapai (µS/cm)', type: 'number', max: 100000 },
-  { key: 'ecTargetUsCm', label: 'Target EC larutan setelah diberi pupuk (µS/cm)', type: 'number', max: 100000 },
-  { key: 'ecHighUsCm', label: 'Batas EC larutan tertinggi (µS/cm)', type: 'number', max: 100000 },
+  { key: 'ecLowUsCm', label: 'Batas mulai EC aturan (µS/cm)', type: 'number', max: 100000 },
+  { key: 'ecTargetUsCm', label: 'Target EC aturan (µS/cm)', type: 'number', max: 100000 },
+  { key: 'ecHighUsCm', label: 'Batas EC aturan tertinggi (µS/cm)', type: 'number', max: 100000 },
 ]
 const fieldGroups: { title: string; keys: (keyof Form)[]; fertilizerOnly?: boolean }[] = [
   {title: 'Masa berlaku', keys: ['plantingDate', 'hstFrom', 'hstTo']},
@@ -102,7 +103,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     setNotice('Aturan tersimpan dan digunakan untuk evaluasi kondisi tanaman.')
   }
   return <section className="fertigation-test">
-    <header><span className="ft-badge">Simulasi saja · pompa tidak digerakkan</span></header>
+    <header><span className="ft-badge">Aturan dan sesi EC tanah</span></header>
     <p className="ft-field-hint">Program mengevaluasi kondisi tanaman dari data perangkat. Menyimpan atau memeriksa aturan tidak menjalankan pompa dan tidak mengubah pengaturan kontrol sensor pada perangkat.</p>
     {error && <div role="alert" className="ft-error">{error}</div>}
     {notice && <div role="status" className="ft-notice">{notice}</div>}
@@ -131,11 +132,12 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
           {group.keys.includes('plantingDate') && <p className="ft-field-hint">Tanggal tanam dipakai menghitung umur. Hari tanam dihitung sebagai umur 0 hari.{effectiveDate(form.plantingDate, form.hstFrom) && effectiveDate(form.plantingDate, form.hstTo) && <> Aturan ini berlaku {effectiveDate(form.plantingDate, form.hstFrom)} sampai {effectiveDate(form.plantingDate, form.hstTo)}.</>}</p>}
         </section>)}
       </div><div className="ft-save-row"><button className="ft-primary" type="submit">{busy ? 'Memproses…' : 'Simpan dan gunakan aturan'}</button></div></fieldset></form>
-      {selected && <><hr/><h3>Periksa kondisi tanaman</h3><p>Status aturan: <strong>{selected.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</strong></p>
+      {selected && withFertilizer && <SoilEcPulsePanel key={selected.recipeId} recipe={selected} deviceId={deviceId} admin={admin} operator={operator} dirty={!!dirty}/>}
+      {selected && <><hr/><h3>Evaluasi rekomendasi lama</h3><p>Evaluasi ini masih memakai EC cairan. Sesi pulse EC tanah memakai pembacaan tanah yang terpisah.</p><p>Status aturan: <strong>{selected.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</strong></p>
         {dirty && <p className="ft-error">Ada perubahan belum disimpan. Simpan dahulu atau pilih ulang program.</p>}
         <label>Perangkat<select disabled={busy} value={deviceId} onChange={e => { setDeviceId(e.target.value); setResult(undefined) }}><option value="">Pilih perangkat</option>{devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}</select></label>
         <button className="ft-primary" disabled={busy || !!dirty || !operator || !deviceId} onClick={() => void run(async () => { setResult(undefined); const response = await evaluateFertigationSite(selected.recipeId, deviceId); setResult(fertigationLiveDecisionSchema.parse(response)) })}>Periksa kondisi tanaman</button>
-        {result && <div className="ft-result" role="status"><h3>{result.decision.action === 'DELAY' ? 'Ditunda' : 'Rekomendasi tersedia'} · {result.decision.action}</h3><p>HST: {result.hst ?? 'belum tersedia'} · air: {result.decision.targetWaterL ?? '—'} L · stok: {result.decision.targetStockL ?? '—'} L</p><p>Tanaman cocok: {cropProfiles.find(crop => crop.id === result.activeCropId)?.commonName ?? 'Belum cocok / belum dipilih'} · kelembapan tanah: {result.observations.soilMoisturePercent ?? '—'} % · EC larutan: {result.observations.liquidEcUsCm ?? '—'} µS/cm</p><p>Pengendali pompa: kontrol sensor pada perangkat. Program Fertigasi hanya memberikan rekomendasi; tidak mengirim perintah pompa.</p><ul>{result.decision.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul><p>Waktu evaluasi: {result.siteObservedAt}<br/>Telemetry: {result.telemetryRecordedAt ?? 'Tidak tersedia'}<br/>Status perangkat: {result.deviceRecordedAt ?? 'Tidak tersedia'}</p><details><summary>Respons JSON</summary><pre>{JSON.stringify(result, null, 2)}</pre></details></div>}
+        {result && <div className="ft-result" role="status"><h3>{result.decision.action === 'DELAY' ? 'Ditunda' : 'Rekomendasi tersedia'} · {result.decision.action}</h3><p>HST: {result.hst ?? 'belum tersedia'} · air: {result.decision.targetWaterL ?? '—'} L · stok: {result.decision.targetStockL ?? '—'} L</p><p>Tanaman cocok: {cropProfiles.find(crop => crop.id === result.activeCropId)?.commonName ?? 'Belum cocok / belum dipilih'} · kelembapan tanah: {result.observations.soilMoisturePercent ?? '—'} % · EC larutan: {result.observations.liquidEcUsCm ?? '—'} µS/cm</p><p>Hasil evaluasi lama ini hanya rekomendasi; tidak mengirim perintah pompa. Eksekusi pulse memakai sesi EC tanah di atas.</p><ul>{result.decision.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul><p>Waktu evaluasi: {result.siteObservedAt}<br/>Telemetry: {result.telemetryRecordedAt ?? 'Tidak tersedia'}<br/>Status perangkat: {result.deviceRecordedAt ?? 'Tidak tersedia'}</p><details><summary>Respons JSON</summary><pre>{JSON.stringify(result, null, 2)}</pre></details></div>}
       </>}
     </div></div>
   </section>

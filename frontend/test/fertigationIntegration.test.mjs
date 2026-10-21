@@ -28,7 +28,7 @@ test('catalog-backed program payload meets the new contract; unbound crops fail'
   assert.equal(fertigationRecipeMutationSchema.safeParse({...input, cropId: null}).success, false)
 })
 
-test('program UI exposes observed sensor values and stays advisory only', () => {
+test('legacy evaluation exposes observed sensor values and remains advisory', () => {
   assert.match(page, /result.observations.soilMoisturePercent/)
   assert.match(page, /result.observations.liquidEcUsCm/)
   assert.match(page, /tidak mengirim perintah pompa/)

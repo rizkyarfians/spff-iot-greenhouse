@@ -1,3 +1,4 @@
+import { mqttTopics as pulseTopics, type FertigationPulseCommand } from '@spff/contracts';
 import {
   mqttTopics,
   type AutomaticControlSyncMessage,
@@ -105,6 +106,13 @@ this.client.on('message', (topic, payload) => {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  async publishSoilEcPulse(message: FertigationPulseCommand): Promise<void> {
+    const client = this.client;
+    if (!client?.connected) throw new Error('MQTT disconnected');
+    await new Promise<void>((resolve,reject)=>client.publish(pulseTopics.commands(message.siteId,message.deviceId),
+      JSON.stringify(message),{qos:1,retain:false},error=>error?reject(error):resolve()));
   }
 
   async publishCommand(message: PumpCommandMessage): Promise<void> {

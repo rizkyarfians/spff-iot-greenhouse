@@ -1007,3 +1007,5 @@ export * from './smartSoil.js'
 
 // Shared types and validators for server-only fertigation planning and future device sessions.
 export * from './fertigation.js';
+
+export * from "./fertigationPulse.js";

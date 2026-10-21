@@ -1,3 +1,4 @@
+import { isFertigationPulseCommand, type FertigationPulseCommand, type FertigationPulseAck } from '@spff/contracts';
 import {
   decodeJsonMessage,
   isFertigationSessionPersistedAck,
@@ -23,6 +24,11 @@ import type { EdgeConfig } from './config.js';
 
 export class MqttBridge {
   private client: MqttClient | null = null;
+  private pulseHandler: ((message:FertigationPulseCommand)=>Promise<void>) | null = null;
+  onPulse(handler:(message:FertigationPulseCommand)=>Promise<void>){this.pulseHandler=handler;}
+  publishPulseAck(message:FertigationPulseAck){
+    return this.publish(mqttTopics.acknowledgements(this.config.siteId,this.config.deviceId),message);
+  }
   private commandHandler: ((command: PumpCommandMessage) => Promise<void>) | null = null;
   private scheduleHandler: ((message: ScheduleSyncMessage) => Promise<void>) | null = null;
   private automaticControlHandler: ((message: AutomaticControlSyncMessage) => Promise<void>) | null = null;
@@ -208,6 +214,11 @@ private async handleMessage(topic: string, payload: Buffer) {
         this.config.deviceId,
       )
     ) {
+      if (isFertigationPulseCommand(message)) {
+        if (message.siteId === this.config.siteId && message.deviceId === this.config.deviceId)
+          await this.pulseHandler?.(message);
+        return;
+      }
       if (!this.commandHandler) return;
 
       if (!isPumpCommandMessage(message)) {

@@ -1,3 +1,4 @@
+import type { FertigationPulseAck } from '@spff/contracts';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -12,6 +13,7 @@ import type {
 } from '@spff/contracts';
 
 export type OutboxRecord =
+  | { kind: 'pulse_ack'; payload: FertigationPulseAck }
   | { kind: 'telemetry'; payload: TelemetryMessage }
   | { kind: 'session'; payload: FertigationSessionEvent }
   | { kind: 'state'; payload: ActuatorStateMessage }
