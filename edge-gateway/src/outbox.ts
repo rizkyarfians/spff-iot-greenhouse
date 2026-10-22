@@ -1,3 +1,4 @@
+import type { WaterInterlockAck } from '@spff/contracts';
 import type { FertigationPulseAck } from '@spff/contracts';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
@@ -13,6 +14,7 @@ import type {
 } from '@spff/contracts';
 
 export type OutboxRecord =
+  | {kind:'water_interlock_ack';payload:WaterInterlockAck}
   | { kind: 'pulse_ack'; payload: FertigationPulseAck }
   | { kind: 'telemetry'; payload: TelemetryMessage }
   | { kind: 'session'; payload: FertigationSessionEvent }

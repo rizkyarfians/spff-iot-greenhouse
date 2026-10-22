@@ -1,3 +1,4 @@
+import { waterInterlockAckSchema } from '@spff/contracts';
 import { isFertigationPulseAck } from '@spff/contracts';
 import {
   decodeJsonMessage,
@@ -30,6 +31,7 @@ const belongsToConfiguredDevice = (message: { siteId: string; deviceId: string }
 let shuttingDown = false;
 
 const publishOutboxRecord = async (record: OutboxRecord) => {
+  if(record.kind==='water_interlock_ack')return mqttBridge.publishWaterInterlockAck(record.payload);
   if (record.kind === 'pulse_ack') return mqttBridge.publishPulseAck(record.payload);
   if (record.kind === 'telemetry') return mqttBridge.publishTelemetry(record.payload);
   if (record.kind === 'session') return mqttBridge.publishSession(record.payload);
@@ -62,6 +64,8 @@ const serialGateway = new SerialGateway(
   config.serial,
   async (line) => {
     const message = decodeJsonMessage(line);
+    const waterAck=waterInterlockAckSchema.safeParse(message);
+    if(waterAck.success&&belongsToConfiguredDevice(waterAck.data)){await queue({kind:'water_interlock_ack',payload:waterAck.data});return;}
     if (isFertigationPulseAck(message) && belongsToConfiguredDevice(message)) {
       await queue({kind:'pulse_ack',payload:message});return;
     }
@@ -129,6 +133,7 @@ mqttBridge.onTelemetryPersisted(async (acknowledgement) => {
   }
 });
 mqttBridge.onConnected(flushOutbox);
+mqttBridge.onWaterInterlock(async message=>{await serialGateway.send(message);});
 mqttBridge.onPulse(async message => {
   if (Date.parse(message.expiresAt) <= Date.now()) throw new Error('Expired pulse command');
   await serialGateway.send(message);

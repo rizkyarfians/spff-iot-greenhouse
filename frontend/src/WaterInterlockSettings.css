@@ -1,0 +1,7 @@
+.water-interlock-dialog { box-sizing: border-box; width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; padding: 24px; border: 1px solid #d7dfdb; border-radius: 16px; background: #fff; color: #123c35; font-family: inherit; }
+.water-interlock-dialog::backdrop { background: #123c3566; }
+.water-interlock-dialog h2 { margin: 0 0 16px; font-size: 18px; line-height: 1.4; }
+.water-interlock-dialog p { font-size: 13px; line-height: 1.6; }
+.water-interlock-dialog .water-interlock-device { color: #65766e; font-size: 12px; }
+.water-interlock-dialog [role="alert"] { color: #b53b34; }
+.water-interlock-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 24px; }

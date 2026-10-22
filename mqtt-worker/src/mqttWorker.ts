@@ -1,3 +1,4 @@
+import type { WaterInterlockSync } from '@spff/contracts';
 import { mqttTopics as pulseTopics, type FertigationPulseCommand } from '@spff/contracts';
 import {
   mqttTopics,
@@ -106,6 +107,12 @@ this.client.on('message', (topic, payload) => {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  async publishWaterInterlock(message:WaterInterlockSync):Promise<void>{
+    const client=this.client;if(!client?.connected)throw new Error('MQTT disconnected');
+    await new Promise<void>((resolve,reject)=>client.publish(mqttTopics.commands(message.siteId,message.deviceId),
+      JSON.stringify(message),{qos:1,retain:false},error=>error?reject(error):resolve()));
   }
 
   async publishSoilEcPulse(message: FertigationPulseCommand): Promise<void> {

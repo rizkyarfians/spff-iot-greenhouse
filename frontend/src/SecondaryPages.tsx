@@ -1,3 +1,4 @@
+import { WaterInterlockSettings } from './WaterInterlockSettings'
 import { FertigationPage } from './FertigationPage'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
@@ -4927,6 +4928,7 @@ function SettingsPage({
               <span />
             </button>
           </div>
+          <WaterInterlockSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
         </div>
 
 
