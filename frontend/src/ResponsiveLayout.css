@@ -1,0 +1,168 @@
+/* One density system for HD through 4K. Extra pixels add space, not UI zoom. */
+:root {
+  --desktop-sidebar: 248px;
+  --desktop-page-max: 1920px;
+  --desktop-dashboard-max: 1920px;
+  --page-gutter: 20px;
+  --layout-gap: 16px;
+  --font-size-meta: 11px;
+  --font-size-label: 12px;
+  --font-size-body: 13px;
+  --font-size-section: 18px;
+  --control-height: 40px;
+  --control-radius: 9px;
+}
+.app-main { container: workspace / inline-size; --account-dock-clearance: 64px; min-width: 0; }
+.app-main > :is(.page-shell-header, .secondary-page, .um-page, .fertigation-test) {
+  width: min(var(--desktop-page-max), calc(100% - 2 * var(--page-gutter)));
+  min-width: 0;
+  margin-inline: auto;
+}
+.app-main > .page-shell-header { margin-bottom: 16px; gap: 16px; }
+.page-shell-header h1 { font-size: 28px; line-height: 1.15; }
+.app-main > :is(.secondary-page, .um-page, .fertigation-test) { margin-top: 0; margin-bottom: 24px; gap: var(--layout-gap); }
+.app-main > .dashboard-home {
+  container: dashboard / inline-size;
+  width: min(var(--desktop-dashboard-max), calc(100% - 2 * var(--page-gutter)));
+  padding: 0 0 20px;
+  margin-inline: auto;
+}
+.secondary-page, .um-page { container: page / inline-size; }
+.fertigation-test { container: fertigation / inline-size; }
+.overview-grid { grid-template-columns: minmax(0, 2.5fr) minmax(280px, 1fr); gap: var(--layout-gap); }
+.monitoring-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--layout-gap); margin-top: 12px; align-items: stretch; }
+.dashboard-home :is(.hero-card, .schedule-card) { height: clamp(180px, 23dvh, 260px); min-height: 0; border-radius: 18px; }
+.dashboard-home .schedule-card { padding: 14px 16px 10px; }
+.dashboard-home :is(.schedule-head h2, .chart-head h2) { font-size: 18px; margin: 0; }
+.dashboard-home .schedule-list { min-height: 0; overflow-y: auto; margin-top: 6px; flex: 1; }
+.dashboard-home .schedule-list > button { min-height: 38px; gap: 8px; padding: 5px 0; }
+.dashboard-home .see-more-button { padding-top: 6px; min-height: 24px; }
+.hero-content { left: 16px; bottom: 16px; }
+.hero-content > time { font-size: 40px; }
+.hero-content > p { margin: 6px 0 8px; }
+.hero-sensor { min-width: 110px; border-radius: 10px; padding: 6px 10px; }
+.hero-sensor strong { font-size: 22px; }
+.hero-npk-groups { right: 16px; bottom: 16px; gap: 8px; }
+.hero-npk-card { width: 140px; border-radius: 10px; padding: 7px; }
+.dashboard-home .sensor-panel, .dashboard-home .sensor-panel.is-energy { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+.dashboard-home .sensor-panel-toolbar { padding-bottom: 8px; }
+.dashboard-home .sensor-panel .metric-card { min-height: 108px; padding: 10px; border-radius: 10px; }
+.dashboard-home .metric-icon { width: 26px; height: 26px; }
+.dashboard-home .metric-label { margin: 6px 0 0; font-size: 11px; line-height: 1.35; }
+.dashboard-home .metric-reading { margin-top: 8px; }
+.dashboard-home .metric-reading h2 { margin: 0; font-size: 24px; line-height: 1.15; }
+.dashboard-home .hero-npk-item small { font-size: 9px; }
+.dashboard-home .chart-card { min-height: 0; padding: 14px 16px 10px; border-radius: 18px; display: flex; flex-direction: column; }
+.dashboard-home .chart-head { gap: 8px; }
+.dashboard-home .chart-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: 100%; }
+.dashboard-home .chart-filters > label { min-width: 0; }
+.dashboard-home .chart-filters :is(select, input, button) { min-width: 0; width: 100%; box-sizing: border-box; font-size: 11px; }
+.dashboard-home .chart-visual { height: clamp(140px, 20dvh, 220px); min-height: 140px; flex: 0 0 auto; margin-top: 8px; }
+.dashboard-home .actuator-summary { margin: 12px 0; padding: 12px 16px; }
+.dashboard-home .actuator-summary-heading { margin-bottom: 8px; }
+.dashboard-home .actuator-summary-item { padding: 8px 10px; gap: 10px; }
+.page-card { padding: 20px; }
+.summary-card { padding: 16px; }
+.page-summary-grid, .um-summary-grid { gap: 12px; }
+.secondary-page :is(.page-card-header, .device-page-header, .control-toolbar) { gap: 12px; flex-wrap: wrap; }
+.secondary-page :is(.page-card-header h2, .device-page-header h2, .control-toolbar h2) { font-size: 18px; }
+.secondary-page .summary-card strong { font-size: 26px; }
+.smart-soil-condition-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.smart-soil-metric { min-height: 112px; padding: 12px; }
+.smart-soil-layout { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); }
+.logs-header { align-items: start; flex-wrap: wrap; }
+.log-actions { display: grid; grid-template-columns: repeat(2, minmax(110px, 1fr)) repeat(2, minmax(130px, 1fr)) repeat(2, minmax(110px, 1fr)) auto auto; gap: 8px; width: 100%; }
+.log-actions .page-select, .log-actions .page-select:first-child, .log-actions .page-select:nth-child(2), .log-actions .datalog-date-filter, .log-actions .datalog-time-filter { width: 100%; min-width: 0; }
+.log-actions .page-select :is(select, input) { font-size: 12px; }
+.data-table-wrap, .um-table-wrap { max-width: 100%; }
+.datalog-chart-card { padding: 18px 20px; }
+.datalog-chart-header { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.datalog-chart-controls { grid-template-columns: 140px 240px; }
+.datalog-chart-visual { height: 230px; }
+.ft-layout { grid-template-columns: 230px minmax(0, 1fr); }
+.ft-panel { padding: 20px; }
+.ft-sidebar { padding: 16px; }
+.ft-editor-heading { margin-bottom: 20px; }
+.ft-fields { gap: 18px 20px; }
+.ft-program-list { display: grid; gap: 10px; max-height: 65dvh; overflow-y: auto; }
+.ft-program-list .ft-recipe { margin-top: 0; }
+.ft-field-hint { overflow-wrap: anywhere; }
+
+/* Width is the available workspace, not the monitor's advertised resolution. */
+@container dashboard (max-width: 1100px) {
+  .monitoring-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+  .hero-npk-card { width: 116px; }
+  .hero-npk-groups { top: 12px; bottom: auto; right: 12px; }
+  .hero-content { bottom: 12px; }
+  .dashboard-home .sensor-panel .metric-card { padding: 8px; }
+  .dashboard-home .metric-reading h2 { font-size: 22px; }
+}
+@container dashboard (max-width: 900px) {
+  .overview-grid { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-home .schedule-card { height: auto; }
+  .dashboard-home .schedule-list { max-height: 160px; }
+  .monitoring-grid { grid-template-columns: minmax(0, 1fr); }
+  .hero-npk-groups { top: auto; bottom: 16px; }
+  .hero-content { max-width: calc(100% - 290px); }
+  .dashboard-home .chart-visual { flex: auto; height: 190px; }
+}
+@container dashboard (max-width: 600px) {
+  .dashboard-home .sensor-panel, .dashboard-home .sensor-panel.is-energy { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-home .hero-card { height: 320px; }
+  .hero-content { top: 20px; bottom: auto; max-width: calc(100% - 32px); }
+  .hero-npk-groups { left: 16px; right: 16px; bottom: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero-npk-card { width: auto; }
+  .hero-sensor { min-width: 0; }
+  .dashboard-home .actuator-summary-items { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-home .chart-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container page (max-width: 1250px) {
+  .log-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .smart-soil-condition-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container page (max-width: 900px) {
+  .smart-soil-layout { grid-template-columns: minmax(0, 1fr); }
+  .datalog-chart-header { grid-template-columns: minmax(0, 1fr); }
+  .datalog-chart-controls { grid-template-columns: minmax(0, 140px) minmax(0, 260px); }
+  .page-summary-grid, .um-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container page (max-width: 600px) {
+  .log-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .smart-soil-condition-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page-card, .summary-card { padding: 16px; }
+  .smart-soil-reference-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@container fertigation (max-width: 1050px) {
+  .ft-layout { grid-template-columns: minmax(0, 1fr); }
+  .ft-program-list { grid-auto-flow: column; grid-auto-columns: minmax(180px, 240px); overflow-x: auto; max-height: none; padding-bottom: 4px; }
+  .ft-age-group > .ft-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ft-age-group label:first-child { grid-column: 1 / -1; }
+}
+@container fertigation (max-width: 600px) {
+  .ft-fields, .ft-age-group > .ft-fields { grid-template-columns: minmax(0, 1fr); }
+  .ft-age-group label:first-child { grid-column: auto; }
+}
+@media (min-width: 1280px) {
+  .compact-account-dock { right: max(var(--page-gutter), calc((100vw - var(--desktop-sidebar) - var(--desktop-page-max)) / 2)); }
+}
+@media (min-width: 1280px) and (max-height: 800px) {
+  .app-main { --account-dock-clearance: 58px; }
+  .app-main > .page-shell-header { margin-bottom: 12px; }
+  .page-shell-header h1 { font-size: 26px; }
+  .dashboard-home :is(.hero-card, .schedule-card) { height: 172px; }
+  .dashboard-home .sensor-panel .metric-card { min-height: 100px; }
+  .dashboard-home .chart-visual { height: 140px; min-height: 140px; }
+}
+@media (max-width: 760px) {
+  :root { --page-gutter: 14px; --layout-gap: 12px; }
+  .app-main { --account-dock-clearance: 72px; }
+  .page-shell-header h1 { font-size: 24px; }
+  .dashboard-home :is(.hero-card, .schedule-card) { border-radius: 16px; }
+}
+@media (max-width: 480px) {
+  :root { --page-gutter: 10px; }
+  .log-actions { grid-template-columns: minmax(0, 1fr); }
+  .datalog-chart-controls { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-home .sensor-panel-toolbar { align-items: stretch; gap: 8px; }
+  .sensor-group-select select { min-width: 0; }
+}

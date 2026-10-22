@@ -19,5 +19,8 @@ db-backups/
 # Edge runtime durable outbox
 /edge-gateway/data/
 
+# Local screenshots from the synthetic responsive preview
+/frontend/test/layout-artifacts/
+
 # Edge Gateway runtime durable outbox
 /edge-gateway/data/
