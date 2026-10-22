@@ -877,3 +877,30 @@ export const evaluateFertigationSite = (recipeId: string, deviceId: string) =>
   request<import('@spff/contracts').FertigationLiveDecision>('/fertigation/evaluate-site', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipeId, deviceId }),
   })
+
+export type SoilEcSessionView = {
+  session_id: string; status: string; reason: string; cycles: number; total_on_ms: string;
+  previous_ec: number | null; commands: Array<{cycle:number;status:string;operation:string}>;
+}
+export function fetchSoilEcPulseSessions(deviceId:string) {
+  return request<{enabled:boolean;sessions:SoilEcSessionView[]}>(`/fertigation/pulse-sessions?deviceId=${encodeURIComponent(deviceId)}`)
+}
+export function startSoilEcPulseSession(input: import('@spff/contracts').StartSoilEcSession) {
+  return request<SoilEcSessionView>('/fertigation/pulse-sessions', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})
+}
+export function stopSoilEcPulseSession(id:string) {
+  return request<null>(`/fertigation/pulse-sessions/${encodeURIComponent(id)}/stop`,{method:'POST'})
+}
+
+export function releaseSoilEcPulseSession(id:string) {
+  return request<null>(`/fertigation/pulse-sessions/${encodeURIComponent(id)}/release`,{method:'POST'})
+}
+
+export function fetchWaterInterlock(deviceId:string){
+  return request<import('@spff/contracts').WaterInterlockView>(`/settings/water-interlock?deviceId=${encodeURIComponent(deviceId)}`)
+}
+export function saveWaterInterlock(deviceId:string,expectedRevision:number,enabled:boolean){
+  return request<import('@spff/contracts').WaterInterlockView>('/settings/water-interlock',{
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,expectedRevision,enabled}),
+  })
+}

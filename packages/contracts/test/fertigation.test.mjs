@@ -33,6 +33,7 @@ test('completed session without feedback proof is rejected', () => {
     siteId: 'greenhouse-01', deviceId: 'esp32-s3-01',
     messageId: 'session-event-1', sequence: 1,
     sessionId: 'f247bd02-6c3e-4826-bd10-5fa3bb6fbd26',
+    recipeId: 'a247bd02-6c3e-4826-bd10-5fa3bb6fbd26',
     recordedAt: '2026-10-18T00:00:00Z',
     status: 'completed', targetWaterL: 10, targetStockL: 0.5,
     actualWaterL: null, actualStockL: 0.5, pumpsOff: false,

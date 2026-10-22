@@ -1,4 +1,7 @@
+.chart-visual svg,
+.datalog-chart-visual svg { -webkit-user-select: none; user-select: none; }
 .history-hover > rect { cursor: crosshair; touch-action: pan-y; }
+.history-hover > rect:focus { outline: none; }
 .history-hover > rect:focus-visible { outline: 2px solid #22ad7b; outline-offset: -2px; }
 .history-hover-guide { stroke: #18996e; stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
 .history-hover-point { fill: #22ad7b; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; }

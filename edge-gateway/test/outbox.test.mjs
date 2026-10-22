@@ -63,3 +63,19 @@ test('session outbox must wait for persisted ACK, not MQTT QoS acknowledgement',
     assert.equal((await readdir(dir)).filter(x=>x.endsWith('.json')).length,0);
   } finally { await rm(dir,{recursive:true,force:true}); }
 });
+
+test('pulse ACK survives edge restart and a failed MQTT publish',async()=>{
+  const dir=await mkdtemp(path.join(os.tmpdir(),'spff-pulse-ack-'));
+  try{
+    const first=new DurableOutbox(dir,10);await first.start();
+    const payload={kind:'fertigation_pulse_ack',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',
+      sessionId:'00000000-0000-4000-8000-000000000001',commandId:'00000000-0000-4000-8000-000000000002',
+      cycle:1,status:'completed',pumpsOff:true,reason:'pulse_duration_elapsed',acknowledgedAt:'2026-10-21T04:00:00Z'};
+    await first.enqueue({kind:'pulse_ack',payload});
+    const restarted=new DurableOutbox(dir,10);await restarted.start();
+    await assert.rejects(restarted.flush(async()=>{throw new Error('offline')}));
+    const sent=[];await restarted.flush(async record=>{sent.push(record)});
+    assert.deepEqual(sent,[{kind:'pulse_ack',payload}]);
+    assert.equal((await readdir(dir)).filter(x=>x.endsWith('.json')).length,0);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});

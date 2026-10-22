@@ -1,3 +1,5 @@
+import { getWaterInterlock, putWaterInterlock } from '../controllers/waterInterlockController.js';
+import { getSoilEcPulseSessions, postSoilEcPulseSession, stopSoilEcPulseSession, releaseSoilEcPulseSession } from '../controllers/soilEcPulseController.js';
 import {
   Router,
 } from 'express';
@@ -203,6 +205,12 @@ apiRouter.get(
 );
 
 // Simulation is advisory-only and never publishes commands to MQTT.
+apiRouter.get('/settings/water-interlock', getWaterInterlock);
+apiRouter.put('/settings/water-interlock', requireAdmin, requireCsrf, putWaterInterlock);
+apiRouter.get('/fertigation/pulse-sessions', getSoilEcPulseSessions);
+apiRouter.post('/fertigation/pulse-sessions', requireAdmin, requireCsrf, requireAiEvaluationEnabled, postSoilEcPulseSession);
+apiRouter.post('/fertigation/pulse-sessions/:id/release', requireAdmin, requireCsrf, releaseSoilEcPulseSession);
+apiRouter.post('/fertigation/pulse-sessions/:id/stop', requireOperator, requireCsrf, stopSoilEcPulseSession);
 apiRouter.get('/fertigation/recipes',listRecipesController);
 apiRouter.post('/fertigation/recipes',requireAdmin,requireCsrf,createRecipeController);
 apiRouter.put('/fertigation/recipes/:id',requireAdmin,requireCsrf,updateRecipeController);
