@@ -42,3 +42,11 @@ the Dashboard matrix as verification of every page.
 Validation: contracts/frontend builds and all 24 frontend tests passed. Frontend
 lint exited successfully; the incoming `SoilEcPulsePanel.tsx` has one existing
 effect-cleanup warning, outside the responsive layout patch.
+
+Fertigation density follow-up: desktop fields use 36px minimum height, 12px
+labels and tighter section spacing. At 1300px of available page width, the four
+watering inputs share one row; fertilizer fields use three columns above 1060px.
+Below 600px, fields stack and inputs/buttons keep 44px minimum touch targets.
+The introductory advisory explanation is available in a native disclosure;
+field-level safety hints remain visible. These changes have build/test coverage
+but have not received a new browser visual pass while browser access is disabled.

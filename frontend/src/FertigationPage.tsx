@@ -12,15 +12,15 @@ const fields: { key: keyof Form; label: string; type: string; max?: number; hint
   { key: 'plantingDate', label: 'Tanggal tanam', type: 'date' },
   { key: 'hstFrom', label: 'Mulai umur (hari)', type: 'number', max: 1000 },
   { key: 'hstTo', label: 'Sampai umur (hari)', type: 'number', max: 1000 },
-  { key: 'triggerSampleCount', label: 'Konfirmasi tanah kering (kali pembacaan)', type: 'number', max: 20, hint: 'Jumlah bacaan rendah berturut-turut sebelum menyarankan penyiraman.' },
-  { key: 'targetWaterL', label: 'Air paling banyak sekali penyiraman (liter)', type: 'number', max: 100000, hint: 'Batas untuk rekomendasi program; belum menjadi pembatas volume pompa pada perangkat.' },
+  { key: 'triggerSampleCount', label: 'Konfirmasi kering (bacaan)', type: 'number', max: 20, hint: 'Jumlah bacaan rendah berturut-turut sebelum menyarankan penyiraman.' },
+  { key: 'targetWaterL', label: 'Batas air per penyiraman (L)', type: 'number', max: 100000, hint: 'Batas untuk rekomendasi program; belum menjadi pembatas volume pompa pada perangkat.' },
   { key: 'targetStockL', label: 'Larutan dari tandon pupuk sekali pemberian (liter)', type: 'number', max: 100000 },
   { key: 'fertilizerName', label: 'Nama pupuk', type: 'text' },
   { key: 'stockConcentrationGPerL', label: 'Pupuk dalam setiap 1 liter larutan tandon (gram)', type: 'number', max: 10000, hint: 'Isi gram pupuk dibagi liter larutan. Contoh hitung: 100 gram dalam 10 liter = 10 g/L, bukan anjuran dosis.' },
   { key: 'minWaterTankPercent', label: 'Sisa air minimum di tandon (%)', type: 'number', max: 100, hint: 'Evaluasi rekomendasi ditahan jika isi tandon di bawah angka ini. Ini bukan konfirmasi proteksi tandon pada perangkat.' },
   { key: 'minStockTankPercent', label: 'Sisa larutan pupuk minimum di tandon (%)', type: 'number', max: 100, hint: 'Batas evaluasi rekomendasi; proteksi pompa tetap mengikuti firmware yang terpasang.' },
-  { key: 'moistureLowPercent', label: 'Mulai menyiram saat kelembapan tanah mencapai (%)', type: 'number', max: 100, hint: 'Penyiraman disarankan saat bacaan sama dengan atau lebih rendah dari batas ini.' },
-  { key: 'moistureTargetPercent', label: 'Target kelembapan tanah setelah disiram (%)', type: 'number', max: 100, hint: 'Target program untuk evaluasi; menyimpan aturan ini tidak mengubah parameter kontrol sensor pada perangkat.' },
+  { key: 'moistureLowPercent', label: 'Batas kelembapan rendah (%)', type: 'number', max: 100, hint: 'Penyiraman disarankan saat bacaan sama dengan atau lebih rendah dari batas ini.' },
+  { key: 'moistureTargetPercent', label: 'Target kelembapan (%)', type: 'number', max: 100, hint: 'Target program untuk evaluasi; menyimpan aturan ini tidak mengubah parameter kontrol sensor pada perangkat.' },
   { key: 'ecLowUsCm', label: 'Batas mulai EC aturan (µS/cm)', type: 'number', max: 100000 },
   { key: 'ecTargetUsCm', label: 'Target EC aturan (µS/cm)', type: 'number', max: 100000 },
   { key: 'ecHighUsCm', label: 'Batas EC aturan tertinggi (µS/cm)', type: 'number', max: 100000 },
@@ -103,8 +103,9 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     setNotice('Aturan tersimpan dan digunakan untuk evaluasi kondisi tanaman.')
   }
   return <section className="fertigation-test">
-    <header><span className="ft-badge">Aturan dan sesi EC tanah</span></header>
-    <p className="ft-field-hint">Program mengevaluasi kondisi tanaman dari data perangkat. Menyimpan atau memeriksa aturan tidak menjalankan pompa dan tidak mengubah pengaturan kontrol sensor pada perangkat.</p>
+    <header className="ft-intro"><span className="ft-badge">Aturan dan sesi EC tanah</span>
+      <details className="ft-guidance"><summary>Tentang evaluasi program</summary><p>Program mengevaluasi kondisi tanaman dari data perangkat. Menyimpan atau memeriksa aturan tidak menjalankan pompa dan tidak mengubah pengaturan kontrol sensor pada perangkat.</p></details>
+    </header>
     {error && <div role="alert" className="ft-error">{error}</div>}
     {notice && <div role="status" className="ft-notice">{notice}</div>}
     <div className="ft-layout"><aside className="ft-panel ft-sidebar"><div className="ft-actions"><h3>Program</h3><button className="ft-icon-button" title="Muat ulang program" aria-label="Muat ulang program" disabled={busy} onClick={() => void run(reload)}><RefreshCw size={16}/></button></div>
@@ -123,7 +124,7 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
         <label>Jenis pemberian<select value={withFertilizer ? 'fertilizer' : 'water'} onChange={e => { setWithFertilizer(e.target.value === 'fertilizer'); setResult(undefined) }}><option value="water">Air saja</option><option value="fertilizer">Air dan pupuk</option></select></label>
         {selected && selected.applicationMode !== 'sensor' && <p role="status">Simpan ulang untuk memakai pemicu sensor. Jadwal lama tetap berlaku sampai perubahan disimpan.</p>}
         {selected && !selected.cropId && <p role="status">Program lama belum terhubung ke tanaman Smart Soil. Pilih tanaman lalu simpan ulang.</p>}
-        {fieldGroups.filter(group => !group.fertilizerOnly || withFertilizer).map(group => <section className={`ft-field-group${group.keys.includes('plantingDate') ? ' ft-age-group' : ''}`} key={group.title} aria-label={group.title}>
+        {fieldGroups.filter(group => !group.fertilizerOnly || withFertilizer).map(group => <section className={`ft-field-group${group.keys.includes('plantingDate') ? ' ft-age-group' : ''}${group.keys.includes('moistureLowPercent') ? ' ft-irrigation-group' : ''}${group.fertilizerOnly ? ' ft-fertilizer-group' : ''}`} key={group.title} aria-label={group.title}>
           <h4>{group.title}</h4>
           <div className="ft-fields">{group.keys.map(key => fields.find(field => field.key === key)!).filter(field => withFertilizer || field.key !== 'minStockTankPercent').map(({key, label, type, max, hint, placeholder}) => {
           const thresholdField = ['moistureLowPercent', 'moistureTargetPercent', 'ecLowUsCm', 'ecTargetUsCm', 'ecHighUsCm'].includes(key)

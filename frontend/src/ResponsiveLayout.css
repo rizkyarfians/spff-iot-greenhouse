@@ -80,13 +80,42 @@
 .datalog-chart-controls { grid-template-columns: 140px 240px; }
 .datalog-chart-visual { height: 230px; }
 .ft-layout { grid-template-columns: 230px minmax(0, 1fr); }
-.ft-panel { padding: 20px; }
-.ft-sidebar { padding: 16px; }
-.ft-editor-heading { margin-bottom: 20px; }
-.ft-fields { gap: 18px 20px; }
+.ft-panel { padding: 16px; }
+.ft-sidebar { padding: 14px; }
+.fertigation-test { font-size: 13px; }
+.fertigation-test h3 { font-size: 18px; }
+.fertigation-test .ft-sidebar h3 { font-size: 14px; }
+.ft-editor-heading { margin-bottom: 12px; }
+.ft-fields { gap: 12px 16px; }
+.fertigation-test label { gap: 5px; font-size: 12px; line-height: 1.4; }
+.fertigation-test input, .fertigation-test select { min-height: 36px; padding: 7px 10px; font-size: 13px; line-height: 1.4; }
+.fertigation-test button { min-height: 36px; padding: 7px 12px; font-size: 12px; }
+.fertigation-test .ft-icon-button { width: 36px; min-height: 36px; padding: 8px; }
+.ft-actions, .ft-new-button { margin-bottom: 12px; }
+.fertigation-test .ft-recipe { padding: 10px; gap: 4px; }
+.ft-field-group { padding-top: 14px; }
+.ft-field-group h4 { margin-bottom: 10px; font-size: 13px; }
+.fertigation-test .ft-field-hint { font-size: 11px; line-height: 1.45; }
+.fertigation-test .ft-field-group p { margin-top: 8px; font-size: 11px; }
+.ft-save-row { margin-top: 16px; padding-top: 12px; }
+.ft-device-selection, .ft-evaluation, .ft-editor > .ft-field-group { margin-top: 18px; padding-top: 16px; }
+.fertigation-test .ft-intro { align-items: baseline; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 14px; }
+.fertigation-test .ft-guidance { margin: 0; }
+.fertigation-test .ft-guidance summary { padding: 4px 0; font-size: 12px; font-weight: 400; }
+.fertigation-test .ft-guidance p { max-width: 85ch; margin: 4px 0; font-size: 12px; }
 .ft-program-list { display: grid; gap: 10px; max-height: 65dvh; overflow-y: auto; }
 .ft-program-list .ft-recipe { margin-top: 0; }
 .ft-field-hint { overflow-wrap: anywhere; }
+
+@container fertigation (min-width: 1300px) {
+  .ft-irrigation-group > .ft-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ft-irrigation-group label { display: grid; grid-template-rows: minmax(34px, auto) auto auto; gap: 5px; }
+}
+@container fertigation (min-width: 1060px) {
+  .ft-age-group > .ft-fields { grid-template-columns: 1.3fr 1fr 1fr; }
+  .ft-age-group label:first-child { grid-column: auto; }
+  .ft-fertilizer-group > .ft-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
 /* Width is the available workspace, not the monitor's advertised resolution. */
 @container dashboard (max-width: 1100px) {
@@ -141,6 +170,9 @@
 @container fertigation (max-width: 600px) {
   .ft-fields, .ft-age-group > .ft-fields { grid-template-columns: minmax(0, 1fr); }
   .ft-age-group label:first-child { grid-column: auto; }
+  .fertigation-test input, .fertigation-test select { min-height: 44px; font-size: 16px; }
+  .fertigation-test button { min-height: 44px; }
+  .fertigation-test .ft-icon-button { width: 44px; }
 }
 @media (min-width: 1280px) {
   .compact-account-dock { right: max(var(--page-gutter), calc((100vw - var(--desktop-sidebar) - var(--desktop-page-max)) / 2)); }
