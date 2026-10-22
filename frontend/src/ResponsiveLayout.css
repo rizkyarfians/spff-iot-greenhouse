@@ -54,10 +54,11 @@
 .dashboard-home .hero-npk-item small { font-size: 9px; }
 .dashboard-home .chart-card { container: chart-panel / inline-size; min-height: 0; padding: 14px 16px 10px; border-radius: 18px; display: flex; flex-direction: column; }
 .dashboard-home .chart-head { gap: 8px; }
-.dashboard-home .chart-filters { display: grid; grid-template-columns: 112px minmax(150px, 1fr) 132px 78px 76px; gap: 6px; width: 100%; }
+.dashboard-home .chart-filters { display: grid; grid-template-columns: 112px minmax(150px, 200px) 124px 68px 68px; justify-content: start; gap: 6px; width: 100%; }
 .dashboard-home .chart-filters > label { min-width: 0; }
 .dashboard-home .chart-filters :is(select, input, button) { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; font-size: 12px; }
-:root .app-shell .dashboard-home .chart-filters :is(select, input, button) { min-height: 36px; height: 36px; }
+:root .app-shell .dashboard-home .chart-filters :is(select, input, button) { min-height: 30px; height: 30px; border-radius: 7px; padding-inline: 8px; font-size: 12px; line-height: 1.2; }
+:root .app-shell .dashboard-home .chart-filters select { padding-right: 26px; background-position: right 8px center; background-size: 12px; }
 @container chart-panel (max-width: 600px) {
   .dashboard-home .chart-filters { grid-template-columns: minmax(120px, 1fr) 82px 76px; }
   .dashboard-home .chart-sensor-select { grid-column: 2 / -1; }
