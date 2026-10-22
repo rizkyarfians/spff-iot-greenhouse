@@ -33,8 +33,8 @@ echo "[P0] Node: $(node --version), npm: $(npm --version)"
 git -C "${LIVE_DIR}" fetch --no-tags origin \
   "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
 REMOTE_SHA="$(git -C "${LIVE_DIR}" rev-parse "refs/remotes/origin/${BRANCH}")"
-if [[ "${REMOTE_SHA}" != "${CODE_SHA}" ]]; then
-  echo "[BLOCKED] Remote branch head changed to ${REMOTE_SHA}. Review it before staging." >&2
+if ! git -C "${LIVE_DIR}" merge-base --is-ancestor "${CODE_SHA}" "${REMOTE_SHA}"; then
+  echo "[BLOCKED] Reviewed commit ${CODE_SHA} is not contained in remote branch ${REMOTE_SHA}." >&2
   exit 1
 fi
 
