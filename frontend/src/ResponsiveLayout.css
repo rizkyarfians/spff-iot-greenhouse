@@ -52,11 +52,21 @@
 .dashboard-home .metric-reading { margin-top: 8px; }
 .dashboard-home .metric-reading h2 { margin: 0; font-size: 24px; line-height: 1.15; }
 .dashboard-home .hero-npk-item small { font-size: 9px; }
-.dashboard-home .chart-card { min-height: 0; padding: 14px 16px 10px; border-radius: 18px; display: flex; flex-direction: column; }
+.dashboard-home .chart-card { container: chart-panel / inline-size; min-height: 0; padding: 14px 16px 10px; border-radius: 18px; display: flex; flex-direction: column; }
 .dashboard-home .chart-head { gap: 8px; }
-.dashboard-home .chart-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: 100%; }
+.dashboard-home .chart-filters { display: grid; grid-template-columns: 112px minmax(150px, 1fr) 132px 78px 76px; gap: 6px; width: 100%; }
 .dashboard-home .chart-filters > label { min-width: 0; }
-.dashboard-home .chart-filters :is(select, input, button) { min-width: 0; width: 100%; box-sizing: border-box; font-size: 11px; }
+.dashboard-home .chart-filters :is(select, input, button) { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; font-size: 12px; }
+:root .app-shell .dashboard-home .chart-filters :is(select, input, button) { min-height: 36px; height: 36px; }
+@container chart-panel (max-width: 600px) {
+  .dashboard-home .chart-filters { grid-template-columns: minmax(120px, 1fr) 82px 76px; }
+  .dashboard-home .chart-sensor-select { grid-column: 2 / -1; }
+}
+@container chart-panel (max-width: 360px) {
+  .dashboard-home .chart-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-home .chart-sensor-select { grid-column: auto; }
+  .dashboard-home .chart-latest-button { grid-column: 2; }
+}
 .dashboard-home .chart-visual { height: clamp(140px, 20dvh, 220px); min-height: 140px; flex: 0 0 auto; margin-top: 8px; }
 .dashboard-home .actuator-summary { margin: 12px 0; padding: 12px 16px; }
 .dashboard-home .actuator-summary-heading { margin-bottom: 8px; }
@@ -143,7 +153,7 @@
   .hero-npk-card { width: auto; }
   .hero-sensor { min-width: 0; }
   .dashboard-home .actuator-summary-items { grid-template-columns: minmax(0, 1fr); }
-  .dashboard-home .chart-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :root .app-shell .dashboard-home .chart-filters :is(select, input, button) { min-height: 44px; height: 44px; }
 }
 @container page (max-width: 1250px) {
   .log-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
