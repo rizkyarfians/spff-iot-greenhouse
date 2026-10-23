@@ -31,18 +31,18 @@
 .fertigation-test { container: fertigation / inline-size; }
 .overview-grid { grid-template-columns: minmax(0, 2.5fr) minmax(280px, 1fr); gap: var(--layout-gap); }
 .monitoring-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--layout-gap); margin-top: 12px; align-items: stretch; }
-.dashboard-home :is(.hero-card, .schedule-card) { height: clamp(180px, 23dvh, 260px); min-height: 0; border-radius: 18px; }
-.dashboard-home .schedule-card { padding: 14px 16px 10px; }
+.dashboard-home :is(.hero-card, .schedule-card) { height: clamp(220px, 28dvh, 300px); min-height: 0; border-radius: 18px; }
+.dashboard-home .schedule-card { padding: 18px 20px 14px; }
 .dashboard-home :is(.schedule-head h2, .chart-head h2) { font-size: 18px; margin: 0; }
 .dashboard-home .schedule-list { min-height: 0; overflow-y: auto; margin-top: 6px; flex: 1; }
 .dashboard-home .schedule-list > button { min-height: 38px; gap: 8px; padding: 5px 0; }
 .dashboard-home .see-more-button { padding-top: 6px; min-height: 24px; }
-.hero-content { left: 16px; bottom: 16px; }
+.hero-content { left: 20px; bottom: 20px; }
 .hero-content > time { font-size: 40px; }
 .hero-content > p { margin: 6px 0 8px; }
 .hero-sensor { min-width: 110px; border-radius: 10px; padding: 6px 10px; }
 .hero-sensor strong { font-size: 22px; }
-.hero-npk-groups { right: 16px; bottom: 16px; gap: 8px; }
+.hero-npk-groups { right: 20px; bottom: 20px; gap: 8px; }
 .hero-npk-card { width: 140px; border-radius: 10px; padding: 7px; }
 .dashboard-home .sensor-panel, .dashboard-home .sensor-panel.is-energy { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px; }
 .dashboard-home .sensor-panel-toolbar { padding-bottom: 8px; }
@@ -192,7 +192,7 @@
   .app-main { --account-dock-clearance: 58px; }
   .app-main > .page-shell-header { margin-bottom: 12px; }
   .page-shell-header h1 { font-size: 26px; }
-  .dashboard-home :is(.hero-card, .schedule-card) { height: 172px; }
+  .dashboard-home :is(.hero-card, .schedule-card) { height: 210px; }
   .dashboard-home .sensor-panel .metric-card { min-height: 100px; }
   .dashboard-home .chart-visual { height: 140px; min-height: 140px; }
 }
