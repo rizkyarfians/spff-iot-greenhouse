@@ -23,7 +23,7 @@ Dashboard was inspected in-browser with synthetic sensor values, two pumps,
 four schedules and 72 history points:
 
 The matrix below predates the October 23 banner-spacing adjustment. The hero and
-schedule now use 220–300px responsive height (210px on short desktop viewports)
+schedule now use 220–380px responsive height (210px on short desktop viewports)
 with larger inner insets. Their updated document heights have not been visually
 re-measured; do not treat the old one-screen fit as verification of this change.
 
