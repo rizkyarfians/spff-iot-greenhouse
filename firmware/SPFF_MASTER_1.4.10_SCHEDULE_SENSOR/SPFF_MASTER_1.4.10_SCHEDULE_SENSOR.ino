@@ -76,6 +76,7 @@
 */
 
 #include <Arduino.h>
+#include "FertigationGuards.h"
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <Preferences.h>
@@ -538,6 +539,20 @@ SpffAutomaticControlStore spffAutomaticControl;
 bool spffAutomaticControlLoaded = false;
 bool spffAutomaticPaused = false; // Dashboard OFF pauses auto until settings are explicitly saved again.
 uint32_t spffLastAutoEvaluationMs = 0;
+bool spffWaterFaultLatched = false;
+
+static void spffLoadWaterFaultLatch() {
+  const PreferenceType type = prefs.getType("water_fault");
+  spffWaterFaultLatched = type == PT_U8
+    ? prefs.getBool("water_fault", true)
+    : !(type == PT_INVALID && !prefs.isKey("water_fault"));
+}
+
+static void spffLatchWaterFault() {
+  spffWaterFaultLatched = true;
+  prefs.putBool("water_fault", true);
+}
+
 bool spffShutdownPending = false;
 bool spffShutdownFaultLatched = false;
 
@@ -10357,7 +10372,10 @@ static bool spffParseWaterAutomaticConfig(
     return false;
   }
 
-  tankLevelIgnored = !minTankNull;
+  if (!minTankNull) {
+    reason = "tank_level_interlock_unsupported";
+    return false;
+  }
 
   if (
     (sensorKey != "soil_1_moisture" && sensorKey != "soil_2_moisture") ||
@@ -10448,7 +10466,10 @@ static bool spffParseFertilizerAutomaticConfig(
     return false;
   }
 
-  tankLevelIgnored = !minTankNull;
+  if (!minTankNull) {
+    reason = "tank_level_interlock_unsupported";
+    return false;
+  }
 
   if (
     sensorKey != "liquid_ec_us_cm" ||
@@ -10637,6 +10658,16 @@ void processSpffAutomaticControlSyncLine(
     return;
   }
 
+  // Verify outputs are OFF before accepting a fault reset.
+  spffStopAutomaticOutputs("automatic_config_change");
+  if (spffWaterFaultLatched && (spffShutdownPending || spffShutdownFaultLatched ||
+      prefs.putBool("water_fault", false) != 1U)) {
+    spffSendAutomaticControlAck(revision, generatedAt, "rejected",
+      spffAutomaticControlLoaded
+        ? (SpffOperatingMode)spffAutomaticControl.desiredMode : SPFF_MODE_MANUAL,
+      "water_fault_reset_failed");
+    return;
+  }
   if (!spffPersistAutomaticControl(candidate)) {
     spffSendAutomaticControlAck(
       revision, generatedAt, "rejected",
@@ -10645,10 +10676,12 @@ void processSpffAutomaticControlSyncLine(
         : SPFF_MODE_MANUAL,
       "nvs_write_failed"
     );
+    if (spffWaterFaultLatched) prefs.putBool("water_fault", true);
     return;
   }
 
-  spffStopAutomaticOutputs("automatic_config_change");
+  spffWaterFaultLatched = false;
+  spffWaterLastSampleMs = 0UL;
   spffAutomaticPaused = false;
   spffAutomaticControl = candidate;
   spffAutomaticControlLoaded = true;
@@ -10761,13 +10794,13 @@ static bool spffAutomaticSlaveFresh(uint32_t staleSeconds) {
       staleSeconds * 1000UL;
 }
 
-static void spffStopAutomaticWater(uint32_t nowMs) {
+static void spffStopAutomaticWater(uint32_t nowMs, const char *reason) {
   if (spffAutomaticPumpOutput(
         "pump_water",
         PUMP_WATER_RELAY,
         false,
         spffWaterStateTracker,
-        "automatic_water"
+        reason
       )) {
     spffWaterAutoActive = false;
     spffWaterLowSampleCount = 0;
@@ -10796,10 +10829,10 @@ static void spffServiceAutomaticWater(uint32_t nowMs) {
   const SpffWaterAutomaticConfig &config =
     spffAutomaticControl.water;
 
-  if (!config.enabled || !spffScheduleWindowOpen(SPFF_SCHEDULE_TARGET_WATER)) {
+  if (spffWaterFaultLatched || !config.enabled || !spffScheduleWindowOpen(SPFF_SCHEDULE_TARGET_WATER)) {
     spffWaterLowSampleCount = 0;
     if (spffWaterAutoActive) {
-      spffStopAutomaticWater(nowMs);
+      spffStopAutomaticWater(nowMs, "water_window_or_lockout");
     }
     return;
   }
@@ -10829,7 +10862,9 @@ static void spffServiceAutomaticWater(uint32_t nowMs) {
       flowFault ||
       otaMaintenanceActive()
     ) {
-      spffStopAutomaticWater(nowMs);
+      const char *fault = spffWaterFaultReason(!sampleValid, runtimeExceeded, flowFault);
+      if (fault) spffLatchWaterFault();
+      spffStopAutomaticWater(nowMs, fault ? fault : "water_target_or_maintenance");
     }
     return;
   }
@@ -11036,7 +11071,9 @@ static void spffServiceAutomaticFertilizer(uint32_t nowMs) {
     }
 
     // Setelah mixing, keputusan berikutnya wajib memakai pembacaan EC baru.
-    if (sampleMs == spffFertLastSampleMs) {
+    if (sampleMs == spffFertLastSampleMs ||
+        !spffSampleAfterMixing(sampleMs, spffFertStateStartedMs,
+          config.mixingDelaySeconds * 1000UL)) {
       return;
     }
     spffFertLastSampleMs = sampleMs;
@@ -11705,7 +11742,9 @@ void appSetup() {
 
   if (!prefs.begin("s2pfs", false)) {
     spffShutdownFaultLatched = true;
+    spffWaterFaultLatched = true;
   } else {
+    spffLoadWaterFaultLatch();
     spffLoadShutdownFaultLatch();
   }
   loadSoilNVS(1, soil1);
