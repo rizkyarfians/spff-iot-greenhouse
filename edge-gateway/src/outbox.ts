@@ -55,12 +55,17 @@ export class DurableOutbox {
       const files = await this.listFiles();
       for (const file of files) {
         const filePath = path.join(this.directory, file);
-        const parsed = JSON.parse(await readFile(filePath, 'utf8')) as OutboxRecord;
-await publish(parsed);
+        const parsed = await this.readRecord(file);
+        if (parsed === undefined) continue;
+        await publish(parsed);
 
-if (parsed.kind !== 'telemetry' && parsed.kind !== 'session') {
-  await unlink(filePath);
-}
+        if (parsed.kind !== 'telemetry' && parsed.kind !== 'session') {
+          try {
+            await unlink(filePath);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          }
+        }
       }
     } finally {
       this.flushing = false;
@@ -81,18 +86,8 @@ private async acknowledgePersisted(kind: 'telemetry' | 'session', messageId: str
   for (const file of files) {
     const filePath = path.join(this.directory, file);
 
-    let parsed: OutboxRecord;
-
-    try {
-      parsed = JSON.parse(
-        await readFile(filePath, 'utf8'),
-      ) as OutboxRecord;
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-
-      if (code === 'ENOENT') continue;
-      throw error;
-    }
+    const parsed = await this.readRecord(file);
+    if (parsed === undefined) continue;
 
     if (
       parsed.kind !== kind ||
@@ -114,6 +109,42 @@ private async acknowledgePersisted(kind: 'telemetry' | 'session', messageId: str
 
   return false;
 }
+
+  private async readRecord(file: string): Promise<OutboxRecord | undefined> {
+    const filePath = path.join(this.directory, file);
+    let text: string;
+    try {
+      text = await readFile(filePath, 'utf8');
+    } catch (error) {
+      // A persistence ACK may remove a file after flush took its directory snapshot.
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw new Error(`Outbox read failed for ${filePath}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    }
+
+    try {
+      return JSON.parse(text) as OutboxRecord;
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      // Only malformed JSON is quarantined. Disk/read/permission errors must
+      // pause processing, never masquerade as corrupt or successfully sent data.
+      const quarantine = path.join(this.directory, 'quarantine');
+      await mkdir(quarantine, { recursive: true, mode: 0o700 });
+      const destination = path.join(quarantine, `${file}.${randomUUID()}.bad`);
+      try {
+        await rename(filePath, destination);
+      } catch (moveError) {
+        if ((moveError as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+        throw new Error(`Outbox quarantine failed for ${filePath}: ${moveError instanceof Error ? moveError.message : String(moveError)}`, { cause: moveError });
+      }
+      console.warn('[edge-outbox] corrupt JSON quarantined; not delivered', {
+        file: filePath,
+        quarantine: destination,
+        reason: error.message,
+        pendingFiles: (await this.listFiles()).length,
+      });
+      return undefined;
+    }
+  }
 
   private async listFiles() {
     const entries = await readdir(this.directory, { withFileTypes: true });
