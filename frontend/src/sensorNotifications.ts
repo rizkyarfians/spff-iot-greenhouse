@@ -7,6 +7,10 @@ export interface SensorNotification {
   sensorKey: string
 }
 
+const unavailableReasons = new Set([
+  'stale_or_missing', 'jsn_stale_or_invalid', 'slave_no_hr8_hr9',
+])
+
 const reasonLabels: Record<string, string> = {
   jsn_no_echo: 'Sensor tidak memperoleh pantulan ultrasonik yang valid.',
   jsn_stale_or_invalid: 'Pembacaan ultrasonik sudah lama atau tidak valid.',
@@ -35,10 +39,17 @@ export function sensorNotifications(sensors: readonly ApiSensor[]): SensorNotifi
     if (tank && sensor.id.endsWith('distance_cm')) group.reason = reason
     groups.set(key, group)
   }
-  return Array.from(groups, ([key, group]) => ({
-    id: `sensor-fault:${key}`,
-    title: `${group.name} gagal membaca`,
-    description: `${reasonLabels[group.reason] ?? 'Perangkat melaporkan pembacaan sensor tidak valid.'} Kode: ${group.reason}. Angka terakhir bukan pembacaan baru.`,
-    sensorKey: group.sensors.find(sensor => sensor.id.endsWith('level_pct'))?.id ?? group.sensors[0]!.id,
-  }))
+  return Array.from(groups, ([key, group]) => {
+    const unavailable = unavailableReasons.has(group.reason)
+    return {
+      id: `sensor-fault:${key}`,
+      title: unavailable
+        ? `${group.name}: data belum tersedia / terlambat`
+        : group.reason === 'invalid_reading'
+          ? `${group.name}: pembacaan tidak valid`
+          : `${group.name} gagal membaca`,
+      description: `${reasonLabels[group.reason] ?? 'Perangkat melaporkan pembacaan sensor tidak valid.'} Kode: ${group.reason}. ${unavailable ? 'Status ini belum membuktikan sensor rusak.' : 'Nilai lama tidak dianggap pembacaan baru.'}`,
+      sensorKey: group.sensors.find(sensor => sensor.id.endsWith('level_pct'))?.id ?? group.sensors[0]!.id,
+    }
+  })
 }

@@ -46,3 +46,25 @@ test('water and fertilizer are separate faults, mixed tank reason labels do not 
   assert.match(results[0].description, /jsn_no_echo/)
   assert.equal(results[1].title, 'Sensor tandon pupuk gagal membaca')
 })
+
+test('stale or unavailable data is not described as a failed sensor', () => {
+  for (const reason of ['stale_or_missing', 'jsn_stale_or_invalid', 'slave_no_hr8_hr9']) {
+    const [item] = sensorNotifications([sensor('air_temp', { name: 'Suhu Udara', faultReason: reason })])
+    assert.match(item.title, /data belum tersedia \/ terlambat/)
+    assert.doesNotMatch(item.title, /gagal membaca/)
+    assert.match(item.description, /belum membuktikan sensor rusak/)
+  }
+  const [unknown] = sensorNotifications([sensor('air_temp', { faultReason: null })])
+  assert.match(unknown.title, /pembacaan tidak valid/)
+})
+
+test('reported 11-channel incident distinguishes missing data from one water echo failure', () => {
+  const missing = [
+    'air_humidity', 'air_temp', 'soil_1_ec_us_cm', 'soil_1_k', 'soil_1_temp',
+    'soil_2_k', 'soil_2_p', 'tank_fert_distance_cm', 'tank_fert_level_pct',
+  ].map(id => sensor(id, { faultReason: 'stale_or_missing' }))
+  const items = sensorNotifications([...missing, sensor('tank_water_distance_cm'), sensor('tank_water_level_pct')])
+  assert.equal(items.length, 9) // Two distance/level pairs each share one notification.
+  assert.equal(items.filter(item => item.title.includes('gagal membaca')).length, 1)
+  assert.equal(items.filter(item => item.title.includes('data belum tersedia / terlambat')).length, 8)
+})
