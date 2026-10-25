@@ -142,15 +142,16 @@
 .sidebar-collapse-button { display: none; }
 @media (min-width: 1280px) {
   .sidebar-collapse-button {
-    display: grid; place-items: center; position: absolute; top: 77px; right: 20px;
+    display: grid; place-items: center; position: absolute; top: 50%; right: -16px;
+    transform: translateY(-50%); z-index: 2;
     width: 32px; height: 32px; padding: 0; border: 1px solid var(--line);
-    border-radius: 8px; background: #fff; color: var(--green-dark); cursor: pointer;
+    border-radius: 50%; background: #fff; color: var(--green-dark); cursor: pointer;
+    box-shadow: 0 3px 10px rgb(18 60 53 / 16%);
   }
   .sidebar-collapse-button:hover { background: #edf8f3; }
   .sidebar-collapse-button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
   .app-shell.sidebar-is-collapsed { --desktop-sidebar: 76px; }
   .sidebar-is-collapsed .side-drawer { padding-inline: 12px; }
-  .sidebar-is-collapsed .sidebar-collapse-button { right: 22px; }
   .sidebar-is-collapsed .drawer-brand { justify-content: center; padding-inline: 0; }
   .sidebar-is-collapsed .drawer-brand > div,
   .sidebar-is-collapsed .drawer-nav-label,

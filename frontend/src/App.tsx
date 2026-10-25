@@ -29,8 +29,8 @@ import {
   Leaf,
   LogOut,
   MapPin,
-  PanelLeftClose,
-  PanelLeftOpen,
+  ChevronLeft,
+  ChevronRight,
   Ruler,
   Settings,
   SlidersHorizontal,
@@ -1805,7 +1805,7 @@ const soilNpkGroups =
           title={sidebarCollapsed ? 'Perluas sidebar' : 'Kecilkan sidebar'}
           aria-expanded={!sidebarCollapsed} aria-controls="main-sidebar"
           onClick={() => setSidebarCollapsed(value => !value)}>
-          {sidebarCollapsed ? <PanelLeftOpen size={18}/> : <PanelLeftClose size={18}/>}
+          {sidebarCollapsed ? <ChevronRight size={18}/> : <ChevronLeft size={18}/>}
         </button>
         <div className="drawer-brand">
           <span
