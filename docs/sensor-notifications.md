@@ -1,7 +1,7 @@
 # Sensor notification timing
 
 Sensor faults enter the bell only when the latest API status is explicitly
-invalid and at least five minutes have elapsed since the last persisted valid
+invalid and at least one hour has elapsed since the last persisted valid
 report for that parameter. A sensor with no valid report starts its countdown at
 the first invalid packet received after migration 028. `not_reported` optional
 channels remain excluded. Valid zero readings reset the failure state normally.
@@ -39,5 +39,5 @@ Deploy only on a stable mounted data disk after a verified database backup.
 Apply `028_sensor_notification_timing.sql` once with ON_ERROR_STOP, then restart
 the API after building contracts/backend/frontend. No MQTT worker restart,
 ESP32 flash or AI/pulse configuration change is needed. Allow new telemetry to
-populate the timing map, and at least five minutes for never-valid failures to
+populate the timing map, and at least one hour for never-valid failures to
 become eligible. Do not re-run this non-idempotent migration after success.

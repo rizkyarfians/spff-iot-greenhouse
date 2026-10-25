@@ -13,7 +13,7 @@ export interface SensorNotification extends SensorNotificationDetail {
   details: SensorNotificationDetail[]
 }
 
-export const sensorNotificationDelayMs = 5 * 60 * 1000
+export const sensorNotificationDelayMs = 60 * 60 * 1000
 
 export function notificationTime(value: string | null | undefined): string {
   const time = value ? Date.parse(value) : NaN
@@ -81,7 +81,7 @@ export function sensorNotifications(sensors: readonly ApiSensor[], now = Date.no
   const oldest = [...details].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))[0]!
   return [{
     id: `sensor-fault:summary:${details.map(item => item.id).sort().join('|')}`, title: `${details.length} sensor belum mendapat pembacaan valid`,
-    description: 'Sudah minimal 5 menit tanpa laporan pembacaan valid. Buka rincian untuk melihat sensor dan alasannya.',
+    description: 'Sudah minimal 1 jam tanpa laporan pembacaan valid. Buka rincian untuk melihat sensor dan alasannya.',
     sensorKey: oldest.sensorKey, timestamp: oldest.timestamp,
     timestampLabel: 'Data valid terakhir / awal pemantauan terlama', details,
   }]

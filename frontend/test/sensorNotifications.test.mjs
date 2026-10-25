@@ -8,7 +8,7 @@ const sensor = (id, overrides = {}) => ({
   id, type: id, name: id, groupName: 'Greenhouse', value: null, unit: '%',
   status: 'critical', valid: false, faultReason: 'jsn_no_echo',
   updatedAt: '2026-10-25T15:55:00Z',
-  lastValidAt: '2026-10-25T15:48:00Z', invalidSince: '2026-10-25T15:49:00Z', ...overrides,
+  lastValidAt: '2026-10-25T14:48:00Z', invalidSince: '2026-10-25T14:49:00Z', ...overrides,
 })
 
 test('tank distance and derived level produce one notification, stable across repeated packets', () => {
@@ -74,8 +74,8 @@ test('reported 11-channel incident distinguishes missing data from one water ech
   assert.equal(items[0].details.filter(item => item.title.includes('data belum tersedia / terlambat')).length, 8)
 })
 
-test('a transient failure stays quiet until exactly five minutes after a valid report', () => {
-  const record = sensor('air_temp', { lastValidAt: '2026-10-25T15:50:00Z' })
+test('a transient failure stays quiet until exactly one hour after a valid report', () => {
+  const record = sensor('air_temp', { lastValidAt: '2026-10-25T14:55:00Z' })
   assert.deepEqual(buildNotifications([record], now - 1), [])
   assert.equal(buildNotifications([record], now).length, 1)
   assert.deepEqual(buildNotifications([{ ...record, valid: true, value: 0 }], now), [])
@@ -85,7 +85,7 @@ test('never-valid sensors wait from persisted first failure; missing/future timi
   assert.deepEqual(sensorNotifications([sensor('air_temp', { lastValidAt: null, invalidSince: null })]), [])
   assert.deepEqual(sensorNotifications([sensor('air_temp', { lastValidAt: null, invalidSince: '2026-10-25T15:54:00Z' })]), [])
   assert.deepEqual(sensorNotifications([sensor('air_temp', { lastValidAt: '2085-01-01T00:00:00Z' })]), [])
-  const [item] = sensorNotifications([sensor('air_temp', { lastValidAt: null, invalidSince: '2026-10-25T15:49:00Z' })])
+  const [item] = sensorNotifications([sensor('air_temp', { lastValidAt: null, invalidSince: '2026-10-25T14:49:00Z' })])
   assert.equal(item.timestampLabel, 'Mulai terpantau tanpa data valid')
 })
 
