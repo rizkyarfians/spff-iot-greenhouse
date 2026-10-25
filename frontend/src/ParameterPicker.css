@@ -19,7 +19,7 @@
   border: 1px solid #d2ded8; border-radius: 7px; padding: 0 10px;
   background: #fff; color: #24372f; font: inherit; font-size: 12px; cursor: text;
 }
-.parameter-picker-options { max-height: 240px; overflow-y: auto; margin-top: 6px; }
+.parameter-picker-options { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin-top: 6px; }
 .parameter-picker-options > [role="option"] {
   padding: 8px; border-radius: 6px; color: #24372f; font-size: 12px; cursor: pointer;
 }

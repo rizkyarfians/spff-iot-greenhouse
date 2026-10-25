@@ -1,5 +1,6 @@
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
+import { ParameterPicker } from './ParameterPicker'
 import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
@@ -1400,6 +1401,8 @@ function App() {
 
             label:
               definition.displayName,
+            unit: definition.unit,
+            group: isEnergySensor(definition.sensorKey) ? 'Energi' : definition.groupName,
           }),
         )
       : sensorDefinitions.map(
@@ -1409,6 +1412,8 @@ function App() {
 
             label:
               definition.label,
+            unit: definition.unit,
+            group: isEnergySensor(definition.key) ? 'Energi' : definition.ideal,
           }),
         )
 const soilNpkGroups =
@@ -2690,41 +2695,11 @@ const soilNpkGroups =
                               <option value="energy" disabled={!chartSensorOptions.some(sensor => isEnergySensor(sensor.key))}>Energi</option>
                             </select>
                           </label>
-                          <label className="chart-select chart-sensor-select">
-                            <span className="sr-only">
-                              Pilih sensor untuk grafik
-                            </span>
-
-                            <select
-                              value={
-                                selectedSensor
-                              }
-                              onChange={(event) =>
-                                setSelectedSensor(
-                                  event.target.value,
-                                )
-                              }
-                            >
-                              {
-                                chartSensorOptions.filter(sensor => isEnergySensor(sensor.key) === isEnergySensor(selectedSensor)).map(
-                                  (sensor) => (
-                                    <option
-                                      value={
-                                        sensor.key
-                                      }
-                                      key={
-                                        sensor.key
-                                      }
-                                    >
-                                      {
-                                        sensor.label
-                                      }
-                                    </option>
-                                  ),
-                                )
-                              }
-                            </select>
-                          </label>
+                          <ParameterPicker label="Parameter grafik dashboard" hideLabel
+                            className="chart-sensor-select" value={selectedSensor} onChange={setSelectedSensor}
+                            options={chartSensorOptions.map(sensor => ({
+                              value: sensor.key, label: `${sensor.label} · ${sensor.unit}`, group: sensor.group,
+                            }))}/>
 
 
                           <label className="chart-date-field">

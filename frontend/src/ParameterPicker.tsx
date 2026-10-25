@@ -3,11 +3,13 @@ import { ChevronDown } from 'lucide-react'
 import { filterParameters, type ParameterOption } from './parameterSearch'
 import './ParameterPicker.css'
 
-export function ParameterPicker({ label, value, options, onChange }: {
+export function ParameterPicker({ label, value, options, onChange, className = '', hideLabel = false }: {
   label: string
   value: string
   options: ParameterOption[]
   onChange: (value: string) => void
+  className?: string
+  hideLabel?: boolean
 }) {
   const id = useId()
   const [open, setOpen] = useState(false)
@@ -31,10 +33,10 @@ export function ParameterPicker({ label, value, options, onChange }: {
     trigger.current?.focus()
   }
 
-  return <div className="parameter-picker page-select compact-select" onBlur={event => {
+  return <div className={`parameter-picker page-select compact-select ${className}`} onBlur={event => {
     if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
   }}>
-    <span id={`${id}-label`}>{label}</span>
+    <span id={`${id}-label`} className={hideLabel ? 'sr-only' : undefined}>{label}</span>
     <button ref={trigger} type="button" className="parameter-picker-trigger"
       aria-labelledby={`${id}-label ${id}-value`} aria-expanded={open}
       aria-haspopup="dialog" aria-controls={open ? `${id}-panel` : undefined}

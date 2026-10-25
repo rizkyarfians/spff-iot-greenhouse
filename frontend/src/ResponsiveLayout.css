@@ -59,6 +59,8 @@
 .dashboard-home .chart-filters :is(select, input, button) { min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box; font-size: 12px; }
 :root .app-shell .dashboard-home .chart-filters :is(select, input, button) { min-height: 30px; height: 30px; border-radius: 7px; padding-inline: 8px; font-size: 12px; line-height: 1.2; }
 :root .app-shell .dashboard-home .chart-filters select { padding-right: 26px; background-position: right 8px center; background-size: 12px; }
+.dashboard-home .chart-filters .parameter-picker { gap: 0; }
+.dashboard-home .chart-filters .parameter-picker-panel input[type="search"] { min-height: 36px; height: 36px; }
 @container chart-panel (max-width: 600px) {
   .dashboard-home .chart-filters { grid-template-columns: minmax(120px, 1fr) 82px 76px; }
   .dashboard-home .chart-sensor-select { grid-column: 2 / -1; }
@@ -201,6 +203,7 @@
   .app-main { --account-dock-clearance: 72px; }
   .page-shell-header h1 { font-size: 24px; }
   .dashboard-home :is(.hero-card, .schedule-card) { border-radius: 16px; }
+  .dashboard-home .chart-filters .parameter-picker-panel input[type="search"] { min-height: 44px; height: 44px; font-size: 16px; }
 }
 @media (max-width: 480px) {
   :root { --page-gutter: 10px; }

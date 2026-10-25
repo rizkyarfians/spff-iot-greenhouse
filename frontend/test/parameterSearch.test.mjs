@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { filterParameters } from '../src/parameterSearch.ts'
+import { readFileSync } from 'node:fs'
 
 const options = [
   { value: 'tank_water_level_pct', label: 'Level Tandon Air · %', group: 'Greenhouse' },
@@ -46,4 +47,15 @@ test('pump aliases retain exact actuator IDs without guessing new parameters', (
   const pumps = [{ value: 'pump_water', label: 'Pompa Air' }, { value: 'pump_fert', label: 'Pompa Pupuk' }]
   assert.deepEqual(filterParameters(pumps, 'water').map(option => option.value), ['pump_water'])
   assert.deepEqual(filterParameters([], 'air'), [])
+})
+
+test('dashboard and datalog share the searchable picker and scrolling list', () => {
+  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  const logs = readFileSync(new URL('../src/SecondaryPages.tsx', import.meta.url), 'utf8')
+  const styles = readFileSync(new URL('../src/ParameterPicker.css', import.meta.url), 'utf8')
+  assert.match(app, /<ParameterPicker label="Parameter grafik dashboard" hideLabel/)
+  assert.match(app, /options=\{chartSensorOptions\.map/)
+  assert.match(logs, /<ParameterPicker label="Parameter Grafik"/)
+  assert.match(styles, /overscroll-behavior: contain/)
+  assert.match(styles, /scrollbar-gutter: stable/)
 })
