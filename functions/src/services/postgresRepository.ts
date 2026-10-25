@@ -263,10 +263,13 @@ async function latestTelemetry() {
             sample.ac_power_w,
             sample.ac_energy_kwh,
             sample.ac_frequency_hz,
-            sample.ac_power_factor
+            sample.ac_power_factor,
+            timing.sensor_state AS notification_timing
      FROM spff.latest_telemetry latest
      JOIN spff.telemetry_samples sample
        ON sample.telemetry_id = latest.telemetry_id
+     LEFT JOIN spff.sensor_notification_timing timing
+       ON timing.site_id=latest.site_id AND timing.device_id=latest.device_id
      WHERE latest.site_id = $1
      ORDER BY latest.recorded_at DESC
      LIMIT 1`,
@@ -298,6 +301,10 @@ const mapSensors = (
   return definitions.map((definition) => {
     const value = latest ? toNumber(latest[definition.sensorKey]) : null;
     const health = sensorHealthFor(latest?.sensor_health, definition.sensorKey);
+    const timingMap = latest?.notification_timing as Record<string, unknown> | undefined;
+    const rawTiming = timingMap?.[definition.sensorKey];
+    const timing = rawTiming && typeof rawTiming === 'object'
+      ? rawTiming as Record<string, unknown> : {};
     const status: ApiSensor['status'] = telemetryAge >= telemetryOfflineAfterSeconds
       ? 'offline'
       : health?.valid === false
@@ -318,6 +325,8 @@ const mapSensors = (
       valid: health?.valid ?? null,
       faultReason: health?.reason ?? null,
       updatedAt: toIso(latest?.recorded_at as Date | string | undefined),
+      lastValidAt: toIso(timing.lastValidAt as string | undefined),
+      invalidSince: toIso(timing.invalidSince as string | undefined),
     };
   });
 };

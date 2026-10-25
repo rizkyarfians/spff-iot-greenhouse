@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { sensorNotifications } from '../src/sensorNotifications.ts'
+import { sensorNotifications as buildNotifications, notificationTime } from '../src/sensorNotifications.ts'
+const now = Date.parse('2026-10-25T15:55:00Z')
+const sensorNotifications = sensors => buildNotifications(sensors, now)
 
 const sensor = (id, overrides = {}) => ({
   id, type: id, name: id, groupName: 'Greenhouse', value: null, unit: '%',
   status: 'critical', valid: false, faultReason: 'jsn_no_echo',
-  updatedAt: '2026-10-25T15:55:00Z', ...overrides,
+  updatedAt: '2026-10-25T15:55:00Z',
+  lastValidAt: '2026-10-25T15:48:00Z', invalidSince: '2026-10-25T15:49:00Z', ...overrides,
 })
 
 test('tank distance and derived level produce one notification, stable across repeated packets', () => {
@@ -42,9 +45,10 @@ test('water and fertilizer are separate faults, mixed tank reason labels do not 
     sensor('tank_water_level_pct', { faultReason: 'stale_or_missing' }),
     sensor('tank_water_distance_cm'), sensor('tank_fert_level_pct'),
   ])
-  assert.equal(results.length, 2)
-  assert.match(results[0].description, /jsn_no_echo/)
-  assert.equal(results[1].title, 'Sensor tandon pupuk gagal membaca')
+  assert.equal(results.length, 1)
+  assert.equal(results[0].details.length, 2)
+  assert.match(results[0].details[0].description, /jsn_no_echo/)
+  assert.equal(results[0].details[1].title, 'Sensor tandon pupuk gagal membaca')
 })
 
 test('stale or unavailable data is not described as a failed sensor', () => {
@@ -64,7 +68,32 @@ test('reported 11-channel incident distinguishes missing data from one water ech
     'soil_2_k', 'soil_2_p', 'tank_fert_distance_cm', 'tank_fert_level_pct',
   ].map(id => sensor(id, { faultReason: 'stale_or_missing' }))
   const items = sensorNotifications([...missing, sensor('tank_water_distance_cm'), sensor('tank_water_level_pct')])
-  assert.equal(items.length, 9) // Two distance/level pairs each share one notification.
-  assert.equal(items.filter(item => item.title.includes('gagal membaca')).length, 1)
-  assert.equal(items.filter(item => item.title.includes('data belum tersedia / terlambat')).length, 8)
+  assert.equal(items.length, 1)
+  assert.equal(items[0].details.length, 9) // Two tank pairs each share one detail.
+  assert.equal(items[0].details.filter(item => item.title.includes('gagal membaca')).length, 1)
+  assert.equal(items[0].details.filter(item => item.title.includes('data belum tersedia / terlambat')).length, 8)
+})
+
+test('a transient failure stays quiet until exactly five minutes after a valid report', () => {
+  const record = sensor('air_temp', { lastValidAt: '2026-10-25T15:50:00Z' })
+  assert.deepEqual(buildNotifications([record], now - 1), [])
+  assert.equal(buildNotifications([record], now).length, 1)
+  assert.deepEqual(buildNotifications([{ ...record, valid: true, value: 0 }], now), [])
+})
+
+test('never-valid sensors wait from persisted first failure; missing/future timing never invents elapsed time', () => {
+  assert.deepEqual(sensorNotifications([sensor('air_temp', { lastValidAt: null, invalidSince: null })]), [])
+  assert.deepEqual(sensorNotifications([sensor('air_temp', { lastValidAt: null, invalidSince: '2026-10-25T15:54:00Z' })]), [])
+  assert.deepEqual(sensorNotifications([sensor('air_temp', { lastValidAt: '2085-01-01T00:00:00Z' })]), [])
+  const [item] = sensorNotifications([sensor('air_temp', { lastValidAt: null, invalidSince: '2026-10-25T15:49:00Z' })])
+  assert.equal(item.timestampLabel, 'Mulai terpantau tanpa data valid')
+})
+
+test('every notification timestamp includes weekday, date and hour/minute in Jakarta', () => {
+  const formatted = notificationTime('2026-10-25T15:55:00Z')
+  assert.match(formatted, /Minggu/)
+  assert.match(formatted, /25 Oktober 2026/)
+  assert.match(formatted, /22[.:]55/)
+  assert.match(formatted, /WIB/)
+  assert.equal(notificationTime('invalid'), 'Waktu belum tersedia')
 })

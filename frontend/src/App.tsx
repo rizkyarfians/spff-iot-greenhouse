@@ -1,7 +1,7 @@
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
 import { ParameterPicker } from './ParameterPicker'
-import { sensorNotifications } from './sensorNotifications'
+import { notificationTime, sensorNotifications } from './sensorNotifications'
 import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
@@ -1488,11 +1488,12 @@ const soilNpkGroups =
 
   const sensorFaultNotifications = sensorNotifications((backendData?.sensors ?? []).filter(sensor =>
     backendData?.sensorDefinitions.find(definition => definition.sensorKey === sensor.id)?.enabled !== false,
-  ))
+  ), clock.getTime())
   const notifications = [
     ...sensorFaultNotifications.map(item => ({ ...item, kind: 'sensor' as const })),
     ...openAlarms.map(alarm => ({ id: `alarm:${alarm.id}`, title: alarm.title,
-      description: alarm.description, kind: 'alarm' as const, sensorKey: '' })),
+      description: alarm.description, kind: 'alarm' as const, sensorKey: '',
+      timestamp: alarm.triggeredAt ?? alarm.createdAt, timestampLabel: 'Waktu kejadian', details: [] })),
   ]
   const notificationKeys = JSON.stringify(notifications.map(item => item.id))
   const unreadNotificationCount = notifications.filter(item => !readNotificationIds.includes(item.id)).length
@@ -2082,7 +2083,7 @@ const soilNpkGroups =
                       notifications
                         .map(
                           (item) => (
-                            <button
+                            <div className="notification-entry" key={item.id}><button
                               type="button"
                               key={
                                 item.id
@@ -2105,7 +2106,19 @@ const soilNpkGroups =
                                   item.description
                                 }
                               </small>
+                              <time dateTime={item.timestamp}>{item.timestampLabel}: {notificationTime(item.timestamp)}</time>
                             </button>
+                            {item.kind === 'sensor' && item.details.length > 1 && <details className="notification-details">
+                              <summary>Rincian {item.details.length} sensor</summary>
+                              {item.details.map(detail => <button type="button" key={detail.id} onClick={() => {
+                                setSelectedSensor(detail.sensorKey)
+                                navigateTo('dashboard')
+                              }}>
+                                <b>{detail.title}</b><small>{detail.description}</small>
+                                <time dateTime={detail.timestamp}>{detail.timestampLabel}: {notificationTime(detail.timestamp)}</time>
+                              </button>)}
+                            </details>}
+                            </div>
                           ),
                         )
                     }

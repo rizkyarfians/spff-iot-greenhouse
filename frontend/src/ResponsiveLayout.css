@@ -94,6 +94,11 @@
 .datalog-chart-visual { height: 230px; }
 .notification-list { max-height: min(360px, 55dvh); overflow-y: auto; overscroll-behavior: contain; }
 .notification-list :is(b, small) { overflow-wrap: anywhere; }
+.notification-list time { color: var(--muted); font-size: 11px; font-weight: 400; overflow-wrap: anywhere; }
+.notification-details { padding: 0 4px 10px; }
+.notification-details summary { cursor: pointer; color: var(--green-dark); font-size: 12px; }
+.notification-entry { border-bottom: 1px solid #ebeeec; }
+.notification-list button { width: 100%; }
 .mark-read-button:disabled { opacity: .65; cursor: default; }
 .ft-layout { grid-template-columns: 230px minmax(0, 1fr); }
 .ft-panel { padding: 16px; }

@@ -616,6 +616,9 @@ export interface ApiSensor {
   valid: boolean | null;
   faultReason: string | null;
   updatedAt: string | null;
+  /** Notification timing from persisted telemetry; unavailable before migration 028. */
+  lastValidAt?: string | null;
+  invalidSince?: string | null;
 }
 
 export interface ApiSensorDefinition {
