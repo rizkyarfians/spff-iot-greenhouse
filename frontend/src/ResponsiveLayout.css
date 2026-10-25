@@ -92,6 +92,9 @@
 .datalog-chart-header { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
 .datalog-chart-controls { grid-template-columns: 140px 240px; }
 .datalog-chart-visual { height: 230px; }
+.notification-list { max-height: min(360px, 55dvh); overflow-y: auto; overscroll-behavior: contain; }
+.notification-list :is(b, small) { overflow-wrap: anywhere; }
+.mark-read-button:disabled { opacity: .65; cursor: default; }
 .ft-layout { grid-template-columns: 230px minmax(0, 1fr); }
 .ft-panel { padding: 16px; }
 .ft-sidebar { padding: 14px; }

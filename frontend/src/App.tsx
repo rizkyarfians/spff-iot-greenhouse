@@ -1,6 +1,7 @@
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
 import { ParameterPicker } from './ParameterPicker'
+import { sensorNotifications } from './sensorNotifications'
 import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
@@ -754,10 +755,10 @@ function App() {
 
 
   const [
-    notificationsRead,
-    setNotificationsRead,
+    readNotificationIds,
+    setReadNotificationIds,
   ] =
-    useState(false)
+    useState<string[]>([])
 
 
   const [
@@ -1485,6 +1486,24 @@ const soilNpkGroups =
         alarm.status !== 'resolved',
     ) ?? []
 
+  const sensorFaultNotifications = sensorNotifications((backendData?.sensors ?? []).filter(sensor =>
+    backendData?.sensorDefinitions.find(definition => definition.sensorKey === sensor.id)?.enabled !== false,
+  ))
+  const notifications = [
+    ...sensorFaultNotifications.map(item => ({ ...item, kind: 'sensor' as const })),
+    ...openAlarms.map(alarm => ({ id: `alarm:${alarm.id}`, title: alarm.title,
+      description: alarm.description, kind: 'alarm' as const, sensorKey: '' })),
+  ]
+  const notificationKeys = JSON.stringify(notifications.map(item => item.id))
+  const unreadNotificationCount = notifications.filter(item => !readNotificationIds.includes(item.id)).length
+  useEffect(() => {
+    const active = new Set<string>(JSON.parse(notificationKeys))
+    setReadNotificationIds(previous => {
+      const retained = previous.filter(id => active.has(id))
+      return retained.length === previous.length ? previous : retained
+    })
+  }, [notificationKeys])
+
 
   const currentHistorySeries =
     historyBySensor[
@@ -2010,8 +2029,7 @@ const soilNpkGroups =
       />
 
       {
-        !notificationsRead
-        && openAlarms.length > 0
+        unreadNotificationCount > 0
         && (
           <span className="notification-dot" />
         )
@@ -2032,12 +2050,11 @@ const soilNpkGroups =
             </strong>
 
             {
-              !notificationsRead
-              && openAlarms.length > 0
+              notifications.length > 0
               && (
                 <span>
                   {
-                    openAlarms.length
+                    notifications.length
                   }
                   {' '}
                   aktif
@@ -2048,13 +2065,12 @@ const soilNpkGroups =
 
 
           {
-            notificationsRead
-            || openAlarms.length === 0
+            notifications.length === 0
               ? (
                   <p className="notification-empty">
                     {
                       connectionState === 'connected'
-                        ? 'Tidak ada alarm aktif di database.'
+                        ? 'Tidak ada alarm aktif atau sensor gagal membaca.'
                         : 'Menunggu sistem tersambung.'
                     }
                   </p>
@@ -2063,33 +2079,30 @@ const soilNpkGroups =
               : (
                   <div className="notification-list">
                     {
-                      openAlarms
-                        .slice(
-                          0,
-                          3,
-                        )
+                      notifications
                         .map(
-                          (alarm) => (
+                          (item) => (
                             <button
                               type="button"
                               key={
-                                alarm.id
+                                item.id
                               }
-                              onClick={() =>
-                                navigateTo(
-                                  'alarms',
-                                )
-                              }
+                              onClick={() => {
+                                if (item.kind === 'sensor') {
+                                  setSelectedSensor(item.sensorKey)
+                                  navigateTo('dashboard')
+                                } else navigateTo('alarms')
+                              }}
                             >
                               <b>
                                 {
-                                  alarm.title
+                                  item.title
                                 }
                               </b>
 
                               <small>
                                 {
-                                  alarm.description
+                                  item.description
                                 }
                               </small>
                             </button>
@@ -2104,16 +2117,12 @@ const soilNpkGroups =
           <button
             className="mark-read-button"
             type="button"
-            onClick={() =>
-              setNotificationsRead(
-                (read) =>
-                  !read,
-              )
-            }
+            disabled={unreadNotificationCount === 0}
+            onClick={() => setReadNotificationIds(notifications.map(item => item.id))}
           >
             {
-              notificationsRead
-                ? 'Tampilkan notifikasi'
+              unreadNotificationCount === 0
+                ? 'Semua sudah dibaca'
                 : 'Tandai semua dibaca'
             }
           </button>
