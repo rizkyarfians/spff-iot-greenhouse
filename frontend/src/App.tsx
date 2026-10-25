@@ -29,6 +29,8 @@ import {
   Leaf,
   LogOut,
   MapPin,
+  PanelLeftClose,
+  PanelLeftOpen,
   Ruler,
   Settings,
   SlidersHorizontal,
@@ -713,6 +715,15 @@ function App() {
     setNavOpen,
   ] =
     useState(false)
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('spff-sidebar-collapsed') === 'true' }
+    catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('spff-sidebar-collapsed', String(sidebarCollapsed)) }
+    catch { /* Navigation still works when browser storage is unavailable. */ }
+  }, [sidebarCollapsed])
 
 
   const [
@@ -1781,13 +1792,21 @@ const soilNpkGroups =
           navOpen
             ? 'nav-is-open'
             : ''
-        }`
+        } ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`
       }
     >
       <aside
+        id="main-sidebar"
         className="side-drawer"
         aria-label="Navigasi utama"
       >
+        <button type="button" className="sidebar-collapse-button"
+          aria-label={sidebarCollapsed ? 'Perluas sidebar' : 'Kecilkan sidebar'}
+          title={sidebarCollapsed ? 'Perluas sidebar' : 'Kecilkan sidebar'}
+          aria-expanded={!sidebarCollapsed} aria-controls="main-sidebar"
+          onClick={() => setSidebarCollapsed(value => !value)}>
+          {sidebarCollapsed ? <PanelLeftOpen size={18}/> : <PanelLeftClose size={18}/>}
+        </button>
         <div className="drawer-brand">
           <span
             className="brand-mark"
@@ -1826,6 +1845,8 @@ const soilNpkGroups =
                     }`
                   }
                   type="button"
+                  aria-label={item.label}
+                  title={sidebarCollapsed ? item.label : undefined}
                   key={
                     item.key
                   }
@@ -1852,7 +1873,7 @@ const soilNpkGroups =
                     />
                   </span>
 
-                  <span>
+                  <span className="drawer-nav-label">
                     {
                       item.label
                     }
@@ -1864,7 +1885,7 @@ const soilNpkGroups =
         </nav>
 
 
-        <div className="drawer-device-card">
+        <div className="drawer-device-card" title={primaryDevice?.displayName ?? 'Controller'}>
           <div>
             <strong>
               {
@@ -1935,6 +1956,8 @@ const soilNpkGroups =
         <button
           className="drawer-profile"
           type="button"
+          aria-label={`Pengaturan akun ${user.displayName}`}
+          title={sidebarCollapsed ? user.displayName : undefined}
           onClick={() =>
             navigateTo(
               'settings',
