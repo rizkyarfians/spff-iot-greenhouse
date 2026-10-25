@@ -10,16 +10,18 @@
 .parameter-picker-trigger > svg { flex-shrink: 0; }
 .parameter-picker .parameter-picker-panel {
   position: absolute; z-index: 20; top: calc(100% + 6px); right: 0;
+  display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden;
   width: min(320px, calc(100vw - 40px)); padding: 8px;
   background: #fff; border: 1px solid #d2ded8; border-radius: 10px;
   box-shadow: 0 8px 24px rgb(18 60 53 / 12%);
 }
 .parameter-picker .parameter-picker-panel input[type="search"] {
+  flex-shrink: 0;
   width: 100%; min-width: 0; box-sizing: border-box; height: 36px;
   border: 1px solid #d2ded8; border-radius: 7px; padding: 0 10px;
   background: #fff; color: #24372f; font: inherit; font-size: 12px; cursor: text;
 }
-.parameter-picker-options { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin-top: 6px; }
+.parameter-picker-options { flex: 1; min-height: 0; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin-top: 6px; }
 .parameter-picker-options > [role="option"] {
   padding: 8px; border-radius: 6px; color: #24372f; font-size: 12px; cursor: pointer;
 }
