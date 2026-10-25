@@ -2,6 +2,7 @@ import { WaterInterlockSettings } from './WaterInterlockSettings'
 import { FertigationPage } from './FertigationPage'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
+import { ParameterPicker } from './ParameterPicker'
 import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
@@ -2917,98 +2918,20 @@ function LogsPage({
             </label>
 
 
-            <label className="page-select compact-select">
-              <span>
-                Parameter
-              </span>
-
-              <select
-                value={
-                  selectedParameter
-                }
-                onChange={(event) => {
-                  if (
-                    logType
-                    === 'sensor'
-                  ) {
-                    setSensor(
-                      event.target.value,
-                    )
-                  } else {
-                    setActuator(
-                      event.target.value,
-                    )
-                  }
-
-                  setCurrentPage(
-                    1,
-                  )
-                }}
-              >
-                <option value="all">
-                  {
-                    logType
-                    === 'sensor'
-                      ? 'Semua Sensor'
-                      : 'Semua Pompa'
-                  }
-                </option>
-
-                {
-                  logType
-                  === 'sensor'
-                    ? sensorGroups.map(
-                        (group) => (
-                          <optgroup
-                            key={
-                              group.groupName
-                            }
-                            label={
-                              group.groupName
-                            }
-                          >
-                            {
-                              group.definitions.map(
-                                (definition) => (
-                                  <option
-                                    key={
-                                      definition.sensorKey
-                                    }
-                                    value={
-                                      definition.sensorKey
-                                    }
-                                  >
-                                    {
-                                      definition.displayName
-                                    }
-                                    {' · '}
-                                    {
-                                      definition.unit
-                                    }
-                                  </option>
-                                ),
-                              )
-                            }
-                          </optgroup>
-                        ),
-                      )
-                    : (
-                        data
-                          ?.actuators
-                          ?? []
-                      ).map(
-                        (pump) => (
-                          <option
-                            key={pump.id}
-                            value={pump.id}
-                          >
-                            {pump.name}
-                          </option>
-                        ),
-                      )
-                }
-              </select>
-            </label>
+            <ParameterPicker label="Parameter" value={selectedParameter}
+              options={[
+                { value: 'all', label: logType === 'sensor' ? 'Semua Sensor' : 'Semua Pompa' },
+                ...(logType === 'sensor'
+                  ? sensorGroups.flatMap(group => group.definitions.map(definition => ({
+                    value: definition.sensorKey, label: `${definition.displayName} · ${definition.unit}`, group: group.groupName,
+                  })))
+                  : (data?.actuators ?? []).map(pump => ({ value: pump.id, label: pump.name, group: 'Pompa' }))),
+              ]}
+              onChange={value => {
+                if (logType === 'sensor') setSensor(value)
+                else setActuator(value)
+                setCurrentPage(1)
+              }}/>
 
 
             <label className="page-select compact-select datalog-date-filter">
@@ -3338,23 +3261,12 @@ function LogsPage({
               <option value="energy" disabled={!data?.sensorDefinitions.some(definition => isEnergySensor(definition.sensorKey))}>Energi</option>
             </select>
           </label>
-          <label className="page-select compact-select datalog-chart-select">
-            <span>Parameter Grafik</span>
-            <select
-              value={chartSensor}
-              onChange={(event) => setChartSensor(event.target.value)}
-            >
-              {sensorGroups.filter(group => group.definitions.some(definition => isEnergySensor(definition.sensorKey) === isEnergySensor(chartSensor))).map((group) => (
-                <optgroup key={group.groupName} label={group.groupName}>
-                  {group.definitions.filter(definition => isEnergySensor(definition.sensorKey) === isEnergySensor(chartSensor)).map((definition) => (
-                    <option key={definition.sensorKey} value={definition.sensorKey}>
-                      {definition.displayName} · {definition.unit}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+          <div className="datalog-chart-select">
+            <ParameterPicker label="Parameter Grafik" value={chartSensor} onChange={setChartSensor}
+              options={sensorGroups.flatMap(group => group.definitions.map(definition => ({
+                value: definition.sensorKey, label: `${definition.displayName} · ${definition.unit}`, group: group.groupName,
+              })))}/>
+          </div>
           </div>
         </div>
 
