@@ -231,7 +231,7 @@ static constexpr uint32_t SOIL_SINGLE_TIMEOUT_MS = 420UL;
 // Controlled trial: try one CRC-checked FC03 read R0..R6 per Soil first.
 // If the block fails (CRC, communication, or implausible field), the existing
 // bounded per-register fallback remains active. Never blindly accept a block.
-static constexpr bool SOIL_DIAG_SINGLE_REGISTER_ONLY = true;
+static constexpr bool SOIL_DIAG_SINGLE_REGISTER_ONLY = false;
 // RS485 Soil only: allow line to settle after malformed/partial replies.
 static constexpr uint32_t SOIL_RS485_RETRY_GAP_MS = 120UL;
 // Modbus RTU requires >=3.5 silent character times between frames.
@@ -379,7 +379,7 @@ uint32_t lastCycleStartMs = 0;
 // ESP32 TIDAK connect langsung ke MQTT.
 static constexpr char SPFF_SITE_ID[] = "greenhouse-01";
 static constexpr char SPFF_DEVICE_ID[] = "esp32-s3-01";
-static constexpr char SPFF_FIRMWARE_VERSION[] = "1.4.35-AUTO-DIAGNOSTICS-CANDIDATE";
+static constexpr char SPFF_FIRMWARE_VERSION[] = "1.4.35-AUTO-DIAG-FROM-1433";
 
 // Timer LCD/NVS legacy tidak boleh menjadi writer relay bersamaan dengan
 // backend atau snapshot device. Data legacy tetap dipertahankan untuk rollback.

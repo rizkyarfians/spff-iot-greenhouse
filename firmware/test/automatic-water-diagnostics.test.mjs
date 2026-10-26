@@ -12,8 +12,8 @@ test('water diagnostics are attached to device status and bounded by existing fr
   assert.match(source, /json \+= ",\\"automaticWaterDiagnostics\\":";/);
   assert.match(source, /json \+= spffAutomaticWaterDiagnostics\(\);/);
   assert.match(source, /json\.length\(\) \+ 1U >\s+SPFF_SERIAL_FRAME_MAX/);
-  assert.match(source, /1\.4\.35-AUTO-DIAGNOSTICS-CANDIDATE/);
-  assert.match(source, /SOIL_DIAG_SINGLE_REGISTER_ONLY = true/);
+  assert.match(source, /1\.4\.35-AUTO-DIAG-FROM-1433/);
+  assert.match(source, /SOIL_DIAG_SINGLE_REGISTER_ONLY = false/);
 });
 
 test('diagnostics observe state without servicing relays, clocks, interlocks or persistence', () => {
@@ -27,7 +27,7 @@ test('diagnostics observe state without servicing relays, clocks, interlocks or 
   assert.match(diagnostics, /isfinite\(moisture\) \? String\(moisture, 1\) : String\("null"\)/);
 });
 
-test('candidate preserves the archive control code exactly outside diagnostic additions and version/single-only patch', {
+test('candidate preserves the 1.4.33 archive source exactly outside diagnostic additions and version/title', {
   skip: !process.env.SPFF_FW_BASELINE_RAR,
 }, () => {
   const original = execFileSync('tar', ['-xOf', process.env.SPFF_FW_BASELINE_RAR,
@@ -37,7 +37,6 @@ test('candidate preserves the archive control code exactly outside diagnostic ad
     .replace('  json += ",\\"automaticWaterDiagnostics\\":";\n  json += spffAutomaticWaterDiagnostics();\n', '')
     .replace('// Observational only: never service outputs, refresh RTC, or update interlock here.\nString spffAutomaticWaterDiagnostics();\n', '')
     .replace('S2PFS MASTER SPFF FIRMWARE 1.4.35 AUTO DIAGNOSTICS CANDIDATE', 'S2PFS MASTER SPFF FIRMWARE 1.4.33 ORANGE PI CHRONY TIME SYNC')
-    .replace('1.4.35-AUTO-DIAGNOSTICS-CANDIDATE', '1.4.33-OPI-CHRONY-TIME-SYNC')
-    .replace('SOIL_DIAG_SINGLE_REGISTER_ONLY = true;', 'SOIL_DIAG_SINGLE_REGISTER_ONLY = false;');
+    .replace('1.4.35-AUTO-DIAG-FROM-1433', '1.4.33-OPI-CHRONY-TIME-SYNC');
   assert.equal(reverted, original);
 });

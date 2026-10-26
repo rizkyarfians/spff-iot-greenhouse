@@ -4,8 +4,11 @@ Source provenance: supplied `SPFF_MASTER_1_4_34_OPI_CHRONY_SOIL_SINGLE_ONLY.rar`
 Despite its name, this archive contains the **1.4.33** sketch and compiled artifacts.
 Its README refers to a 1.4.34 sketch that is absent. The included patch describes
 only a version/title change and `SOIL_DIAG_SINGLE_REGISTER_ONLY=true`.
-This candidate applies that single-only setting to the archived source, plus
-observational diagnostics. It is **not verified byte-for-byte against the firmware
+This candidate is a direct upgrade from the archived **1.4.33** source, adding
+observational diagnostics only. It retains `SOIL_DIAG_SINGLE_REGISTER_ONLY=false`
+and does NOT apply the 1.4.34 single-only trial. Reported version:
+`1.4.35-AUTO-DIAG-FROM-1433`.
+It is **not verified byte-for-byte against the firmware
 currently running on the ESP32**. Do not flash the archive's old binaries as 1.4.35.
 
 The existing periodic `device_status` includes `automaticWaterDiagnostics`.
