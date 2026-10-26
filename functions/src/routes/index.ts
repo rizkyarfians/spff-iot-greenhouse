@@ -1,4 +1,5 @@
 import { getWaterInterlock, putWaterInterlock } from '../controllers/waterInterlockController.js';
+import { getFertigationPlannerProfile, putFertigationPlannerProfile, postFertigationPlan } from '../controllers/fertigationPlannerController.js';
 import { getSoilEcPulseSessions, postSoilEcPulseSession, stopSoilEcPulseSession, releaseSoilEcPulseSession } from '../controllers/soilEcPulseController.js';
 import {
   Router,
@@ -123,6 +124,7 @@ apiRouter.all([
   '/fertigation/evaluate-site',
   '/fertigation/automatic-preview',
   '/fertigation/simulate',
+  '/fertigation/plan',
 ], requireAiEvaluationEnabled);
 
 apiRouter.use(
@@ -212,6 +214,9 @@ apiRouter.post('/fertigation/pulse-sessions', requireAdmin, requireCsrf, require
 apiRouter.post('/fertigation/pulse-sessions/:id/release', requireAdmin, requireCsrf, releaseSoilEcPulseSession);
 apiRouter.post('/fertigation/pulse-sessions/:id/stop', requireOperator, requireCsrf, stopSoilEcPulseSession);
 apiRouter.get('/fertigation/recipes',listRecipesController);
+apiRouter.get('/fertigation/planner-profile', requireOperator, getFertigationPlannerProfile);
+apiRouter.put('/fertigation/planner-profile', requireAdmin, requireCsrf, putFertigationPlannerProfile);
+apiRouter.post('/fertigation/plan', requireOperator, requireCsrf, postFertigationPlan);
 apiRouter.post('/fertigation/recipes',requireAdmin,requireCsrf,createRecipeController);
 apiRouter.put('/fertigation/recipes/:id',requireAdmin,requireCsrf,updateRecipeController);
 apiRouter.post('/fertigation/recipes/:id/approve',requireAdmin,requireCsrf,approveRecipeController);

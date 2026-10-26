@@ -15,6 +15,7 @@ import { previewAutomaticProgram } from '../services/fertigationAutomaticPreview
 import { evaluateAutomaticRuleBased } from '../services/automaticRuleBased.js';
 import { loadRepeatEvidence } from '../services/fertigationRepeatRepository.js';
 import { requestActor } from '../middleware/operatorAuth.js';
+import { buildServerFertigationPlan } from '../services/fertigationPlannerRepository.js';
 
 export async function simulateFertigationController(req: Request, res: Response, next: NextFunction) {
   try {
@@ -130,8 +131,9 @@ export async function getRuleBasedAutomaticController(req: Request, res: Respons
       ? evaluateAutomaticRuleBased(available, deviceId, snapshot, new Date(),
           await loadRepeatEvidence(selected, deviceId))
       : initial;
+    const adaptivePlan = selected ? await buildServerFertigationPlan(deviceId, selected.recipeId) : null;
     res.set('Cache-Control', 'no-store').json({
-      success: true, data: decision,
+      success: true, data: { ...decision, adaptivePlan },
       message: 'Automatic Control Rule-Based (Model 1): evaluasi saja, belum mengendalikan relay.',
     });
   } catch (error) { next(error); }
