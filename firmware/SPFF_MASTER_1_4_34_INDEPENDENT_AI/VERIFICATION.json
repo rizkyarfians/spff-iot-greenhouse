@@ -1,0 +1,11 @@
+{
+  "ino.bootloader.binIdenticalToVerifiedBaseline": true,
+  "ino.partitions.binIdenticalToVerifiedBaseline": true,
+  "compileSuccess": true,
+  "physicalDeviceTested": false,
+  "memoryProfiles": [
+    "qio_opi"
+  ],
+  "appSha256": "b6ea126d18c8963aae45eea8b117f0ec024ad191b1d7cbe7b1a0c7b6c13fab59",
+  "appBytes": 874912
+}

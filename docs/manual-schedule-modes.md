@@ -1,3 +1,5 @@
+> Firmware `1.4.34-INDEPENDENT-AI` uses separate timed schedules and sensor-triggered AI. See [independent-soil-ec-ai.md](independent-soil-ec-ai.md). The schedule-window descriptions below apply to earlier firmware.
+
 # Manual and automatic: schedules plus sensors
 
 Manual uses dashboard ON/OFF. Automatic runs each pump only inside its enabled

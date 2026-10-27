@@ -78,7 +78,7 @@ void repository
   .then(async () => {
     scheduleSyncService.start();
     automaticControlSyncService.start();
-    console.log("[schedule-evaluator] Disabled: ESP32 combines schedule windows with sensor control.");
+    console.log("[schedule-evaluator] Direct server scheduler disabled: ESP32 coordinates timed schedules and sensor control.");
     commandDispatcher.start();
     if(await waterInterlockSync.installed())waterInterlockSync.start();
     if (await pulseTransport.isInstalled()) pulseTransport.start();

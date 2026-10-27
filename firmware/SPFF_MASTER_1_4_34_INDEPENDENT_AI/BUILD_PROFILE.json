@@ -1,0 +1,16 @@
+{
+  "core": "esp32:esp32@2.0.17",
+  "fqbn": "esp32:esp32:esp32s3:FlashMode=qio,FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB,USBMode=hwcdc,CDCOnBoot=cdc",
+  "baselineMemoryProfile": "qio_opi",
+  "baselineImageHeader": {
+    "flashMode": "DIO",
+    "flashFrequencyMHz": 80,
+    "flashSizeMB": 16
+  },
+  "baselinePartitionCsv": "app3M_fat9M_16MB.csv",
+  "baselineArduinoCore": "2.0.17",
+  "baselineIdf": "v4.4.7-dirty",
+  "usbModeEvidence": "HWCDC::write linked, USBCDC::write absent; Hardware CDC inferred from linked implementation",
+  "baselineAppSha256": "4a81b50c172d299eb47c17d238cd7560d9adc4a1ec259dddaaf1d5a25f82e1ca",
+  "externalLibraryVersionsInOriginalArchive": "not recoverable with certainty"
+}

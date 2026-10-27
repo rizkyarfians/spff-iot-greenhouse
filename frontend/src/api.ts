@@ -883,7 +883,7 @@ export type SoilEcSessionView = {
   previous_ec: number | null; commands: Array<{cycle:number;status:string;operation:string}>;
 }
 export function fetchSoilEcPulseSessions(deviceId:string) {
-  return request<{enabled:boolean;executionEnabled:boolean;sessions:SoilEcSessionView[]}>(`/fertigation/pulse-sessions?deviceId=${encodeURIComponent(deviceId)}`)
+  return request<{enabled:boolean;executionEnabled:boolean;automatic:{recipe_id:string;profile:import('@spff/contracts').SoilEcPulseProfile;armed:boolean;reason:string}|null;sessions:SoilEcSessionView[]}>(`/fertigation/pulse-sessions?deviceId=${encodeURIComponent(deviceId)}`)
 }
 export function startSoilEcPulseSession(input: import('@spff/contracts').StartSoilEcSession) {
   return request<SoilEcSessionView>('/fertigation/pulse-sessions', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})
@@ -912,4 +912,8 @@ export function saveWaterInterlock(deviceId:string,expectedRevision:number,enabl
   return request<import('@spff/contracts').WaterInterlockView>('/settings/water-interlock',{
     method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,expectedRevision,enabled}),signal:AbortSignal.timeout(15000),
   })
+}
+
+export function saveSoilEcAutomaticProfile(input:import('@spff/contracts').StartSoilEcSession) {
+ return request('/fertigation/automatic-profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})
 }

@@ -1,3 +1,5 @@
+> Firmware `1.4.34-INDEPENDENT-AI` uses separate timed schedules and sensor-triggered AI. See [independent-soil-ec-ai.md](independent-soil-ec-ai.md). The schedule-window descriptions below apply to earlier firmware.
+
 # Fertigasi pulse EC tanah — implementasi server
 
 Status: implementasi staging, default OFF. Belum dikompilasi untuk board ESP32 atau diuji pada instalasi fisik. Tidak melakukan flash maupun deployment Orange Pi otomatis.

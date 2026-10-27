@@ -47,10 +47,10 @@ void spffAppendEscapedString(String &out,const String &v){out+=v;}
 bool spffWriteJsonLine(const String &v){acks.push_back(v);return true;}
 std::map<std::string,String>strings;
 std::map<std::string,uint32_t>integers;
-bool requestedWater=false;
+bool requestedWater=false,resumeAutomatic=false;
 bool spffJsonGetStringMember(const String&,size_t,size_t,const char *key,String &v){if(!strings.count(key))return false;v=strings[key];return true;}
 bool spffJsonGetUintMember(const String&,size_t,size_t,const char *key,uint32_t &v){if(!integers.count(key))return false;v=integers[key];return true;}
-bool spffJsonGetBoolMember(const String&,size_t,size_t,const char*,bool &v){v=requestedWater;return true;}
+bool spffJsonGetBoolMember(const String&,size_t,size_t,const char*key,bool &v){v=std::string(key)=="resumeAutomatic"?resumeAutomatic:requestedWater;return true;}
 bool spffJsonGetObjectMember(const String&,size_t,size_t,const char*,size_t &a,size_t &b){a=0;b=1;return true;}
 bool spffJsonGetNullableFloatMember(const String&,size_t,size_t,const char*,float &v,bool &null){v=1;null=false;return true;}
 #define SPFF_ENABLE_SERVER_SOIL_EC_PULSES 1
@@ -63,7 +63,13 @@ void setupCommand(const char *command,uint32_t cycle=1,const char *session="0000
 void reset(){serverPulseJournal={};serverPulseStorageFault=false;serverPulseRunning=false;serverPulsePendingOff=false;
  serverPulseLastAckMs=0;prefs.bytes.clear();prefs.writes=true;clockMs=100;epoch=1000;
  waterOutput=false;fertOutput=false;relayWorks=true;spffShutdownPending=false;spffShutdownFaultLatched=false;
- spffAutomaticPaused=false;fresh=true;maintenance=false;levelBlocked=false;windowOpen=true;starts=0;acks.clear();requestedWater=false;
+ spffAutomaticPaused=false;fresh=true;maintenance=false;levelBlocked=false;windowOpen=
+#ifdef SPFF_TEST_INDEPENDENT_AI
+ false;
+#else
+ true;
+#endif
+ starts=0;acks.clear();requestedWater=false;resumeAutomatic=false;
  slaveData.fertFlowLpm=2;spffAutomaticControl.desiredMode=SPFF_MODE_AUTOMATIC;spffAutomaticControl.fertilizer.enabled=false;
  setupCommand("00000000-0000-4000-8000-000000000002");}
 int main(){
@@ -88,11 +94,28 @@ int main(){
  reset();integers["onDurationMs"]=30001;processServerSoilEcPulse("frame1",0,1,false,false);assert(starts==0);
  reset();processServerSoilEcPulse("frame1",0,1,false,false);fresh=false;serviceServerSoilEcPulse();assert(!fertOutput&&serverPulseJournal.state==3);
  reset();processServerSoilEcPulse("frame1",0,1,false,false);slaveData.fertFlowLpm=0;clockMs=1100;serviceServerSoilEcPulse();assert(!fertOutput&&serverPulseJournal.state==3);
- reset();requestedWater=true;processServerSoilEcPulse("frame1",0,1,false,false);assert(waterOutput&&fertOutput);windowOpen=false;serviceServerSoilEcPulse();assert(!waterOutput&&!fertOutput);
+ reset();requestedWater=true;processServerSoilEcPulse("frame1",0,1,false,false);assert(waterOutput&&fertOutput);windowOpen=
+#ifdef SPFF_TEST_INDEPENDENT_AI
+ true;
+#else
+ false;
+#endif
+ serviceServerSoilEcPulse();assert(!waterOutput&&!fertOutput);
  reset();processServerSoilEcPulse("frame1",0,1,false,false);setupCommand("00000000-0000-4000-8000-000000000004");processServerSoilEcPulse("stop",0,1,true,false);assert(!fertOutput&&serverPulseJournal.state==4&&serverPulseJournal.owner);
  setupCommand("00000000-0000-4000-8000-000000000005");processServerSoilEcPulse("release",0,1,false,true);assert(serverPulseJournal.owner); // must first apply Manual
  spffAutomaticControl.desiredMode=SPFF_MODE_MANUAL;processServerSoilEcPulse("release",0,1,false,true);assert(!serverPulseJournal.owner);
  reset();processServerSoilEcPulse("frame1",0,1,false,false);relayWorks=false;clockMs=3100;serviceServerSoilEcPulse();assert(serverPulsePendingOff&&serverPulseJournal.state==3);
+#ifdef SPFF_TEST_INDEPENDENT_AI
+ reset();processServerSoilEcPulse("auto",0,1,false,false);clockMs=3100;serviceServerSoilEcPulse();
+ setupCommand("00000000-0000-4000-8000-000000000004");processServerSoilEcPulse("stop",0,1,true,false);
+ resumeAutomatic=true;setupCommand("00000000-0000-4000-8000-000000000005");processServerSoilEcPulse("return",0,1,false,true);
+ assert(!serverPulseJournal.owner&&serverPulseJournal.state==5);
+ reset();windowOpen=true;processServerSoilEcPulse("schedule-owns",0,1,false,false);assert(starts==0);
+ reset();processServerSoilEcPulse("fault",0,1,false,false);fresh=false;serviceServerSoilEcPulse();
+ setupCommand("00000000-0000-4000-8000-000000000004");processServerSoilEcPulse("stop",0,1,true,false);
+ resumeAutomatic=true;setupCommand("00000000-0000-4000-8000-000000000005");processServerSoilEcPulse("unsafe-return",0,1,false,true);
+ assert(serverPulseJournal.owner&&serverPulseJournal.state==6);
+#endif
  reset();relayWorks=false;setupCommand("00000000-0000-4000-8000-000000000004");processServerSoilEcPulse("failed-stop",0,1,true,false);assert(serverPulsePendingOff);relayWorks=true;serviceServerSoilEcPulse();assert(!serverPulsePendingOff&&!fertOutput);
  reset();strings["bootId"]="ffffffffffffffff";processServerSoilEcPulse("old-boot",0,1,false,false);assert(starts==0);
  reset();prefs.bytes.assign(sizeof(ServerPulseJournal),0xff);loadServerPulseJournal();assert(serverPulseStorageFault);

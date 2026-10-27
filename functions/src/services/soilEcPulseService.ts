@@ -40,7 +40,7 @@ export async function readSoilEcExecution(deviceId:string):Promise<SoilEcExecuti
       AND NOT EXISTS(SELECT 1 FROM spff.soil_ec_pulse_commands pc WHERE pc.session_id=s.session_id
         AND pc.operation IN ('stop','release') AND pc.status='completed' AND pc.ack->>'pumpsOff'='true')`,[siteId,deviceId]):null;
   return {deviceId,installed,enabled:setting?.enabled??false,revision:setting?.revision??0,
-    serverAvailable:soilEcPulsesEnabled(),capable:!!(status?.online&&age>=0&&age<90000&&status.raw_payload?.serverPulseCapable===true),
+    serverAvailable:soilEcPulsesEnabled(),capable:!!(status?.online&&age>=0&&age<90000&&status.raw_payload?.serverPulseCapable===true&&status.raw_payload?.independentSoilEcCapable===true),
     firmware:status?.raw_payload?.firmwareVersion??null,unconfirmedStopSessions:stops?.rows[0]?.total??0};
 }
 export async function setSoilEcExecution(input:unknown,actor:string) {
@@ -72,23 +72,18 @@ export async function setSoilEcExecution(input:unknown,actor:string) {
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   return readSoilEcExecution(parsed.deviceId);
 }
-async function equipment(client: PoolClient, deviceId: string, waterWithPulse: boolean) {
+async function equipment(client: PoolClient, deviceId: string) {
   const result = await client.query(`SELECT c.revision,c.desired_mode,c.applied_mode,c.acknowledged_revision,c.acknowledgement_status,
     c.fertilizer_enabled,st.recorded_at,st.online,st.mode,st.raw_payload,
     ss.revision AS schedule_revision,ss.acknowledged_revision AS schedule_ack,ss.acknowledgement_status AS schedule_status,
     crop.crop_id,
     EXISTS(SELECT 1 FROM spff.actuator_schedules a WHERE a.site_id=d.site_id AND a.device_id=d.device_id
-      AND a.actuator_key='pump_fert' AND a.enabled AND (now() AT TIME ZONE a.timezone)::time >= a.on_time
+      AND a.enabled AND a.actuator_key IN ('pump_fert','pump_water')
+      AND (now() AT TIME ZONE a.timezone)::time >= a.on_time
       AND (now() AT TIME ZONE a.timezone)::time < a.off_time
       AND (a.repeat_rule='daily' OR (a.repeat_rule='weekdays' AND extract(isodow FROM now() AT TIME ZONE a.timezone)<=5)
         OR (a.repeat_rule='weekends' AND extract(isodow FROM now() AT TIME ZONE a.timezone)>=6)
-        OR (a.repeat_rule='once' AND a.run_date=(now() AT TIME ZONE a.timezone)::date))) AS fert_window,
-    EXISTS(SELECT 1 FROM spff.actuator_schedules a WHERE a.site_id=d.site_id AND a.device_id=d.device_id
-      AND a.actuator_key='pump_water' AND a.enabled AND (now() AT TIME ZONE a.timezone)::time >= a.on_time
-      AND (now() AT TIME ZONE a.timezone)::time < a.off_time
-      AND (a.repeat_rule='daily' OR (a.repeat_rule='weekdays' AND extract(isodow FROM now() AT TIME ZONE a.timezone)<=5)
-        OR (a.repeat_rule='weekends' AND extract(isodow FROM now() AT TIME ZONE a.timezone)>=6)
-        OR (a.repeat_rule='once' AND a.run_date=(now() AT TIME ZONE a.timezone)::date))) AS water_window
+        OR (a.repeat_rule='once' AND a.run_date=(now() AT TIME ZONE a.timezone)::date))) AS schedule_active
     FROM spff.devices d
     JOIN spff.device_automatic_control_configs c USING(site_id,device_id)
     JOIN spff.device_schedule_sync_state ss USING(site_id,device_id)
@@ -100,9 +95,10 @@ async function equipment(client: PoolClient, deviceId: string, waterWithPulse: b
   if (!r || r.fertilizer_enabled || !r.online || r.mode !== 'automatic' || r.desired_mode !== 'automatic' || r.applied_mode !== 'automatic' ||
       r.acknowledgement_status !== 'applied' || String(r.revision) !== String(r.acknowledged_revision) ||
       !r.recorded_at || Date.now() - r.recorded_at.getTime() > 90000 || r.recorded_at.getTime() > Date.now() ||
-      r.raw_payload?.serverPulseCapable !== true || !/^[a-fA-F0-9]{16}$/.test(r.raw_payload?.pulseBootId??'') || r.schedule_status !== 'applied' ||
-      String(r.schedule_revision) !== String(r.schedule_ack) || !r.fert_window || (waterWithPulse && !r.water_window))
-    fail('Perangkat, mode, firmware pulse, atau jadwal belum siap.');
+      r.raw_payload?.serverPulseCapable !== true || r.raw_payload?.independentSoilEcCapable !== true || !/^[a-fA-F0-9]{16}$/.test(r.raw_payload?.pulseBootId??'') || r.schedule_status !== 'applied' ||
+      String(r.schedule_revision) !== String(r.schedule_ack))
+    fail('Perangkat, mode, firmware AI mandiri, atau sinkronisasi jadwal belum siap.');
+  if(r.schedule_active) fail('schedule_priority');
   return r;
 }
 function validateRule(rule: FertigationRecipe | null, cropId: string, now = new Date()): asserts rule is FertigationRecipe {
@@ -132,10 +128,18 @@ export async function startSoilEcSession(input: unknown, actor: string) {
         fail('requestId sudah dipakai untuk permintaan berbeda.');
       await c.query('COMMIT'); return previous.rows[0];
     }
-    const equipmentState = await equipment(c, parsed.deviceId, parsed.profile.waterWithPulse);
+    let automaticRecipeRevision:string|null=null;
+    if(actor==='soil-ec:auto'){
+      const saved=(await c.query('SELECT recipe_id,recipe_revision,profile,armed FROM spff.soil_ec_automatic_profiles WHERE site_id=$1 AND device_id=$2 FOR SHARE',[siteId,parsed.deviceId])).rows[0];
+      if(!saved?.armed || saved.recipe_id!==parsed.recipeId || String(saved.recipe_revision)!==String((await getFertigationRecipe(parsed.recipeId))?.revision) || JSON.stringify(soilEcPulseProfileSchema.parse(saved.profile))!==JSON.stringify(parsed.profile))
+        fail('Kalibrasi otomatis berubah atau dihentikan operator.');
+      automaticRecipeRevision=String(saved.recipe_revision);
+    }
+    const equipmentState = await equipment(c, parsed.deviceId);
     await c.query('SELECT recipe_id FROM spff.fertigation_recipes WHERE recipe_id=$1 AND site_id=$2 FOR SHARE', [parsed.recipeId,siteId]);
     const rule = await getFertigationRecipe(parsed.recipeId);
     validateRule(rule, equipmentState.crop_id);
+    if(automaticRecipeRevision!==null&&String(rule.revision)!==automaticRecipeRevision)fail('Aturan berubah; simpan ulang kalibrasi otomatis.');
     const available = (await listFertigationRecipes()).filter((r): r is FertigationRecipe => r !== null &&
       r.cropId === rule.cropId && r.approvalStatus === 'approved' && applicationDue(r, jakartaDay(new Date())));
     if (available.length !== 1 || available[0]?.recipeId !== rule.recipeId) fail('Aturan tanaman/HST bertabrakan.');
@@ -148,6 +152,10 @@ export async function startSoilEcSession(input: unknown, actor: string) {
       UNION ALL SELECT 1 FROM spff.control_commands WHERE site_id=$1 AND device_id=$2 AND status IN ('pending','published','accepted')
       LIMIT 1`, [siteId,parsed.deviceId,parsed.profile.cooldownMs]);
     if (blockers.rowCount) fail('Sesi, command, cooldown, atau fault perangkat belum selesai.');
+    const unreleased=await c.query(`SELECT 1 FROM spff.soil_ec_pulse_sessions s WHERE s.site_id=$1 AND s.device_id=$2
+      AND NOT EXISTS(SELECT 1 FROM spff.soil_ec_pulse_commands pc WHERE pc.session_id=s.session_id
+        AND pc.operation='release' AND pc.status='completed' AND pc.ack->>'pumpsOff'='true') LIMIT 1`,[siteId,parsed.deviceId]);
+    if(unreleased.rowCount)fail('Kepemilikan sesi sebelumnya belum dilepas dan dikonfirmasi.');
     const id = randomUUID();
     const inserted = await c.query(`INSERT INTO spff.soil_ec_pulse_sessions
       (session_id,request_id,site_id,device_id,recipe_id,application_day,recipe_revision,profile,rule_snapshot,status,requested_by)
@@ -159,8 +167,9 @@ export async function startSoilEcSession(input: unknown, actor: string) {
 async function stopSession(c: PoolClient, s: Session, status: 'fault'|'cancelled'|'completed', reason: string, release = false) {
   // Stop is queued even when outcome is uncertain; duration timeout remains local.
   const id = randomUUID(), now = new Date();
+  const releaseCycle=release?Number((await c.query("SELECT COALESCE(max(cycle),0)+1 AS cycle FROM spff.soil_ec_pulse_commands WHERE session_id=$1 AND operation='release'",[s.session_id])).rows[0].cycle):0;
   const command = { kind:release?'fertigation_pulse_release':'fertigation_pulse_stop',schemaVersion:1,siteId,deviceId:s.device_id,sessionId:s.session_id,
-    commandId:id,cycle:Math.max(1,s.cycles),issuedAt:now.toISOString(),expiresAt:new Date(now.getTime()+30000).toISOString() };
+    commandId:id,cycle:release?Math.max(1,s.cycles,releaseCycle):Math.max(1,s.cycles),issuedAt:now.toISOString(),expiresAt:new Date(now.getTime()+30000).toISOString() };
   await c.query(`INSERT INTO spff.soil_ec_pulse_commands(command_id,session_id,cycle,operation,payload,expires_at)
     VALUES($1,$2,$3,$6,$4,$5) ON CONFLICT(session_id,cycle,operation) DO NOTHING`, [id,s.session_id,command.cycle,JSON.stringify(command),command.expiresAt,release?'release':'stop']);
   await c.query(`UPDATE spff.soil_ec_pulse_sessions SET status=$2,reason=$3,updated_at=now() WHERE session_id=$1`, [s.session_id,status,reason]);
@@ -169,6 +178,7 @@ export async function cancelSoilEcSession(id: string) {
   const c=await pool.connect();
   try { await c.query('BEGIN'); const r=await c.query<Session>('SELECT * FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND session_id=$2 FOR UPDATE',[siteId,id]);
     if (!r.rows[0]) fail('Sesi tidak ditemukan.');
+    await c.query("UPDATE spff.soil_ec_automatic_profiles SET armed=false,reason='operator_stop',updated_at=now() WHERE site_id=$1 AND device_id=$2",[siteId,r.rows[0].device_id]);
     await stopSession(c,r.rows[0],'cancelled','operator_stop'); await c.query('COMMIT');
   } catch(e) {await c.query('ROLLBACK');throw e;} finally {c.release();}
 }
@@ -201,7 +211,10 @@ export async function advanceSoilEcSession(id: string) {
         await stopSession(c,s,'fault','pulse_outcome_unknown');
       await c.query('COMMIT');return;
     }
-    if(last && last.status!=='completed') {await stopSession(c,s,'fault','device_rejected_or_fault');await c.query('COMMIT');return;}
+    if(last && last.status!=='completed') {
+      const scheduled=last.status==='rejected'&&last.ack?.reason==='pulse_schedule_priority';
+      await stopSession(c,s,scheduled?'cancelled':'fault',scheduled?'schedule_priority':'device_rejected_or_fault');await c.query('COMMIT');return;
+    }
     if(s.status==='in_flight') {
       // Server receive time is authoritative for settling; device clock cannot shorten it.
       await c.query(`UPDATE spff.soil_ec_pulse_sessions SET status='waiting',settle_until=$2,updated_at=now() WHERE session_id=$1`,
@@ -210,34 +223,19 @@ export async function advanceSoilEcSession(id: string) {
     }
     let rule: FertigationRecipe|null=null;
     try {
-      const state=await equipment(c,s.device_id,p.waterWithPulse);
+      const state=await equipment(c,s.device_id);
       await c.query('SELECT recipe_id FROM spff.fertigation_recipes WHERE recipe_id=$1 FOR SHARE',[s.recipe_id]);
       rule=await getFertigationRecipe(s.recipe_id);validateRule(rule,state.crop_id);
       if(String(rule.revision)!==String(s.recipe_revision) || String(state.revision)!==s.rule_snapshot.automaticRevision || state.raw_payload.pulseBootId!==s.rule_snapshot.bootId)
         fail('rule_or_mode_revision_changed');
-    } catch {
-      await stopSession(c,s,'fault','rule_mode_schedule_or_device_changed');await c.query('COMMIT');return;
+    } catch (error) {
+      const scheduled = error instanceof Error && error.message==='schedule_priority';
+      await stopSession(c,s,scheduled?'cancelled':'fault',scheduled?'schedule_priority':'rule_mode_schedule_or_device_changed');await c.query('COMMIT');return;
     }
-    const readings=await c.query(`SELECT DISTINCT ON(recorded_at) recorded_at,received_at,
-      soil_1_ec_us_cm AS ec,soil_1_moisture AS moisture,sensor_health,
-      tank_water_level_pct,tank_fert_level_pct FROM spff.telemetry_samples
-      WHERE site_id=$1 AND device_id=$2 ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 20`,[siteId,s.device_id]);
-    const samples:SoilEcSample[]=readings.rows.map(r=>({recordedAt:r.recorded_at.toISOString(),ec:r.ec,moisture:r.moisture,
-      valid:r.sensor_health?.soil_1_ec_us_cm?.valid===true && r.sensor_health?.soil_1_moisture?.valid===true &&
-        r.ec!==null && Number.isFinite(r.ec) && r.ec>=0 && r.ec<=100000 &&
-        r.moisture!==null && Number.isFinite(r.moisture) && r.moisture>=0 && r.moisture<=100}));
-    const latest=readings.rows[0];
-    // Tank gates are checked on server using explicit per-parameter health; never infer stock litres.
-    const tankOk=latest && ['tank_water_level_pct','tank_fert_level_pct'].every(k=>
-      latest.sensor_health?.[k]?.valid===true && Number.isFinite(latest[k]) && latest[k]>=0 && latest[k]<=100) &&
-      latest.tank_water_level_pct>=rule.minWaterTankPercent && latest.tank_fert_level_pct>=rule.minStockTankPercent;
-    if(!tankOk){await stopSession(c,s,'fault','tank_sensor_or_level_invalid');await c.query('COMMIT');return;}
-    const daily=await c.query(`SELECT COALESCE(sum(total_on_ms),0) AS total FROM spff.soil_ec_pulse_sessions
-      WHERE site_id=$1 AND device_id=$2 AND application_day=$3`,[siteId,s.device_id,jakartaDay(new Date())]);
-    const decision=decideSoilEcPulse({nowMs:now,afterMs:s.settle_until.getTime(),samples,
-      target:rule.ecTargetUsCm!,high:rule.ecHighUsCm!,startLow:rule.ecLowUsCm!,cycles:s.cycles,
-      totalOnMs:Number(s.total_on_ms),dailyOnMs:Number(daily.rows[0].total),previousEc:s.previous_ec,
-      noResponseCycles:s.no_response_cycles,profile:p});
+    let decision;
+    try { decision=await evaluateSensors(c,s.device_id,rule,p,{afterMs:s.settle_until.getTime(),cycles:s.cycles,
+      totalOnMs:Number(s.total_on_ms),previousEc:s.previous_ec,noResponseCycles:s.no_response_cycles}); }
+    catch {await stopSession(c,s,'fault','tank_sensor_or_level_invalid');await c.query('COMMIT');return;}
     if(decision.action==='fault'||decision.action==='complete') {
       await stopSession(c,s,decision.action==='complete'?'completed':'fault',decision.reason);
     } else if(decision.action==='wait') {
@@ -256,11 +254,109 @@ export async function advanceSoilEcSession(id: string) {
     await c.query('COMMIT');
   } catch(e){await c.query('ROLLBACK');throw e;} finally{c.release();}
 }
+async function evaluateSensors(c:PoolClient,deviceId:string,rule:FertigationRecipe,p:SoilEcPulseProfile,
+  state:{afterMs:number;cycles:number;totalOnMs:number;previousEc:number|null;noResponseCycles:number}) {
+    const readings=await c.query(`SELECT DISTINCT ON(recorded_at) recorded_at,received_at,
+      soil_1_ec_us_cm AS ec,soil_1_moisture AS moisture,sensor_health,
+      tank_water_level_pct,tank_fert_level_pct FROM spff.telemetry_samples
+      WHERE site_id=$1 AND device_id=$2 ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 20`,[siteId,deviceId]);
+    const samples:SoilEcSample[]=readings.rows.map(r=>({recordedAt:r.recorded_at.toISOString(),ec:r.ec,moisture:r.moisture,
+      valid:r.sensor_health?.soil_1_ec_us_cm?.valid===true && r.sensor_health?.soil_1_moisture?.valid===true &&
+        r.ec!==null && Number.isFinite(r.ec) && r.ec>=0 && r.ec<=100000 &&
+        r.moisture!==null && Number.isFinite(r.moisture) && r.moisture>=0 && r.moisture<=100}));
+    const latest=readings.rows[0];
+    // Tank gates are checked on server using explicit per-parameter health; never infer stock litres.
+    const tankOk=latest && ['tank_water_level_pct','tank_fert_level_pct'].every(k=>
+      latest.sensor_health?.[k]?.valid===true && Number.isFinite(latest[k]) && latest[k]>=0 && latest[k]<=100) &&
+      latest.tank_water_level_pct>=rule.minWaterTankPercent && latest.tank_fert_level_pct>=rule.minStockTankPercent;
+    if(!tankOk)fail('tank_sensor_or_level_invalid');
+    const daily=await c.query(`SELECT COALESCE(sum(total_on_ms),0) AS total FROM spff.soil_ec_pulse_sessions
+      WHERE site_id=$1 AND device_id=$2 AND application_day=$3`,[siteId,deviceId,jakartaDay(new Date())]);
+    return decideSoilEcPulse({nowMs:Date.now(),afterMs:state.afterMs,samples,
+      target:rule.ecTargetUsCm!,high:rule.ecHighUsCm!,startLow:rule.ecLowUsCm!,cycles:state.cycles,
+      totalOnMs:state.totalOnMs,dailyOnMs:Number(daily.rows[0].total),previousEc:state.previousEc,
+      noResponseCycles:state.noResponseCycles,profile:p});
+}
+export async function readSoilEcAutomaticProfile(deviceId:string) {
+  const r=await pool.query('SELECT recipe_id,recipe_revision,profile,armed,reason FROM spff.soil_ec_automatic_profiles WHERE site_id=$1 AND device_id=$2',[siteId,deviceId]);
+  return r.rows[0]??null;
+}
+export async function saveSoilEcAutomaticProfile(input:unknown,actor:string) {
+  const parsed=startSoilEcSessionSchema.parse(input);
+  const rule=await getFertigationRecipe(parsed.recipeId);
+  if(!rule || rule.approvalStatus!=='approved')fail('Setujui aturan tanaman sebelum menyimpan kalibrasi otomatis.');
+  const c=await pool.connect();
+  try {await c.query('BEGIN');
+    await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`soil-ec:${siteId}:${parsed.deviceId}`]);
+    const active=await c.query(`SELECT 1 FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND device_id=$2 AND status IN ('waiting','in_flight','fault')`,[siteId,parsed.deviceId]);
+    if(active.rowCount)fail('Selesaikan sesi/fault sebelum mengganti kalibrasi.');
+    await c.query(`INSERT INTO spff.soil_ec_automatic_profiles(site_id,device_id,recipe_id,recipe_revision,profile,updated_by)
+      VALUES($1,$2,$3,$6,$4,$5) ON CONFLICT(site_id,device_id) DO UPDATE
+      SET recipe_id=EXCLUDED.recipe_id,recipe_revision=EXCLUDED.recipe_revision,profile=EXCLUDED.profile,armed=true,reason='waiting_evaluation',updated_by=EXCLUDED.updated_by,updated_at=now()`,
+      [siteId,parsed.deviceId,parsed.recipeId,JSON.stringify(parsed.profile),actor,rule.revision]);
+    await c.query('COMMIT');
+  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+  return readSoilEcAutomaticProfile(parsed.deviceId);
+}
+// Only clean completion, schedule preemption or disabling AI may return control automatically.
+// Faults and operator stops retain ownership until explicit Manual recovery.
+export async function returnCleanSoilEcOwnership() {
+ const c=await pool.connect();
+ try {await c.query('BEGIN');
+  const ready=await c.query<Session>(`SELECT s.* FROM spff.soil_ec_pulse_sessions s
+   WHERE s.site_id=$1 AND (s.status='completed' OR (s.status='cancelled' AND s.reason IN ('schedule_priority','ai_execution_disabled')))
+    AND EXISTS(SELECT 1 FROM spff.soil_ec_pulse_commands pc WHERE pc.session_id=s.session_id AND pc.operation='stop'
+      AND pc.status='completed' AND pc.ack->>'pumpsOff'='true')
+    AND NOT EXISTS(SELECT 1 FROM spff.soil_ec_pulse_commands pc WHERE pc.session_id=s.session_id AND pc.operation='release')
+   FOR UPDATE OF s SKIP LOCKED`,[siteId]);
+  for(const row of ready.rows){
+   const id=randomUUID(),now=new Date();
+   const payload={kind:'fertigation_pulse_release',schemaVersion:1,siteId,deviceId:row.device_id,
+    sessionId:row.session_id,commandId:id,cycle:Math.max(1,row.cycles),issuedAt:now.toISOString(),expiresAt:new Date(now.getTime()+30000).toISOString(),resumeAutomatic:true};
+   await c.query(`INSERT INTO spff.soil_ec_pulse_commands(command_id,session_id,cycle,operation,payload,expires_at)
+    VALUES($1,$2,$3,'release',$4,$5) ON CONFLICT(session_id,cycle,operation) DO NOTHING`,[id,row.session_id,payload.cycle,JSON.stringify(payload),payload.expiresAt]);
+  }
+  await c.query('COMMIT');
+ }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+}
+export async function evaluateAutomaticSoilEc() {
+ if(!soilEcPulsesEnabled())return;
+ const ready=await pool.query("SELECT to_regclass('spff.soil_ec_automatic_profiles') IS NOT NULL AS ready");
+ if(!ready.rows[0]?.ready)return;
+ const profiles=await pool.query(`SELECT p.* FROM spff.soil_ec_automatic_profiles p
+  JOIN spff.device_soil_ec_execution_configs e USING(site_id,device_id) WHERE p.site_id=$1 AND p.armed AND e.enabled`,[siteId]);
+ for(const row of profiles.rows){
+  let reason='waiting_evaluation';
+  try {
+   const p=soilEcPulseProfileSchema.parse(row.profile),c=await pool.connect();
+   let shouldStart=false;
+   try {
+    const equipmentState=await equipment(c,row.device_id);
+    const rule=await getFertigationRecipe(row.recipe_id);validateRule(rule,equipmentState.crop_id);
+    if(String(rule.revision)!==String(row.recipe_revision))fail('Aturan berubah; verifikasi dan simpan ulang kalibrasi otomatis.');
+    const decision=await evaluateSensors(c,row.device_id,rule,p,{afterMs:0,cycles:0,totalOnMs:0,previousEc:null,noResponseCycles:0});
+    reason=decision.reason;
+    if(decision.action==='pulse'){
+     // start() revalidates mode/rule/ownership under a per-device transaction lock.
+     shouldStart=true;
+    }
+   }finally{c.release();}
+   if(shouldStart){
+    await startSoilEcSession({deviceId:row.device_id,recipeId:row.recipe_id,requestId:randomUUID(),profile:p},'soil-ec:auto');
+    reason='automatic_session_started';
+   }
+  }catch(e){reason=e instanceof Error?e.message:'evaluation_failed';}
+  await pool.query('UPDATE spff.soil_ec_automatic_profiles SET reason=$3 WHERE site_id=$1 AND device_id=$2',[siteId,row.device_id,reason]);
+ }
+}
 export function startSoilEcCoordinator() {
-  let running=false;
+  let running=false, ticks=0;
   const timer=setInterval(()=>{if(running)return;running=true;
-    void pool.query(`SELECT session_id FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND status IN ('waiting','in_flight')`,[siteId])
-      .then(async r=>{for(const row of r.rows)await advanceSoilEcSession(row.session_id);})
-      .catch((e:unknown)=>console.error('[soil-ec-coordinator]',e)).finally(()=>{running=false;});},2000);
+    void (async()=>{
+      const r=await pool.query(`SELECT session_id FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND status IN ('waiting','in_flight')`,[siteId]);
+      for(const row of r.rows)await advanceSoilEcSession(row.session_id);
+      await returnCleanSoilEcOwnership();
+      if(ticks++%5===0)await evaluateAutomaticSoilEc();
+    })().catch((e:unknown)=>console.error('[soil-ec-coordinator]',e)).finally(()=>{running=false;});},2000);
   timer.unref();return ()=>clearInterval(timer);
 }

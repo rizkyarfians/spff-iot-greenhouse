@@ -28,3 +28,20 @@ test('pulse handler stays compatible with firmware 1.4.30',()=>{
   execFileSync(join(directory,'test'),[],{stdio:'pipe'});
  }finally{rmSync(directory,{recursive:true,force:true});}
 });
+
+test('independent AI: out-of-schedule pulse, scheduled preemption, clean return and fault retention',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'spff-independent-'));
+ try{
+  execFileSync('g++',['-std=c++11','-Wall','-Wextra','-Werror','-DSPFF_TEST_INDEPENDENT_AI',
+   '-I',resolve('firmware/SPFF_MASTER_1_4_34_INDEPENDENT_AI'),resolve('firmware/test/server-soil-ec-pulse.cpp'),'-o',join(directory,'test')],{stdio:'pipe'});
+  execFileSync(join(directory,'test'),[],{stdio:'pipe'});
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+test('production independent schedule output: timed ON/OFF, AI arbitration and pause/manual/fault gates',()=>{
+ const directory=mkdtempSync(join(tmpdir(),'spff-schedules-'));
+ try{
+  execFileSync('g++',['-std=c++11','-Wall','-Wextra','-Werror','-I',resolve('firmware/SPFF_MASTER_1_4_34_INDEPENDENT_AI'),resolve('firmware/test/independent-schedule.cpp'),'-o',join(directory,'test')],{stdio:'pipe'});
+  execFileSync(join(directory,'test'),[],{stdio:'pipe'});
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});

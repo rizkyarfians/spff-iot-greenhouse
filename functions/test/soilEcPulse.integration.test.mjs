@@ -39,7 +39,7 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
         VALUES('test','greenhouse-01','esp32-s3-01','pump_fert','00:00','23:59:59','daily','test');
       UPDATE spff.device_schedule_sync_state SET acknowledged_revision=revision,acknowledgement_status='applied';
       INSERT INTO spff.device_status_events(site_id,device_id,message_id,recorded_at,online,mode,raw_payload)
-        VALUES('greenhouse-01','esp32-s3-01','status-test',now(),true,'automatic','{"serverPulseCapable":true,"pulseBootId":"0123456789abcdef"}');`);
+        VALUES('greenhouse-01','esp32-s3-01','status-test',now(),true,'automatic','{"serverPulseCapable":true,"independentSoilEcCapable":true,"pulseBootId":"0123456789abcdef"}');`);
     const {createFertigationRecipe}=await import('../lib/services/fertigationRepository.js');
     const {jakartaDay}=await import('../lib/services/fertigationSchedule.js');
     const service=await import('../lib/services/soilEcPulseService.js');
@@ -62,6 +62,12 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
     assert.equal((await service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:0,enabled:true},'test-admin')).revision,1);
     await assert.rejects(service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:0,enabled:false},'test-admin'),/berubah/);
     await assert.rejects(service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:1,enabled:'false'},'test-admin'));
+    // An active schedule wins. AI starts from sensors outside any schedule.
+    await assert.rejects(service.startSoilEcSession(input,'test-admin'),/schedule_priority/);
+    await query("UPDATE spff.actuator_schedules SET enabled=false");
+    await query("UPDATE spff.device_schedule_sync_state SET acknowledged_revision=revision,acknowledgement_status='applied'");
+    await service.saveSoilEcAutomaticProfile(input,'test-admin');
+    assert.equal((await service.readSoilEcAutomaticProfile(input.deviceId)).armed,true);
     const s=await service.startSoilEcSession(input,'test-admin');
     assert.equal((await service.startSoilEcSession(input,'test-admin')).session_id,s.session_id);
     await assert.rejects(service.startSoilEcSession({...input,profile:{...profile,maxCycles:9}},'test-admin'));
@@ -120,10 +126,42 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
     assert.equal((await query("SELECT * FROM spff.soil_ec_pulse_commands WHERE operation='stop'")).rows.length,1);
     process.env.SPFF_SOIL_EC_PULSES_ENABLED='false';
     published.length=0;await transport.dispatch();assert.equal(published.length,1);assert.equal(published[0].kind,'fertigation_pulse_stop');
+    // A clean session only returns relay ownership after confirmed STOP/OFF.
+    await service.returnCleanSoilEcOwnership();
+    assert.equal((await query("SELECT * FROM spff.soil_ec_pulse_commands WHERE operation='release'")).rows.length,0);
+    const stopCommand=(await query("SELECT * FROM spff.soil_ec_pulse_commands WHERE operation='stop'")).rows[0];
+    await transport.saveAck({...ack,commandId:stopCommand.command_id,cycle:stopCommand.cycle});
+    await service.returnCleanSoilEcOwnership();await service.returnCleanSoilEcOwnership();
+    const releaseCommand=(await query("SELECT * FROM spff.soil_ec_pulse_commands WHERE operation='release'")).rows[0];
+    assert.equal(releaseCommand.payload.resumeAutomatic,true);
+    assert.equal((await query("SELECT * FROM spff.soil_ec_pulse_commands WHERE operation='release'")).rows.length,1);
+    await transport.saveAck({...ack,commandId:releaseCommand.command_id,cycle:releaseCommand.cycle});
+    // Persistent calibration launches a NEW session on low EC, without an actuator schedule.
+    process.env.SPFF_SOIL_EC_PULSES_ENABLED='true';
+    await query("UPDATE spff.soil_ec_pulse_sessions SET updated_at=now()-interval '10 seconds'");
+    await readings(1200);await service.evaluateAutomaticSoilEc();
+    assert.equal((await query('SELECT * FROM spff.soil_ec_pulse_sessions')).rows.length,1);
+    await readings(400);
+    await query("UPDATE spff.telemetry_samples SET recorded_at=now()-interval '10 minutes'");
+    await service.evaluateAutomaticSoilEc();
+    assert.equal((await query('SELECT * FROM spff.soil_ec_pulse_sessions')).rows.length,1);
+    await readings(400);
+    await query('UPDATE spff.soil_ec_pulse_sessions SET total_on_ms=60000 WHERE session_id=$1',[s.session_id]);
+    await service.evaluateAutomaticSoilEc();
+    assert.equal((await query('SELECT * FROM spff.soil_ec_pulse_sessions')).rows.length,1);
+    assert.equal((await service.readSoilEcAutomaticProfile(input.deviceId)).reason,'pulse_budget_limit');
+    await query('UPDATE spff.soil_ec_pulse_sessions SET total_on_ms=20000 WHERE session_id=$1',[s.session_id]);
+    await service.evaluateAutomaticSoilEc();await service.evaluateAutomaticSoilEc();
+    const automaticSession=(await query("SELECT * FROM spff.soil_ec_pulse_sessions WHERE requested_by='soil-ec:auto'")).rows[0];
+    assert.ok(automaticSession);assert.equal((await query('SELECT * FROM spff.soil_ec_pulse_sessions')).rows.length,2);
+    await service.cancelSoilEcSession(automaticSession.session_id);
+    assert.equal((await service.readSoilEcAutomaticProfile(input.deviceId)).armed,false);
+    await service.evaluateAutomaticSoilEc();
+    assert.equal((await query('SELECT * FROM spff.soil_ec_pulse_sessions')).rows.length,2);
     await assert.rejects(service.releaseSoilEcOwnership(s.session_id));
     await db.exec("UPDATE spff.device_automatic_control_configs SET desired_mode='manual',applied_mode='manual'; UPDATE spff.device_automatic_control_configs SET acknowledged_revision=revision,acknowledgement_status='applied';");
     await service.releaseSoilEcOwnership(s.session_id);
-    assert.equal((await query("SELECT * FROM spff.soil_ec_pulse_commands WHERE operation='release'")).rows.length,1);
+    assert.equal((await query("SELECT * FROM spff.soil_ec_pulse_commands WHERE operation='release'")).rows.length,2);
     // An in-flight session is cancelled atomically with OFF; outstanding pulses cannot replay.
     const id='00000000-0000-4000-8000-000000000050';
     await query(`INSERT INTO spff.soil_ec_pulse_sessions(session_id,request_id,site_id,device_id,recipe_id,
