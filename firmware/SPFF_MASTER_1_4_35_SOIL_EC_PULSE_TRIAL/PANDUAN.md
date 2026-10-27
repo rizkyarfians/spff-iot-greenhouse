@@ -1,19 +1,19 @@
 # Trial pulse fertigasi EC tanah — 1.4.35
 
 Varian khusus trial dari `SPFF_MASTER_1_4_35_AUTO_DIAGNOSTICS`.
-Versi status: `1.4.35-SOIL-EC-PULSE-TRIAL`.
+Versi status: `1.4.35-SOIL-EC-SINGLE-TRIAL`.
 Paket berisi SOURCE; belum dikompilasi untuk ESP32-S3 atau diuji di hardware.
 
 ## Perubahan
 
-Hanya judul, string versi, dan default `SPFF_ENABLE_SERVER_SOIL_EC_PULSES`
+Perubahan terbatas pada judul, string versi, polling single-register-only, dan default `SPFF_ENABLE_SERVER_SOIL_EC_PULSES`
 menjadi `1`. Handler pulse yang sudah ada kini diaktifkan; seluruh pengaman
 tetap berlaku. Macro dari build flags dapat menimpa default ini.
 `serverPulseCapable` baru true jika pulse aktif dan storage NVS sehat.
 Mengaktifkan capability tidak memulai sesi atau menyalakan pompa dengan sendirinya.
 
-Diagnosis Auto tetap ada. Polling RS485 mengikuti source diagnostik 1.4.35
-(block read dengan fallback per register), bukan konfigurasi single-only 1.4.34.
+Diagnosis Auto tetap ada. `SOIL_DIAG_SINGLE_REGISTER_ONLY=true` mempertahankan
+mode single-register-only yang ditujukan patch 1.4.34; block read Soil dilewati.
 Mapping relay, waktu/RTC, interlock, dan logika kontrol tidak diubah.
 Perhitungan target dan durasi pulse tetap di server; firmware menjalankan pulse
 berbatas waktu. Ini bukan executor adaptive planner EC larutan.
@@ -58,14 +58,15 @@ ORDER BY received_at DESC, device_status_id DESC
 LIMIT 10;"
 ```
 
-Harus ada status MCU yang baru diterima, versi `1.4.35-SOIL-EC-PULSE-TRIAL`,
+Harus ada status MCU yang baru diterima, versi `1.4.35-SOIL-EC-SINGLE-TRIAL`,
 `pulse_capable=true`, dan boot ID 16 digit hex. Baris status gateway dapat tidak
 memuat ketiganya. Record lama tidak membuktikan hasil upload baru.
 Jika capability false, periksa build flags dan storage; jangan melewati pemeriksaan.
 
 ## Sebelum sesi pertama
 
-Tidak perlu migration baru hanya untuk firmware ini. Backend pulse memerlukan
+Firmware ini sendiri tidak memerlukan migration. Switch web memerlukan migration
+030; lihat `docs/soil-ec-execution-switch.md`. Backend pulse juga memerlukan
 migration 026 yang sebelumnya sudah diterapkan, serta build API/worker/edge/web
 yang mendukung pulse. Jangan menjalankan ulang seluruh migration produksi.
 
@@ -74,6 +75,8 @@ Setelah capability terbukti dan commissioning siap:
 - Aktifkan `SPFF_SOIL_EC_PULSES_ENABLED=true` pada `/etc/spff/api.env` dan
   `/etc/spff/mqtt-worker.env`. Pastikan `AI_EVALUATION_ENABLED` API tidak false.
   Restart API dan worker; tunggu health `http://127.0.0.1:3001/api/health`.
+- Aktifkan **Settings → AI Fertigasi EC Tanah** untuk perangkat yang dipilih.
+  Izin disimpan di server dan tidak memulai sesi otomatis.
 - Pilih Automatic, nonaktifkan fertilizer legacy dan tunggu ACK applied.
   Pastikan jadwal fertilizer terbuka serta ACK applied; bila CH3 ikut dipakai,
   jadwal air juga harus terbuka. Mode Automatic sendiri tidak memulai sesi pulse.
@@ -100,3 +103,11 @@ Setelah aman, flag API/worker dapat dikembalikan false dan firmware sebelumnya
 di-upload memakai konfigurasi instalasi yang sama, tanpa erase NVS.
 
 Detail kontrak dan commissioning: `docs/server-soil-ec-pulses.md` di root repo.
+
+## Error Octal Flash saat boot
+
+Jika muncul `Octal Flash option selected, but EFUSE not configured!`, firmware
+berhenti sebelum setup aplikasi. Kembalikan board dan Flash Mode ke konfigurasi
+build yang sudah berhasil, lalu compile ulang dan upload binary baru. Opsi
+Octal PSRAM berbeda dari Octal Flash. Jangan burn eFuse atau erase NVS sebagai
+percobaan. Switch web tidak dapat memperbaiki konfigurasi build yang salah.

@@ -1,4 +1,5 @@
 import { WaterInterlockSettings } from './WaterInterlockSettings'
+import { SoilEcExecutionSettings } from './SoilEcExecutionSettings'
 import { FertigationPage } from './FertigationPage'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
@@ -4841,6 +4842,7 @@ function SettingsPage({
             </button>
           </div>
           <WaterInterlockSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
+          <SoilEcExecutionSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
         </div>
 
 

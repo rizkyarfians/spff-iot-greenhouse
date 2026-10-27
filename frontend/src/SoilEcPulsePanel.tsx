@@ -31,19 +31,20 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
   const [water,setWater]=useState(false)
   const [flowKey,setFlowKey]=useState<'flow_water_lpm'|'flow_fert_lpm'>('flow_fert_lpm')
   const [enabled,setEnabled]=useState(false)
+  const [executionEnabled,setExecutionEnabled]=useState(false)
   const [sessions,setSessions]=useState<SoilEcSessionView[]>([])
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(false)
   const requestId=useRef<string|null>(null)
   const busyRef=useRef(false)
   const generation=useRef(0)
-  useEffect(()=>{requestId.current=null;setSessions([]);setEnabled(false);setError('');setConfirmed(false)
+  useEffect(()=>{requestId.current=null;setSessions([]);setEnabled(false);setExecutionEnabled(false);setError('');setConfirmed(false)
     const current=++generation.current
     if(!deviceId)return
     let running=false
     const refresh=async()=>{if(running)return;running=true;try{
       const data=await fetchSoilEcPulseSessions(deviceId)
-      if(generation.current===current){setEnabled(data.enabled);setSessions(data.sessions)}
+      if(generation.current===current){setEnabled(data.enabled);setExecutionEnabled(data.executionEnabled);setSessions(data.sessions)}
     }catch(e){if(generation.current===current){setEnabled(false);setError(e instanceof Error?e.message:'Gagal memuat sesi')}}finally{running=false}}
     void refresh();const timer=setInterval(()=>void refresh(),5000)
     return()=>{clearInterval(timer);generation.current++}
@@ -68,6 +69,7 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
     <p>Server menghitung durasi ON dari selisih EC tanah zona 1. Perangkat menjalankan satu pulse, OFF sendiri, lalu server menunggu pembacaan baru. Tidak menghitung liter stok pupuk.</p>
     <p>Nonaktifkan fertilizer sensor legacy dan tunggu konfigurasi diterapkan sebelum memulai. Target aturan: {recipe.ecTargetUsCm??'belum diisi'} µS/cm. Menjalankan sesi akan menahan kontrol sensor otomatis lama sampai strategi dilepas secara eksplisit.</p>
     {!deviceId?<p>Pilih perangkat terlebih dahulu.</p>:!enabled?<p>Eksekusi pulse belum tersedia pada server atau koneksi status gagal. Evaluasi rekomendasi tetap terpisah.</p>:null}
+    {enabled&&!executionEnabled&&<p>Aktifkan AI Fertigasi EC Tanah di Settings sebelum memulai sesi.</p>}
     {error&&<p className="ft-error" role="alert">{error}</p>}
     {enabled&&admin&&<details><summary>Kalibrasi dan batas sesi</summary>
       <fieldset disabled={busy||active||dirty}><div className="ft-fields">
@@ -79,7 +81,7 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
         <label className="ft-pulse-check"><input type="checkbox" checked={water} onChange={e=>{setWater(e.target.checked);requestId.current=null;setConfirmed(false)}}/>CH3 perlu menyala bersama CH1 saat pulse, sesuai hasil uji jalur air</label>
         <label className="ft-pulse-check"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>Target dataset sudah diverifikasi untuk sensor EC tanah ini; respons pulse, waktu meresap, dan aliran Venturi sudah dikalibrasi.</label>
       </div></fieldset>
-      <button type="button" className="ft-primary" disabled={busy||active||dirty||!confirmed||!deviceId} onClick={()=>void start()}>Mulai sesi pulse</button>
+      <button type="button" className="ft-primary" disabled={busy||active||dirty||!confirmed||!deviceId||!executionEnabled} onClick={()=>void start()}>Mulai sesi pulse</button>
     </details>}
     {sessions.map(s=><article className="ft-result" key={s.session_id}><strong>{s.status}</strong>
       <p>{reasons[s.reason]??s.reason}</p><p>Cycle: {s.cycles} · waktu ON diperintahkan: {Number(s.total_on_ms)/1000} detik · EC sebelum pulse terakhir: {s.previous_ec??'—'} µS/cm</p>

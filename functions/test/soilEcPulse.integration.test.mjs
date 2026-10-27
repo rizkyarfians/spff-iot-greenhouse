@@ -53,6 +53,15 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
       maxCycles:10,stableSamples:3,stableSpreadUsCm:20,toleranceUsCm:25,minimumRiseUsCm:10,maxNoResponseCycles:2,
       moistureMinPercent:30,moistureMaxPercent:60,cooldownMs:1000,waterWithPulse:false,flowSensorKey:'flow_fert_lpm',minFlowLpm:1};
     const input={deviceId:'esp32-s3-01',recipeId:rule.recipeId,requestId:'00000000-0000-4000-8000-000000000001',profile};
+    // Deployment flags alone cannot arm the new per-device web permission.
+    let execution=await service.readSoilEcExecution(input.deviceId);
+    assert.equal(execution.enabled,false);assert.equal(execution.revision,0);
+    await assert.rejects(service.startSoilEcSession(input,'test-admin'),/Settings/);
+    execution=await service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:0,enabled:true},'test-admin');
+    assert.equal(execution.revision,1);assert.equal(execution.enabled,true);
+    assert.equal((await service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:0,enabled:true},'test-admin')).revision,1);
+    await assert.rejects(service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:0,enabled:false},'test-admin'),/berubah/);
+    await assert.rejects(service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:1,enabled:'false'},'test-admin'));
     const s=await service.startSoilEcSession(input,'test-admin');
     assert.equal((await service.startSoilEcSession(input,'test-admin')).session_id,s.session_id);
     await assert.rejects(service.startSoilEcSession({...input,profile:{...profile,maxCycles:9}},'test-admin'));
@@ -76,6 +85,9 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
     process.env.SPFF_SOIL_EC_PULSES_ENABLED='false';
     await transport.dispatch();assert.equal(published.length,0);
     process.env.SPFF_SOIL_EC_PULSES_ENABLED='true';
+    await query('UPDATE spff.device_soil_ec_execution_configs SET enabled=false');
+    await transport.dispatch();assert.equal(published.length,0); // independent worker gate
+    await query('UPDATE spff.device_soil_ec_execution_configs SET enabled=true');
     await transport.dispatch();assert.equal(published.length,1);assert.equal(published[0].params.onDurationMs,8000);
     await assert.rejects(transport.saveAck({kind:'fertigation_pulse_ack',schemaVersion:1,siteId:'other',deviceId:input.deviceId,
       sessionId:s.session_id,commandId:pc.command_id,cycle:1,status:'completed',pumpsOff:true,reason:'test',acknowledgedAt:new Date().toISOString()}));
@@ -112,5 +124,39 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
     await db.exec("UPDATE spff.device_automatic_control_configs SET desired_mode='manual',applied_mode='manual'; UPDATE spff.device_automatic_control_configs SET acknowledged_revision=revision,acknowledgement_status='applied';");
     await service.releaseSoilEcOwnership(s.session_id);
     assert.equal((await query("SELECT * FROM spff.soil_ec_pulse_commands WHERE operation='release'")).rows.length,1);
+    // An in-flight session is cancelled atomically with OFF; outstanding pulses cannot replay.
+    const id='00000000-0000-4000-8000-000000000050';
+    await query(`INSERT INTO spff.soil_ec_pulse_sessions(session_id,request_id,site_id,device_id,recipe_id,
+      application_day,recipe_revision,profile,rule_snapshot,status,requested_by,cycles)
+      SELECT $1,$1,site_id,device_id,recipe_id,application_day+1,recipe_revision,profile,rule_snapshot,'in_flight',requested_by,1
+      FROM spff.soil_ec_pulse_sessions WHERE session_id=$2`,[id,s.session_id]);
+    const pending={...pc.payload,sessionId:id,commandId:'00000000-0000-4000-8000-000000000051',
+      issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+15000).toISOString()};
+    await query(`INSERT INTO spff.soil_ec_pulse_commands(command_id,session_id,cycle,operation,payload,expires_at)
+      VALUES($1,$2,1,'pulse',$3,$4)`,[pending.commandId,id,JSON.stringify(pending),pending.expiresAt]);
+    // OFF must work with env flags OFF and device offline.
+    await query('DELETE FROM spff.device_status_events');
+    execution=await service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:1,enabled:false},'test-admin');
+    assert.equal(execution.enabled,false);assert.equal(execution.revision,2);
+    assert.ok(execution.unconfirmedStopSessions>0);
+    assert.equal((await query('SELECT status FROM spff.soil_ec_pulse_sessions WHERE session_id=$1',[id])).rows[0].status,'cancelled');
+    process.env.SPFF_SOIL_EC_PULSES_ENABLED='true';
+    published.length=0;await transport.dispatch();
+    assert.ok(published.some(p=>p.sessionId===id&&p.kind==='fertigation_pulse_stop'));
+    assert.ok(published.every(p=>p.kind!=='fertigation_pulse'));
+    await service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:2,enabled:true},'test-admin');
+    await service.advanceSoilEcSession(id);
+    assert.equal((await query('SELECT status FROM spff.soil_ec_pulse_sessions WHERE session_id=$1',[id])).rows[0].status,'cancelled');
+    // The deployment gate can still prevent arming despite a stored permission.
+    process.env.AI_EVALUATION_ENABLED='false';
+    await assert.rejects(service.setSoilEcExecution({deviceId:input.deviceId,expectedRevision:3,enabled:true},'test-admin'),/server/);
+    await query('DROP TABLE spff.device_soil_ec_execution_configs');
+    execution=await service.readSoilEcExecution(input.deviceId);
+    assert.equal(execution.installed,false);assert.equal(execution.enabled,false);
+    await query("UPDATE spff.soil_ec_pulse_commands SET last_published_at=NULL WHERE operation='stop'");
+    process.env.SPFF_SOIL_EC_PULSES_ENABLED='false';
+    published.length=0;await transport.dispatch();
+    assert.ok(published.some(p=>p.sessionId===id&&p.kind==='fertigation_pulse_stop'));
+    assert.ok(published.every(p=>p.kind!=='fertigation_pulse'));
   }finally{await realEnd();await db.close();}
 });

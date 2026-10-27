@@ -18,18 +18,31 @@ export class SoilEcPulseTransport {
     // never replay a pulse from a cancelled/faulted session. Stop commands may outlive the session.
     const c=await this.pool.connect();
     try{await c.query('BEGIN');
+      await c.query("SELECT pg_advisory_xact_lock(hashtextextended('soil-ec-dispatch',0))");
+      const installed=await c.query("SELECT to_regclass('spff.device_soil_ec_execution_configs') IS NOT NULL AS ready");
+      // Fail closed for pulses before migration 030; stops/releases still dispatch.
+      const executionGate=installed.rows[0]?.ready===true
+        ? `EXISTS(SELECT 1 FROM spff.device_soil_ec_execution_configs ec WHERE ec.site_id=s.site_id AND ec.device_id=s.device_id AND ec.enabled)`
+        : 'false';
       await c.query(`UPDATE spff.soil_ec_pulse_commands SET status='fault',finished_at=now()
         WHERE status IN ('pending','published','accepted') AND expires_at +
           (COALESCE((payload->'params'->>'onDurationMs')::bigint,0)+10000)*interval '1 millisecond' < now()`);
       const r=await c.query(`SELECT pc.* FROM spff.soil_ec_pulse_commands pc JOIN spff.soil_ec_pulse_sessions s USING(session_id)
         WHERE pc.status IN ('pending','published','accepted') AND pc.expires_at>now()
-          AND (pc.operation<>'pulse' OR ($1::boolean AND s.status='in_flight'))
+          AND (pc.operation<>'pulse' OR ($1::boolean AND s.status='in_flight' AND ${executionGate}))
           AND (pc.last_published_at IS NULL OR pc.last_published_at<now()-interval '2 seconds')
         ORDER BY (pc.operation='stop') DESC,pc.created_at FOR UPDATE OF pc SKIP LOCKED LIMIT 10`,[process.env.SPFF_SOIL_EC_PULSES_ENABLED==='true']);
       for(const row of r.rows){
         const payload=fertigationPulseCommandSchema.parse(row.payload);
         // Publish while holding the command row lock; ACK updates wait for this transaction.
-        await this.publish(payload);
+        // A lost QoS acknowledgement must not hold the OFF switch lock forever.
+        // Timeout means outcome unknown, not unsent; IDs and local expiry stay unchanged.
+        let timeout:ReturnType<typeof setTimeout>|undefined;
+        try {
+          await Promise.race([this.publish(payload),new Promise<never>((_,reject)=>{
+            timeout=setTimeout(()=>reject(new Error('Pulse MQTT publish acknowledgement timed out')),5000);
+          })]);
+        }finally{if(timeout)clearTimeout(timeout);}
         await c.query(`UPDATE spff.soil_ec_pulse_commands SET status=CASE WHEN status='pending' THEN 'published' ELSE status END,
           last_published_at=now() WHERE command_id=$1`,[row.command_id]);
       }

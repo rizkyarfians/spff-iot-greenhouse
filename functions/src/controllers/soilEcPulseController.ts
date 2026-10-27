@@ -1,10 +1,10 @@
 import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { requestActor } from '../middleware/operatorAuth.js';
-import { startSoilEcSession, listSoilEcSessions, cancelSoilEcSession, soilEcPulsesEnabled, soilEcPulseStorageReady, releaseSoilEcOwnership } from '../services/soilEcPulseService.js';
+import { startSoilEcSession, listSoilEcSessions, cancelSoilEcSession, soilEcPulsesEnabled, soilEcPulseStorageReady, releaseSoilEcOwnership,readSoilEcExecution } from '../services/soilEcPulseService.js';
 export async function getSoilEcPulseSessions(req:Request,res:Response,next:NextFunction){
   try{const id=z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/).parse(req.query.deviceId);
-    res.set('Cache-Control','no-store').json({success:true,data:{enabled:soilEcPulsesEnabled(),sessions:await soilEcPulseStorageReady()?await listSoilEcSessions(id):[]},message:'Sesi pulse EC tanah.'});
+    res.set('Cache-Control','no-store').json({success:true,data:{enabled:soilEcPulsesEnabled(),executionEnabled:(await readSoilEcExecution(id)).enabled,sessions:await soilEcPulseStorageReady()?await listSoilEcSessions(id):[]},message:'Sesi pulse EC tanah.'});
   }catch(e){if(e instanceof Error && 'status' in e && e.status===409){res.status(409).json({success:false,data:null,message:e.message});return;}next(e);}
 }
 export async function postSoilEcPulseSession(req:Request,res:Response,next:NextFunction){

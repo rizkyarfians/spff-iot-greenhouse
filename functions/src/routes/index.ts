@@ -1,4 +1,5 @@
 import { getWaterInterlock, putWaterInterlock } from '../controllers/waterInterlockController.js';
+import { getSoilEcExecution,putSoilEcExecution } from '../controllers/soilEcExecutionController.js';
 import { getFertigationPlannerProfile, putFertigationPlannerProfile, postFertigationPlan } from '../controllers/fertigationPlannerController.js';
 import { getSoilEcPulseSessions, postSoilEcPulseSession, stopSoilEcPulseSession, releaseSoilEcPulseSession } from '../controllers/soilEcPulseController.js';
 import {
@@ -210,6 +211,8 @@ apiRouter.get(
 apiRouter.get('/settings/water-interlock', getWaterInterlock);
 apiRouter.put('/settings/water-interlock', requireAdmin, requireCsrf, putWaterInterlock);
 apiRouter.get('/fertigation/pulse-sessions', getSoilEcPulseSessions);
+apiRouter.get('/settings/soil-ec-execution', getSoilEcExecution);
+apiRouter.put('/settings/soil-ec-execution', requireAdmin, requireCsrf, putSoilEcExecution);
 apiRouter.post('/fertigation/pulse-sessions', requireAdmin, requireCsrf, requireAiEvaluationEnabled, postSoilEcPulseSession);
 apiRouter.post('/fertigation/pulse-sessions/:id/release', requireAdmin, requireCsrf, releaseSoilEcPulseSession);
 apiRouter.post('/fertigation/pulse-sessions/:id/stop', requireOperator, requireCsrf, stopSoilEcPulseSession);

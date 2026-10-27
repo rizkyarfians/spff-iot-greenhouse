@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { decideSoilEcPulse, fertigationPulseSchema, startSoilEcSessionSchema,
-  soilEcPulseProfileSchema, type FertigationRecipe, type SoilEcPulseProfile, type SoilEcSample } from '@spff/contracts';
+  soilEcPulseProfileSchema, soilEcExecutionUpdateSchema, type SoilEcExecutionView,
+  type FertigationRecipe, type SoilEcPulseProfile, type SoilEcSample } from '@spff/contracts';
 import { pool, configuredSiteId as siteId } from './postgresRepository.js';
 import { getFertigationRecipe, listFertigationRecipes } from './fertigationRepository.js';
 import { applicationDue, jakartaDay } from './fertigationSchedule.js';
@@ -16,6 +17,61 @@ type Session = { session_id: string; device_id: string; recipe_id: string; recip
   cycles: number; total_on_ms: string; previous_ec: number | null; no_response_cycles: number;
   settle_until: Date; started_at: Date; reason: string };
 function fail(message: string): never { throw Object.assign(new Error(message), { status: 409 }); }
+async function executionInstalled() {
+  const r=await pool.query("SELECT to_regclass('spff.device_soil_ec_execution_configs') IS NOT NULL AS ready");
+  return r.rows[0]?.ready===true;
+}
+async function executionAllowed(c:PoolClient,deviceId:string) {
+  if(!await executionInstalled()) return false;
+  const r=await c.query('SELECT enabled FROM spff.device_soil_ec_execution_configs WHERE site_id=$1 AND device_id=$2',[siteId,deviceId]);
+  return r.rows[0]?.enabled===true;
+}
+export async function readSoilEcExecution(deviceId:string):Promise<SoilEcExecutionView> {
+  const device=await pool.query('SELECT 1 FROM spff.devices WHERE site_id=$1 AND device_id=$2 AND enabled',[siteId,deviceId]);
+  if(!device.rowCount)fail('Perangkat tidak ditemukan.');
+  const installed=await executionInstalled();
+  const setting=installed?(await pool.query('SELECT enabled,revision FROM spff.device_soil_ec_execution_configs WHERE site_id=$1 AND device_id=$2',[siteId,deviceId])).rows[0]:null;
+  const status=(await pool.query(`SELECT online,recorded_at,raw_payload FROM spff.device_status_events
+    WHERE site_id=$1 AND device_id=$2 AND raw_payload ? 'serverPulseCapable'
+    ORDER BY received_at DESC,device_status_id DESC LIMIT 1`,[siteId,deviceId])).rows[0];
+  const age=status?.recorded_at?Date.now()-status.recorded_at.getTime():Infinity;
+  const stops=await soilEcPulseStorageReady()?await pool.query(`SELECT count(*)::integer AS total FROM spff.soil_ec_pulse_sessions s
+    WHERE s.site_id=$1 AND s.device_id=$2 AND s.status IN ('cancelled','fault','completed')
+      AND NOT EXISTS(SELECT 1 FROM spff.soil_ec_pulse_commands pc WHERE pc.session_id=s.session_id
+        AND pc.operation IN ('stop','release') AND pc.status='completed' AND pc.ack->>'pumpsOff'='true')`,[siteId,deviceId]):null;
+  return {deviceId,installed,enabled:setting?.enabled??false,revision:setting?.revision??0,
+    serverAvailable:soilEcPulsesEnabled(),capable:!!(status?.online&&age>=0&&age<90000&&status.raw_payload?.serverPulseCapable===true),
+    firmware:status?.raw_payload?.firmwareVersion??null,unconfirmedStopSessions:stops?.rows[0]?.total??0};
+}
+export async function setSoilEcExecution(input:unknown,actor:string) {
+  const parsed=soilEcExecutionUpdateSchema.parse(input);
+  if(!await executionInstalled())fail('Terapkan migration 030 terlebih dahulu.');
+  // OFF remains available even if the deployment flag or MCU is unavailable.
+  if(parsed.enabled&&!soilEcPulsesEnabled())fail('Eksekusi pulse belum diaktifkan pada konfigurasi server.');
+  const c=await pool.connect();
+  try {
+    await c.query('BEGIN');
+    // Same lock as MQTT publish: after OFF commits no new pulse can be published.
+    await c.query("SELECT pg_advisory_xact_lock(hashtextextended('soil-ec-dispatch',0))");
+    await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`soil-ec:${siteId}:${parsed.deviceId}`]);
+    const d=await c.query('SELECT 1 FROM spff.devices WHERE site_id=$1 AND device_id=$2 AND enabled',[siteId,parsed.deviceId]);
+    if(!d.rowCount)fail('Perangkat tidak ditemukan.');
+    const old=(await c.query('SELECT * FROM spff.device_soil_ec_execution_configs WHERE site_id=$1 AND device_id=$2 FOR UPDATE',[siteId,parsed.deviceId])).rows[0];
+    const retry=old&&old.revision===parsed.expectedRevision+1&&old.enabled===parsed.enabled;
+    if(!retry&&(old?.revision??0)!==parsed.expectedRevision)fail('Pengaturan berubah. Muat ulang sebelum menyimpan.');
+    if(!retry)await c.query(`INSERT INTO spff.device_soil_ec_execution_configs(site_id,device_id,enabled,updated_by)
+      VALUES($1,$2,$3,$4) ON CONFLICT(site_id,device_id) DO UPDATE
+      SET enabled=EXCLUDED.enabled,revision=device_soil_ec_execution_configs.revision+1,updated_at=now(),updated_by=EXCLUDED.updated_by`,
+      [siteId,parsed.deviceId,parsed.enabled,actor]);
+    if(!parsed.enabled) {
+      const sessions=await c.query<Session>(`SELECT * FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND device_id=$2
+        AND status IN ('waiting','in_flight','fault') ORDER BY session_id FOR UPDATE`,[siteId,parsed.deviceId]);
+      for(const s of sessions.rows)await stopSession(c,s,'cancelled','ai_execution_disabled');
+    }
+    await c.query('COMMIT');
+  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+  return readSoilEcExecution(parsed.deviceId);
+}
 async function equipment(client: PoolClient, deviceId: string, waterWithPulse: boolean) {
   const result = await client.query(`SELECT c.revision,c.desired_mode,c.applied_mode,c.acknowledged_revision,c.acknowledgement_status,
     c.fertilizer_enabled,st.recorded_at,st.online,st.mode,st.raw_payload,
@@ -68,6 +124,7 @@ export async function startSoilEcSession(input: unknown, actor: string) {
   try {
     await c.query('BEGIN');
     await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`soil-ec:${siteId}:${parsed.deviceId}`]);
+    if(!await executionAllowed(c,parsed.deviceId))fail('Aktifkan AI Fertigasi EC Tanah di Settings terlebih dahulu.');
     const previous = await c.query('SELECT * FROM spff.soil_ec_pulse_sessions WHERE request_id=$1', [parsed.requestId]);
     if (previous.rows[0]) {
       if (previous.rows[0].site_id !== siteId || previous.rows[0].device_id !== parsed.deviceId ||
@@ -134,7 +191,7 @@ export async function advanceSoilEcSession(id: string) {
       AND status IN ('waiting','in_flight') FOR UPDATE SKIP LOCKED`,[id]);
     const s=locked.rows[0]; if(!s){await c.query('COMMIT');return;}
     const p=soilEcPulseProfileSchema.parse(s.profile), now=Date.now();
-    if(!soilEcPulsesEnabled() || s.application_day!==jakartaDay(new Date()) || now-s.started_at.getTime()>p.maxSessionMs) {
+    if(!soilEcPulsesEnabled() || !await executionAllowed(c,s.device_id) || s.application_day!==jakartaDay(new Date()) || now-s.started_at.getTime()>p.maxSessionMs) {
       await stopSession(c,s,'fault','disabled_or_session_timeout');await c.query('COMMIT');return;
     }
     const command=await c.query(`SELECT * FROM spff.soil_ec_pulse_commands WHERE session_id=$1 AND operation='pulse' ORDER BY cycle DESC LIMIT 1`,[id]);
