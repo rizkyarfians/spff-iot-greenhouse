@@ -917,3 +917,5 @@ export function saveWaterInterlock(deviceId:string,expectedRevision:number,enabl
 export function saveSoilEcAutomaticProfile(input:import('@spff/contracts').StartSoilEcSession) {
  return request('/fertigation/automatic-profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})
 }
+
+export const fetchFertigationProgress=(deviceId:string,recipeId?:string,signal?:AbortSignal)=>request<import('@spff/contracts').FertigationProgress>(`/fertigation/progress?deviceId=${encodeURIComponent(deviceId)}${recipeId?`&recipeId=${encodeURIComponent(recipeId)}`:''}`,{signal})

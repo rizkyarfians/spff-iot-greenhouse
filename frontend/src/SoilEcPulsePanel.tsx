@@ -1,3 +1,5 @@
+import {FertigationProgressPanel} from './FertigationProgressPanel'
+import {useFertigationProgress} from './useFertigationProgress'
 import { useEffect, useRef, useState } from 'react'
 import { soilEcPulseProfileSchema, type FertigationRecipe } from '@spff/contracts'
 import { fetchSoilEcPulseSessions, saveSoilEcAutomaticProfile, startSoilEcPulseSession, stopSoilEcPulseSession, releaseSoilEcPulseSession, type SoilEcSessionView } from './api'
@@ -17,6 +19,7 @@ const reasons:Record<string,string> = {
   schedule_priority:'Menunggu jadwal aktif selesai',automatic_session_started:'Sesi AI otomatis dimulai',
   waiting_new_samples:'Menunggu sampel tanah baru', settling:'Menunggu larutan meresap',
   target_confirmation:'Menunggu semua sampel masuk toleransi target', soil_ec_unstable:'Pembacaan EC belum stabil', soil_ec_above_start_threshold:'EC belum di bawah batas mulai',
+  soil_ec_already_sufficient:'EC tanah sudah cukup; AI tidak perlu menyalakan pompa pupuk',
   soil_ec_target_stable:'Target EC tanah tercapai dan stabil', soil_ec_below_target:'Pulse disiapkan dari selisih EC tanah',
   pulse_outcome_unknown:'Hasil pulse belum dapat dipastikan; sesi dihentikan',
   operator_stop:'Dihentikan operator; periksa konfirmasi OFF', pulse_budget_limit:'Batas pemberian tercapai',
@@ -26,6 +29,7 @@ const reasons:Record<string,string> = {
   soil_sensor_invalid_or_stale:'Sensor tanah tidak valid atau terlambat', device_rejected_or_fault:'Perangkat menolak atau melaporkan fault',
 }
 export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:FertigationRecipe;deviceId:string;admin:boolean;operator:boolean;dirty:boolean}) {
+  const progress=useFertigationProgress(deviceId,!!deviceId,recipe.recipeId)
   const [values,setValues]=useState<Record<string,string>>({})
   const [reference,setReference]=useState('')
   const [confirmed,setConfirmed]=useState(false)
@@ -77,6 +81,7 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
   }catch(e){setError(e instanceof Error?e.message:'Gagal menghentikan sesi')}finally{busyRef.current=false;setBusy(false)}}
   const active=sessions.some(s=>['waiting','in_flight','fault'].includes(s.status))
   return <section className="ft-field-group" aria-label="Sesi pulse EC tanah"><h3>Sesi pulse EC tanah</h3>
+    {deviceId&&<FertigationProgressPanel report={progress.report} error={progress.error}/>}
     <p>Server menghitung durasi ON dari selisih EC tanah zona 1. Perangkat menjalankan satu pulse, OFF sendiri, lalu server menunggu pembacaan baru. Tidak menghitung liter stok pupuk.</p>
     <p>Nonaktifkan fertilizer sensor legacy dan tunggu konfigurasi diterapkan sebelum memulai. Target aturan: {recipe.ecTargetUsCm??'belum diisi'} µS/cm. Jadwal tetap berjalan sebagai pemicu terpisah. AI mengevaluasi EC di luar jadwal; jadwal aktif didahulukan. Setelah sesi normal selesai, kontrol jadwal dikembalikan otomatis.</p>
     {!deviceId?<p>Pilih perangkat terlebih dahulu.</p>:!enabled?<p>Eksekusi pulse belum tersedia pada server atau koneksi status gagal. Evaluasi rekomendasi tetap terpisah.</p>:null}

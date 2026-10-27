@@ -1,6 +1,6 @@
 // Dev-only visual fixture. No real API, device commands, or authentication.
 import { createRoot } from 'react-dom/client'
-import { telemetrySensorKeys } from '@spff/contracts'
+import { telemetrySensorKeys, fertigationProgressMetric } from '@spff/contracts'
 import App from '../../src/App'
 import { AuthContext } from '../../src/authContext'
 import '@fontsource/inter/latin-400.css'
@@ -25,7 +25,9 @@ window.fetch = async input => {
   if (url.pathname.includes('/sensors/history')) {
     const key = url.searchParams.get('type') ?? 'soil_1_moisture'
     data = {sensorKey:key,unit:definitions.find(d=>d.sensorKey===key)?.unit ?? '',from:new Date(Date.now()-21600000).toISOString(),to:now,bucket:'5m',bucketMinutes:5,aggregate:'avg',points:Array.from({length:72},(_,i)=>({recordedAt:new Date(Date.now()-(71-i)*300000).toISOString(),time:`${Math.floor(i/12)}:${String(i%12*5).padStart(2,'0')}`,value:40+Math.sin(i/7)*4,average:40+Math.sin(i/7)*4,min:39,max:45,samples:10}))}
-  } else if (url.pathname.endsWith('/fertigation/recipes')) data=[]
+  } else if (url.pathname.endsWith('/fertigation/progress')) data={deviceId:device.deviceId,evaluatedAt:now,day:'2026-10-27',telemetryAt:now,telemetryFresh:true,soilEcBasis:'stable_mean',recipeId:'fixture',cropName:'Tomat',hst:25,ruleAppliesToday:true,executionEnabled:true,profileArmed:true,liquidControlEnabled:false,status:'needs_action',reason:'soil_ec_below_target',nextPulseOnMs:7000,dailyOnMs:20000,dailyLimitMs:60000,soilEcToleranceUsCm:25,
+    soilEc:fertigationProgressMetric('soil','EC tanah','µS/cm',500,1200,600,1500),liquidEc:fertigationProgressMetric('liquid','EC larutan tandon','µS/cm',800,1800,1000,2200),waterTank:fertigationProgressMetric('water','Isi tandon air','%',80,100,20),fertilizerTank:fertigationProgressMetric('fert','Isi tandon pupuk','%',60,100,20)}
+  else if (url.pathname.endsWith('/fertigation/recipes')) data=[]
   else if (url.pathname.endsWith('/datalog')) data={items:sensors.slice(0,10).map(s=>({id:s.id,kind:'sensor',recordedAt:now,parameterKey:s.id,displayName:s.name,value:s.value,unit:s.unit,sensorValid:true,reason:null,state:null,source:null})),pagination:{page:1,pageSize:10,totalItems:34,totalPages:4}}
   else if (url.pathname.endsWith('/alarms')) data={items:[],pagination:{page:1,pageSize:10,totalItems:0,totalPages:1},counts:{open:0,acknowledged:0,resolved:0,criticalActive:0}}
   else if (url.pathname.endsWith('/smart-soil')) data={siteId:device.siteId,zoneId:'soil-1',deviceStatus:'online',reference:null,comparison:[],conditions:{recordedAt:now,sensors:sensors.filter(s=>s.id.startsWith('soil_1')||s.id==='air_temp'||s.id==='air_humidity')}}

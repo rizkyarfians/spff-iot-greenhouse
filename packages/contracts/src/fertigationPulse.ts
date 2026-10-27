@@ -87,6 +87,9 @@ export function decideSoilEcPulse(input: {
   if (values.every(v => Math.abs(v - input.target) <= p.toleranceUsCm))
     return { action: 'complete', reason: 'soil_ec_target_stable', ec };
   if (Math.abs(ec-input.target) <= p.toleranceUsCm) return { action:'wait',reason:'target_confirmation',ec };
+  // An already-sufficient baseline needs no dosing; overshoot after dosing is still a fault.
+  if(input.cycles===0 && values.every(v=>v>=input.target-p.toleranceUsCm))
+    return {action:'complete',reason:'soil_ec_already_sufficient',ec};
   if (ec > input.target + p.toleranceUsCm) return { action: 'fault', reason: 'soil_ec_overshoot', ec };
   if (input.cycles === 0 && values.some(v => v > input.startLow))
     return { action: 'wait', reason: 'soil_ec_above_start_threshold', ec };

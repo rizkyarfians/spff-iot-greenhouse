@@ -15,7 +15,7 @@ export async function observeSoilEcPumpAlert(client: Pick<PoolClient,'query'>, s
 
 // These are routine waiting states, not evidence that starting a pump failed.
 export const soilEcWaitingReasons=new Set(['waiting_evaluation','automatic_session_started','schedule_priority',
-  'waiting_new_samples','settling','target_confirmation','soil_ec_unstable','soil_ec_above_start_threshold','soil_ec_target_stable']);
+  'waiting_new_samples','settling','target_confirmation','soil_ec_unstable','soil_ec_above_start_threshold','soil_ec_target_stable','soil_ec_already_sufficient']);
 
 /** Timer schedules run locally; alert on missing ON confirmation after a 30s grace. */
 export async function observeScheduledPumpAlerts(client:Pick<PoolClient,'query'>,siteId='greenhouse-01') {

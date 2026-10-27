@@ -1,3 +1,4 @@
+import {getFertigationProgress} from '../controllers/fertigationProgressController.js';
 import { getWaterInterlock, putWaterInterlock } from '../controllers/waterInterlockController.js';
 import { getSoilEcExecution,putSoilEcExecution } from '../controllers/soilEcExecutionController.js';
 import { getFertigationPlannerProfile, putFertigationPlannerProfile, postFertigationPlan } from '../controllers/fertigationPlannerController.js';
@@ -210,6 +211,7 @@ apiRouter.get(
 // Simulation is advisory-only and never publishes commands to MQTT.
 apiRouter.get('/settings/water-interlock', getWaterInterlock);
 apiRouter.put('/settings/water-interlock', requireAdmin, requireCsrf, putWaterInterlock);
+apiRouter.get('/fertigation/progress',getFertigationProgress);
 apiRouter.get('/fertigation/pulse-sessions', getSoilEcPulseSessions);
 apiRouter.put('/fertigation/automatic-profile', requireAdmin, requireCsrf, putSoilEcAutomaticProfile);
 apiRouter.get('/settings/soil-ec-execution', getSoilEcExecution);

@@ -73,7 +73,7 @@ export async function setSoilEcExecution(input:unknown,actor:string) {
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   return readSoilEcExecution(parsed.deviceId);
 }
-async function equipment(client: PoolClient, deviceId: string) {
+export async function soilEcEquipment(client: PoolClient, deviceId: string) {
   const result = await client.query(`SELECT c.revision,c.desired_mode,c.applied_mode,c.acknowledged_revision,c.acknowledgement_status,
     c.fertilizer_enabled,st.recorded_at,st.online,st.mode,st.raw_payload,
     ss.revision AS schedule_revision,ss.acknowledged_revision AS schedule_ack,ss.acknowledgement_status AS schedule_status,
@@ -136,7 +136,7 @@ export async function startSoilEcSession(input: unknown, actor: string) {
         fail('Kalibrasi otomatis berubah atau dihentikan operator.');
       automaticRecipeRevision=String(saved.recipe_revision);
     }
-    const equipmentState = await equipment(c, parsed.deviceId);
+    const equipmentState = await soilEcEquipment(c, parsed.deviceId);
     await c.query('SELECT recipe_id FROM spff.fertigation_recipes WHERE recipe_id=$1 AND site_id=$2 FOR SHARE', [parsed.recipeId,siteId]);
     const rule = await getFertigationRecipe(parsed.recipeId);
     validateRule(rule, equipmentState.crop_id);
@@ -226,7 +226,7 @@ export async function advanceSoilEcSession(id: string) {
     }
     let rule: FertigationRecipe|null=null;
     try {
-      const state=await equipment(c,s.device_id);
+      const state=await soilEcEquipment(c,s.device_id);
       await c.query('SELECT recipe_id FROM spff.fertigation_recipes WHERE recipe_id=$1 FOR SHARE',[s.recipe_id]);
       rule=await getFertigationRecipe(s.recipe_id);validateRule(rule,state.crop_id);
       if(String(rule.revision)!==String(s.recipe_revision) || String(state.revision)!==s.rule_snapshot.automaticRevision || state.raw_payload.pulseBootId!==s.rule_snapshot.bootId)
@@ -236,7 +236,7 @@ export async function advanceSoilEcSession(id: string) {
       await stopSession(c,s,scheduled?'cancelled':'fault',scheduled?'schedule_priority':'rule_mode_schedule_or_device_changed');await c.query('COMMIT');return;
     }
     let decision;
-    try { decision=await evaluateSensors(c,s.device_id,rule,p,{afterMs:s.settle_until.getTime(),cycles:s.cycles,
+    try { decision=await evaluateSoilEcSamples(c,s.device_id,rule,p,{afterMs:s.settle_until.getTime(),cycles:s.cycles,
       totalOnMs:Number(s.total_on_ms),previousEc:s.previous_ec,noResponseCycles:s.no_response_cycles}); }
     catch {await stopSession(c,s,'fault','tank_sensor_or_level_invalid');await c.query('COMMIT');return;}
     if(decision.action==='fault'||decision.action==='complete') {
@@ -257,7 +257,7 @@ export async function advanceSoilEcSession(id: string) {
     await c.query('COMMIT');
   } catch(e){await c.query('ROLLBACK');throw e;} finally{c.release();}
 }
-async function evaluateSensors(c:PoolClient,deviceId:string,rule:FertigationRecipe,p:SoilEcPulseProfile,
+export async function evaluateSoilEcSamples(c:PoolClient,deviceId:string,rule:FertigationRecipe,p:SoilEcPulseProfile,
   state:{afterMs:number;cycles:number;totalOnMs:number;previousEc:number|null;noResponseCycles:number}) {
     const readings=await c.query(`SELECT DISTINCT ON(recorded_at) recorded_at,received_at,
       soil_1_ec_us_cm AS ec,soil_1_moisture AS moisture,sensor_health,
@@ -272,13 +272,15 @@ async function evaluateSensors(c:PoolClient,deviceId:string,rule:FertigationReci
     const tankOk=latest && ['tank_water_level_pct','tank_fert_level_pct'].every(k=>
       latest.sensor_health?.[k]?.valid===true && Number.isFinite(latest[k]) && latest[k]>=0 && latest[k]<=100) &&
       latest.tank_water_level_pct>=rule.minWaterTankPercent && latest.tank_fert_level_pct>=rule.minStockTankPercent;
-    if(!tankOk)fail('tank_sensor_or_level_invalid');
     const daily=await c.query(`SELECT COALESCE(sum(total_on_ms),0) AS total FROM spff.soil_ec_pulse_sessions
       WHERE site_id=$1 AND device_id=$2 AND application_day=$3`,[siteId,deviceId,jakartaDay(new Date())]);
-    return decideSoilEcPulse({nowMs:Date.now(),afterMs:state.afterMs,samples,
+    const decision=decideSoilEcPulse({nowMs:Date.now(),afterMs:state.afterMs,samples,
       target:rule.ecTargetUsCm!,high:rule.ecHighUsCm!,startLow:rule.ecLowUsCm!,cycles:state.cycles,
       totalOnMs:state.totalOnMs,dailyOnMs:Number(daily.rows[0].total),previousEc:state.previousEc,
       noResponseCycles:state.noResponseCycles,profile:p});
+    // A sufficient target needs no pumping; tank gates apply before any new ON command.
+    if(decision.action==='pulse'&&!tankOk)fail('tank_sensor_or_level_invalid');
+    return decision;
 }
 export async function readSoilEcAutomaticProfile(deviceId:string) {
   const r=await pool.query('SELECT recipe_id,recipe_revision,profile,armed,reason FROM spff.soil_ec_automatic_profiles WHERE site_id=$1 AND device_id=$2',[siteId,deviceId]);
@@ -337,12 +339,13 @@ export async function evaluateAutomaticSoilEc() {
    const p=soilEcPulseProfileSchema.parse(row.profile),c=await pool.connect();
    let shouldStart=false;
    try {
-    const equipmentState=await equipment(c,row.device_id);
-    const rule=await getFertigationRecipe(row.recipe_id);validateRule(rule,equipmentState.crop_id);
+    const crop=(await c.query("SELECT crop_id FROM spff.site_crop_selections WHERE site_id=$1 AND zone_id='soil-1'",[siteId])).rows[0];
+    const rule=await getFertigationRecipe(row.recipe_id);validateRule(rule,crop?.crop_id);
     if(String(rule.revision)!==String(row.recipe_revision))fail('Aturan berubah; verifikasi dan simpan ulang kalibrasi otomatis.');
-    const decision=await evaluateSensors(c,row.device_id,rule,p,{afterMs:0,cycles:0,totalOnMs:0,previousEc:null,noResponseCycles:0});
+    const decision=await evaluateSoilEcSamples(c,row.device_id,rule,p,{afterMs:0,cycles:0,totalOnMs:0,previousEc:null,noResponseCycles:0});
     reason=decision.reason;
     if(decision.action==='pulse'){
+     await soilEcEquipment(c,row.device_id);
      // start() revalidates mode/rule/ownership under a per-device transaction lock.
      shouldStart=true;
     }

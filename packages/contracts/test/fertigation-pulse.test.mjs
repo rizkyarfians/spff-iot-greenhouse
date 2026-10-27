@@ -76,3 +76,8 @@ test('payload rejects unbounded duration/expiry and completed ACK requires OFF',
  assert.equal(fertigationPulseAckSchema.safeParse(ack).success,false);
  assert.equal(fertigationPulseAckSchema.safeParse({...ack,pumpsOff:true}).success,true);
 });
+test('already-sufficient baseline is normal but overshoot after a pulse and high EC remain faults',()=>{
+ const sufficient=evaluate({samples:samples([1300,1300,1300])});assert.equal(sufficient.action,'complete');assert.equal(sufficient.reason,'soil_ec_already_sufficient');
+ assert.equal(evaluate({samples:samples([1300,1300,1300]),cycles:1}).reason,'soil_ec_overshoot');
+ assert.equal(evaluate({samples:samples([1500,1500,1500])}).reason,'soil_ec_high');
+})

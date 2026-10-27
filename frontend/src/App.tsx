@@ -1,3 +1,5 @@
+import {FertigationProgressPanel} from './FertigationProgressPanel'
+import {useFertigationProgress} from './useFertigationProgress'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
 import { ParameterPicker } from './ParameterPicker'
@@ -1517,6 +1519,8 @@ const soilNpkGroups =
     backendData?.devices[0]
 
 
+  const aiProgress=useFertigationProgress(primaryDevice?.deviceId??'',connectionState==='connected')
+
   const openAlarms =
     backendData?.alarms.filter(
       (alarm) =>
@@ -2112,6 +2116,7 @@ const soilNpkGroups =
           </div>
 
 
+          <FertigationProgressPanel compact report={aiProgress.report} error={aiProgress.error} onOpen={()=>{setNotificationsOpen(false);navigateTo('fertigation')}}/>
           {
             notifications.length === 0
               ? (
@@ -2580,6 +2585,7 @@ const soilNpkGroups =
                     } : current)}
                   />
 
+                  <FertigationProgressPanel report={aiProgress.report} error={aiProgress.error} onOpen={()=>navigateTo('fertigation')}/>
                   <div className="monitoring-grid">
                     <div
                       className={
