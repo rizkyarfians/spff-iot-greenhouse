@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { observeSoilEcPumpAlert, observeSoilEcPumpAlertInTransaction, observeScheduledPumpAlerts, soilEcWaitingReasons } from './soilEcPumpAlerts.js';
 import type { PoolClient } from 'pg';
 import { decideSoilEcPulse, fertigationPulseSchema, startSoilEcSessionSchema,
   soilEcPulseProfileSchema, soilEcExecutionUpdateSchema, type SoilEcExecutionView,
@@ -161,10 +162,12 @@ export async function startSoilEcSession(input: unknown, actor: string) {
       (session_id,request_id,site_id,device_id,recipe_id,application_day,recipe_revision,profile,rule_snapshot,status,requested_by)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'waiting',$10) RETURNING *`, [id,parsed.requestId,siteId,parsed.deviceId,
       rule.recipeId,jakartaDay(new Date()),rule.revision,JSON.stringify(parsed.profile),JSON.stringify({ rule, automaticRevision:String(equipmentState.revision),bootId:equipmentState.raw_payload.pulseBootId }),actor]);
+    await observeSoilEcPumpAlertInTransaction(c,siteId,parsed.deviceId,false,'session_started',id);
     await c.query('COMMIT'); return inserted.rows[0];
   } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
 }
 async function stopSession(c: PoolClient, s: Session, status: 'fault'|'cancelled'|'completed', reason: string, release = false) {
+  if(status==='fault')await observeSoilEcPumpAlertInTransaction(c,siteId,s.device_id,true,reason,s.session_id);
   // Stop is queued even when outcome is uncertain; duration timeout remains local.
   const id = randomUUID(), now = new Date();
   const releaseCycle=release?Number((await c.query("SELECT COALESCE(max(cycle),0)+1 AS cycle FROM spff.soil_ec_pulse_commands WHERE session_id=$1 AND operation='release'",[s.session_id])).rows[0].cycle):0;
@@ -213,7 +216,7 @@ export async function advanceSoilEcSession(id: string) {
     }
     if(last && last.status!=='completed') {
       const scheduled=last.status==='rejected'&&last.ack?.reason==='pulse_schedule_priority';
-      await stopSession(c,s,scheduled?'cancelled':'fault',scheduled?'schedule_priority':'device_rejected_or_fault');await c.query('COMMIT');return;
+      await stopSession(c,s,scheduled?'cancelled':'fault',scheduled?'schedule_priority':(typeof last.ack?.reason==='string'?last.ack.reason:'device_rejected_or_fault'));await c.query('COMMIT');return;
     }
     if(s.status==='in_flight') {
       // Server receive time is authoritative for settling; device clock cannot shorten it.
@@ -323,9 +326,12 @@ export async function evaluateAutomaticSoilEc() {
  if(!soilEcPulsesEnabled())return;
  const ready=await pool.query("SELECT to_regclass('spff.soil_ec_automatic_profiles') IS NOT NULL AS ready");
  if(!ready.rows[0]?.ready)return;
- const profiles=await pool.query(`SELECT p.* FROM spff.soil_ec_automatic_profiles p
-  JOIN spff.device_soil_ec_execution_configs e USING(site_id,device_id) WHERE p.site_id=$1 AND p.armed AND e.enabled`,[siteId]);
+ const profiles=await pool.query(`SELECT e.device_id,p.profile,p.recipe_id,p.recipe_revision FROM spff.device_soil_ec_execution_configs e
+  LEFT JOIN spff.soil_ec_automatic_profiles p USING(site_id,device_id) WHERE e.site_id=$1 AND e.enabled AND (p.armed OR p.device_id IS NULL)`,[siteId]);
  for(const row of profiles.rows){
+  const owned=await pool.query("SELECT 1 FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND device_id=$2 AND status IN ('waiting','in_flight','fault')",[siteId,row.device_id]);
+  if(owned.rowCount)continue;
+  if(!row.profile){await observeSoilEcPumpAlert(pool,siteId,row.device_id,true,'calibration_missing');continue;}
   let reason='waiting_evaluation';
   try {
    const p=soilEcPulseProfileSchema.parse(row.profile),c=await pool.connect();
@@ -346,6 +352,9 @@ export async function evaluateAutomaticSoilEc() {
     reason='automatic_session_started';
    }
   }catch(e){reason=e instanceof Error?e.message:'evaluation_failed';}
+  // A cooldown or outstanding command is normal arbitration, not a failed start.
+  const busy=reason==='Sesi, command, cooldown, atau fault perangkat belum selesai.';
+  if(!busy)await observeSoilEcPumpAlert(pool,siteId,row.device_id,!soilEcWaitingReasons.has(reason),reason);
   await pool.query('UPDATE spff.soil_ec_automatic_profiles SET reason=$3 WHERE site_id=$1 AND device_id=$2',[siteId,row.device_id,reason]);
  }
 }
@@ -356,7 +365,7 @@ export function startSoilEcCoordinator() {
       const r=await pool.query(`SELECT session_id FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND status IN ('waiting','in_flight')`,[siteId]);
       for(const row of r.rows)await advanceSoilEcSession(row.session_id);
       await returnCleanSoilEcOwnership();
-      if(ticks++%5===0)await evaluateAutomaticSoilEc();
+      if(ticks++%5===0){await evaluateAutomaticSoilEc();await observeScheduledPumpAlerts(pool,siteId);}
     })().catch((e:unknown)=>console.error('[soil-ec-coordinator]',e)).finally(()=>{running=false;});},2000);
   timer.unref();return ()=>clearInterval(timer);
 }

@@ -1526,6 +1526,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       command_id: string;
       status: AlarmCommandSubject["status"];
       reason: string | null;
+      requested_is_active: boolean;
       updated_at: Date | string;
     }>(
       `
@@ -1536,10 +1537,11 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           latest.command_id,
           latest.status,
           latest.reason,
+          latest.requested_is_active,
           latest.updated_at
         FROM spff.actuators actuator
         CROSS JOIN LATERAL (
-          SELECT command_id, status, reason, updated_at
+          SELECT command_id, status, reason, updated_at, requested_is_active
           FROM spff.control_commands command
           WHERE command.site_id = actuator.site_id
             AND command.device_id = actuator.device_id
@@ -1573,6 +1575,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       commandId: row.command_id,
       status: row.status,
       reason: row.reason,
+      requestedIsActive: row.requested_is_active,
       updatedAt:
         row.updated_at instanceof Date
           ? row.updated_at.toISOString()

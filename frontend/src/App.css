@@ -303,22 +303,25 @@ input:focus-visible {
   display: block;
 }
 
-.notification-dot {
+.notification-badge {
   position: absolute;
-
-  top: 5px;
-  right: 5px;
-
-  width: 7px;
-  height: 7px;
-
-  border:
-    2px solid #fff;
-
-  border-radius: 50%;
-
-  background:
-    #ef6a5b;
+  top: -4px;
+  right: -7px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #d93332;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .notification-panel {

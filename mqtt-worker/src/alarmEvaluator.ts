@@ -55,6 +55,7 @@ export interface AlarmCommandSubject {
   status: "completed" | "rejected" | "timed_out" | "failed";
   reason: string | null;
   updatedAt: string;
+  requestedIsActive?: boolean;
 }
 
 export interface AlarmRepository {
@@ -319,6 +320,7 @@ export class AlarmEvaluator implements AlarmIngestionObserver {
               source: "health-scan",
               commandId: command.commandId,
               commandStatus: command.status,
+              requestedIsActive: command.requestedIsActive,
               reason: command.reason,
             },
           }),

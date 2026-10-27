@@ -2,6 +2,7 @@ import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
 import { ParameterPicker } from './ParameterPicker'
 import { notificationTime, sensorNotifications } from './sensorNotifications'
+import { alarmNotification, notificationBadgeText } from './alarmNotifications'
 import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
@@ -60,6 +61,7 @@ import {
 
 import {
   fetchBootstrap,
+  fetchAlarms,
   fetchLatestTelemetry,
   fetchSensorHistory,
 } from './api'
@@ -1070,6 +1072,26 @@ function App() {
         }
 
 
+      let alarmLoading=false
+      let alarmQueued=false
+      const loadAlarms=async()=>{
+        if(alarmLoading){alarmQueued=true;return}
+        alarmLoading=true
+        try{do{
+          alarmQueued=false
+          const items: BootstrapData['alarms']=[]
+          for(const status of ['open','acknowledged'] as const){
+            let page=1,totalPages=1
+            do{const data=await fetchAlarms({status,page,pageSize:100,signal:controller.signal})
+              items.push(...data.items);totalPages=data.pagination.totalPages;page++
+            }while(active&&page<=totalPages)
+          }
+          if(active)setBackendData(current=>current?{...current,alarms:items}:current)
+        }while(active&&alarmQueued)}catch(error){if(active)console.error('Alarm refresh failed.',error)}finally{alarmLoading=false}
+      }
+      void loadAlarms()
+      const alarmTimer=window.setInterval(()=>void loadAlarms(),15000)
+
       const events =
         new EventSource(
           '/api/events',
@@ -1099,6 +1121,9 @@ function App() {
         refreshLatest,
       )
 
+      events.addEventListener('alarm.updated',()=>void loadAlarms())
+      events.addEventListener('open',()=>void loadAlarms())
+
       events.addEventListener(
         'automatic_control.updated',
         () => setRefreshVersion(
@@ -1121,6 +1146,7 @@ function App() {
         controller.abort()
 
 
+        window.clearInterval(alarmTimer)
         events.close()
       }
     },
@@ -1502,9 +1528,7 @@ const soilNpkGroups =
   ), clock.getTime())
   const notifications = [
     ...sensorFaultNotifications.map(item => ({ ...item, kind: 'sensor' as const })),
-    ...openAlarms.map(alarm => ({ id: `alarm:${alarm.id}`, title: alarm.title,
-      description: alarm.description, kind: 'alarm' as const, sensorKey: '',
-      timestamp: alarm.triggeredAt ?? alarm.createdAt, timestampLabel: 'Waktu kejadian', details: [] })),
+    ...openAlarms.map(alarmNotification),
   ]
   const notificationKeys = JSON.stringify(notifications.map(item => item.id))
   const unreadNotificationCount = notifications.filter(item => !readNotificationIds.includes(item.id)).length
@@ -2034,7 +2058,7 @@ const soilNpkGroups =
     <button
       className="compact-icon-button"
       type="button"
-      aria-label="Buka notifikasi"
+      aria-label={unreadNotificationCount>0?`Buka notifikasi, ${unreadNotificationCount} belum dibaca`:'Buka notifikasi'}
       aria-expanded={
         notificationsOpen
       }
@@ -2055,7 +2079,7 @@ const soilNpkGroups =
       {
         unreadNotificationCount > 0
         && (
-          <span className="notification-dot" />
+          <span className="notification-badge" aria-hidden="true">{notificationBadgeText(unreadNotificationCount)}</span>
         )
       }
     </button>

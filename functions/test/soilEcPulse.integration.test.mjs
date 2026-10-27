@@ -40,6 +40,7 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
       UPDATE spff.device_schedule_sync_state SET acknowledged_revision=revision,acknowledgement_status='applied';
       INSERT INTO spff.device_status_events(site_id,device_id,message_id,recorded_at,online,mode,raw_payload)
         VALUES('greenhouse-01','esp32-s3-01','status-test',now(),true,'automatic','{"serverPulseCapable":true,"independentSoilEcCapable":true,"pulseBootId":"0123456789abcdef"}');`);
+    await query("INSERT INTO spff.alarm_rules(site_id,rule_key,source_type,source_key,comparator,severity,trigger_count,recovery_count,title,description,recommendation) VALUES('greenhouse-01','command_failed','system','control_command','failed','critical',1,1,'Command aktuator gagal','Perintah gagal','Periksa ACK')");
     const {createFertigationRecipe}=await import('../lib/services/fertigationRepository.js');
     const {jakartaDay}=await import('../lib/services/fertigationSchedule.js');
     const service=await import('../lib/services/soilEcPulseService.js');
@@ -145,6 +146,7 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
     await query("UPDATE spff.telemetry_samples SET recorded_at=now()-interval '10 minutes'");
     await service.evaluateAutomaticSoilEc();
     assert.equal((await query('SELECT * FROM spff.soil_ec_pulse_sessions')).rows.length,1);
+    assert.equal((await query("SELECT metadata->>'reason' AS reason FROM spff.alarms WHERE incident_key='soil_ec_execution:pump_fert' AND status='open'")).rows[0]?.reason,'soil_sensor_invalid_or_stale');
     await readings(400);
     await query('UPDATE spff.soil_ec_pulse_sessions SET total_on_ms=60000 WHERE session_id=$1',[s.session_id]);
     await service.evaluateAutomaticSoilEc();
@@ -153,6 +155,7 @@ test('soil EC session SQL lifecycle, dispatch identity, durable ACKs and one-pul
     await query('UPDATE spff.soil_ec_pulse_sessions SET total_on_ms=20000 WHERE session_id=$1',[s.session_id]);
     await service.evaluateAutomaticSoilEc();await service.evaluateAutomaticSoilEc();
     const automaticSession=(await query("SELECT * FROM spff.soil_ec_pulse_sessions WHERE requested_by='soil-ec:auto'")).rows[0];
+    assert.equal((await query("SELECT count(*)::integer AS n FROM spff.alarms WHERE incident_key='soil_ec_execution:pump_fert' AND status='open'")).rows[0].n,0);
     assert.ok(automaticSession);assert.equal((await query('SELECT * FROM spff.soil_ec_pulse_sessions')).rows.length,2);
     await service.cancelSoilEcSession(automaticSession.session_id);
     assert.equal((await service.readSoilEcAutomaticProfile(input.deviceId)).armed,false);
