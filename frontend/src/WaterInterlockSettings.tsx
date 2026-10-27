@@ -2,6 +2,8 @@ import { useEffect,useId,useRef,useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ApiDevice,WaterInterlockView } from '@spff/contracts'
 import { fetchWaterInterlock,saveWaterInterlock } from './api'
+import { SettingsSwitchNotice } from './SettingsSwitchNotice'
+import { switchSaveError,type SwitchNotice } from './settingsSwitchFeedback'
 import './WaterInterlockSettings.css'
 
 type Proposal={deviceId:string;revision:number;enabled:boolean}
@@ -16,6 +18,8 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
   const [busy,setBusy]=useState(false)
   const [loadError,setLoadError]=useState('')
   const [saveError,setSaveError]=useState('')
+  const [notice,setNotice]=useState<SwitchNotice|null>(null)
+  const notified=useRef('')
   const dialog=useRef<HTMLDialogElement>(null)
   const busyRef=useRef(false),generation=useRef(0),requestEpoch=useRef(0)
   const titleId=useId(),descriptionId=useId()
@@ -24,7 +28,7 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
   useEffect(()=>{
     const current=++generation.current
     let cancelled=false,running=false
-    setView(null);setLoadError('')
+    setView(null);setLoadError('');setNotice(null);notified.current=''
     if(!deviceId)return
     const refresh=async()=>{
       if(running||busyRef.current)return
@@ -57,20 +61,33 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
   function close(){if(!busyRef.current)setOpen(false)}
   async function confirm(){
     if(!proposal||proposal.deviceId!==deviceId||!admin||!connected||busyRef.current||saved)return
-    busyRef.current=true;requestEpoch.current++;setBusy(true);setSaveError('')
+    busyRef.current=true;requestEpoch.current++;setBusy(true);setSaveError('');setNotice(null);notified.current=''
     const current=generation.current
     try{
       const next=await saveWaterInterlock(deviceId,proposal.revision,proposal.enabled)
       if(current===generation.current){setView(next);setSaved(true)}
-    }catch(e){if(current===generation.current)setSaveError(e instanceof Error?e.message:'Gagal menyimpan interlock.')}
+    }catch(e){if(current===generation.current){const message=switchSaveError(e);setSaveError(message);setNotice({kind:'error',message:`Perubahan interlock belum terkonfirmasi. ${message}`})}}
     finally{busyRef.current=false;setBusy(false)}
   }
   const confirmed=view?.acknowledgementStatus==='applied'&&view.acknowledgedRevision===view.revision&&view.appliedEnabled===view.enabled
   const reported=view?.online&&view.reportedRevision===view.revision&&view.reportedEnabled===view.enabled
   const rejected=view?.acknowledgementStatus==='rejected'
+  useEffect(()=>{
+    if(!saved||!view)return
+    const state=rejected?'rejected':confirmed&&reported?'applied':'pending'
+    const key=`${deviceId}:${view.revision}:${state}`
+    if(notified.current===key)return
+    notified.current=key
+    setNotice(rejected
+      ?{kind:'error',message:`Firmware menolak perubahan interlock. ${view.reason??'Periksa perangkat.'}`}
+      :confirmed&&reported
+        ?{kind:'success',message:`Interlock tandon air ${view.enabled?'aktif':'nonaktif'}; perangkat sudah mengonfirmasi.`}
+        :{kind:'warning',message:'Pengaturan interlock tersimpan. Menunggu konfirmasi perangkat; perubahan belum dianggap diterapkan.'})
+  },[saved,view,deviceId,rejected,confirmed,reported])
   const status=rejected?'Perangkat menolak perubahan.':confirmed&&reported?'Perubahan sudah diterapkan pada perangkat.':'Tersimpan. Menunggu konfirmasi perangkat.'
   const action=proposal?.enabled?'Aktifkan':'Nonaktifkan'
   return <div className="setting-toggle-row">
+    {!open&&notice&&createPortal(<SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>,document.body)}
     <div><strong>Interlock Tandon Air</strong></div>
     <button className={`switch ${view?.enabled!==false?'is-on':''}`} type="button" role="switch"
       aria-label="Interlock tandon air" aria-checked={view?.enabled??true} aria-busy={busy}
@@ -78,6 +95,7 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
     {open&&createPortal(<dialog ref={dialog} className="water-interlock-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
       onCancel={event=>{if(busyRef.current)event.preventDefault();else setOpen(false)}}
       onClick={event=>{if(event.target===event.currentTarget)close()}}>
+      <SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>
       <h2 id={titleId}>{saved?'Interlock Tandon Air':`${action} interlock tandon air?`}</h2>
       {devices.length>1&&!saved&&<label className="field-label"><span>Perangkat</span>
         <select value={deviceId} disabled={busy} onChange={event=>{setChosen(event.target.value);setProposal(null);setSaveError('')}}>

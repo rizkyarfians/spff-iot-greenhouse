@@ -897,19 +897,19 @@ export function releaseSoilEcPulseSession(id:string) {
 }
 
 export function fetchWaterInterlock(deviceId:string){
-  return request<import('@spff/contracts').WaterInterlockView>(`/settings/water-interlock?deviceId=${encodeURIComponent(deviceId)}`)
+  return request<import('@spff/contracts').WaterInterlockView>(`/settings/water-interlock?deviceId=${encodeURIComponent(deviceId)}`,{signal:AbortSignal.timeout(15000)})
 }
 
 export function fetchSoilEcExecution(deviceId:string){
-  return request<import('@spff/contracts').SoilEcExecutionView>(`/settings/soil-ec-execution?deviceId=${encodeURIComponent(deviceId)}`)
+  return request<import('@spff/contracts').SoilEcExecutionView>(`/settings/soil-ec-execution?deviceId=${encodeURIComponent(deviceId)}`,{signal:AbortSignal.timeout(15000)})
 }
 export function saveSoilEcExecution(deviceId:string,expectedRevision:number,enabled:boolean){
   return request<import('@spff/contracts').SoilEcExecutionView>('/settings/soil-ec-execution',{
-    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,expectedRevision,enabled}),
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,expectedRevision,enabled}),signal:AbortSignal.timeout(15000),
   })
 }
 export function saveWaterInterlock(deviceId:string,expectedRevision:number,enabled:boolean){
   return request<import('@spff/contracts').WaterInterlockView>('/settings/water-interlock',{
-    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,expectedRevision,enabled}),
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,expectedRevision,enabled}),signal:AbortSignal.timeout(15000),
   })
 }

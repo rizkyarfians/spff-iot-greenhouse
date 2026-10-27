@@ -5,3 +5,9 @@
 .water-interlock-dialog .water-interlock-device { color: #65766e; font-size: 12px; }
 .water-interlock-dialog [role="alert"] { color: #b53b34; }
 .water-interlock-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.settings-switch-notice { position: fixed; z-index: 2000; top: max(16px, env(safe-area-inset-top)); right: 16px; display: flex; align-items: flex-start; gap: 12px; box-sizing: border-box; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 14px 16px; border: 1px solid #52786c; border-radius: 12px; background: #f4faf7; color: #174638; box-shadow: 0 8px 28px #123c3526; }
+.settings-switch-notice p { margin: 0; flex: 1; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.settings-switch-notice button { flex: 0 0 28px; min-height: 32px; border: 0; background: transparent; color: inherit; font-size: 24px; cursor: pointer; }
+.settings-switch-notice--error { border-color: #b53b34; background: #fff4f2; color: #8d2822; }
+.settings-switch-notice--warning { border-color: #a96d19; background: #fff9e9; color: #795013; }
+.settings-switch-notice--info { border-color: #406a98; background: #f0f6ff; color: #254e79; }

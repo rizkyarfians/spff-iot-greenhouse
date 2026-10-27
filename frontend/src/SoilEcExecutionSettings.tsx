@@ -2,6 +2,8 @@ import { useEffect,useId,useRef,useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ApiDevice,SoilEcExecutionView } from '@spff/contracts'
 import { fetchSoilEcExecution,saveSoilEcExecution } from './api'
+import { SettingsSwitchNotice } from './SettingsSwitchNotice'
+import { switchSaveError,type SwitchNotice } from './settingsSwitchFeedback'
 import './WaterInterlockSettings.css'
 
 export function SoilEcExecutionSettings({devices,admin,connected}:{devices:ApiDevice[];admin:boolean;connected:boolean}) {
@@ -12,11 +14,13 @@ export function SoilEcExecutionSettings({devices,admin,connected}:{devices:ApiDe
   const [proposal,setProposal]=useState<{deviceId:string;revision:number;enabled:boolean}|null>(null)
   const [open,setOpen]=useState(false),[saved,setSaved]=useState(false),[busy,setBusy]=useState(false)
   const [error,setError]=useState('')
+  const [saveError,setSaveError]=useState('')
+  const [notice,setNotice]=useState<SwitchNotice|null>(null)
   const dialog=useRef<HTMLDialogElement>(null),busyRef=useRef(false),generation=useRef(0),epoch=useRef(0)
   const title=useId(),description=useId()
   useEffect(()=>{
     const current=++generation.current
-    setStored(null);setError('');setProposal(null)
+    setStored(null);setError('');setSaveError('');setNotice(null);setProposal(null)
     if(!deviceId)return
     let running=false,cancelled=false
     async function refresh(){
@@ -39,20 +43,28 @@ export function SoilEcExecutionSettings({devices,admin,connected}:{devices:ApiDe
   useEffect(()=>{
     if(open&&view&&!proposal&&!saved)setProposal({deviceId,revision:view.revision,enabled:!view.enabled})
   },[open,view,proposal,saved,deviceId])
-  function show(){setProposal(view?{deviceId,revision:view.revision,enabled:!view.enabled}:null);setSaved(false);setOpen(true)}
+  function show(){setProposal(view?{deviceId,revision:view.revision,enabled:!view.enabled}:null);setSaveError('');setSaved(false);setOpen(true)}
   function close(){if(!busyRef.current)setOpen(false)}
   async function confirm(){
     if(!proposal||proposal.deviceId!==deviceId||!admin||!connected||busyRef.current||saved)return
-    busyRef.current=true;epoch.current++;setBusy(true);setError('')
+    busyRef.current=true;epoch.current++;setBusy(true);setSaveError('');setNotice(null)
     const current=generation.current
     try {
       const next=await saveSoilEcExecution(deviceId,proposal.revision,proposal.enabled)
-      if(current===generation.current){setStored(next);setSaved(true)}
-    }catch(e){if(current===generation.current)setError(e instanceof Error?e.message:'Gagal menyimpan pengaturan AI.')}
+      if(current===generation.current){
+        setStored(next);setSaved(true)
+        setNotice(next.enabled
+          ?{kind:next.capable?'success':'warning',message:next.capable?'Izin AI berhasil diaktifkan. Sesi belum dimulai.':'Izin AI tersimpan aktif, tetapi firmware belum melaporkan kesiapan pulse. Sesi belum dimulai.'}
+          :next.unconfirmedStopSessions>0
+            ?{kind:'warning',message:'AI dinonaktifkan di server. Stop pompa belum terkonfirmasi; periksa ACK dan perangkat.'}
+            :{kind:'success',message:'Izin AI berhasil dinonaktifkan. Pulse baru diblokir.'})
+      }
+    }catch(e){if(current===generation.current){const message=switchSaveError(e);setSaveError(message);setNotice({kind:'error',message:`Perubahan AI belum terkonfirmasi. ${message}`})}}
     finally{busyRef.current=false;setBusy(false)}
   }
   const action=proposal?.enabled?'Aktifkan':'Nonaktifkan'
   return <div className="setting-toggle-row">
+    {!open&&notice&&createPortal(<SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>,document.body)}
     <div><strong>AI Fertigasi EC Tanah</strong></div>
     <button type="button" className={`switch ${view?.enabled?'is-on':''}`} role="switch"
       aria-label="AI fertigasi EC tanah" aria-checked={view?.enabled??false} aria-busy={busy} aria-haspopup="dialog"
@@ -60,6 +72,7 @@ export function SoilEcExecutionSettings({devices,admin,connected}:{devices:ApiDe
     {open&&createPortal(<dialog ref={dialog} className="water-interlock-dialog" aria-labelledby={title} aria-describedby={description}
       onCancel={event=>{if(busyRef.current)event.preventDefault();else setOpen(false)}}
       onClick={event=>{if(event.target===event.currentTarget)close()}}>
+      <SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>
       <h2 id={title}>{saved?'AI Fertigasi EC Tanah':`${action} AI fertigasi?`}</h2>
       {devices.length>1&&!saved&&<label className="field-label"><span>Perangkat</span>
         <select disabled={busy} value={deviceId} onChange={e=>{setChosen(e.target.value);setProposal(null)}}>
@@ -75,6 +88,7 @@ export function SoilEcExecutionSettings({devices,admin,connected}:{devices:ApiDe
       {view&&!view.capable&&<p>Firmware belum melaporkan dukungan pulse yang aktif dan segar. Izin tersimpan tidak berarti perangkat siap.</p>}
       {!!view?.unconfirmedStopSessions&&<p role="status">{view.unconfirmedStopSessions} sesi belum memiliki konfirmasi stop/release dengan pompa OFF. Periksa ACK dan perangkat.</p>}
       {error&&<p role="alert">{error}</p>}
+      {saveError&&<p role="alert">{saveError}</p>}
       <div className="water-interlock-dialog-actions">
         <button className="secondary-button" type="button" disabled={busy} onClick={close}>{saved?'Tutup':'Batal'}</button>
         {!saved&&<button className="primary-button" type="button" onClick={()=>void confirm()}
