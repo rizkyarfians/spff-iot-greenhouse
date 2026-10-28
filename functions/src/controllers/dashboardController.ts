@@ -470,6 +470,20 @@ export const createSchedule = run(async (req, res) => {
   return res.status(201).json({ success: true, data: schedule, message: 'Jadwal tersimpan di PostgreSQL.' });
 });
 
+export const updateSchedule = run(async (req,res) => {
+  const {onTime,offTime,repeatRule,expectedUpdatedAt}=req.body ?? {};
+  const runDate=req.body?.runDate ?? null;
+  if(!isTime(onTime)||!isTime(offTime)||!['daily','weekdays','weekends','once'].includes(repeatRule)
+    ||(repeatRule==='once'?(!isDate(runDate)||new Date(`${runDate}T00:00:00Z`).toISOString().slice(0,10)!==runDate):runDate!==null)
+    ||typeof expectedUpdatedAt!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(expectedUpdatedAt)||!Number.isFinite(Date.parse(expectedUpdatedAt))||new Date(expectedUpdatedAt).toISOString()!==expectedUpdatedAt) {
+    return res.status(400).json({success:false,message:'Isian perubahan jadwal tidak valid.',errors:[]});
+  }
+  if(onTime>=offTime)return res.status(400).json({success:false,message:'Jam nonaktif harus setelah jam aktif pada hari yang sama.',errors:['offTime']});
+  const schedule=await repository.updateSchedule(String(req.params.id),{onTime,offTime,repeatRule,runDate,expectedUpdatedAt});
+  if(!schedule)return res.status(409).json({success:false,message:'Jadwal sudah berubah atau tidak tersedia. Muat ulang daftar sebelum mengedit lagi.',errors:[]});
+  return ok(res,schedule,'Perubahan jadwal tersimpan dan menunggu sinkronisasi ke alat.');
+});
+
 export const setScheduleEnabled = run(async (req, res) => {
   if (typeof req.body?.enabled !== 'boolean') {
     return res.status(400).json({ success: false, message: 'enabled harus boolean.', errors: ['enabled'] });

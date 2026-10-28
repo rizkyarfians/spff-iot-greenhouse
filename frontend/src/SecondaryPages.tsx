@@ -1,3 +1,5 @@
+import {mergeAutomaticDraft} from './automaticDraftState'
+import {isAutomaticControlConfig} from '@spff/contracts'
 import { WaterInterlockSettings } from './WaterInterlockSettings'
 import { SoilEcExecutionSettings } from './SoilEcExecutionSettings'
 import { FertigationPage } from './FertigationPage'
@@ -25,6 +27,7 @@ import {
   Leaf,
   MapPin,
   Plus,
+  Pencil,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -36,6 +39,7 @@ import {
 import {
   acknowledgeAlarm as acknowledgeAlarmRequest,
   createSchedule as createScheduleRequest,
+  updateSchedule as updateScheduleRequest,
   deleteSchedule as deleteScheduleRequest,
   fetchDatalog,
   fetchDatalogExport,
@@ -704,6 +708,7 @@ function ControlsPage({
   const [sensorPump, setSensorPump] = useState<'water' | 'fertilizer'>('water')
   const [showScheduleForm, setShowScheduleForm] = useState(false)
   const [savingSchedule, setSavingSchedule] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState<{id:string;updatedAt:string}|null>(null)
 
 
   const [
@@ -821,16 +826,14 @@ function ControlsPage({
         }
       : null
 
-  useEffect(
-    () => {
-      setAutomaticDraft(
-        automaticControlDraft(data?.automaticControl),
-      )
-    },
-    [
-      data?.automaticControl,
-    ],
-  )
+  const automaticSourceKey=JSON.stringify(automaticControlDraft(data?.automaticControl))
+  const previousAutomaticSource=useRef(automaticSourceKey)
+  const automaticDirty=JSON.stringify(automaticDraft)!==automaticSourceKey
+  useEffect(()=>{
+    const previous=previousAutomaticSource.current
+    setAutomaticDraft(current=>mergeAutomaticDraft(current,previous,automaticSourceKey))
+    previousAutomaticSource.current=automaticSourceKey
+  },[automaticSourceKey])
 
 
   useEffect(
@@ -942,6 +945,11 @@ function ControlsPage({
       setControlTab('sensor')
       return
     }
+    if(connectionState!=='connected') {setModeSaveError('Sambungkan sistem sebelum menerapkan aturan.');return}
+    if(!isAutomaticControlConfig(supportedNext)) {
+      setModeSaveError('Lengkapi aturan pompa yang diaktifkan, termasuk Pengaman pompa. Batas mulai harus lebih kecil dari target; EC target harus di bawah batas maksimum.')
+      setControlTab('sensor');return
+    }
     setSavingAutomatic(true)
     setModeSaveError('')
     setModeRequest(null)
@@ -952,7 +960,7 @@ function ControlsPage({
       setModeRequest({ mode: saved.desiredMode, revision: saved.revision })
       onRefresh()
     } catch (error) {
-      setModeSaveError('Pilihan mode belum berhasil disimpan. '
+      setModeSaveError('Pengaturan belum berhasil disimpan. '
         + (error instanceof Error ? error.message : 'Coba lagi dan periksa sambungan.'))
     } finally {
       setSavingAutomatic(false)
@@ -1120,9 +1128,9 @@ function ControlsPage({
       event.preventDefault()
 
 
-      if (!isAdmin) {
+      if (!isAdmin || savingSchedule || connectionState !== 'connected') {
         setCommandNotice(
-          'Hanya admin yang dapat menambah jadwal.',
+          'Hanya admin yang tersambung yang dapat menyimpan jadwal.',
         )
 
         return
@@ -1161,7 +1169,7 @@ function ControlsPage({
 
       try {
         setSavingSchedule(true)
-        await createScheduleRequest({
+        const input = {
           deviceId:
             actuator.deviceId,
 
@@ -1182,13 +1190,14 @@ function ControlsPage({
             === 'once'
               ? scheduleDraft.runDate
               : null,
-        })
-
-
-        setCommandNotice(
-          'Jadwal berhasil disimpan.',
-        )
+        }
+        if(editingSchedule) {
+          await updateScheduleRequest(editingSchedule.id,{onTime:input.onTime,offTime:input.offTime,
+            repeatRule:input.repeatRule,runDate:input.runDate,expectedUpdatedAt:editingSchedule.updatedAt})
+        } else await createScheduleRequest(input)
+        setCommandNotice(editingSchedule?'Perubahan jadwal tersimpan. Menunggu sinkronisasi ke alat.':'Jadwal berhasil disimpan.')
         setShowScheduleForm(false)
+        setEditingSchedule(null)
 
         onRefresh()
       } catch (error) {
@@ -1463,7 +1472,7 @@ function ControlsPage({
         <div className="schedule-card-header">
 
 
-          <button className="primary-button" type="button" aria-expanded={showScheduleForm} aria-controls="schedule-form-panel" onClick={() => { setCommandNotice(''); setShowScheduleForm(!showScheduleForm) }} disabled={!isAdmin || connectionState !== 'connected'}>Tambah Jadwal</button>
+          <button className="primary-button" type="button" aria-expanded={showScheduleForm} aria-controls="schedule-form-panel" onClick={() => { setCommandNotice(''); setEditingSchedule(null); setShowScheduleForm(!showScheduleForm) }} disabled={!isAdmin || savingSchedule || connectionState !== 'connected'}>Tambah Jadwal</button>
           <div className="schedule-summary">
             <CalendarClock
               size={19}
@@ -1487,12 +1496,13 @@ function ControlsPage({
 
 
         <section className="controls-schedule-panel" id="schedule-form-panel" hidden={!showScheduleForm} aria-labelledby="schedule-form-title">
-          <div className="controls-section-heading"><h2 id="schedule-form-title">Tambah Jadwal</h2><button type="button" className="secondary-button" onClick={() => setShowScheduleForm(false)}>Tutup</button></div>
+          <div className="controls-section-heading"><h2 id="schedule-form-title">{editingSchedule ? 'Edit Jadwal' : 'Tambah Jadwal'}</h2><button type="button" className="secondary-button" disabled={savingSchedule} onClick={() => {setShowScheduleForm(false);setEditingSchedule(null)}}>Batal</button></div>
+          {editingSchedule&&<p className="controls-message">Mengubah waktu dan pengulangan untuk pompa yang sama. Status aktif/nonaktif jadwal tetap mengikuti pengaturan saat ini. Perubahan berlaku setelah jadwal diterima alat.</p>}
           {commandNotice && <p role="status">{commandNotice}</p>}
         <form
           className="schedule-builder"
           onSubmit={addSchedule}
-          aria-disabled={!isAdmin}
+          aria-disabled={!isAdmin || savingSchedule}
         >
           <label className="schedule-field">
             <span>
@@ -1515,7 +1525,7 @@ function ControlsPage({
               }
               disabled={
                 controls.length === 0
-                || !isAdmin
+                || !isAdmin || savingSchedule || !!editingSchedule
               }
             >
               {
@@ -1541,7 +1551,7 @@ function ControlsPage({
 
             <div className="time-select-group">
               <select
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingSchedule}
                 aria-label="Jam aktif"
                 value={
                   scheduleDraft.onTime
@@ -1576,7 +1586,7 @@ function ControlsPage({
               </span>
 
               <select
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingSchedule}
                 aria-label="Menit aktif"
                 value={
                   scheduleDraft.onTime
@@ -1616,7 +1626,7 @@ function ControlsPage({
 
             <div className="time-select-group">
               <select
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingSchedule}
                 aria-label="Jam nonaktif"
                 value={
                   scheduleDraft.offTime
@@ -1651,7 +1661,7 @@ function ControlsPage({
               </span>
 
               <select
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingSchedule}
                 aria-label="Menit nonaktif"
                 value={
                   scheduleDraft.offTime
@@ -1693,7 +1703,7 @@ function ControlsPage({
               value={
                 scheduleDraft.repeatRule
               }
-              disabled={!isAdmin}
+              disabled={!isAdmin || savingSchedule}
               onChange={(event) => {
                 const repeatRule:
                 ScheduleRepeatRule =
@@ -1748,7 +1758,7 @@ function ControlsPage({
                   value={
                     scheduleDraft.runDate
                   }
-                  disabled={!isAdmin}
+                  disabled={!isAdmin || savingSchedule}
                   min={
                     new Date()
                       .toLocaleDateString(
@@ -1927,13 +1937,19 @@ function ControlsPage({
                             )
                           }
                           disabled={
-                            !isAdmin
-
+                            !isAdmin || savingSchedule || connectionState !== 'connected'
                           }
                         >
                           <span />
                         </button>
 
+
+                        <button type="button" className="schedule-edit-button" disabled={!isAdmin || savingSchedule || connectionState!=='connected' || !schedule.updatedAt}
+                          onClick={()=>{if(!schedule.updatedAt)return;setEditingSchedule({id:schedule.id,updatedAt:schedule.updatedAt});
+                            setScheduleDraft({controlId:schedule.actuatorKey,onTime:schedule.onTime,offTime:schedule.offTime,repeatRule:schedule.repeatRule,runDate:schedule.runDate??jakartaDateInputValue()});
+                            setCommandNotice('');setShowScheduleForm(true);
+                            window.requestAnimationFrame(()=>document.getElementById('schedule-form-panel')?.scrollIntoView({block:'nearest',behavior:'smooth'}));
+                          }} aria-label={`Edit jadwal ${schedule.actuatorName} ${schedule.onTime}`}><Pencil size={15} aria-hidden="true"/> Edit</button>
 
                         <button
                           className="schedule-delete-button"
@@ -1946,7 +1962,7 @@ function ControlsPage({
                               schedule.id,
                             )
                           }
-                          disabled={!isAdmin}
+                          disabled={!isAdmin || savingSchedule || connectionState !== 'connected'}
                         >
                           <Trash2
                             size={15}
@@ -1993,53 +2009,41 @@ function ControlsPage({
 
       {controlTab === 'sensor' && (
       <div className="automatic-control-card">
-        <div className="automatic-control-header">
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() => void saveAutomatic()}
-            disabled={
-              !isAdmin
-              || savingAutomatic
-            }
-          >
-            {savingAutomatic ? 'Menyimpan...' : 'Simpan Parameter'}
-          </button>
+        <div className="sensor-rules-intro"><div><h2>Aturan sensor pompa</h2><p>Pilih pompa, atur kapan bekerja, lalu terapkan aturan ke alat.</p></div>
+          <span className={`sensor-apply-state${automaticDirty?' is-draft':''}`}>{automaticDirty?'Ada perubahan belum diterapkan':automaticApplied?'Diterapkan pada alat':'Menunggu konfirmasi alat'}</span>
         </div>
-
-        <div className="segmented-control controls-pump-selector" role="group" aria-label="Pilih pompa">
-          <button type="button" className={sensorPump === 'water' ? 'is-selected' : ''} onClick={() => setSensorPump('water')}>Pompa Air</button>
-          <button type="button" className={sensorPump === 'fertilizer' ? 'is-selected' : ''} onClick={() => setSensorPump('fertilizer')}>Pompa Pupuk</button>
+        <div className="sensor-pump-cards" role="group" aria-label="Pilih aturan pompa">
+          {(['water','fertilizer'] as const).map(kind=>{
+            const enabled=automaticDraft[kind].enabled
+            const Icon=kind==='water'?ShowerHead:FlaskConical
+            return <button type="button" key={kind} className={`sensor-pump-card${sensorPump===kind?' is-selected':''}`} aria-pressed={sensorPump===kind} onClick={()=>setSensorPump(kind)}>
+              <Icon size={22} aria-hidden="true"/><span><strong>{kind==='water'?'Pompa Air':'Pompa Pupuk'}</strong><small>{kind==='water'?'Dari kelembapan tanah':'Dari EC larutan tandon'}</small></span>
+              <b className={`sensor-rule-badge${enabled?' is-on':''}`}>{enabled?'Aturan aktif':'Aturan nonaktif'}</b>
+            </button>
+          })}
         </div>
-        <p className="controls-message" role="status">
-          {(sensorPump === 'water' ? automaticDraft.water.minFlowLpm : automaticDraft.fertilizer.minFlowLpm) == null
-            ? 'Minimum debit belum diisi.'
-            : (sensorPump === 'water' ? automaticDraft.water.minFlowLpm : automaticDraft.fertilizer.minFlowLpm) === 0
-              ? 'Minimum debit 0: pemeriksaan debit rendah dinonaktifkan pada konfigurasi ini.'
-              : 'Minimum debit sudah diisi. Gunakan nilai hasil kalibrasi dan pastikan konfigurasi diterapkan pada alat.'}
-        </p>
         <div className="automatic-profile-grid">
           <section className="automatic-profile" hidden={sensorPump !== 'water'}>
             <div className="automatic-profile-heading">
               <div>
                 <strong>Pompa Air</strong>
               </div>
-              <label className="automatic-enable">
-                <input
-                  type="checkbox"
-                  checked={automaticDraft.water.enabled}
-                  disabled={!isAdmin}
-                  onChange={(event) => updateWater({ enabled: event.target.checked })}
-                />
-                Aktif
-              </label>
+              <button type="button" className={`sensor-enable-card${automaticDraft.water.enabled?' is-enabled':''}`} role="switch" aria-checked={automaticDraft.water.enabled}
+                aria-label="Gunakan aturan sensor pompa air" disabled={!isAdmin || savingAutomatic}
+                onClick={()=>updateWater({enabled:!automaticDraft.water.enabled})}>
+                <span><strong>{automaticDraft.water.enabled?'Aturan sensor aktif':'Aturan sensor nonaktif'}</strong><small>Gunakan kelembapan tanah untuk memicu penyiraman.</small></span>
+                <span className="sensor-enable-switch" aria-hidden="true"><span/></span>
+              </button>
             </div>
 
+            <div className="sensor-rule-summary"><strong>Aturan yang akan diterapkan</strong><p>{automaticDraft.water.enabled
+              ? `Siram saat ${automaticDraft.water.sensorKey==='soil_1_moisture'?'kelembapan tanah 1':'kelembapan tanah 2'} mencapai ${automaticDraft.water.moistureLowPercent??'—'}% atau lebih rendah. Berhenti saat mencapai ${automaticDraft.water.moistureTargetPercent??'—'}%.`
+              : 'Pemicu dari sensor tanah dimatikan untuk pompa air.'}</p><small>Perlu {automaticDraft.water.triggerSampleCount} pembacaan pemicu. Batas menyala: {automaticDraft.water.maxRuntimeSeconds??'belum diisi'} detik.</small></div>
             <label className="automatic-field">
               <span>Sensor utama</span>
               <select
                 value={automaticDraft.water.sensorKey}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(event) => updateWater({
                   sensorKey: event.target.value === 'soil_2_moisture'
                     ? 'soil_2_moisture'
@@ -2058,7 +2062,7 @@ function ControlsPage({
                 unit="%"
                 max={100}
                 step={0.1}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateWater({ moistureLowPercent: value })}
               />
               <AutomaticNumberField
@@ -2067,17 +2071,17 @@ function ControlsPage({
                 unit="%"
                 max={100}
                 step={0.1}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateWater({ moistureTargetPercent: value })}
               />
             </div>
-            <details className="controls-advanced"><summary>Pengaturan tambahan</summary><div className="automatic-fields">
+            <details className="controls-advanced"><summary>Pengaman pompa dan pengaturan tambahan</summary><div className="automatic-fields">
               <AutomaticNumberField
                 label="Batas waktu menyala"
                 value={automaticDraft.water.maxRuntimeSeconds}
                 unit="detik"
                 max={86400}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateWater({ maxRuntimeSeconds: value })}
               />
               <AutomaticNumberField
@@ -2085,7 +2089,7 @@ function ControlsPage({
                 value={automaticDraft.water.cooldownSeconds}
                 unit="detik"
                 max={86400}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateWater({ cooldownSeconds: value })}
               />
               <AutomaticNumberField
@@ -2094,7 +2098,7 @@ function ControlsPage({
                 unit="L/min"
                 max={10000}
                 step={0.01}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateWater({ minFlowLpm: value })}
               />
               <AutomaticNumberField
@@ -2103,7 +2107,7 @@ function ControlsPage({
                 unit="sampel"
                 min={1}
                 max={20}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateWater({ triggerSampleCount: value ?? 3 })}
               />
               <AutomaticNumberField
@@ -2112,7 +2116,7 @@ function ControlsPage({
                 unit="detik"
                 min={10}
                 max={3600}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateWater({ sensorStaleSeconds: value ?? 120 })}
               />
             </div></details>
@@ -2123,17 +2127,17 @@ function ControlsPage({
               <div>
                 <strong>Pompa Pupuk</strong>
               </div>
-              <label className="automatic-enable">
-                <input
-                  type="checkbox"
-                  checked={automaticDraft.fertilizer.enabled}
-                  disabled={!isAdmin}
-                  onChange={(event) => updateFertilizer({ enabled: event.target.checked })}
-                />
-                Aktif
-              </label>
+              <button type="button" className={`sensor-enable-card${automaticDraft.fertilizer.enabled?' is-enabled':''}`} role="switch" aria-checked={automaticDraft.fertilizer.enabled}
+                aria-label="Gunakan aturan sensor pompa pupuk" disabled={!isAdmin || savingAutomatic}
+                onClick={()=>updateFertilizer({enabled:!automaticDraft.fertilizer.enabled})}>
+                <span><strong>{automaticDraft.fertilizer.enabled?'Aturan sensor aktif':'Aturan sensor nonaktif'}</strong><small>Gunakan EC larutan tandon untuk memicu pemberian pupuk.</small></span>
+                <span className="sensor-enable-switch" aria-hidden="true"><span/></span>
+              </button>
             </div>
 
+            <div className="sensor-rule-summary"><strong>Aturan yang akan diterapkan</strong><p>{automaticDraft.fertilizer.enabled
+              ? `Mulai dosis saat EC larutan ${automaticDraft.fertilizer.ecLowUsCm??'—'} µS/cm atau lebih rendah. Target ${automaticDraft.fertilizer.ecTargetUsCm??'—'} µS/cm; batas maksimum ${automaticDraft.fertilizer.ecHighUsCm??'—'} µS/cm.`
+              : 'Pemicu dari EC larutan tandon dimatikan untuk pompa pupuk.'}</p><small>Ini aturan EC larutan tandon. AI berbasis EC tanah diatur terpisah di Program Fertigasi.</small></div>
             <label className="automatic-field">
               <span>Sensor utama</span>
               <select value="liquid_ec_us_cm" disabled>
@@ -2147,7 +2151,7 @@ function ControlsPage({
                 value={automaticDraft.fertilizer.ecLowUsCm}
                 unit="uS/cm"
                 max={100000}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ ecLowUsCm: value })}
               />
               <AutomaticNumberField
@@ -2155,7 +2159,7 @@ function ControlsPage({
                 value={automaticDraft.fertilizer.ecTargetUsCm}
                 unit="uS/cm"
                 max={100000}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ ecTargetUsCm: value })}
               />
               <AutomaticNumberField
@@ -2163,18 +2167,18 @@ function ControlsPage({
                 value={automaticDraft.fertilizer.ecHighUsCm}
                 unit="uS/cm"
                 max={100000}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ ecHighUsCm: value })}
               />
             </div>
-            <details className="controls-advanced"><summary>Pengaturan tambahan</summary><div className="automatic-fields">
+            <details className="controls-advanced"><summary>Pengaman pompa dan pengaturan tambahan</summary><div className="automatic-fields">
               <AutomaticNumberField
                 label="Lama pompa sekali jalan"
                 value={automaticDraft.fertilizer.dosePulseSeconds}
                 unit="detik"
                 min={1}
                 max={3600}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ dosePulseSeconds: value })}
               />
               <AutomaticNumberField
@@ -2183,7 +2187,7 @@ function ControlsPage({
                 unit="detik"
                 min={1}
                 max={86400}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ mixingDelaySeconds: value })}
               />
               <AutomaticNumberField
@@ -2191,7 +2195,7 @@ function ControlsPage({
                 value={automaticDraft.fertilizer.cooldownSeconds}
                 unit="detik"
                 max={86400}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ cooldownSeconds: value })}
               />
               <AutomaticNumberField
@@ -2201,7 +2205,7 @@ function ControlsPage({
                 min={0.001}
                 max={100000}
                 step={0.001}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ maxDoseVolumeL: value })}
               />
               <AutomaticNumberField
@@ -2211,7 +2215,7 @@ function ControlsPage({
                 min={0.001}
                 max={1000000}
                 step={0.001}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ maxDailyVolumeL: value })}
               />
               <AutomaticNumberField
@@ -2220,7 +2224,7 @@ function ControlsPage({
                 unit="L/min"
                 max={10000}
                 step={0.01}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ minFlowLpm: value })}
               />
               <AutomaticNumberField
@@ -2229,7 +2233,7 @@ function ControlsPage({
                 unit="sampel"
                 min={1}
                 max={20}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ triggerSampleCount: value ?? 3 })}
               />
               <AutomaticNumberField
@@ -2238,11 +2242,18 @@ function ControlsPage({
                 unit="detik"
                 min={10}
                 max={3600}
-                disabled={!isAdmin}
+                disabled={!isAdmin || savingAutomatic}
                 onChange={(value) => updateFertilizer({ sensorStaleSeconds: value ?? 120 })}
               />
             </div></details>
           </section>
+        </div>
+        <div className="sensor-apply-footer">
+          <div><strong>{automaticDirty?'Siap menerapkan perubahan?':'Status aturan sensor'}</strong><p>Kedua aturan pompa disimpan bersama. {automaticDraft.desiredMode==='manual'?'Mode alat tetap Manual; pemicu sensor bekerja saat mode Otomatis.':'Pemicu sensor bekerja dalam mode Otomatis.'} Jadwal timer diatur terpisah.</p></div>
+          <div className="sensor-apply-actions"><button type="button" className="secondary-button" disabled={!automaticDirty || savingAutomatic} onClick={()=>{setAutomaticDraft(automaticControlDraft(data?.automaticControl));setModeSaveError('')}}>Batalkan perubahan</button>
+          <button type="button" className="primary-button" disabled={!isAdmin || savingAutomatic || connectionState!=='connected'} onClick={()=>void saveAutomatic()}>{savingAutomatic?'Mengirim aturan…':'Terapkan aturan ke alat'}</button></div>
+          {modeSaveError&&<p className="sensor-apply-error" role="alert">{modeSaveError}</p>}
+          {!automaticDirty&&automaticApplied&&<p className="sensor-apply-confirmed" role="status">Aturan tersimpan dan sudah dikonfirmasi oleh alat.</p>}
         </div>
       </div>
         )

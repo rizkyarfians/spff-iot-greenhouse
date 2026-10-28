@@ -50,6 +50,7 @@ import {
   readiness,
   resolveAlarm,
   setScheduleEnabled,
+  updateSchedule,
   streamEvents,
   updatePump,
   updateAutomaticControl,
@@ -332,6 +333,8 @@ apiRouter.post(
   createSchedule,
 );
 
+
+apiRouter.put('/schedules/:id',requireAdmin,requireCsrf,updateSchedule);
 
 apiRouter.patch(
   '/schedules/:id',

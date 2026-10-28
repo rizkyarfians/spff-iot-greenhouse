@@ -929,6 +929,14 @@ export interface ApiScheduleCreateRequest {
   runDate: string | null;
 }
 
+export interface ApiScheduleUpdateRequest {
+  onTime: string;
+  offTime: string;
+  repeatRule: ScheduleRepeatRule;
+  runDate: string | null;
+  expectedUpdatedAt: string;
+}
+
 export interface ApiScheduleEnabledRequest {
   enabled: boolean;
 }

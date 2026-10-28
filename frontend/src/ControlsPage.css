@@ -60,3 +60,40 @@
   .controls-page .schedule-item-copy { flex: 1; min-width: 60%; }
   .controls-setting-row, .controls-page .control-card { padding: 12px; gap: 12px; }
 }
+
+.sensor-rules-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.sensor-rules-intro h2 { font-size:18px; }
+.sensor-rules-intro p, .sensor-rule-summary p, .sensor-apply-footer p { margin:7px 0 0; font-size:13px; line-height:1.6; color:#536560; }
+.sensor-apply-state, .sensor-rule-badge { padding:7px 10px; border-radius:8px; font-size:12px; background:#f0f4f2; color:#536560; white-space:nowrap; }
+.sensor-apply-state.is-draft { background:#fff4df; color:#84560f; }
+.sensor-pump-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:24px; }
+.sensor-pump-card { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:18px; text-align:left; font:inherit; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); cursor:pointer; }
+.sensor-pump-card.is-selected { border:2px solid var(--green-dark); padding:17px; background:var(--green-soft); }
+.sensor-pump-card > svg { color:var(--green-dark); }
+.sensor-pump-card > span { flex:1; }
+.sensor-pump-card strong, .sensor-pump-card small { display:block; }
+.sensor-pump-card small { margin-top:5px; font-size:12px; color:#536560; }
+.sensor-rule-badge.is-on { background:#d4f0e3; color:#116044; }
+.controls-page .automatic-profile-heading { display:block; }
+.controls-page .automatic-profile-heading > div { margin-bottom:12px; }
+.sensor-enable-card { width:100%; display:flex; align-items:center; justify-content:space-between; gap:20px; padding:18px; border:1px solid #ccd6d1; border-radius:12px; background:#f7f9f8; font:inherit; text-align:left; color:var(--ink); cursor:pointer; }
+.sensor-enable-card.is-enabled { border-color:var(--green-dark); background:var(--green-soft); }
+.sensor-enable-card strong, .sensor-enable-card small { display:block; }
+.sensor-enable-card small { margin-top:5px; font-size:13px; color:#536560; line-height:1.5; }
+.sensor-enable-switch { display:block; width:48px; height:28px; flex-shrink:0; padding:3px; border-radius:20px; background:#bdc9c3; box-sizing:border-box; }
+.sensor-enable-switch > span { display:block; width:22px; height:22px; background:white; border-radius:50%; }
+.is-enabled .sensor-enable-switch { background:var(--green-dark); }
+.is-enabled .sensor-enable-switch > span { transform:translateX(20px); }
+.sensor-rule-summary { padding:16px; margin:16px 0 22px; border-left:3px solid var(--green-dark); background:#f5f8f6; border-radius:0 10px 10px 0; }
+.sensor-rule-summary strong { font-size:13px; }
+.sensor-rule-summary small { display:block; margin-top:8px; font-size:12px; line-height:1.6; color:#536560; }
+.controls-settings-panel .automatic-fields { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.sensor-apply-footer { margin-top:24px; padding:20px; border:1px solid var(--line); border-radius:12px; background:#f7faf8; }
+.sensor-apply-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:12px; margin-top:16px; }
+.sensor-apply-footer .sensor-apply-error { color:#a12e25; }
+.sensor-apply-footer .sensor-apply-confirmed { color:#126044; }
+.schedule-edit-button { display:inline-flex; align-items:center; gap:6px; padding:9px 12px; border:1px solid var(--line); background:#fff; color:var(--green-dark); border-radius:8px; font:inherit; font-size:12px; cursor:pointer; }
+.sensor-enable-card:focus-visible, .sensor-pump-card:focus-visible, .schedule-edit-button:focus-visible { outline:3px solid var(--green-dark); outline-offset:3px; }
+.sensor-enable-card:disabled, .schedule-edit-button:disabled { opacity:.55; cursor:default; }
+@media(min-width:900px) { .controls-settings-panel .schedule-item-copy { min-width:180px; } }
+@media(max-width:640px) { .sensor-pump-cards { grid-template-columns:1fr; } .sensor-rules-intro { flex-direction:column; } .controls-settings-panel .automatic-fields { grid-template-columns:1fr; } .sensor-apply-footer { padding:14px; } .sensor-apply-actions > button { flex:1; min-width:140px; } }

@@ -12,6 +12,7 @@ import type {
   HistoryBucket,
   ApiPumpCommandRequest,
   ApiScheduleCreateRequest,
+  ApiScheduleUpdateRequest,
   ApiScheduleEnabledRequest,
   ApiResponse,
   ApiSchedule,
@@ -775,6 +776,12 @@ export function createSchedule(
   )
 }
 
+
+export function updateSchedule(id:string,input:ApiScheduleUpdateRequest) {
+  return request<ApiSchedule>(`/schedules/${encodeURIComponent(id)}`,{
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),
+  })
+}
 
 export function setScheduleEnabled(
   id: string,

@@ -1194,7 +1194,7 @@ const scheduleSelect = `
   SELECT s.schedule_id, s.site_id, s.device_id, s.actuator_key, a.display_name,
          to_char(s.on_time, 'HH24:MI') AS on_time,
          to_char(s.off_time, 'HH24:MI') AS off_time,
-         s.repeat_rule, s.run_date, s.timezone, s.enabled, s.requested_by,
+         s.repeat_rule, to_char(s.run_date,'YYYY-MM-DD') AS run_date, s.timezone, s.enabled, s.requested_by,
          s.created_at, s.updated_at
   FROM spff.actuator_schedules s
   JOIN spff.actuators a
@@ -1256,6 +1256,20 @@ async function createSchedule(input: CreateScheduleInput) {
   if (!result.rows[0]) return null;
   const created = await pool.query(`${scheduleSelect} WHERE s.schedule_id = $1`, [scheduleId]);
   return mapSchedule(created.rows[0]);
+}
+
+async function updateSchedule(scheduleId: string, input: Pick<CreateScheduleInput,'onTime'|'offTime'|'repeatRule'|'runDate'> & {expectedUpdatedAt:string}) {
+  const result = await pool.query(
+    `UPDATE spff.actuator_schedules SET on_time=$3::time,off_time=$4::time,
+       repeat_rule=$5,run_date=$6::date,updated_at=clock_timestamp()
+     WHERE site_id=$1 AND schedule_id=$2
+       AND date_trunc('milliseconds',updated_at)=$7::timestamptz
+     RETURNING schedule_id`,
+    [siteId,scheduleId,input.onTime,input.offTime,input.repeatRule,input.runDate,input.expectedUpdatedAt],
+  );
+  if(!result.rows[0])return null;
+  const updated=await pool.query(`${scheduleSelect} WHERE s.site_id=$1 AND s.schedule_id=$2`,[siteId,scheduleId]);
+  return mapSchedule(updated.rows[0]);
 }
 
 async function setScheduleEnabled(scheduleId: string, enabled: boolean) {
@@ -1788,6 +1802,7 @@ export const repository = {
   schedules,
   createSchedule,
   setScheduleEnabled,
+  updateSchedule,
   deleteSchedule,
   settings,
   updateSettings,
