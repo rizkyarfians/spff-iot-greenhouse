@@ -42,3 +42,9 @@ this launcher. Loading failures show the API message and a manual retry;
 missing schema, missing permissions and invalid stored rules are distinguished
 without exposing SQL details to the browser. Deployment logs are still needed
 to diagnose an unknown production failure.
+
+Recommendation, live program evaluation and soil-EC pulse sample queries exclude
+future-dated telemetry before sorting and limiting. This prevents erroneous
+historical timestamps from hiding healthy current readings. History is retained;
+freshness and sensor-health checks still apply, and future-only data cannot
+produce a pulse recommendation. This does not repair device clock sources.

@@ -229,7 +229,7 @@ export async function loadSiteFertigationSnapshot(deviceId: string): Promise<Sit
       SELECT recorded_at,flow_water_lpm,flow_fert_lpm,tank_water_level_pct,tank_fert_level_pct,sensor_health,
              soil_1_moisture,soil_2_moisture,liquid_ec_us_cm
       FROM spff.telemetry_samples
-      WHERE site_id=d.site_id AND device_id=d.device_id
+      WHERE site_id=d.site_id AND device_id=d.device_id AND recorded_at <= now()
       ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 1
     ) t ON true
     LEFT JOIN LATERAL (

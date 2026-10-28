@@ -13,6 +13,7 @@ export async function readFertigationProgress(deviceId:string,recipeId?:string):
    LEFT JOIN spff.site_crop_selections crop ON crop.site_id=c.site_id AND crop.zone_id='soil-1'
    WHERE c.site_id=$1 AND c.device_id=$2`,[siteId,deviceId]),
   pool.query(`SELECT * FROM spff.telemetry_samples WHERE site_id=$1 AND device_id=$2
+   AND recorded_at <= now()
    ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 1`,[siteId,deviceId]),
   pool.query(`SELECT * FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND device_id=$2
    AND status IN ('waiting','in_flight','fault') ORDER BY started_at DESC LIMIT 1`,[siteId,deviceId]),

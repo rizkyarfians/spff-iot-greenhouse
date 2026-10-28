@@ -27,7 +27,7 @@ test('read-only AI progress uses current soil targets, separate liquid targets, 
     VALUES('greenhouse-01','esp32-s3-01','status',now(),true,'automatic','{"serverPulseCapable":true,"independentSoilEcCapable":true,"pulseBootId":"0123456789abcdef"}');`)
   const svc=await import('../lib/services/soilEcPulseService.js')
   const {readFertigationProgress}=await import('../lib/services/fertigationProgressService.js')
-  const {createFertigationRecipe}=await import('../lib/services/fertigationRepository.js')
+  const {createFertigationRecipe,loadSiteFertigationSnapshot}=await import('../lib/services/fertigationRepository.js')
   const {jakartaDay}=await import('../lib/services/fertigationSchedule.js')
   const rule=await createFertigationRecipe({cropId:'tomato',cropName:'Tomat',hstFrom:0,hstTo:100,plantingDate:jakartaDay(new Date()),applicationMode:'sensor',applicationDate:null,applicationIntervalDays:null,
    triggerSampleCount:3,targetWaterL:10,targetStockL:0.5,fertilizerName:'Test',stockConcentrationGPerL:100,minWaterTankPercent:20,minStockTankPercent:20,sourceReference:'Test',useForEvaluation:true,
@@ -42,6 +42,18 @@ test('read-only AI progress uses current soil targets, separate liquid targets, 
   assert.equal(report.soilEc.target,1200);assert.equal(report.soilEc.value,500);assert.equal(report.soilEc.remaining,700);assert.ok(Math.abs(report.soilEc.percent-41.6666667)<0.0001)
   assert.equal(report.liquidEc.value,800);assert.equal(report.liquidEc.target,1800);assert.equal(report.waterTank.percent,80);assert.equal(report.waterTank.minimum,20)
   assert.equal(report.status,'needs_action');assert.equal(report.nextPulseOnMs,7000)
+  for(const table of ['soil_ec_pulse_sessions','soil_ec_pulse_commands','control_commands'])assert.equal((await query(`SELECT count(*)::int AS n FROM spff.${table}`)).rows[0].n,0)
+  // Future-dated historical rows must not outrank healthy current readings or fill the sample limit.
+  await db.exec(`INSERT INTO spff.telemetry_samples(site_id,device_id,message_id,sequence,recorded_at,soil_1_ec_us_cm,sensor_health)
+   SELECT 'greenhouse-01','esp32-s3-01','future-'||i,i,'2085-09-22'::timestamptz+i*interval '1 second',99999,'{}'::jsonb
+   FROM generate_series(1,25) i;`)
+  report=await readFertigationProgress('esp32-s3-01');assert.equal(report.telemetryFresh,true);assert.equal(report.soilEc.value,500)
+  assert.equal(report.status,'needs_action');assert.equal(report.nextPulseOnMs,7000)
+  let snapshot=await loadSiteFertigationSnapshot('esp32-s3-01');assert.ok(snapshot.telemetryRecordedAt.getTime()<=Date.now());assert.equal(snapshot.recentSamples.length,3)
+  assert.equal((await query("SELECT count(*)::int AS n FROM spff.telemetry_samples WHERE recorded_at>now()")).rows[0].n,25)
+  await db.exec('DELETE FROM spff.telemetry_samples WHERE recorded_at<=now()')
+  report=await readFertigationProgress('esp32-s3-01');assert.equal(report.telemetryFresh,false);assert.equal(report.telemetryAt,null);assert.equal(report.soilEc.value,null);assert.equal(report.nextPulseOnMs,null)
+  snapshot=await loadSiteFertigationSnapshot('esp32-s3-01');assert.equal(snapshot.telemetryRecordedAt,null);assert.equal(snapshot.recentSamples.length,0)
   for(const table of ['soil_ec_pulse_sessions','soil_ec_pulse_commands','control_commands'])assert.equal((await query(`SELECT count(*)::int AS n FROM spff.${table}`)).rows[0].n,0)
   await samples(1190);report=await readFertigationProgress('esp32-s3-01');assert.equal(report.status,'satisfied');assert.equal(report.soilEcToleranceUsCm,25);assert.equal(report.soilEc.remaining,10);
   await samples(1300);report=await readFertigationProgress('esp32-s3-01');assert.equal(report.status,'satisfied');assert.equal(report.soilEc.remaining,0);assert.equal(report.soilEc.percent,100)

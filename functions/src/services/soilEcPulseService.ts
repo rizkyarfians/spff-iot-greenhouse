@@ -262,7 +262,8 @@ export async function evaluateSoilEcSamples(c:PoolClient,deviceId:string,rule:Fe
     const readings=await c.query(`SELECT DISTINCT ON(recorded_at) recorded_at,received_at,
       soil_1_ec_us_cm AS ec,soil_1_moisture AS moisture,sensor_health,
       tank_water_level_pct,tank_fert_level_pct FROM spff.telemetry_samples
-      WHERE site_id=$1 AND device_id=$2 ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 20`,[siteId,deviceId]);
+      WHERE site_id=$1 AND device_id=$2 AND recorded_at <= now()
+      ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 20`,[siteId,deviceId]);
     const samples:SoilEcSample[]=readings.rows.map(r=>({recordedAt:r.recorded_at.toISOString(),ec:r.ec,moisture:r.moisture,
       valid:r.sensor_health?.soil_1_ec_us_cm?.valid===true && r.sensor_health?.soil_1_moisture?.valid===true &&
         r.ec!==null && Number.isFinite(r.ec) && r.ec>=0 && r.ec<=100000 &&
