@@ -1,6 +1,6 @@
 # Switch AI Fertigasi EC Tanah
 
-Settings menyediakan satu switch per perangkat, di bawah Interlock Tandon Air,
+Halaman Kontrol menyediakan switch AI di bagian Otomasi, sebelum Jadwal,
 dengan modal konfirmasi. Default **OFF**, tersimpan di PostgreSQL dan bertahan
 setelah restart service. Ini izin sesi pulse EC tanah, bukan adaptive planner
 EC larutan, bukan bypass interlock, dan bukan penjadwal sesi otomatis.
@@ -46,7 +46,7 @@ sudo -u postgres psql -X -d spff -v ON_ERROR_STOP=1 \
    `AI_EVALUATION_ENABLED` tidak false. Flag ini tetap batas deployment;
    switch web tidak dapat melewatinya. Worker memerlukan flag-nya sendiri.
 5. Restart API, worker dan edge, lalu verifikasi health port 3001 dengan retry.
-   Setelah dukungan terpasang, ON/OFF sehari-hari cukup melalui Settings,
+   Setelah dukungan terpasang, ON/OFF sehari-hari cukup melalui halaman Kontrol,
    tanpa edit env, rebuild atau flash ulang.
 
 Tanpa migration 030, setting dilaporkan belum terpasang dan pulse gagal tertutup;

@@ -85,7 +85,7 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
     <details className="ft-ai-guidance"><summary>Cara kerja dan persiapan</summary><p>Server menghitung durasi ON dari selisih EC tanah zona 1. Perangkat menjalankan satu pulse, OFF sendiri, lalu server menunggu pembacaan baru. Tidak menghitung liter stok pupuk.</p>
     <p>Nonaktifkan fertilizer sensor legacy dan tunggu konfigurasi diterapkan sebelum memulai. Target aturan: {recipe.ecTargetUsCm??'belum diisi'} µS/cm. Jadwal tetap berjalan sebagai pemicu terpisah. AI mengevaluasi EC di luar jadwal; jadwal aktif didahulukan. Setelah sesi normal selesai, kontrol jadwal dikembalikan otomatis.</p></details>
     {!deviceId?<p>Pilih perangkat terlebih dahulu.</p>:!enabled?<p>Eksekusi pulse belum tersedia pada server atau koneksi status gagal. Evaluasi rekomendasi tetap terpisah.</p>:null}
-    {enabled&&!executionEnabled&&<p>Aktifkan AI Fertigasi EC Tanah di Settings sebelum memulai sesi.</p>}
+    {enabled&&!executionEnabled&&<p>Aktifkan AI Fertigasi EC Tanah di halaman Kontrol sebelum memulai sesi.</p>}
     {automatic&&<p role="status">AI otomatis: {automatic.armed?'siap mengevaluasi':'dihentikan operator'} · {reasons[automatic.reason]??automatic.reason}</p>}
     {notice&&<p role="status">{notice}</p>}
     {error&&<p className="ft-error" role="alert">{error}</p>}

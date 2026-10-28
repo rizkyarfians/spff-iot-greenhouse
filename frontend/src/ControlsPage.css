@@ -97,3 +97,4 @@
 .sensor-enable-card:disabled, .schedule-edit-button:disabled { opacity:.55; cursor:default; }
 @media(min-width:900px) { .controls-settings-panel .schedule-item-copy { min-width:180px; } }
 @media(max-width:640px) { .sensor-pump-cards { grid-template-columns:1fr; } .sensor-rules-intro { flex-direction:column; } .controls-settings-panel .automatic-fields { grid-template-columns:1fr; } .sensor-apply-footer { padding:14px; } .sensor-apply-actions > button { flex:1; min-width:140px; } }
+.controls-automation > .setting-toggle-row { margin-top:16px; padding:16px; border:1px solid var(--line); border-radius:12px; background:#f5f8f6; }

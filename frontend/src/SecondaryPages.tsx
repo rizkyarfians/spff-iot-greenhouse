@@ -1404,6 +1404,7 @@ function ControlsPage({
 
       <div className="controls-automation page-card">
         <h2>Otomasi</h2>
+        <SoilEcExecutionSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
         <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'schedule'} id="schedule-settings-button" aria-controls="schedule-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'schedule' ? null : 'schedule') }}>
           <span className="control-icon"><CalendarClock aria-hidden="true" size={20} /></span>
           <span><strong>Jadwal</strong><small>{activeScheduleCount ? `${activeScheduleCount} jadwal aktif` : 'Atur waktu nyala dan mati'}</small></span>
@@ -4652,7 +4653,6 @@ function SettingsPage({
             </button>
           </div>
           <WaterInterlockSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
-          <SoilEcExecutionSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
         </div>
 
 
