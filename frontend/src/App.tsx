@@ -1123,7 +1123,7 @@ function App() {
         refreshLatest,
       )
 
-      events.addEventListener('alarm.updated',()=>void loadAlarms())
+      events.addEventListener('alarm.updated',()=>{void loadAlarms();refreshLatest()})
       events.addEventListener('open',()=>void loadAlarms())
 
       events.addEventListener(
@@ -1524,7 +1524,7 @@ const soilNpkGroups =
   const openAlarms =
     backendData?.alarms.filter(
       (alarm) =>
-        alarm.status !== 'resolved',
+        alarm.status === 'open',
     ) ?? []
 
   const sensorFaultNotifications = sensorNotifications((backendData?.sensors ?? []).filter(sensor =>

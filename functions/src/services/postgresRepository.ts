@@ -561,7 +561,13 @@ async function pumps() {
             a.max_runtime_seconds, a.enabled,
             state.state, state.is_active, state.recorded_at,
             command.command_id, command.status AS command_status,
-            command.requested_is_active, command.issued_at AS command_issued_at
+            command.requested_is_active, command.issued_at AS command_issued_at,
+            (SELECT alarm.status FROM spff.alarms alarm
+             WHERE alarm.site_id=a.site_id AND alarm.device_id=a.device_id
+               AND alarm.source_key=a.actuator_key AND alarm.rule_key='command_failed'
+               AND alarm.metadata->>'commandId'=command.command_id
+             ORDER BY alarm.alarm_id DESC LIMIT 1
+            ) IN ('acknowledged','resolved') AS command_failure_acknowledged
      FROM spff.actuators a
      LEFT JOIN spff.latest_actuator_states state
        ON state.site_id = a.site_id
@@ -595,6 +601,7 @@ async function pumps() {
       state: commandInFlight ? 'processing' : reportedState,
       commandId: row.command_id as string | null,
       commandStatus: row.command_status as string | null,
+      commandFailureAcknowledged: row.command_failure_acknowledged === true,
       requestedIsActive: commandInFlight ? Boolean(row.requested_is_active) : null,
       activeDuration: durationFrom(row.recorded_at, row.is_active),
       maxRuntimeSeconds: row.max_runtime_seconds as number | null,

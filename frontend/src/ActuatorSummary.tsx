@@ -62,7 +62,7 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, conf
               : pump.state === 'active' ? 'on' : 'neutral'
             : 'neutral'
           const Icon = id === 'pump_water' ? Droplets : FlaskConical
-          const failed = ['rejected', 'failed', 'timed_out'].includes(pump?.commandStatus ?? '')
+          const failed = !pump.commandFailureAcknowledged && ['rejected', 'failed', 'timed_out'].includes(pump?.commandStatus ?? '')
           return (
             <div className="actuator-summary-item" key={`${pump.deviceId}:${id}`}>
               <Icon size={18} aria-hidden="true" />

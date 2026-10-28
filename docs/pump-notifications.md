@@ -21,3 +21,11 @@ Older firmware with permission-window schedules is excluded from this check.
 No firmware change or additional migration is needed for this update. It uses
 the existing alarm engine/permissions and migration 032 from the previous update.
 Rebuild API, web and MQTT worker, restart API/worker, then hard-refresh the web UI.
+
+Acknowledged/resolved command-failure alarms suppress the historical failure
+caption on the pump card only when site, device, pump and command ID match.
+Command outcomes and reported relay state remain unchanged. A new failed
+command or a reopened alarm remains visible. The bell lists open alarms;
+acknowledged alarms remain in Alarm history. Marking read only clears unread
+state and is separate from acknowledging an incident. Alarm SSE updates refresh
+both the alarm list and pump cards.

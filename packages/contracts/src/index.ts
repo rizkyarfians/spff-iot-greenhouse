@@ -701,6 +701,7 @@ export interface ApiActuator {
   state: 'active' | 'inactive' | 'processing' | 'offline' | 'fault';
   commandId: string | null;
   commandStatus: string | null;
+  commandFailureAcknowledged?: boolean;
   requestedIsActive: boolean | null;
   activeDuration: string;
   maxRuntimeSeconds: number | null;
