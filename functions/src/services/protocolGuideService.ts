@@ -62,3 +62,12 @@ export async function readProtocolGuideHistory(cropId:string):Promise<ProtocolGu
  const result=await pool.query('SELECT revision,actor,saved_at,note,changes FROM spff.protocol_guide_revisions WHERE site_id=$1 AND crop_id=$2 ORDER BY revision DESC LIMIT 20',[siteId,cropId]);
  return result.rows.map(row=>({revision:Number(row.revision),actor:row.actor,savedAt:row.saved_at.toISOString(),note:row.note,changes:row.changes}));
 }
+
+/** A server-owned, revision-pinned copy for planning; callers cannot supply table cells. */
+export async function readProtocolGuideSnapshot(cropId:string){
+ const sheet=sheetFor(cropId),view=await readProtocolGuide(cropId);
+ if(view.sourceSha256!==source.sourceSha256)fail(409,'Sumber Panduan berubah. Tinjau revisi Panduan terlebih dahulu.');
+ const copy=structuredClone(sheet) as import('@spff/contracts').GuideSheetSnapshot;
+ for(const [address,value] of Object.entries(view.overrides))copy.cells[address]={value,display:value===null?'':String(value)};
+ return {sheet:copy,sourceSha256:view.sourceSha256,guideRevision:view.revision};
+}

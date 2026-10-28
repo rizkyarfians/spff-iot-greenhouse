@@ -1,11 +1,14 @@
 import {missingProgramField,programFieldStep} from './programWizard'
 import { SoilEcPulsePanel } from './SoilEcPulsePanel'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Plus, RefreshCw, Droplets, FlaskConical, ArrowRight, ArrowLeft, Check, ChevronRight } from 'lucide-react'
 import { cropProfiles, fertigationRecipeMutationSchema, fertigationLiveDecisionSchema, type ApiDevice, type FertigationRecipe, type FertigationLiveDecision } from '@spff/contracts'
 import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, evaluateFertigationSite } from './api'
 import { useAuth } from './authContext'
 import './FertigationPage.css'
+import './GuidePrograms.css'
+
+const GuidePrograms=lazy(()=>import('./GuidePrograms').then(module=>({default:module.GuidePrograms})))
 
 const empty = () => ({ cropId: '', cropName: '', hstFrom: '', hstTo: '', targetWaterL: '', targetStockL: '0', fertilizerName: '', stockConcentrationGPerL: '', minWaterTankPercent: '', minStockTankPercent: '', sourceReference: '', plantingDate: '', applicationDate: '', applicationMode: 'sensor', applicationIntervalDays: '', triggerSampleCount: '3', moistureLowPercent: '', moistureTargetPercent: '', ecLowUsCm: '', ecTargetUsCm: '', ecHighUsCm: '' })
 type Form = ReturnType<typeof empty>
@@ -43,7 +46,14 @@ function message(error: unknown) {
   if (error instanceof ApiError && error.status === 530) return 'Koneksi ke server belum tersedia. Coba muat ulang beberapa saat lagi. (HTTP 530)'
   return error instanceof ApiError ? `${error.message}${error.errors.length ? ' — '+error.errors.join(', ') : ''}${error.status === 409 ? ' Muat ulang daftar lalu pilih ulang program sebelum mengedit.' : ''}` : error instanceof Error ? error.message : 'Permintaan gagal.'
 }
-export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
+export function FertigationPage({devices}:{devices:ApiDevice[]}){
+  const [tab,setTab]=useState<'guide'|'sensor'>('guide')
+  return <section className="ft-program-shell"><div className="gp-main-tabs" role="group" aria-label="Jenis program">
+    <button aria-pressed={tab==='guide'} onClick={()=>setTab('guide')}>Program dari Panduan</button>
+    <button aria-pressed={tab==='sensor'} onClick={()=>setTab('sensor')}>Aturan sensor & pompa</button>
+  </div><div hidden={tab!=='guide'}><Suspense fallback={<p>Memuat program Panduan…</p>}><GuidePrograms devices={devices}/></Suspense></div><div hidden={tab!=='sensor'}><SensorFertigationPage devices={devices}/></div></section>
+}
+function SensorFertigationPage({ devices }: { devices: ApiDevice[] }) {
   const { user } = useAuth()
   const admin = user.role === 'admin'
   const operator = admin || user.role === 'operator'

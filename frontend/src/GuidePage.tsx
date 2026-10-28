@@ -69,7 +69,7 @@ export function GuidePage(){
       <div className="guide-edit-actions">
         {editing?<><span className="guide-draft-count">{changes.length} sel diubah</span><button type="button" disabled={saving} onClick={()=>{setEditing(false);setDraft({});setNote('');setError('')}}>Batal</button>
           <button className="guide-save" type="submit" form="guide-edit-form" disabled={saving||!changes.length}><Save size={18} aria-hidden="true"/>{saving?'Menyimpan…':'Simpan perubahan'}</button></>:
-          <><button type="button" disabled={!view} aria-pressed={showOriginal} onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?'Lihat versi tersimpan':'Lihat acuan Excel'}</button>
+          <>{admin&&<button type="button" disabled={!compatible||!!error} onClick={()=>{sessionStorage.setItem('spff-guide-program-crop',crop);window.location.hash='#/fertigation'}}>Gunakan untuk program</button>}<button type="button" disabled={!view} aria-pressed={showOriginal} onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?'Lihat versi tersimpan':'Lihat acuan Excel'}</button>
           {admin&&<button className="guide-save" type="button" disabled={!compatible||!!error} onClick={()=>{setShowOriginal(false);setEditing(true);setNotice('')}}><Pencil size={18} aria-hidden="true"/>Edit tabel</button>}
           <button type="button" aria-label="Muat ulang panduan" onClick={()=>setReload(value=>value+1)}><RotateCcw size={18} aria-hidden="true"/></button></>}
       </div>

@@ -931,3 +931,10 @@ export const fetchFertigationProgress=(deviceId:string,recipeId?:string,signal?:
 export function fetchProtocolGuide(cropId:string,signal?:AbortSignal){return request<ProtocolGuideState>(`/guide/${encodeURIComponent(cropId)}`,{signal})}
 export function saveProtocolGuide(cropId:string,input:ProtocolGuideSave){return request<ProtocolGuideState>(`/guide/${encodeURIComponent(cropId)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})}
 export function fetchProtocolGuideHistory(cropId:string){return request<ProtocolGuideRevision[]>(`/guide/${encodeURIComponent(cropId)}/history`)}
+
+export const fetchGuidePrograms=()=>request<import('@spff/contracts').GuideProgram[]>('/guide-programs');
+export const previewGuideProgram=(config:import('@spff/contracts').GuideProgramConfig)=>request<import('@spff/contracts').GuideProgramPreview>('/guide-programs/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(config)});
+export const saveGuideProgram=(input:import('@spff/contracts').GuideProgramInput,existing?:import('@spff/contracts').GuideProgram)=>request<import('@spff/contracts').GuideProgram>(`/guide-programs${existing?`/${existing.programId}`:''}`,{method:existing?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...input,...(existing?{expectedRevision:existing.revision}:{})})});
+export const completeGuideProgram=(program:import('@spff/contracts').GuideProgram,activityId:string,note:string)=>request(`/guide-programs/${program.programId}/complete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedRevision:program.revision,activityId,note})});
+
+export const fetchGuideProgramHistory=(id:string)=>request<import('@spff/contracts').GuideProgramRevision[]>(`/guide-programs/${id}/history`);

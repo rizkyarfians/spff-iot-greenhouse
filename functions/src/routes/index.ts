@@ -1,3 +1,4 @@
+import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory} from '../controllers/guideProgramController.js';
 import {getProtocolGuide,getProtocolGuideHistory,putProtocolGuide} from '../controllers/protocolGuideController.js';
 import {getFertigationProgress} from '../controllers/fertigationProgressController.js';
 import { getWaterInterlock, putWaterInterlock } from '../controllers/waterInterlockController.js';
@@ -213,6 +214,12 @@ apiRouter.get(
 // Simulation is advisory-only and never publishes commands to MQTT.
 apiRouter.get('/settings/water-interlock', getWaterInterlock);
 apiRouter.put('/settings/water-interlock', requireAdmin, requireCsrf, putWaterInterlock);
+apiRouter.get('/guide-programs',getGuidePrograms);
+apiRouter.get('/guide-programs/:id/history',getGuideProgramHistory);
+apiRouter.post('/guide-programs/preview',requireAdmin,requireCsrf,postGuideProgramPreview);
+apiRouter.post('/guide-programs',requireAdmin,requireCsrf,postGuideProgram);
+apiRouter.put('/guide-programs/:id',requireAdmin,requireCsrf,putGuideProgram);
+apiRouter.post('/guide-programs/:id/complete',requireOperator,requireCsrf,postGuideProgramCompletion);
 apiRouter.get('/guide/:cropId',getProtocolGuide);
 apiRouter.get('/guide/:cropId/history',getProtocolGuideHistory);
 apiRouter.put('/guide/:cropId',requireAdmin,requireCsrf,putProtocolGuide);
