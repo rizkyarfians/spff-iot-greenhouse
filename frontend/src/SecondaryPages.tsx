@@ -1,3 +1,4 @@
+import {ScheduleTimeRange} from './ScheduleTimeRange'
 import {mergeAutomaticDraft} from './automaticDraftState'
 import {isAutomaticControlConfig} from '@spff/contracts'
 import { WaterInterlockSettings } from './WaterInterlockSettings'
@@ -530,30 +531,6 @@ Record<
 }
 
 
-const hourOptions =
-  Array.from(
-    {
-      length: 24,
-    },
-    (_, hour) =>
-      hour
-        .toString()
-        .padStart(2, '0'),
-  )
-
-
-const minuteOptions =
-  Array.from(
-    {
-      length: 60,
-    },
-    (_, minute) =>
-      minute
-        .toString()
-        .padStart(2, '0'),
-  )
-
-
 const repeatLabels:
 Record<
   ScheduleRepeatRule,
@@ -864,38 +841,6 @@ function ControlsPage({
     ],
   )
 
-
-  const setScheduleTime = (
-    field:
-      | 'onTime'
-      | 'offTime',
-
-    part:
-      | 'hour'
-      | 'minute',
-
-    value: string,
-  ) => {
-    setScheduleDraft(
-      (current) => {
-        const [
-          hour,
-          minute,
-        ] =
-          current[field]
-            .split(':')
-
-        return {
-          ...current,
-
-          [field]:
-            part === 'hour'
-              ? `${value}:${minute}`
-              : `${hour}:${value}`,
-        }
-      },
-    )
-  }
 
   const updateWater = (
     patch: Partial<ApiAutomaticControlUpdateRequest['water']>,
@@ -1544,155 +1489,9 @@ function ControlsPage({
           </label>
 
 
-          <label className="schedule-field">
-            <span>
-              Jam Aktif
-            </span>
-
-            <div className="time-select-group">
-              <select
-                disabled={!isAdmin || savingSchedule}
-                aria-label="Jam aktif"
-                value={
-                  scheduleDraft.onTime
-                    .split(':')[0]
-                }
-                onChange={(event) =>
-                  setScheduleTime(
-                    'onTime',
-                    'hour',
-                    event.target.value,
-                  )
-                }
-              >
-                {
-                  hourOptions.map(
-                    (hour) => (
-                      <option
-                        value={hour}
-                        key={
-                          `on-hour-${hour}`
-                        }
-                      >
-                        {hour}
-                      </option>
-                    ),
-                  )
-                }
-              </select>
-
-              <span aria-hidden="true">
-                :
-              </span>
-
-              <select
-                disabled={!isAdmin || savingSchedule}
-                aria-label="Menit aktif"
-                value={
-                  scheduleDraft.onTime
-                    .split(':')[1]
-                }
-                onChange={(event) =>
-                  setScheduleTime(
-                    'onTime',
-                    'minute',
-                    event.target.value,
-                  )
-                }
-              >
-                {
-                  minuteOptions.map(
-                    (minute) => (
-                      <option
-                        value={minute}
-                        key={
-                          `on-minute-${minute}`
-                        }
-                      >
-                        {minute}
-                      </option>
-                    ),
-                  )
-                }
-              </select>
-            </div>
-          </label>
-
-
-          <label className="schedule-field">
-            <span>
-              Jam Nonaktif
-            </span>
-
-            <div className="time-select-group">
-              <select
-                disabled={!isAdmin || savingSchedule}
-                aria-label="Jam nonaktif"
-                value={
-                  scheduleDraft.offTime
-                    .split(':')[0]
-                }
-                onChange={(event) =>
-                  setScheduleTime(
-                    'offTime',
-                    'hour',
-                    event.target.value,
-                  )
-                }
-              >
-                {
-                  hourOptions.map(
-                    (hour) => (
-                      <option
-                        value={hour}
-                        key={
-                          `off-hour-${hour}`
-                        }
-                      >
-                        {hour}
-                      </option>
-                    ),
-                  )
-                }
-              </select>
-
-              <span aria-hidden="true">
-                :
-              </span>
-
-              <select
-                disabled={!isAdmin || savingSchedule}
-                aria-label="Menit nonaktif"
-                value={
-                  scheduleDraft.offTime
-                    .split(':')[1]
-                }
-                onChange={(event) =>
-                  setScheduleTime(
-                    'offTime',
-                    'minute',
-                    event.target.value,
-                  )
-                }
-              >
-                {
-                  minuteOptions.map(
-                    (minute) => (
-                      <option
-                        value={minute}
-                        key={
-                          `off-minute-${minute}`
-                        }
-                      >
-                        {minute}
-                      </option>
-                    ),
-                  )
-                }
-              </select>
-            </div>
-          </label>
-
+          <ScheduleTimeRange onTime={scheduleDraft.onTime} offTime={scheduleDraft.offTime}
+            timezone={data?.site?.timezone??'Asia/Jakarta'} disabled={!isAdmin || savingSchedule}
+            onChange={(field,value)=>setScheduleDraft(current=>({...current,[field]:value}))}/>
 
           <label className="schedule-field">
             <span>
