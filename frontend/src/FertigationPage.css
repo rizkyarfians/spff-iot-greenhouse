@@ -160,3 +160,19 @@
 .ft-guided .ft-error:focus { outline:2px solid #a74627; outline-offset:3px; }
 .ft-guided p { font-size:15px; }
 @container fertigation (max-width:650px) { .ft-steps li { font-size:14px; } }
+
+.ft-guided .ft-program-card { gap:12px; padding:18px; border:1px solid #cbd9d0; border-radius:13px; background:#fff; }
+.ft-guided .ft-program-card.active { border:2px solid #16845a; padding:17px; background:#f0f9f4; box-shadow:inset 3px 0 #16845a; }
+.ft-program-card > span { width:100%; }
+.ft-program-card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.ft-program-card-heading > strong { min-width:0; flex:1; line-height:1.4; }
+.ft-guided .ft-recipe .ft-program-status { display:inline-flex; align-items:center; gap:6px; width:auto; padding:5px 9px; flex-shrink:0; border-radius:20px; font-size:12px; font-weight:700; color:#586b60; background:#e8eeea; }
+.ft-guided .ft-recipe .ft-program-status.is-enabled { color:#12633f; background:#d5efdf; }
+.ft-program-status > span { display:block; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.ft-program-kind { display:flex; align-items:center; gap:8px; }
+.ft-program-kind > svg { color:#16845a; flex-shrink:0; }
+.ft-guided .ft-recipe .ft-program-age { color:#50685a; }
+.ft-program-age b { color:#294b38; }
+.ft-guided .ft-recipe .ft-program-usage { font-size:12px; color:#60766a; margin-top:-5px; }
+.ft-guided .ft-recipe .ft-program-open { display:flex; justify-content:space-between; align-items:center; gap:7px; padding-top:12px; border-top:1px solid #dce7e0; color:#176b47; font-size:13px; font-weight:700; }
+.ft-program-card.active .ft-program-open { justify-content:flex-start; }

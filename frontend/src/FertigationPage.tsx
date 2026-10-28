@@ -1,7 +1,7 @@
 import {missingProgramField,programFieldStep} from './programWizard'
 import { SoilEcPulsePanel } from './SoilEcPulsePanel'
 import { useEffect, useRef, useState } from 'react'
-import { Plus, RefreshCw, Droplets, FlaskConical, ArrowRight, ArrowLeft, Check } from 'lucide-react'
+import { Plus, RefreshCw, Droplets, FlaskConical, ArrowRight, ArrowLeft, Check, ChevronRight } from 'lucide-react'
 import { cropProfiles, fertigationRecipeMutationSchema, fertigationLiveDecisionSchema, type ApiDevice, type FertigationRecipe, type FertigationLiveDecision } from '@spff/contracts'
 import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, evaluateFertigationSite } from './api'
 import { useAuth } from './authContext'
@@ -152,9 +152,20 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
       {admin && <button className="ft-new-button" disabled={busy} onClick={() => select()}><Plus size={20}/> Buat program</button>}
       {!loaded && !error && <p>Memuat program…</p>}
       {loaded && recipes.length === 0 && <p>Belum ada program tersimpan.</p>}
-      <div className="ft-program-list">{recipes.map(recipe => <button className={`ft-recipe ${selected?.recipeId === recipe.recipeId ? 'active' : ''}`} key={recipe.recipeId} disabled={busy} aria-pressed={selected?.recipeId===recipe.recipeId} onClick={() => select(recipe)}>
-        <strong>{recipe.cropName}</strong><span>{recipe.targetStockL>0?'Air dan pupuk':'Air saja'} · umur {recipe.hstFrom}–{recipe.hstTo} hari</span><span>{recipe.approvalStatus==='approved'?'Tersimpan untuk evaluasi':'Belum digunakan'}</span>
-      </button>)}</div>
+      <div className="ft-program-list">{recipes.map(recipe => {
+        const chosen=selected?.recipeId===recipe.recipeId
+        const enabled=recipe.approvalStatus==='approved'
+        const Icon=recipe.targetStockL>0?FlaskConical:Droplets
+        return <button className={`ft-recipe ft-program-card${chosen?' active':''}`} key={recipe.recipeId} disabled={busy} aria-pressed={chosen} onClick={()=>select(recipe)}>
+          <span className="ft-program-card-heading"><strong>{recipe.cropName}</strong>
+            <span className={`ft-program-status${enabled?' is-enabled':''}`} title="Status penggunaan aturan untuk evaluasi, bukan status pompa"><span aria-hidden="true"/>{enabled?'Aktif':'Nonaktif'}</span>
+          </span>
+          <span className="ft-program-kind"><Icon size={18} aria-hidden="true"/>{recipe.targetStockL>0?'Air dan pupuk':'Air saja'}</span>
+          <span className="ft-program-age">Umur <b>{recipe.hstFrom}–{recipe.hstTo} hari</b></span>
+          <span className="ft-program-usage">{enabled?'Aktif untuk evaluasi':'Belum digunakan untuk evaluasi'}</span>
+          <span className="ft-program-open">{chosen?<><Check size={16} aria-hidden="true"/>Sedang dibuka</>:<>Buka program<ChevronRight size={17} aria-hidden="true"/></>}</span>
+        </button>
+      })}</div>
     </aside><div className="ft-panel ft-editor">
       <div className="ft-editor-heading"><h3>{selected ? selected.cropName : 'Buat program tanaman'}</h3>{dirty&&<span className="ft-draft-badge">Ada perubahan</span>}</div>
       <ol className="ft-steps" aria-label="Langkah pengaturan">{titles.map((title,index)=><li key={title} aria-current={step===index?'step':undefined} className={step===index?'is-current':step>index?'is-complete':''}>
