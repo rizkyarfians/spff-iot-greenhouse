@@ -1,0 +1,15 @@
+.adaptive-recommendation { padding:18px; color:#193d2c; font-size:14px; line-height:1.5; }
+.adaptive-recommendation label { display:grid; gap:6px; margin-bottom:14px; font-weight:700; }
+.adaptive-recommendation select { width:100%; min-width:0; min-height:46px; padding:8px; border:1px solid #c7d8cf; border-radius:9px; background:white; color:inherit; font:inherit; }
+.ar-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.ar-grid section,.ar-progress { padding:12px; border:1px solid #dce8e0; border-radius:10px; margin:12px 0; background:#f5f9f6; min-width:0; }
+.adaptive-recommendation h3 { font-size:14px; margin:0 0 8px; }
+.adaptive-recommendation p { margin:8px 0; overflow-wrap:anywhere; }
+.ar-grid section>strong,.ar-progress>strong { font-size:21px; }
+.ar-grid small { font-size:12px; font-weight:400; }
+.ar-progress progress { display:block; width:100%; height:16px; accent-color:#16845a; margin:10px 0; }
+.ar-status { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.ar-notice { background:#fff5dc; padding:12px; border-radius:8px; }
+.adaptive-recommendation button { min-height:44px; padding:10px 14px; border:1px solid #b8cfc0; border-radius:8px; background:#e8f5ed; color:#176343; font:inherit; cursor:pointer; }
+.ar-open { margin-top:16px; width:100%; }
+@media(max-width:360px){.ar-grid{grid-template-columns:1fr}}

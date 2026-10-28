@@ -938,3 +938,7 @@ export const saveGuideProgram=(input:import('@spff/contracts').GuideProgramInput
 export const completeGuideProgram=(program:import('@spff/contracts').GuideProgram,activityId:string,note:string)=>request(`/guide-programs/${program.programId}/complete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedRevision:program.revision,activityId,note})});
 
 export const fetchGuideProgramHistory=(id:string)=>request<import('@spff/contracts').GuideProgramRevision[]>(`/guide-programs/${id}/history`);
+
+export type AdaptiveProgressReport={activities:{activityId:string;targetMassG:number|null;estimatedDeliveredMassG:number;remainingMassG:number|null;requiresReconciliation:boolean;sessions:{status:string;reason:string|null;water_volume_l:number;fert_volume_l:number;command_snapshot:{targetEcUs:number;targetWaterVolumeL:number;targetFertVolumeL:number};last_telemetry:{timestamp:string;filteredEc:number;waterPump:boolean;fertPump:boolean}|null}[]}[]}
+export const fetchGuideEcConversions=(id:string)=>request<import('@spff/contracts').GuideEcConversion[]>(`/guide-programs/${encodeURIComponent(id)}/ec-conversion`)
+export const fetchAdaptiveProgress=(id:string)=>request<AdaptiveProgressReport>(`/adaptive-fertigation/programs/${encodeURIComponent(id)}/progress`)

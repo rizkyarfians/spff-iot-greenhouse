@@ -3084,7 +3084,7 @@ const soilNpkGroups =
               )
         }
       </main>
-      <FloatingAiRecommendation report={aiProgress.report} error={aiProgress.error} loading={aiProgress.loading} onRetry={aiProgress.retry} onOpenProgram={()=>navigateTo('fertigation')}/>
+      <FloatingAiRecommendation deviceId={primaryDevice?.deviceId??''} report={aiProgress.report} onOpenProgram={()=>navigateTo('fertigation')}/>
     </div>
   )
 }

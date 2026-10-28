@@ -1,12 +1,12 @@
 import {useEffect,useId,useRef,useState} from 'react'
 import type {FertigationProgress} from '@spff/contracts'
 import {X} from 'lucide-react'
-import {FertigationProgressPanel} from './FertigationProgressPanel'
+import {AdaptiveRecommendation} from './AdaptiveRecommendation'
 import './FloatingAiRecommendation.css'
 
 /** Read-only recommendation drawer; no chat prompt or pump action is sent. */
-export function FloatingAiRecommendation({report,error,loading,onRetry,onOpenProgram}:{
- report:FertigationProgress|null;error:string;loading:boolean;onRetry:()=>void;onOpenProgram:()=>void
+export function FloatingAiRecommendation({deviceId,report,onOpenProgram}:{
+ deviceId:string;report:FertigationProgress|null;onOpenProgram:()=>void
 }){
  const [open,setOpen]=useState(false)
  const root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),closeButton=useRef<HTMLButtonElement>(null)
@@ -25,7 +25,7 @@ export function FloatingAiRecommendation({report,error,loading,onRetry,onOpenPro
    <header className="ai-floating-header"><div><strong id={titleId}>Rekomendasi AI</strong></div>
     <button type="button" className="ai-floating-close" ref={closeButton} aria-label="Tutup rekomendasi AI" onClick={close}><X size={19} aria-hidden="true"/></button>
    </header>
-   <FertigationProgressPanel minimal report={report} error={error} loading={loading} onRetry={onRetry} onOpen={()=>{close();onOpenProgram()}}/>
+   <AdaptiveRecommendation deviceId={deviceId} report={report} onOpen={()=>{close();onOpenProgram()}}/>
   </section>}
   <button type="button" className={`ai-floating-trigger${open?' is-open':''}`} ref={trigger} aria-label={open?'Tutup rekomendasi AI':'Buka rekomendasi AI'}
    aria-expanded={open} aria-controls={open?panelId:undefined} aria-haspopup="dialog" onClick={()=>open?close():setOpen(true)}>
