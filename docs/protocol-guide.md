@@ -15,6 +15,6 @@ not today's crop age.
 Readers select a crop, see its land/plant information and notes, and scroll the
 complete original activity table. Fertilizer, pesticide, harvest and care entries
 remain together as recorded. Checked cells show the saved source state and cannot
-be changed on this page. Repeated unit columns are retained. This is a read-only
-reference page; it does not approve programs, control pumps or update database
-rules. A frontend rebuild is sufficient; no migration or firmware change.
+be changed on this page. Repeated unit columns are retained. The original snapshot remains a reference. Saved edits and revision history are
+provided by migration 033; see `editable-protocol-guide.md`. Guide changes do not
+approve programs or control pumps.

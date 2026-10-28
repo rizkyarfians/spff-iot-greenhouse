@@ -1,3 +1,4 @@
+import type {ProtocolGuideState,ProtocolGuideSave,ProtocolGuideRevision} from '@spff/contracts'
 import type {
   ApiActuator,
   ApiAutomaticControl,
@@ -926,3 +927,7 @@ export function saveSoilEcAutomaticProfile(input:import('@spff/contracts').Start
 }
 
 export const fetchFertigationProgress=(deviceId:string,recipeId?:string,signal?:AbortSignal)=>request<import('@spff/contracts').FertigationProgress>(`/fertigation/progress?deviceId=${encodeURIComponent(deviceId)}${recipeId?`&recipeId=${encodeURIComponent(recipeId)}`:''}`,{signal})
+
+export function fetchProtocolGuide(cropId:string,signal?:AbortSignal){return request<ProtocolGuideState>(`/guide/${encodeURIComponent(cropId)}`,{signal})}
+export function saveProtocolGuide(cropId:string,input:ProtocolGuideSave){return request<ProtocolGuideState>(`/guide/${encodeURIComponent(cropId)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})}
+export function fetchProtocolGuideHistory(cropId:string){return request<ProtocolGuideRevision[]>(`/guide/${encodeURIComponent(cropId)}/history`)}

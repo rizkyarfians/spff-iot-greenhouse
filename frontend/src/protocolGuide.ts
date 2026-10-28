@@ -31,3 +31,12 @@ export function guideRows(sheet:GuideSheet){
     }).filter(cell=>!cell.covered)}
   })
 }
+export type GuideOverrideValue=string|number|boolean|null
+export function applyGuideOverrides(sheet:GuideSheet,overrides:Record<string,GuideOverrideValue>):GuideSheet {
+  const cells={...sheet.cells}
+  for(const [address,value]of Object.entries(overrides))cells[address]={value,display:value===null?'':typeof value==='boolean'?(value?'TRUE':'FALSE'):String(value)}
+  return {...sheet,cells}
+}
+export function guideColumnKind(column:number):'number'|'text'|'boolean'{
+  return column===6?'boolean':[0,1,7,9,10,12,14,15].includes(column)?'number':'text'
+}

@@ -39,3 +39,13 @@ test('guide retains source irregularities, negative HST, original methods and st
  assert.equal(row.cells.find(cell=>cell.address==='G12').cell.value,false)
  assert.equal(ubi.cells.D11.value,'Tabur')
 })
+
+test('editing overlays preserve immutable source and can clear cells without falling back to old values',async()=>{
+ const {applyGuideOverrides,guideColumnKind}=await import('../src/protocolGuide.ts')
+ const source=dataset.sheets[0],original=JSON.stringify(source)
+ const edited=applyGuideOverrides(source,{H11:3,E11:'Pupuk uji',G11:true,K11:null})
+ assert.equal(edited.cells.H11.value,3);assert.equal(edited.cells.K11.value,null);assert.equal(edited.cells.K11.display,'')
+ assert.equal(edited.cells.G11.value,true);assert.equal(JSON.stringify(source),original)
+ assert.deepEqual(edited.merges,source.merges)
+ assert.equal(guideColumnKind(1),'number');assert.equal(guideColumnKind(4),'text');assert.equal(guideColumnKind(6),'boolean')
+})
