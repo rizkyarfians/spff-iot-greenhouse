@@ -11,6 +11,7 @@ const guide=snapshot as GuideDataset
 export function GuidePage(){
   const {user}=useAuth(),admin=user.role==='admin'
   const [crop,setCrop]=useState(guide.sheets[0].id)
+  const [mobileLayout,setMobileLayout]=useState<'cards'|'table'>('cards')
   const [stored,setStored]=useState<ProtocolGuideState|null>(null)
   const [editing,setEditing]=useState(false),[saving,setSaving]=useState(false),[showOriginal,setShowOriginal]=useState(false)
   const [draft,setDraft]=useState<Record<string,GuideEditValue>>({}),[note,setNote]=useState('')
@@ -36,6 +37,12 @@ export function GuidePage(){
   const savedSheet=applyGuideOverrides(original,compatible?view.overrides:{})
   const sheet=showOriginal?original:editing?applyGuideOverrides(savedSheet,draft):savedSheet
   const rows=guideRows(sheet),changes=Object.entries(draft)
+  function rowLabel(rowNumber:number){
+    // Carry context only across an explicit Excel merge, never across blank cells.
+    const owner=rows.find(row=>row.row<=rowNumber&&row.cells.some(cell=>cell.column===1&&row.row+cell.rowSpan>rowNumber))
+    const hst=owner?.cells.find(cell=>cell.column===1)?.cell?.display
+    return `Baris ${rowNumber}${hst?` · HST ${hst}`:''}`
+  }
   function change(address:string,value:GuideEditValue){
     setDraft(current=>{const next={...current};if(value===(savedSheet.cells[address]?.value??null))delete next[address];else next[address]=value;return next})
     setError('');setNotice('')
@@ -54,7 +61,7 @@ export function GuidePage(){
   const metadata=Array.from({length:8},(_,i)=>{const label=sheet.cells[`C${i+1}`],value=sheet.cells[`D${i+1}`];return label?[{label,value}]:[]}).flat()
   const notes=['F2','F3','F4'].map(key=>sheet.cells[key]).filter((cell):cell is GuideCell=>!!cell&&typeof cell.value==='string'&&cell.value!=='HST')
   const sourceHst=sheet.cells.F2?.value==='HST'?sheet.cells.F3:null
-  return <section className="guide-page">
+  return <section className={`guide-page guide-mobile-${mobileLayout}${editing?' guide-is-editing':''}`}>
     <div className="guide-toolbar">
       <label htmlFor="guide-crop"><span>Tanaman</span><select id="guide-crop" value={sheet.id} disabled={editing||saving} onChange={event=>setCrop(event.target.value)}>
         {guide.sheets.map(item=><option key={item.id} value={item.id}>{item.cropName}</option>)}
@@ -80,23 +87,30 @@ export function GuidePage(){
       {notes.length>0&&<div className="guide-source-notes" aria-label="Catatan pada Excel">{notes.map((note,index)=><p key={index}>{note.display}</p>)}</div>}
     </section>
     <form id="guide-edit-form" ref={form} className="guide-table-card" aria-labelledby="guide-table-heading" onSubmit={event=>{event.preventDefault();void save()}}>
-      <header><h2 id="guide-table-heading">Jadwal dan kebutuhan</h2><p>Geser tabel untuk melihat semua kolom.</p></header>
+      <header><h2 id="guide-table-heading">Jadwal dan kebutuhan</h2><p className="guide-table-hint">Geser tabel untuk melihat semua kolom.</p>
+        <div className="guide-mobile-layout" role="group" aria-label="Tampilan panduan">
+          <button type="button" aria-pressed={mobileLayout==='cards'} onClick={()=>setMobileLayout('cards')}>Kartu</button>
+          <button type="button" aria-pressed={mobileLayout==='table'} onClick={()=>setMobileLayout('table')}>Tabel lengkap</button>
+        </div>
+      </header>
       <div className="guide-table-scroll" tabIndex={0} role="region" aria-label={`Tabel ${sheet.cropName}`} key={sheet.id}>
-        <table>
+        <table role="table">
           <caption>{sheet.sheetName} — {showOriginal?'acuan Excel':'versi panduan tersimpan'}</caption>
           <colgroup><col style={{width:96}}/><col style={{width:80}}/>{Array.from({length:sheet.columnCount-2},(_,i)=><col key={i}/>)}</colgroup>
-          <thead><tr>{Array.from({length:sheet.columnCount},(_,column)=><th className={column<2?`guide-fixed-${column}`:undefined} scope="col" key={column}>
+          <thead role="rowgroup"><tr role="row">{Array.from({length:sheet.columnCount},(_,column)=><th className={column<2?`guide-fixed-${column}`:undefined} scope="col" role="columnheader" key={column}>
             {sheet.cells[`${columnName(column)}${sheet.headerRow}`]?.display??''}
           </th>)}</tr></thead>
-          <tbody>{rows.map(row=><tr key={row.row}>{row.cells.map(({address,column,cell,rowSpan,colSpan})=><td key={address} rowSpan={rowSpan} colSpan={colSpan}
-            className={`${column<2?`guide-fixed-${column} `:''}${typeof cell?.value==='number'?'guide-number ':''}${!showOriginal&&((compatible&&Object.hasOwn(view.overrides,address))||Object.hasOwn(draft,address))?'guide-cell-changed':''}`}
+          <tbody role="rowgroup">{rows.map(row=><tr role="row" key={row.row} data-row-label={rowLabel(row.row)} aria-label={rowLabel(row.row)}>{row.cells.map(({address,column,cell,rowSpan,colSpan})=><td role="cell" key={address} rowSpan={rowSpan} colSpan={colSpan}
+            data-label={`${sheet.cells[`${columnName(column)}${sheet.headerRow}`]?.display||columnName(column)} (${columnName(column)})`}
+            className={`${!editing&&(cell?.value===null||cell?.value===undefined||cell?.display==='')?'guide-cell-empty ':''}${colSpan>1||[2,4].includes(column)?'guide-cell-wide ':''}${column<2?`guide-fixed-${column} `:''}${typeof cell?.value==='number'?'guide-number ':''}${!showOriginal&&((compatible&&Object.hasOwn(view.overrides,address))||Object.hasOwn(draft,address))?'guide-cell-changed':''}`}
             title={`${sheet.sheetName}!${address}`}>
-            {editing?(guideColumnKind(column)==='boolean'?<input type="checkbox" checked={cell?.value===true} disabled={saving} aria-label={`Cek ${address}`} onChange={event=>change(address,event.target.checked)}/>:
+            <span className="guide-mobile-field-label" aria-hidden="true">{sheet.cells[`${columnName(column)}${sheet.headerRow}`]?.display||columnName(column)} <small>({columnName(column)})</small></span>
+            <div className="guide-cell-value">{editing?(guideColumnKind(column)==='boolean'?<input type="checkbox" checked={cell?.value===true} disabled={saving} aria-label={`Cek ${address}`} onChange={event=>change(address,event.target.checked)}/>:
               <input type={guideColumnKind(column)==='number'?'number':'text'} value={cell?.value===null||cell?.value===undefined?'':String(cell.value)} disabled={saving}
                 aria-label={`${sheet.cells[`${columnName(column)}${sheet.headerRow}`]?.display??'Sel'} ${address}`}
                 min={guideColumnKind(column)==='number'&&column!==1?0:undefined} step={column<2?1:'any'} maxLength={500}
                 onChange={event=>change(address,guideColumnKind(column)==='number'?(event.target.value===''?null:event.target.valueAsNumber):event.target.value)}/> ):
-              typeof cell?.value==='boolean'?<span className="guide-source-check" role="img" aria-label={cell.value?'Dicentang':'Belum dicentang'}>{cell.value?<SquareCheck size={19}/>:<Square size={19}/>}</span>:cell?.display??''}
+              typeof cell?.value==='boolean'?<span className="guide-source-check" role="img" aria-label={cell.value?'Dicentang':'Belum dicentang'}>{cell.value?<SquareCheck size={19}/>:<Square size={19}/>}</span>:cell?.display??''}</div>
 
           </td>)}</tr>)}</tbody>
         </table>
