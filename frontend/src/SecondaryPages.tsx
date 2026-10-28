@@ -4274,7 +4274,7 @@ function DevicesPage({
 
                   <div>
                     <dt>
-                      Versi perangkat lunak
+                      Versi firmware
                     </dt>
 
                     <dd>

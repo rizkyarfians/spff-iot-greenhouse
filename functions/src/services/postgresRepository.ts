@@ -1059,7 +1059,7 @@ async function resolve(
 async function devices() {
   const result = await pool.query(
     `SELECT device.site_id, device.device_id, device.display_name,
-            device.hardware_model, device.firmware_version, device.enabled,
+            device.hardware_model, status.firmware_version, device.enabled,
             status.online, status.mode, status.system_state, status.growth_phase,
             status.sensor_valid, status.recorded_at
      FROM spff.devices device

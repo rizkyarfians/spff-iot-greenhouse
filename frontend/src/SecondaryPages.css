@@ -2160,3 +2160,9 @@
 }
 .mode-feedback--pending { background: #fff8e6; border-color: #e6d09b; color: #72520d; }
 .mode-feedback--error { background: #fff0ef; border-color: #e8b8b4; color: #9b3028; }
+
+.connected-device-card dd {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
