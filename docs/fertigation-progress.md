@@ -1,7 +1,8 @@
 # Measured EC and tank progress
 
-Dashboard, notification bell and Program Fertigasi share a read-only progress
-panel. It refreshes every 10 seconds. Normal target sufficiency is a status,
+A brand-green floating sparkle button at the bottom right opens the read-only
+progress panel on any page. The notification bell and Program Fertigasi share
+the same report. It refreshes every 10 seconds. Normal target sufficiency is a status,
 not a failed-pump alarm and does not add to the unread bell count.
 
 - Soil EC: the selected automatic program supplies the approved crop/HST target
@@ -33,3 +34,11 @@ independent-AI deployment. Rebuild contracts, API, frontend and worker; restart
 API/worker. Tests cover measured ratios, missing targets/health, concentration
 versus volume, distinct liquid targets, target sufficiency/tolerance, high EC,
 tank gates, stale telemetry and absence of commands from report reads.
+
+The floating panel is non-modal: Close/Escape returns focus to the trigger,
+clicking outside dismisses without stealing focus, and narrow screens retain
+scrollable access to all metrics. The inline dashboard block is replaced by
+this launcher. Loading failures show the API message and a manual retry;
+missing schema, missing permissions and invalid stored rules are distinguished
+without exposing SQL details to the browser. Deployment logs are still needed
+to diagnose an unknown production failure.

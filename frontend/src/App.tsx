@@ -1,3 +1,4 @@
+import {FloatingAiRecommendation} from './FloatingAiRecommendation'
 import {FertigationProgressPanel} from './FertigationProgressPanel'
 import {useFertigationProgress} from './useFertigationProgress'
 import { ChartHover } from './ChartHover'
@@ -2116,7 +2117,7 @@ const soilNpkGroups =
           </div>
 
 
-          <FertigationProgressPanel compact report={aiProgress.report} error={aiProgress.error} onOpen={()=>{setNotificationsOpen(false);navigateTo('fertigation')}}/>
+          <FertigationProgressPanel compact report={aiProgress.report} error={aiProgress.error} loading={aiProgress.loading} onRetry={aiProgress.retry} onOpen={()=>{setNotificationsOpen(false);navigateTo('fertigation')}}/>
           {
             notifications.length === 0
               ? (
@@ -2585,7 +2586,6 @@ const soilNpkGroups =
                     } : current)}
                   />
 
-                  <FertigationProgressPanel report={aiProgress.report} error={aiProgress.error} onOpen={()=>navigateTo('fertigation')}/>
                   <div className="monitoring-grid">
                     <div
                       className={
@@ -3084,6 +3084,7 @@ const soilNpkGroups =
               )
         }
       </main>
+      <FloatingAiRecommendation report={aiProgress.report} error={aiProgress.error} loading={aiProgress.loading} onRetry={aiProgress.retry} onOpenProgram={()=>navigateTo('fertigation')}/>
     </div>
   )
 }

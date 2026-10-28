@@ -1,0 +1,15 @@
+.ai-floating { position: fixed; right: max(24px,env(safe-area-inset-right)); bottom: max(24px,env(safe-area-inset-bottom)); z-index: 120; }
+.ai-floating-trigger { position: relative; display: flex; align-items: center; justify-content: center; width: 58px; height: 58px; padding: 0; border: 1px solid rgb(255 255 255 / 65%); border-radius: 50%; background: var(--green,#27ad78); color: #fff; box-shadow: 0 6px 20px rgb(22 94 65 / 23%); cursor: pointer; }
+.ai-floating-trigger:hover, .ai-floating-trigger.is-open { background: var(--green-dark,#16845a); }
+.ai-floating-trigger:focus-visible, .ai-floating-close:focus-visible { outline: 3px solid #0c6742; outline-offset: 4px; }
+.ai-floating-tooltip { position: absolute; right: 70px; white-space: nowrap; padding: 8px 11px; border-radius: 8px; color: #fff; background: #193d2c; font-size: 12px; opacity: 0; pointer-events: none; }
+.ai-floating-trigger:hover .ai-floating-tooltip, .ai-floating-trigger:focus-visible .ai-floating-tooltip { opacity: 1; }
+.ai-floating-panel { position: absolute; right: 0; bottom: 74px; width: min(470px,calc(100vw - 40px)); max-height: min(700px,calc(100dvh - 135px)); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line,#d9dddb); border-radius: 17px; background: #fff; box-shadow: 0 12px 36px rgb(25 43 35 / 16%); }
+.ai-floating-header { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 17px; border-bottom: 1px solid #e4ece7; background: #fff; }
+.ai-floating-header strong { display: block; color: #193d2c; font-size: 14px; }
+.ai-floating-header small { display: block; margin-top: 4px; color: #63746a; font-size: 12px; }
+.ai-floating-close { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; color: #426252; background: #eef6f1; cursor: pointer; }
+.ai-floating-panel .ai-progress { margin: 0; padding: 17px; border: 0; border-radius: 0; }
+.ai-floating-panel .ai-progress-heading { flex-wrap: wrap; }
+.ai-floating-panel .ai-progress-heading h2 { font-size: 13px; }
+@media(max-width:600px) { .ai-floating { right: max(16px,env(safe-area-inset-right)); bottom: max(16px,env(safe-area-inset-bottom)); } .ai-floating-panel { width: calc(100vw - 32px); max-height: calc(100dvh - 120px); bottom: 70px; } .ai-floating-trigger { width: 56px; height: 56px; } }

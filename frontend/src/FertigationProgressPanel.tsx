@@ -42,8 +42,11 @@ function Metric({metric}:{metric:FertigationProgressMetric}){
   {!isTank&&metric.minimum!==null&&<small>Batas mulai: {number(metric.minimum)} {metric.unit}{metric.high!==null?` · batas tinggi ${number(metric.high)} ${metric.unit}`:''}</small>}
  </article>
 }
-export function FertigationProgressPanel({report,error='',compact=false,onOpen}:{report:FertigationProgress|null;error?:string;compact?:boolean;onOpen?:()=>void}){
- if(!report)return <section className={`ai-progress${compact?' is-compact':''}`} aria-label="Rekomendasi AI"><strong>Rekomendasi AI</strong><p>{error?'Rekomendasi belum dapat dimuat. Nilai lama tidak dipakai sebagai hasil terbaru.':'Menunggu rekomendasi dan data sensor…'}</p></section>
+export function FertigationProgressPanel({report,error='',compact=false,loading=false,onRetry,onOpen}:{report:FertigationProgress|null;error?:string;compact?:boolean;loading?:boolean;onRetry?:()=>void;onOpen?:()=>void}){
+ if(!report)return <section className={`ai-progress${compact?' is-compact':''}`} aria-label="Rekomendasi AI" aria-busy={loading}><strong>Rekomendasi AI</strong><p>{error?'Rekomendasi belum dapat dimuat.':'Menunggu rekomendasi dan data sensor…'}</p>
+  {error&&<p className="ai-progress-error" role="alert">{error}</p>}
+  {onRetry&&<button className="ai-open-program" type="button" disabled={loading} onClick={onRetry}>{loading?'Memuat…':'Muat ulang rekomendasi'}</button>}
+ </section>
  const detail=reasonLabels[report.reason]??report.reason
  return <section className={`ai-progress${compact?' is-compact':''}`} aria-label="Rekomendasi dan progres AI">
   <header className="ai-progress-heading"><div><h2>Rekomendasi AI hari ini</h2><small>{report.cropName??'Program belum dipilih'}{report.hst!==null?` · HST ${report.hst}`:''} · {report.day}</small></div><span className={`ai-status is-${report.status}`}>{statusLabels[report.status]}</span></header>
@@ -52,9 +55,9 @@ export function FertigationProgressPanel({report,error='',compact=false,onOpen}:
   {compact?<details className="ai-tank-details"><summary>EC larutan dan isi tandon</summary><div className="ai-metrics"><Metric metric={report.liquidEc}/><Metric metric={report.waterTank}/><Metric metric={report.fertilizerTank}/></div></details>:
    <div className="ai-metrics"><Metric metric={report.waterTank}/><Metric metric={report.fertilizerTank}/></div>}
   <div className="ai-progress-notes">
-   <span>Target tanah mengikuti aturan tanaman/HST hari ini. EC adalah konsentrasi terukur, bukan jumlah pupuk atau air yang sudah disiram. {report.soilEcBasis==='stable_mean'?'Nilai tanah memakai rata-rata sampel stabil.':''}</span>
+   <span>Target EC berasal dari aturan tanaman/HST yang disimpan. AI menghitung selisih dan durasi pulse, bukan membuat angka target baru. EC adalah pembacaan sensor, bukan jumlah pupuk atau air yang sudah disiram. {report.soilEcBasis==='stable_mean'?'Nilai tanah memakai rata-rata sampel stabil.':''}</span>
    {report.soilEcToleranceUsCm!==null&&<span>Toleransi EC tanah: ±{number(report.soilEcToleranceUsCm)} µS/cm; kecukupan diperiksa dari sampel stabil.</span>}
-   <span>Target EC larutan memakai pengaturan tandon tersendiri{report.liquidControlEnabled?'':'; kontrol pupuk legacy nonaktif'}.</span>
+   <span>Target EC larutan memakai pengaturan tandon tersendiri{report.liquidControlEnabled?'':'; kontrol otomatis EC larutan nonaktif'}.</span>
    {report.nextPulseOnMs!==null&&<span>Rekomendasi pulse berikutnya: <b>{number(report.nextPulseOnMs/1000)} detik</b>. Server memeriksa ulang sebelum eksekusi.</span>}
    {report.dailyLimitMs!==null&&<span>Durasi pulse diperintahkan hari ini: {number(report.dailyOnMs/1000)} / {number(report.dailyLimitMs/1000)} detik.</span>}
    {!report.executionEnabled&&<span>Izin AI OFF; jadwal timer tetap terpisah.</span>}

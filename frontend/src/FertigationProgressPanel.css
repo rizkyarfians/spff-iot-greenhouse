@@ -30,3 +30,6 @@
 @media(prefers-reduced-motion:reduce) { .ai-meter-fill { transition: none; } }
 
 .notification-panel { max-height: calc(100dvh - 100px); overflow-y: auto; overscroll-behavior: contain; }
+
+.ai-progress-error { color: #9a402f; font-size: 12px; line-height: 1.6; }
+.ai-open-program:disabled { opacity: .6; cursor: wait; }

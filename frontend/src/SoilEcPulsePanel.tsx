@@ -81,7 +81,7 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
   }catch(e){setError(e instanceof Error?e.message:'Gagal menghentikan sesi')}finally{busyRef.current=false;setBusy(false)}}
   const active=sessions.some(s=>['waiting','in_flight','fault'].includes(s.status))
   return <section className="ft-field-group" aria-label="Sesi pulse EC tanah"><h3>Sesi pulse EC tanah</h3>
-    {deviceId&&<FertigationProgressPanel report={progress.report} error={progress.error}/>}
+    {deviceId&&<FertigationProgressPanel report={progress.report} error={progress.error} loading={progress.loading} onRetry={progress.retry}/>}
     <p>Server menghitung durasi ON dari selisih EC tanah zona 1. Perangkat menjalankan satu pulse, OFF sendiri, lalu server menunggu pembacaan baru. Tidak menghitung liter stok pupuk.</p>
     <p>Nonaktifkan fertilizer sensor legacy dan tunggu konfigurasi diterapkan sebelum memulai. Target aturan: {recipe.ecTargetUsCm??'belum diisi'} µS/cm. Jadwal tetap berjalan sebagai pemicu terpisah. AI mengevaluasi EC di luar jadwal; jadwal aktif didahulukan. Setelah sesi normal selesai, kontrol jadwal dikembalikan otomatis.</p>
     {!deviceId?<p>Pilih perangkat terlebih dahulu.</p>:!enabled?<p>Eksekusi pulse belum tersedia pada server atau koneksi status gagal. Evaluasi rekomendasi tetap terpisah.</p>:null}
