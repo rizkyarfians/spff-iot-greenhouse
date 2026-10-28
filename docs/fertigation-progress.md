@@ -1,8 +1,8 @@
 # Measured EC and tank progress
 
 A brand-green floating sparkle button at the bottom right opens the read-only
-progress panel on any page. The notification bell and Program Fertigasi share
-the same report. It refreshes every 10 seconds. Normal target sufficiency is a status,
+progress panel on any page. Program Fertigasi shares the same report. The
+notification bell contains alarms and sensor faults only. It refreshes every 10 seconds. Normal target sufficiency is a status,
 not a failed-pump alarm and does not add to the unread bell count.
 
 - Soil EC: the selected automatic program supplies the approved crop/HST target

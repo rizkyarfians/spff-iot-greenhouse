@@ -1,5 +1,4 @@
 import {FloatingAiRecommendation} from './FloatingAiRecommendation'
-import {FertigationProgressPanel} from './FertigationProgressPanel'
 import {useFertigationProgress} from './useFertigationProgress'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
@@ -2117,7 +2116,6 @@ const soilNpkGroups =
           </div>
 
 
-          <FertigationProgressPanel compact report={aiProgress.report} error={aiProgress.error} loading={aiProgress.loading} onRetry={aiProgress.retry} onOpen={()=>{setNotificationsOpen(false);navigateTo('fertigation')}}/>
           {
             notifications.length === 0
               ? (
