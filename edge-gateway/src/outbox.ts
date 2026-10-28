@@ -1,3 +1,4 @@
+import type {AdaptiveEvent} from '@spff/contracts';
 import type { WaterInterlockAck } from '@spff/contracts';
 import type { FertigationPulseAck } from '@spff/contracts';
 import { randomUUID } from 'node:crypto';
@@ -14,6 +15,7 @@ import type {
 } from '@spff/contracts';
 
 export type OutboxRecord =
+  | {kind:'adaptive_event';payload:AdaptiveEvent}
   | {kind:'water_interlock_ack';payload:WaterInterlockAck}
   | { kind: 'pulse_ack'; payload: FertigationPulseAck }
   | { kind: 'telemetry'; payload: TelemetryMessage }
@@ -59,7 +61,7 @@ export class DurableOutbox {
         if (parsed === undefined) continue;
         await publish(parsed);
 
-        if (parsed.kind !== 'telemetry' && parsed.kind !== 'session') {
+        if (parsed.kind !== 'telemetry' && parsed.kind !== 'session' && parsed.kind !== 'adaptive_event') {
           try {
             await unlink(filePath);
           } catch (error) {
@@ -72,6 +74,8 @@ export class DurableOutbox {
     }
   }
 
+async acknowledgeAdaptive(messageId:string){return this.acknowledgePersisted('adaptive_event',messageId);}
+
 async acknowledgeTelemetry(messageId: string): Promise<boolean> {
   return this.acknowledgePersisted('telemetry', messageId);
 }
@@ -80,7 +84,7 @@ async acknowledgeSession(messageId: string): Promise<boolean> {
   return this.acknowledgePersisted('session', messageId);
 }
 
-private async acknowledgePersisted(kind: 'telemetry' | 'session', messageId: string): Promise<boolean> {
+private async acknowledgePersisted(kind: 'telemetry' | 'session' | 'adaptive_event', messageId: string): Promise<boolean> {
   const files = await this.listFiles();
 
   for (const file of files) {

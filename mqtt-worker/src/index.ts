@@ -1,3 +1,4 @@
+import {AdaptiveFertigationTransport} from './adaptiveFertigationTransport.js';
 import { WaterInterlockSyncService } from './waterInterlockSync.js';
 import { SoilEcPulseTransport } from './soilEcPulseTransport.js';
 import { CommandDispatchService } from "./commandDispatchService.js";
@@ -15,8 +16,9 @@ const alarmEvaluator = new AlarmEvaluator(
   config.alarm.pollIntervalMs,
 );
 const pulseTransport: SoilEcPulseTransport = new SoilEcPulseTransport((message): Promise<void> => worker.publishSoilEcPulse(message));
+const adaptiveTransport=new AdaptiveFertigationTransport(message=>worker.publishAdaptive(message));
 const ingestionService: IngestionService = new IngestionService(repository, alarmEvaluator,
-  ack => pulseTransport.saveAck(ack),ack=>waterInterlockSync.saveAck(ack));
+  ack => pulseTransport.saveAck(ack),ack=>waterInterlockSync.saveAck(ack),event=>adaptiveTransport.saveEvent(event));
 const worker: MqttWorker = new MqttWorker(ingestionService);
 const waterInterlockSync:WaterInterlockSyncService=new WaterInterlockSyncService((message):Promise<void>=>worker.publishWaterInterlock(message));
 const commandDispatcher = new CommandDispatchService(repository, worker);
@@ -47,6 +49,7 @@ async function shutdown(signal: string) {
   alarmEvaluator.stop();
   await waterInterlockSync.stop();
   await pulseTransport.stop();
+  await adaptiveTransport.stop();
   try {
     await worker.stop();
   } finally {
@@ -82,6 +85,7 @@ void repository
     commandDispatcher.start();
     if(await waterInterlockSync.installed())waterInterlockSync.start();
     if (await pulseTransport.isInstalled()) pulseTransport.start();
+    if(await adaptiveTransport.installed())adaptiveTransport.start();
     alarmEvaluator.start();
   })
   .catch(async (error: unknown) => {

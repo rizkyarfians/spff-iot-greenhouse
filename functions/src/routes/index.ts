@@ -1,4 +1,5 @@
-import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory} from '../controllers/guideProgramController.js';
+import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
+import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
 import {getProtocolGuide,getProtocolGuideHistory,putProtocolGuide} from '../controllers/protocolGuideController.js';
 import {getFertigationProgress} from '../controllers/fertigationProgressController.js';
 import { getWaterInterlock, putWaterInterlock } from '../controllers/waterInterlockController.js';
@@ -214,7 +215,15 @@ apiRouter.get(
 // Simulation is advisory-only and never publishes commands to MQTT.
 apiRouter.get('/settings/water-interlock', getWaterInterlock);
 apiRouter.put('/settings/water-interlock', requireAdmin, requireCsrf, putWaterInterlock);
+apiRouter.post('/adaptive-fertigation/sessions/:id/reconcile',requireAdmin,requireCsrf,adaptiveReconcile);
+apiRouter.get('/adaptive-fertigation/sessions/:id',adaptiveSession);
+apiRouter.post('/adaptive-fertigation/preview',requireOperator,requireCsrf,adaptivePreview);
+apiRouter.post('/adaptive-fertigation/sessions',requireOperator,requireCsrf,adaptiveStart);
+apiRouter.get('/adaptive-fertigation/programs/:id/progress',adaptiveGetProgress);
+apiRouter.post('/adaptive-fertigation/sessions/:id/control',requireOperator,requireCsrf,adaptiveControl);
 apiRouter.get('/guide-programs',getGuidePrograms);
+apiRouter.get('/guide-programs/:id/ec-conversion',getGuideEcConversions);
+apiRouter.put('/guide-programs/:id/ec-profile',requireAdmin,requireCsrf,putGuideEcProfile);
 apiRouter.get('/guide-programs/:id/history',getGuideProgramHistory);
 apiRouter.post('/guide-programs/preview',requireAdmin,requireCsrf,postGuideProgramPreview);
 apiRouter.post('/guide-programs',requireAdmin,requireCsrf,postGuideProgram);

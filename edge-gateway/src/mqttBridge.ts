@@ -1,3 +1,4 @@
+import {adaptiveDispatchSchema,adaptivePersistedSchema,type AdaptiveDispatch,type AdaptiveEvent,type AdaptivePersisted} from '@spff/contracts';
 import { waterInterlockSyncSchema,type WaterInterlockSync,type WaterInterlockAck } from '@spff/contracts';
 import { isFertigationPulseCommand, type FertigationPulseCommand, type FertigationPulseAck } from '@spff/contracts';
 import {
@@ -24,6 +25,11 @@ import { connect, type IClientOptions, type MqttClient } from 'mqtt';
 import type { EdgeConfig } from './config.js';
 
 export class MqttBridge {
+  private adaptiveHandler:((m:AdaptiveDispatch)=>Promise<void>)|null=null;
+  private adaptivePersistedHandler:((m:AdaptivePersisted)=>Promise<void>)|null=null;
+  onAdaptive(handler:(m:AdaptiveDispatch)=>Promise<void>){this.adaptiveHandler=handler;}
+  onAdaptivePersisted(handler:(m:AdaptivePersisted)=>Promise<void>){this.adaptivePersistedHandler=handler;}
+  publishAdaptiveEvent(message:AdaptiveEvent){return this.publish(mqttTopics.sessions(message.siteId,message.deviceId),message);}
   private client: MqttClient | null = null;
   private waterInterlockHandler:((v:WaterInterlockSync)=>Promise<void>)|null=null;
   onWaterInterlock(handler:(v:WaterInterlockSync)=>Promise<void>){this.waterInterlockHandler=handler;}
@@ -211,6 +217,8 @@ onTelemetryPersisted(
 private async handleMessage(topic: string, payload: Buffer) {
   try {
     const message = decodeJsonMessage(payload);
+    const persisted=adaptivePersistedSchema.safeParse(message);
+    if(topic===mqttTopics.acknowledgements(this.config.siteId,this.config.deviceId)&&persisted.success&&persisted.data.siteId===this.config.siteId&&persisted.data.deviceId===this.config.deviceId){await this.adaptivePersistedHandler?.(persisted.data);return;}
 
     if (
       topic === mqttTopics.commands(
@@ -218,6 +226,8 @@ private async handleMessage(topic: string, payload: Buffer) {
         this.config.deviceId,
       )
     ) {
+      const adaptive=adaptiveDispatchSchema.safeParse(message);
+      if(adaptive.success){if(adaptive.data.siteId===this.config.siteId&&adaptive.data.deviceId===this.config.deviceId)await this.adaptiveHandler?.(adaptive.data);return;}
       const water=waterInterlockSyncSchema.safeParse(message);
       if(water.success){
         if(water.data.siteId===this.config.siteId&&water.data.deviceId===this.config.deviceId)

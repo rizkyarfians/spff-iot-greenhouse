@@ -1027,3 +1027,5 @@ export * from './fertigationPlanner.js';
 export * from './fertigationProgress.js';
 export * from './protocolGuideEdits.js';
 export * from './guidePrograms.js';
+export * from './guideEcConversion.js';
+export * from './adaptiveFertigation.js';

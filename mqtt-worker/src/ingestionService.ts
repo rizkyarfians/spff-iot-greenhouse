@@ -1,3 +1,4 @@
+import {adaptiveEventSchema,adaptivePersistedSchema,type AdaptiveEvent,type AdaptivePersisted} from '@spff/contracts';
 import { waterInterlockAckSchema,type WaterInterlockAck } from '@spff/contracts';
 import { isFertigationPulseAck, type FertigationPulseAck } from '@spff/contracts';
 import {
@@ -24,12 +25,13 @@ export class IngestionService {
     private readonly alarmObserver?: AlarmIngestionObserver,
     private readonly savePulseAck?: (ack: FertigationPulseAck) => Promise<void>,
     private readonly saveWaterInterlockAck?: (ack:WaterInterlockAck)=>Promise<void>,
+    private readonly saveAdaptiveEvent?:(event:AdaptiveEvent)=>Promise<void>,
   ) {}
 
   async process(
     topic: string,
     payload: Uint8Array,
-  ): Promise<TelemetryPersistedAckMessage | FertigationSessionPersistedAck | null> {
+  ): Promise<TelemetryPersistedAckMessage | FertigationSessionPersistedAck | AdaptivePersisted | null> {
     const topicParts = parseMqttTopic(topic);
     if (!topicParts) throw new Error(`Unsupported MQTT topic: ${topic}`);
 
@@ -38,6 +40,10 @@ export class IngestionService {
       value.siteId === topicParts.siteId &&
       value.deviceId === topicParts.deviceId;
 
+    const adaptive=adaptiveEventSchema.safeParse(message);
+    if(topicParts.channel==='sessions'&&adaptive.success&&matchesTopic(adaptive.data)){if(!this.saveAdaptiveEvent)throw new Error('Adaptive ingestion unavailable');await this.saveAdaptiveEvent(adaptive.data);return {kind:'adaptive_fert_persisted_ack',schemaVersion:1,siteId:adaptive.data.siteId,deviceId:adaptive.data.deviceId,messageId:adaptive.data.messageId};}
+    const adaptivePersisted=adaptivePersistedSchema.safeParse(message);
+    if(topicParts.channel==='ack'&&adaptivePersisted.success&&matchesTopic(adaptivePersisted.data))return null;
     const waterAck=waterInterlockAckSchema.safeParse(message);
     if(topicParts.channel==='ack'&&waterAck.success&&matchesTopic(waterAck.data)){
       if(!this.saveWaterInterlockAck)throw new Error('Water interlock ACK transport unavailable');

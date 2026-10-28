@@ -1,3 +1,6 @@
+import {adaptiveEventPayloadSchema} from '@spff/contracts';
+import {adaptiveEnvelope,AdaptiveDispatchGuard} from './adaptiveDispatch.js';
+import path from 'node:path';
 import { waterInterlockAckSchema } from '@spff/contracts';
 import { isFertigationPulseAck } from '@spff/contracts';
 import {
@@ -31,6 +34,7 @@ const belongsToConfiguredDevice = (message: { siteId: string; deviceId: string }
 let shuttingDown = false;
 
 const publishOutboxRecord = async (record: OutboxRecord) => {
+  if(record.kind==='adaptive_event')return mqttBridge.publishAdaptiveEvent(record.payload);
   if(record.kind==='water_interlock_ack')return mqttBridge.publishWaterInterlockAck(record.payload);
   if (record.kind === 'pulse_ack') return mqttBridge.publishPulseAck(record.payload);
   if (record.kind === 'telemetry') return mqttBridge.publishTelemetry(record.payload);
@@ -64,6 +68,8 @@ const serialGateway = new SerialGateway(
   config.serial,
   async (line) => {
     const message = decodeJsonMessage(line);
+    const adaptive=adaptiveEventPayloadSchema.safeParse(message);
+    if(adaptive.success&&belongsToConfiguredDevice(adaptive.data)){await queue({kind:'adaptive_event',payload:adaptiveEnvelope(adaptive.data)});return;}
     const waterAck=waterInterlockAckSchema.safeParse(message);
     if(waterAck.success&&belongsToConfiguredDevice(waterAck.data)){await queue({kind:'water_interlock_ack',payload:waterAck.data});return;}
     if (isFertigationPulseAck(message) && belongsToConfiguredDevice(message)) {
@@ -132,6 +138,9 @@ mqttBridge.onTelemetryPersisted(async (acknowledgement) => {
     );
   }
 });
+const adaptiveGuard=new AdaptiveDispatchGuard(path.join(config.outbox.directory,'adaptive-command-ledger'),message=>serialGateway.send(message),event=>queue({kind:'adaptive_event',payload:event}));
+mqttBridge.onAdaptive(message=>adaptiveGuard.forward(message));
+mqttBridge.onAdaptivePersisted(async message=>{await outbox.acknowledgeAdaptive(message.messageId);});
 mqttBridge.onConnected(flushOutbox);
 mqttBridge.onWaterInterlock(async message=>{await serialGateway.send(message);});
 mqttBridge.onPulse(async message => {

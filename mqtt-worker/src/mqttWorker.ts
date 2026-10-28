@@ -1,3 +1,4 @@
+import type {AdaptiveDispatch,AdaptivePersisted} from '@spff/contracts';
 import type { WaterInterlockSync } from '@spff/contracts';
 import { mqttTopics as pulseTopics, type FertigationPulseCommand } from '@spff/contracts';
 import {
@@ -18,6 +19,14 @@ export class MqttWorker {
 
   constructor(private readonly ingestionService: IngestionService) {}
 
+  async publishAdaptive(message:AdaptiveDispatch){
+    if(!this.client?.connected)throw new Error('MQTT disconnected');
+    await new Promise<void>((resolve,reject)=>this.client!.publish(mqttTopics.commands(message.siteId,message.deviceId),JSON.stringify(message),{qos:0,retain:false},error=>error?reject(error):resolve()));
+  }
+  async publishAdaptivePersisted(message:AdaptivePersisted){
+    if(!this.client?.connected)throw new Error('MQTT disconnected');
+    await new Promise<void>((resolve,reject)=>this.client!.publish(mqttTopics.acknowledgements(message.siteId,message.deviceId),JSON.stringify(message),{qos:1,retain:false},error=>error?reject(error):resolve()));
+  }
   onConnected(handler: () => Promise<void>) {
     this.connectedHandlers.add(handler);
   }
@@ -54,6 +63,7 @@ this.client.on('message', (topic, payload) => {
     .process(topic, payload)
     .then((acknowledgement) => {
       if (!acknowledgement) return;
+      if(acknowledgement.kind==='adaptive_fert_persisted_ack')return this.publishAdaptivePersisted(acknowledgement);
       return acknowledgement.kind === 'fertigation_session_persisted_ack'
         ? this.publishSessionPersistedAck(acknowledgement)
         : this.publishTelemetryPersistedAck(acknowledgement);

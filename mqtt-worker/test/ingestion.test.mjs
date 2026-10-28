@@ -148,3 +148,16 @@ test('interlock ACK comes from device, matches topic identity and awaits persist
   assert.equal(acks.length,0);await send(ack);assert.equal(acks.length,1);
   assert.equal(repository.calls.length,0);
 });
+
+test('adaptive events require topic identity and return database persistence acknowledgement only after save',async()=>{
+ const {adaptiveEventPayloadSchema}=await import('@spff/contracts');const {createHash}=await import('node:crypto')
+ const adaptiveEnvelope=raw=>{const payload=adaptiveEventPayloadSchema.parse(raw);return {kind:'adaptive_fert_event',schemaVersion:1,siteId:payload.siteId,deviceId:payload.deviceId,messageId:createHash('sha256').update(JSON.stringify(payload)).digest('hex'),receivedAt:new Date().toISOString(),payload}}
+ const repository=repositorySpy(),calls=[]
+ const service=new IngestionService(repository,undefined,undefined,undefined,async event=>calls.push(event.messageId))
+ const event=adaptiveEnvelope({kind:'adaptive_fert_ack',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:'',commandId:'',state:'IDLE',status:'rejected',acknowledgedAt:new Date().toISOString(),reason:'session_already_active'})
+ const result=await service.process('spff/v1/greenhouse-01/esp32-s3-01/sessions',Buffer.from(JSON.stringify(event)))
+ assert.equal(result.kind,'adaptive_fert_persisted_ack');assert.deepEqual(calls,[event.messageId])
+ await assert.rejects(service.process('spff/v1/other/esp32-s3-01/sessions',Buffer.from(JSON.stringify(event))))
+ const failing=new IngestionService(repository,undefined,undefined,undefined,async()=>{throw Error('database down')})
+ await assert.rejects(failing.process('spff/v1/greenhouse-01/esp32-s3-01/sessions',Buffer.from(JSON.stringify(event))),/database down/)
+})

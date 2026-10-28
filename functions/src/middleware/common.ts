@@ -14,6 +14,7 @@ export const notFound = (req: Request, res: Response) => {
 };
 export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
   void _next;
+  if(error instanceof Error&&'code'in error&&String(error.code)==='55000'&&error.message.includes('adaptive_session_owns_relays')){res.status(409).json({success:false,message:'Relay sedang dipakai sesi fertigasi adaptif. Hentikan dan rekonsiliasi sesi sebelum mengganti kontrol.',errors:[]});return;}
   console.error(error);
   res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server.', errors: [] });
 };
