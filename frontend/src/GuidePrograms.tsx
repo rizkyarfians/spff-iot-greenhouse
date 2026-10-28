@@ -6,6 +6,7 @@ import {fetchGuidePrograms,previewGuideProgram,saveGuideProgram,completeGuidePro
 import {useAuth} from './authContext'
 import source from './data/protocolGuide.json'
 import './GuidePrograms.css'
+import {AutomationMethod,AutomationMethodNote} from './AutomationMethod'
 const format=(value:number|null)=>value===null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:3}).format(value)
 const initial=(cropId:string)=>({cropId,plantingDate:'',basis:'plants' as const,quantity:'',deviceId:''})
 type ProgramForm={cropId:string;plantingDate:string;basis:'plants'|'area';quantity:string;deviceId:string}
@@ -64,12 +65,14 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
   </section>}
   {plan&&<>
    <div className="gp-heading"><h3>{editing?'Periksa kebutuhan':'Kegiatan tanaman'}</h3>{!editing&&<div className="gp-tabs" role="group" aria-label="Filter kegiatan"><button aria-pressed={filter==='today'} onClick={()=>setFilter('today')}>Hari ini</button><button aria-pressed={filter==='all'} onClick={()=>setFilter('all')}>Semua</button></div>}</div>
+   <AutomationMethodNote/>
    <p className="gp-caption">{visible.length} kegiatan · Pilih kegiatan untuk melihat bahan.</p>
    {!visible.length&&<div className="gp-panel"><p>Tidak ada kegiatan untuk HST hari ini.</p>{next&&<p>Berikutnya: HST {next.hst} · {next.title}</p>}</div>}
    {pageCount>1&&<nav className="gp-pagination" aria-label="Halaman kegiatan"><span>{currentPage*4+1}–{Math.min((currentPage+1)*4,visible.length)} dari {visible.length}</span><div><button type="button" disabled={currentPage===0} onClick={()=>{setPage(currentPage-1);setOpenActivity(null);setCompleting(null)}}>Sebelumnya</button><button type="button" disabled={currentPage===pageCount-1} onClick={()=>{setPage(currentPage+1);setOpenActivity(null);setCompleting(null)}}>Berikutnya</button></div></nav>}
    {paged.map(a=><article className="gp-panel gp-activity gp-compact-activity" key={a.id}>
     <button className="gp-activity-trigger" type="button" aria-expanded={openActivity===a.id} aria-controls={`gp-body-${a.id}`} onClick={()=>{setOpenActivity(openActivity===a.id?null:a.id);setCompleting(null)}}>
      <span className="gp-activity-title"><span className="gp-hst">{a.hst===null?'HST —':`HST ${a.hst}`}</span><strong>{a.title}</strong><small>{a.method} · {a.requirements.length} bahan{a.waterL!==null?` · ${format(a.waterL)} L`:''}</small>
+     <AutomationMethod method={a.method}/>
      {(a.warnings.length>0||a.requirements.some(r=>r.warnings.length))&&<span className="gp-review-badge">Perlu diperiksa</span>}</span>
      <span className="gp-activity-indicator">{!editing&&<span className={`gp-status${selected?.completedActivityIds.includes(a.id)?' is-done':''}`}>{status(a)}</span>}<ChevronDown size={20} aria-hidden="true"/></span>
     </button>

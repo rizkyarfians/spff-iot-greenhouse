@@ -1,0 +1,4 @@
+.automation-method { display:inline-flex; width:fit-content; max-width:100%; align-items:center; border:1px solid #b7d7c6; border-radius:8px; padding:4px 9px; margin-top:6px; font-size:13px; font-weight:700; line-height:1.5; white-space:normal; overflow-wrap:anywhere; }
+.automation-method.is-supported { color:#12613e; background:#e5f5ec; }
+.automation-method.is-manual { color:#536275; background:#f0f3f6; border-color:#d4dce4; }
+.automation-method-note { padding:12px 16px; border-radius:10px; background:#eff6f1; color:#345544; font-size:14px; line-height:1.6; }

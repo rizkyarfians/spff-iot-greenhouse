@@ -6,6 +6,7 @@ import {BookOpen,Square,SquareCheck,Pencil,Save,RotateCcw} from 'lucide-react'
 import snapshot from './data/protocolGuide.json'
 import {columnName,guideRows,applyGuideOverrides,guideColumnKind,type GuideDataset,type GuideCell} from './protocolGuide'
 import './GuidePage.css'
+import {AutomationMethod,AutomationMethodNote} from './AutomationMethod'
 
 const guide=snapshot as GuideDataset
 export function GuidePage(){
@@ -86,6 +87,7 @@ export function GuidePage(){
       <dl className="guide-metadata">{metadata.map(({label,value},index)=><div key={index}><dt>{label.display}</dt><dd>{value?.display??'—'}</dd></div>)}</dl>
       {notes.length>0&&<div className="guide-source-notes" aria-label="Catatan pada Excel">{notes.map((note,index)=><p key={index}>{note.display}</p>)}</div>}
     </section>
+    <AutomationMethodNote/>
     <form id="guide-edit-form" ref={form} className="guide-table-card" aria-labelledby="guide-table-heading" onSubmit={event=>{event.preventDefault();void save()}}>
       <header><h2 id="guide-table-heading">Jadwal dan kebutuhan</h2><p className="guide-table-hint">Geser tabel untuk melihat semua kolom.</p>
         <div className="guide-mobile-layout" role="group" aria-label="Tampilan panduan">
@@ -111,6 +113,7 @@ export function GuidePage(){
                 min={guideColumnKind(column)==='number'&&column!==1?0:undefined} step={column<2?1:'any'} maxLength={500}
                 onChange={event=>change(address,guideColumnKind(column)==='number'?(event.target.value===''?null:event.target.valueAsNumber):event.target.value)}/> ):
               typeof cell?.value==='boolean'?<span className="guide-source-check" role="img" aria-label={cell.value?'Dicentang':'Belum dicentang'}>{cell.value?<SquareCheck size={19}/>:<Square size={19}/>}</span>:cell?.display??''}</div>
+            {!editing&&column===3&&typeof cell?.value==='string'&&cell.value.trim()&&<AutomationMethod method={cell.value}/>}
 
           </td>)}</tr>)}</tbody>
         </table>
