@@ -43,11 +43,31 @@ export function AdaptiveRecommendation({deviceId,report,onOpen}:{deviceId:string
  const currentEc=live?.filteredEc??(report?.deviceId===deviceId&&report.telemetryFresh?report.liquidEc.value:null)
  const target=conversion?.targetEcMsCm==null?null:conversion.targetEcMsCm*1000
  const kocor=a?.method.toLowerCase()==='kocor'
- const status=!a?'Belum ada kegiatan':!kocor?'Dikerjakan petani':progress?.requiresReconciliation?'Perlu diperiksa':session&&['queued','running','paused'].includes(session.status)?({queued:'Menunggu alat',running:live?'Sesi berjalan':'Menunggu data alat',paused:'Dijeda'}[session.status]):progress?.remainingMassG===0?'Jatah terpenuhi':a&&a.hst!==null&&p&&a.hst>p.hst?'Belum waktunya':conversion?.status==='ready'?'Target tersedia':'Konversi belum lengkap'
+ const manuallyDone=!!a&&!!p?.completedActivityIds.includes(a.id)
+ const status=progress?.requiresReconciliation?'Perlu diperiksa':manuallyDone?'Selesai · dicatat petani':!a?'Belum ada kegiatan':!kocor?'Dikerjakan petani':progress?.requiresReconciliation?'Perlu diperiksa':session&&['queued','running','paused'].includes(session.status)?({queued:'Menunggu alat',running:live?'Sesi berjalan':'Menunggu data alat',paused:'Dijeda'}[session.status]):progress?.remainingMassG===0?'Jatah terpenuhi':a&&a.hst!==null&&p&&a.hst>p.hst?'Belum waktunya':conversion?.status==='ready'?'Target tersedia':'Konversi belum lengkap'
  return <div className="adaptive-recommendation" aria-busy={loading}>
   <label>Program tanaman<select value={p?.programId??''} onChange={e=>{setId(e.target.value);setActivityId('')}}><option value="">Pilih program</option>{programs.map(p=><option value={p.programId} key={p.programId}>{p.plan.cropName} · HST {p.hst}</option>)}</select></label>
   {error?<><p role="alert">{error}</p><button onClick={()=>setRetry(v=>v+1)}>Muat ulang</button></>:loading?<p>Memuat rekomendasi…</p>:!p?<p>{programs.length?'Pilih program untuk melihat hasil konversi.':'Belum ada program untuk perangkat ini.'}</p>:<>
-   <label>Kegiatan<select value={a?.id??''} onChange={e=>setActivityId(e.target.value)}>{activities.map(a=><option key={a.id} value={a.id}>{a.title} · HST {a.hst??'—'} · {a.method}</option>)}</select></label>
+   <section className="ar-activities" aria-label="Target setiap kegiatan">
+    <h3>Target kegiatan · HST {p.hst}</h3>
+    <div className="ar-activity-list">{activities.map(item=>{
+     const doses=data?.progress.activities.find(v=>v.activityId===item.id)
+     const converted=data?.conversions.find(v=>v.activityId===item.id)
+     const manual=p.completedActivityIds.includes(item.id)
+     const supported=item.method.toLowerCase()==='kocor'
+     const reached=doses?.targetMassG!=null&&doses.targetMassG>0&&doses.remainingMassG===0
+     const review=!!doses?.requiresReconciliation
+     const label=review?'Perlu diperiksa':manual?'Selesai · dicatat petani':supported&&reached?'Target tercapai':item.hst!==null&&item.hst>p.hst?'Belum waktunya':supported?'Belum tercapai':'Belum dicatat selesai'
+     return <button key={item.id} type="button" className={`ar-activity${item.id===a?.id?' is-selected':''}`} aria-pressed={item.id===a?.id} onClick={()=>setActivityId(item.id)}>
+      <span className="ar-activity-heading"><strong>{item.title} · HST {item.hst??'—'}</strong><span className={`ar-activity-state${!review&&(manual||supported&&reached)?' is-done':''}`}>{label}</span></span>
+      <span className="ar-activity-method">{item.method}{!supported?' · Dikerjakan petani':''}</span>
+      <span className="ar-activity-target">{item.requirements.length?item.requirements.map(r=>`${r.product}: ${fmt(r.amount)} ${r.unit}`).join(' · '):'Kebutuhan belum tersedia'}</span>
+      {item.waterL!==null&&<span>Larutan akhir: {fmt(item.waterL)} L</span>}
+      <span>Target EC: {converted?.status==='ready'?`${fmt((converted.targetEcMsCm??0)*1000)} µS/cm`:supported?'Konversi belum lengkap':'—'}</span>
+      {supported&&doses?.targetMassG!=null&&doses.targetMassG>0&&<span className="ar-activity-dose">{fmt(doses.estimatedDeliveredMassG/1000)} / {fmt(doses.targetMassG/1000)} kg tersalurkan (estimasi)<progress aria-label={`Progres pupuk ${item.title} HST ${item.hst}`} max={doses.targetMassG} value={Math.max(0,Math.min(doses.targetMassG,doses.estimatedDeliveredMassG))}/></span>}
+     </button>
+    })}</div>
+   </section>
    <div className="ar-status"><AutomationMethod method={a?.method??''}/><strong>{status}</strong></div>
    {kocor?<><div className="ar-grid">
     <section><h3>EC campuran</h3><strong>{fmt(currentEc)} <small>µS/cm</small></strong><p>Target konversi: {fmt(target)} µS/cm</p><RecommendationBar value={currentEc} target={target} label="EC dibanding target" missing={target===null?'Menunggu hasil konversi':'Menunggu sensor valid'}/>{currentEc!==null&&target!==null&&currentEc>target&&<small className="ar-above">Di atas target {fmt(currentEc-target)} µS/cm</small>}</section>

@@ -23,3 +23,15 @@
 .ar-meter progress::-moz-progress-bar { background:#16845a; border-radius:999px; }
 .ar-meter small { color:#5e7165; }
 .ar-above { display:block; color:#875300; }
+
+.ar-activities { margin-top:18px; }
+.ar-activity-list { display:grid; gap:10px; max-height:340px; overflow-y:auto; padding:3px; }
+.adaptive-recommendation .ar-activity { display:grid; justify-content:stretch; gap:5px; width:100%; text-align:left; background:white; color:#193d2c; padding:12px; border:1px solid #ceddd3; }
+.adaptive-recommendation .ar-activity.is-selected { background:#eff8f2; border:2px solid #16845a; padding:11px; }
+.ar-activity:focus-visible { outline:3px solid #16845a; outline-offset:1px; }
+.ar-activity-heading { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; flex-wrap:wrap; }
+.ar-activity-state { font-size:12px; border-radius:6px; padding:3px 6px; background:#eef1f3; color:#485b63; }
+.ar-activity-state.is-done { background:#d9f2e3; color:#12613e; }
+.ar-activity-method,.ar-activity-dose { font-size:12px; }
+.ar-activity-target { font-weight:700; overflow-wrap:anywhere; }
+.ar-activity progress { display:block; width:100%; height:10px; accent-color:#16845a; margin-top:6px; }
