@@ -22,10 +22,10 @@ export function FloatingAiRecommendation({report,error,loading,onRetry,onOpenPro
  },[open])
  return <div className="ai-floating" ref={root}>
   {open&&<section className="ai-floating-panel" role="dialog" aria-modal="false" aria-labelledby={titleId} id={panelId}>
-   <header className="ai-floating-header"><div><strong id={titleId}>Rekomendasi AI</strong><small>Kondisi tanaman dan tandon terkini</small></div>
+   <header className="ai-floating-header"><div><strong id={titleId}>Rekomendasi AI</strong></div>
     <button type="button" className="ai-floating-close" ref={closeButton} aria-label="Tutup rekomendasi AI" onClick={close}><X size={19} aria-hidden="true"/></button>
    </header>
-   <FertigationProgressPanel report={report} error={error} loading={loading} onRetry={onRetry} onOpen={()=>{close();onOpenProgram()}}/>
+   <FertigationProgressPanel minimal report={report} error={error} loading={loading} onRetry={onRetry} onOpen={()=>{close();onOpenProgram()}}/>
   </section>}
   <button type="button" className={`ai-floating-trigger${open?' is-open':''}`} ref={trigger} aria-label={open?'Tutup rekomendasi AI':'Buka rekomendasi AI'}
    aria-expanded={open} aria-controls={open?panelId:undefined} aria-haspopup="dialog" onClick={()=>open?close():setOpen(true)}>
