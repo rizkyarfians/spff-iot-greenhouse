@@ -34,11 +34,28 @@ test('pump failure incidents persist, deduplicate and recover, with scheduled-st
   await observeSoilEcPumpAlert(client,'greenhouse-01','esp32-s3-01',true,'calibration_missing')
   let rows=(await db.query('SELECT * FROM spff.alarms')).rows
   assert.equal(rows.length,1);assert.equal(rows[0].occurrence_count,1)
+  // The production manual-resolution path clears active_alarm_id without observing recovery.
+  const dismiss=async()=>{await db.exec(`UPDATE spff.alarms SET status='resolved',resolved_at=now(),resolved_by='admin',resolution_type='manual' WHERE status<>'resolved';
+   UPDATE spff.alarm_rule_states SET active_alarm_id=NULL,violation_count=0,recovery_count=0;`)}
+  await dismiss()
+  for(let i=0;i<3;i++)await observeSoilEcPumpAlert(client,'greenhouse-01','esp32-s3-01',true,'calibration_missing')
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM spff.alarms')).rows[0].n,1)
+  assert.equal((await db.query('SELECT status FROM spff.alarms')).rows[0].status,'resolved')
+  // A recovered condition is retained in SQL, so a new occurrence is not muted forever.
+  await observeSoilEcPumpAlert(client,'greenhouse-01','esp32-s3-01',false,'waiting_evaluation')
+  await observeSoilEcPumpAlert(client,'greenhouse-01','esp32-s3-01',true,'calibration_missing')
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM spff.alarms')).rows[0].n,2)
+  await dismiss()
   await observeSoilEcPumpAlert(client,'greenhouse-01','esp32-s3-01',true,'pulse_outcome_unknown','session-1')
   rows=(await db.query('SELECT * FROM spff.alarms')).rows
-  assert.equal(rows.length,1);assert.equal(rows[0].metadata.reason,'pulse_outcome_unknown')
+  assert.equal(rows.length,3);assert.equal(rows.find(row=>row.status==='open').metadata.reason,'pulse_outcome_unknown')
   await observeSoilEcPumpAlert(client,'greenhouse-01','esp32-s3-01',false,'session_started')
-  assert.equal((await db.query('SELECT status FROM spff.alarms')).rows[0].status,'resolved')
+  assert.ok((await db.query('SELECT status FROM spff.alarms')).rows.every(row=>row.status==='resolved'))
+  // A fresh session with the same reason must also bypass a previous dismissal.
+  await observeSoilEcPumpAlert(client,'greenhouse-01','esp32-s3-01',true,'pulse_outcome_unknown','session-2')
+  await dismiss()
+  await observeSoilEcPumpAlert(client,'greenhouse-01','esp32-s3-01',true,'pulse_outcome_unknown','session-3')
+  assert.equal((await db.query("SELECT metadata->>'sessionId' AS session FROM spff.alarms WHERE status='open'")).rows[0].session,'session-3')
   await db.exec('RESET ROLE')
   // Closed windows and older firmware must not generate a scheduled-start failure.
   await db.exec(`INSERT INTO spff.actuator_schedules(schedule_id,site_id,device_id,actuator_key,on_time,off_time,repeat_rule,requested_by)

@@ -4,11 +4,20 @@ import type { PoolClient } from 'pg';
 export async function observeSoilEcPumpAlert(client: Pick<PoolClient,'query'>, siteId:string, deviceId:string,
   failing:boolean, reason:string, sessionId:string|null=null, target='pump_fert', source='soil-ec') {
   const incident=source==='schedule'?`scheduled_start:${target}`:'soil_ec_execution:pump_fert';
-  const state=(await client.query(`SELECT a.metadata,s.active_alarm_id FROM spff.alarm_rule_states s
-    LEFT JOIN spff.alarms a ON a.alarm_id=s.active_alarm_id
+  const state=(await client.query(`SELECT a.metadata,a.status,a.resolution_type,
+      s.active_alarm_id,s.recovery_count FROM spff.alarm_rule_states s
+    LEFT JOIN LATERAL(SELECT metadata,status,resolution_type FROM spff.alarms a
+      WHERE a.site_id=s.site_id AND a.device_id=s.device_id AND a.incident_key=s.incident_key
+      ORDER BY a.alarm_id DESC LIMIT 1) a ON true
     WHERE s.site_id=$1 AND s.device_id=$2 AND s.incident_key=$3`,[siteId,deviceId,incident])).rows[0];
-  if(failing && state?.active_alarm_id && state.metadata?.reason===reason && (state.metadata?.sessionId??null)===sessionId)return;
-  if(!failing && !state?.active_alarm_id)return;
+  const sameCause=state?.metadata?.reason===reason && (state.metadata?.sessionId??null)===sessionId;
+  // Manual completion dismisses this continuing occurrence, not future incidents.
+  // resolve() clears the active pointer and recovery counter; do not treat that as recovery.
+  const manuallyDismissed=state?.status==='resolved' && state.resolution_type==='manual' && state.recovery_count===0;
+  if(failing && sameCause && (state.active_alarm_id || manuallyDismissed))return;
+  // Remember the first genuine recovery even after manual completion. A subsequent
+  // failure of the same kind can then produce a fresh alarm, including after restart.
+  if(!failing && (!state || (!state.active_alarm_id && state.recovery_count>0)))return;
   await client.query(`SELECT spff.apply_alarm_observation($1,$2,'command_failed',$3,$6,$4,clock_timestamp(),NULL,NULL,$5::jsonb)`,
     [siteId,deviceId,incident,failing,JSON.stringify({source,reason,sessionId,requestedIsActive:true}),target]);
 }

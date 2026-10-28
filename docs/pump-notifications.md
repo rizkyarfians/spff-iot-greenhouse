@@ -29,3 +29,9 @@ command or a reopened alarm remains visible. The bell lists open alarms;
 acknowledged alarms remain in Alarm history. Marking read only clears unread
 state and is separate from acknowledging an incident. Alarm SSE updates refresh
 both the alarm list and pump cards.
+
+Manually completing an AI/schedule incident suppresses repeated observations of
+the same reason and session/window until a healthy observation occurs. The
+latest incident and recovery counter are read from PostgreSQL, so suppression
+survives API restart. A changed reason, session or schedule window still alerts;
+manual completion does not claim sensor recovery or allow pump execution.
