@@ -4,6 +4,15 @@ import {fetchGuidePrograms,fetchGuideEcConversions,fetchAdaptiveProgress,type Ad
 import {AutomationMethod} from './AutomationMethod'
 import './AdaptiveRecommendation.css'
 const fmt=(v:number|null|undefined)=>v==null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(v)
+function RecommendationBar({value,target,label,missing}:{value:number|null|undefined;target:number|null|undefined;label:string;missing:string}){
+ const valid=typeof value==='number'&&Number.isFinite(value)&&value>=0&&typeof target==='number'&&Number.isFinite(target)&&target>0
+ const percent=valid?value/target*100:null
+ return <div className="ar-meter">
+  <div className="ar-meter-caption"><span>{label}</span><strong>{percent===null?'—':`${fmt(percent)}%`}</strong></div>
+  {valid?<progress aria-label={label} max={target} value={Math.min(target,value)} aria-valuetext={`${fmt(value)} dari ${fmt(target)}; ${fmt(percent)} persen`}/>:<div className="ar-meter-empty" aria-label={missing}/>}
+  {percent===null&&<small>{missing}</small>}
+ </div>
+}
 export function AdaptiveRecommendation({deviceId,report,onOpen}:{deviceId:string;report:FertigationProgress|null;onOpen:()=>void}){
  const [programs,setPrograms]=useState<GuideProgram[]>([]),[id,setId]=useState(''),[activityId,setActivityId]=useState('')
  const [data,setData]=useState<{program:GuideProgram;conversions:GuideEcConversion[];progress:AdaptiveProgressReport}|null>(null)
@@ -41,12 +50,12 @@ export function AdaptiveRecommendation({deviceId,report,onOpen}:{deviceId:string
    <label>Kegiatan<select value={a?.id??''} onChange={e=>setActivityId(e.target.value)}>{activities.map(a=><option key={a.id} value={a.id}>{a.title} · HST {a.hst??'—'} · {a.method}</option>)}</select></label>
    <div className="ar-status"><AutomationMethod method={a?.method??''}/><strong>{status}</strong></div>
    {kocor?<><div className="ar-grid">
-    <section><h3>EC campuran</h3><strong>{fmt(currentEc)} <small>µS/cm</small></strong><p>Target konversi: {fmt(target)} µS/cm</p></section>
+    <section><h3>EC campuran</h3><strong>{fmt(currentEc)} <small>µS/cm</small></strong><p>Target konversi: {fmt(target)} µS/cm</p><RecommendationBar value={currentEc} target={target} label="EC dibanding target" missing={target===null?'Menunggu hasil konversi':'Menunggu sensor valid'}/>{currentEc!==null&&target!==null&&currentEc>target&&<small className="ar-above">Di atas target {fmt(currentEc-target)} µS/cm</small>}</section>
     <section><h3>Kebutuhan panduan</h3><strong>{fmt(progress?.targetMassG==null?null:progress.targetMassG/1000)} <small>kg pupuk</small></strong><p>{fmt(a?.waterL)} L larutan akhir</p></section>
    </div>
    {conversion?.status!=='ready'&&<p className="ar-notice">{conversion?.reason??'Hasil konversi belum tersedia.'}</p>}
-   <section className="ar-progress"><h3>Progres pemupukan · lintas hari</h3><strong>{fmt(progress?.estimatedDeliveredMassG==null?null:progress.estimatedDeliveredMassG/1000)} / {fmt(progress?.targetMassG==null?null:progress.targetMassG/1000)} kg</strong>
-    {progress?.targetMassG!=null&&progress.targetMassG>0&&<progress aria-label="Progres perkiraan massa pupuk" max={progress.targetMassG} value={Math.min(progress.targetMassG,progress.estimatedDeliveredMassG)}/>}
+   <section className="ar-progress"><h3>Kebutuhan pupuk · lintas hari</h3><strong>{fmt(progress?.estimatedDeliveredMassG==null?null:progress.estimatedDeliveredMassG/1000)} / {fmt(progress?.targetMassG==null?null:progress.targetMassG/1000)} kg</strong>
+    <RecommendationBar value={progress?.estimatedDeliveredMassG} target={progress?.targetMassG} label="Estimasi tersalurkan" missing="Kebutuhan pupuk belum tersedia"/>
     <p>Sisa {fmt(progress?.remainingMassG==null?null:progress.remainingMassG/1000)} kg · estimasi dari debit pekatan</p>
    </section>
    {session?<section className="ar-progress"><h3>Sesi terakhir</h3><p>Target EC sesi: {fmt(session.command_snapshot.targetEcUs)} µS/cm</p><div className="ar-grid"><p>Air <strong>{fmt(session.water_volume_l)} / {fmt(session.command_snapshot.targetWaterVolumeL)} L</strong></p><p>Pekatan <strong>{fmt(session.fert_volume_l)} / {fmt(session.command_snapshot.targetFertVolumeL)} L</strong></p></div><p>Pompa air: {live?(live.waterPump?'ON':'OFF'):'Belum terkonfirmasi'} · pupuk: {live?(live.fertPump?'ON':'OFF'):'Belum terkonfirmasi'}</p>{session.reason&&<p>Alasan alat: {session.reason}</p>}</section>:<p>Belum ada sesi adaptif tercatat.</p>}

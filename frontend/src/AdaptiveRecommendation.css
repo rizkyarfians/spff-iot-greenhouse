@@ -13,3 +13,13 @@
 .adaptive-recommendation button { min-height:44px; padding:10px 14px; border:1px solid #b8cfc0; border-radius:8px; background:#e8f5ed; color:#176343; font:inherit; cursor:pointer; }
 .ar-open { margin-top:16px; width:100%; }
 @media(max-width:360px){.ar-grid{grid-template-columns:1fr}}
+
+.ar-meter { margin-top:12px; }
+.ar-meter-caption { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:12px; }
+.ar-meter-caption strong { font-size:15px; }
+.adaptive-recommendation .ar-meter progress,.ar-meter-empty { display:block; width:100%; height:14px; margin:8px 0; border:0; border-radius:999px; overflow:hidden; background:#dfe8e2; accent-color:#16845a; }
+.ar-meter progress::-webkit-progress-bar { background:#dfe8e2; border-radius:999px; }
+.ar-meter progress::-webkit-progress-value { background:#16845a; border-radius:999px; }
+.ar-meter progress::-moz-progress-bar { background:#16845a; border-radius:999px; }
+.ar-meter small { color:#5e7165; }
+.ar-above { display:block; color:#875300; }
