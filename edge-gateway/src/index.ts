@@ -1,3 +1,4 @@
+import {ControllerTimeSync} from './controllerTimeSync.js';
 import {adaptiveEventPayloadSchema} from '@spff/contracts';
 import {adaptiveEnvelope,AdaptiveDispatchGuard} from './adaptiveDispatch.js';
 import path from 'node:path';
@@ -68,6 +69,7 @@ const serialGateway = new SerialGateway(
   config.serial,
   async (line) => {
     const message = decodeJsonMessage(line);
+    if(controllerTimeSync.receive(message))return;
     const adaptive=adaptiveEventPayloadSchema.safeParse(message);
     if(adaptive.success&&belongsToConfiguredDevice(adaptive.data)){await queue({kind:'adaptive_event',payload:adaptiveEnvelope(adaptive.data)});return;}
     const waterAck=waterInterlockAckSchema.safeParse(message);
@@ -106,10 +108,13 @@ const serialGateway = new SerialGateway(
     throw new Error('Unsupported serial payload.');
   },
   async (available) => {
+    if(available&&!shuttingDown)controllerTimeSync.reconnected();
     if (!shuttingDown) await mqttBridge.setDeviceAvailable(available);
   },
 );
 
+
+const controllerTimeSync=new ControllerTimeSync({siteId:config.siteId,deviceId:config.deviceId,isAvailable:()=>!shuttingDown&&serialGateway.isAvailable,send:message=>serialGateway.send(message)});
 
 mqttBridge.onSessionPersisted(async (acknowledgement) => {
   const removed = await outbox.acknowledgeSession(acknowledgement.messageId);
@@ -255,6 +260,7 @@ mqttBridge.onAutomaticControl(async (message: AutomaticControlSyncMessage) => {
 async function start() {
   await outbox.start();
   await serialGateway.start();
+  controllerTimeSync.start();
   await mqttBridge.start();
   flushTimer = setInterval(() => void flushOutbox(), config.outbox.flushIntervalMs);
   console.log(`[edge] Gateway ready for ${config.siteId}/${config.deviceId}.`);
@@ -264,6 +270,7 @@ async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
   if (flushTimer) clearInterval(flushTimer);
+  controllerTimeSync.stop();
   console.log(`[edge] Received ${signal}, shutting down.`);
   await serialGateway.stop();
   await flushOutbox();
@@ -278,6 +285,7 @@ void start().catch(async (error: unknown) => {
   console.error('[edge] Startup failed', error);
   shuttingDown = true;
   if (flushTimer) clearInterval(flushTimer);
+  controllerTimeSync.stop();
   await Promise.allSettled([serialGateway.stop(), mqttBridge.stop()]);
   process.exitCode = 1;
 });
