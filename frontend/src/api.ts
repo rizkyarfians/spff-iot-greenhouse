@@ -938,3 +938,5 @@ export const saveGuideProgram=(input:import('@spff/contracts').GuideProgramInput
 export const completeGuideProgram=(program:import('@spff/contracts').GuideProgram,activityId:string,note:string)=>request(`/guide-programs/${program.programId}/complete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedRevision:program.revision,activityId,note})});
 
 export const fetchGuideProgramHistory=(id:string)=>request<import('@spff/contracts').GuideProgramRevision[]>(`/guide-programs/${id}/history`);
+export const fetchGuideEcConversions=(id:string)=>request<import('@spff/contracts').GuideEcConversion[]>(`/guide-programs/${id}/ec-conversion`);
+export const saveGuideEcProfile=(id:string,input:import('@spff/contracts').GuideEcProfileInput)=>request(`/guide-programs/${id}/ec-profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});

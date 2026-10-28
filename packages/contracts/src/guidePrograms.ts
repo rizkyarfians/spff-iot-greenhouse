@@ -3,6 +3,7 @@ import type {GuideEditValue} from './protocolGuideEdits.js';
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value=>{const d=new Date(`${value}T00:00:00Z`);return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;},'Tanggal tanam tidak valid.');
 export const guideProgramConfigSchema=z.object({
  cropId:z.string().min(1).max(80),plantingDate:date,basis:z.enum(['plants','area']),quantity:z.number().positive().max(1e7),
+ waterEcMsCm:z.number().finite().min(0).max(20).optional(),
  deviceId:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/).nullable().default(null),
 }).strict().refine(value=>value.basis!=='plants'||Number.isInteger(value.quantity),'Jumlah tanaman harus bulat.');
 export const guideProgramCreateSchema=z.object({config:guideProgramConfigSchema,sourceSha256:z.string().regex(/^[a-f0-9]{64}$/),guideRevision:z.number().int().min(0)}).strict();

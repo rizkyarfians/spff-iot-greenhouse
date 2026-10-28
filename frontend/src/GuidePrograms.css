@@ -96,3 +96,10 @@
 }
 .gp-form fieldset[hidden], .gp-page button[hidden] { display:none; }
 .gp-form-summary { padding-top:12px; color:#526b5b; }
+.gp-ec-panel { margin-top:16px; padding:16px; background:#edf7f0; border-radius:10px; }
+.gp-ec-target { display:block; margin:10px 0; font-size:22px; }
+.gp-ec-panel fieldset { border:0; padding:0; margin:0; display:grid; gap:16px; min-width:0; }
+.gp-ec-points { display:grid; gap:10px; }
+.gp-ec-points > div { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px; gap:8px; align-items:center; font-size:13px; }
+.gp-page .gp-ec-check { display:flex; align-items:flex-start; font-weight:400; font-size:14px; }
+.gp-page .gp-ec-check input { width:24px; min-height:24px; flex-shrink:0; }
