@@ -1,0 +1,42 @@
+.app-main > .guide-page { width:min(var(--desktop-page-max,1540px),calc(100% - 48px)); margin:0 auto 40px; }
+.guide-page { min-width:0; color:#183f31; font-size:15px; line-height:1.5; }
+.guide-page * { box-sizing:border-box; }
+.guide-toolbar { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:20px; }
+.guide-toolbar label { display:grid; gap:8px; flex:1; max-width:440px; font-weight:700; }
+.guide-toolbar select { min-width:0; width:100%; min-height:50px; padding:10px 14px; border:1px solid #b9cec1; border-radius:10px; font:inherit; background:white; color:#183f31; }
+.guide-source-card, .guide-table-card { border:1px solid #d3e1d8; border-radius:14px; background:#fff; overflow:hidden; }
+.guide-source-card { padding:22px; margin-bottom:22px; }
+.guide-source-heading { display:flex; align-items:center; gap:13px; margin-bottom:20px; }
+.guide-icon { display:flex; align-items:center; justify-content:center; width:46px; height:46px; flex-shrink:0; border-radius:12px; background:#e5f5ec; color:#16845a; }
+.guide-source-heading h2, .guide-table-card h2 { margin:0; font-size:19px; }
+.guide-source-heading p, .guide-table-card header p { margin:4px 0 0; color:#5a7064; font-size:14px; }
+.guide-hst { margin-left:auto; padding:8px 14px; border:1px solid #d8e5dc; border-radius:10px; color:#216646; white-space:nowrap; }
+.guide-hst strong { font-size:21px; }
+.guide-hst small { display:block; font-size:12px; color:#5a7064; }
+.guide-metadata { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px 24px; margin:0; }
+.guide-metadata > div { min-width:0; }
+.guide-metadata dt { font-size:13px; color:#5a7064; }
+.guide-metadata dd { margin:5px 0 0; font-size:16px; font-weight:700; overflow-wrap:anywhere; }
+.guide-source-notes { margin-top:20px; border-top:1px solid #e2eae5; padding-top:14px; }
+.guide-source-notes p { margin:5px 0; font-size:14px; }
+.guide-table-card header { padding:20px 22px; }
+.guide-table-scroll { width:100%; overflow:auto; max-height:70dvh; overscroll-behavior:contain; }
+.guide-table-scroll table { border-collapse:separate; border-spacing:0; min-width:1500px; width:100%; font-size:14px; }
+.guide-table-scroll caption { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.guide-table-scroll th, .guide-table-scroll td { padding:12px 14px; border-right:1px solid #e0e8e2; border-bottom:1px solid #e0e8e2; vertical-align:top; background:white; min-width:95px; }
+.guide-table-scroll th { position:sticky; top:0; z-index:3; background:#1d6448; color:white; text-align:left; font-weight:700; vertical-align:middle; }
+.guide-table-scroll th:nth-child(3) { min-width:200px; }
+.guide-table-scroll th:nth-child(5) { min-width:155px; }
+.guide-table-scroll td[rowspan] { vertical-align:middle; }
+.guide-table-scroll .guide-fixed-0 { position:sticky; left:0; min-width:96px; width:96px; max-width:96px; z-index:2; text-align:center; }
+.guide-table-scroll .guide-fixed-1 { position:sticky; left:96px; min-width:80px; width:80px; max-width:80px; z-index:2; text-align:center; box-shadow:2px 0 0 #d2ded5; }
+.guide-table-scroll th.guide-fixed-0, .guide-table-scroll th.guide-fixed-1 { z-index:4; }
+.guide-table-scroll .guide-number { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.guide-source-check { display:flex; justify-content:center; color:#6f8276; }
+.guide-table-card footer { padding:12px 22px; font-size:12px; color:#5a7064; border-top:1px solid #d3e1d8; }
+.guide-source-details { margin-top:18px; color:#5a7064; font-size:13px; }
+.guide-source-details summary { cursor:pointer; padding:8px 0; font-weight:700; color:#216646; }
+.guide-source-details p { margin:6px 0; overflow-wrap:anywhere; }
+.guide-toolbar select:focus-visible, .guide-table-scroll:focus-visible, .guide-source-details summary:focus-visible { outline:3px solid #16845a; outline-offset:3px; }
+@media(max-width:1000px) { .guide-metadata { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:640px) { .app-main > .guide-page { width:calc(100% - 24px); } .guide-source-card { padding:16px; } .guide-source-heading { flex-wrap:wrap; } .guide-source-heading h2 { font-size:17px; } .guide-hst { margin-left:0; } .guide-toolbar label { max-width:none; flex-basis:100%; } .guide-table-card header { padding:16px; } }

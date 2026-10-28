@@ -1,0 +1,5257 @@
+{
+  "sourceName": "Protokol Pemupukan Demplot  Unisma X Elevarm(1).xlsx",
+  "sourceSha256": "74652e62eb3254bb6096983b2aba41d414a0d1bce1dc43adc0a69c83c0e9523f",
+  "sheets": [
+    {
+      "id": "ubi-jalar",
+      "sheetName": "Protokol Ubi Jalar",
+      "cropName": "Ubi Jalar",
+      "headerRow": 10,
+      "lastRow": 30,
+      "columnCount": 12,
+      "merges": [
+        "A25:A26",
+        "A27:A28",
+        "B11:B15",
+        "F2:H2",
+        "F3:H6",
+        "A11:A15",
+        "A16:A20",
+        "B16:B20",
+        "A21:A24",
+        "B21:B24",
+        "B25:B26",
+        "B27:B28"
+      ],
+      "cells": {
+        "C1": {
+          "value": "Komoditas",
+          "display": "Komoditas"
+        },
+        "D1": {
+          "value": "Ubi Jalar",
+          "display": "Ubi Jalar"
+        },
+        "C2": {
+          "value": "Masa tanam",
+          "display": "Masa tanam"
+        },
+        "D2": {
+          "value": "4 bulan",
+          "display": "4 bulan"
+        },
+        "F2": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C3": {
+          "value": "Luas lahan (m2)",
+          "display": "Luas lahan (m2)"
+        },
+        "D3": {
+          "value": 5000,
+          "display": "5000"
+        },
+        "F3": {
+          "value": 35,
+          "display": "35",
+          "formula": "TODAY()-D8"
+        },
+        "C4": {
+          "value": "Efisiensi lahan (%)",
+          "display": "Efisiensi lahan (%)"
+        },
+        "D4": {
+          "value": 0.8,
+          "display": "80%"
+        },
+        "C5": {
+          "value": "Jarak tanam dalam baris (m)",
+          "display": "Jarak tanam dalam baris (m)"
+        },
+        "D5": {
+          "value": 0.4,
+          "display": "0.4"
+        },
+        "C6": {
+          "value": "Jarak tanam antar baris (m)",
+          "display": "Jarak tanam antar baris (m)"
+        },
+        "D6": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "C7": {
+          "value": "Populasi tanaman",
+          "display": "Populasi tanaman"
+        },
+        "D7": {
+          "value": 20000,
+          "display": "20,000",
+          "formula": "((D3/(D5*D6)*D4))"
+        },
+        "C8": {
+          "value": "Tanggal tanam",
+          "display": "Tanggal tanam"
+        },
+        "D8": {
+          "value": 46245,
+          "display": "8/11/2026"
+        },
+        "A10": {
+          "value": "Aktivitas",
+          "display": "Aktivitas"
+        },
+        "B10": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C10": {
+          "value": "Kegiatan",
+          "display": "Kegiatan"
+        },
+        "D10": {
+          "value": "Perlakuan",
+          "display": "Perlakuan"
+        },
+        "E10": {
+          "value": "Produk",
+          "display": "Produk"
+        },
+        "F10": {
+          "value": "Kategori",
+          "display": "Kategori"
+        },
+        "G10": {
+          "value": "Cek",
+          "display": "Cek"
+        },
+        "H10": {
+          "value": "Dosis",
+          "display": "Dosis"
+        },
+        "I10": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "J10": {
+          "value": "Pelarut (L)",
+          "display": "Pelarut (L)"
+        },
+        "K10": {
+          "value": "Kebutuhan",
+          "display": "Kebutuhan"
+        },
+        "L10": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "A11": {
+          "value": 1,
+          "display": "1"
+        },
+        "B11": {
+          "value": 10,
+          "display": "10"
+        },
+        "C11": {
+          "value": "Pemupukan ke-1",
+          "display": "Pemupukan ke-1"
+        },
+        "D11": {
+          "value": "Tabur",
+          "display": "Tabur"
+        },
+        "E11": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F11": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G11": {
+          "value": false,
+          "display": "False"
+        },
+        "H11": {
+          "value": 2.5,
+          "display": "2.5"
+        },
+        "I11": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J11": {
+          "value": 0,
+          "display": "0"
+        },
+        "K11": {
+          "value": 50,
+          "display": "50",
+          "formula": "H11*$D$7/1000"
+        },
+        "L11": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E12": {
+          "value": "Nitrea",
+          "display": "Nitrea"
+        },
+        "F12": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G12": {
+          "value": false,
+          "display": "False"
+        },
+        "H12": {
+          "value": 2.5,
+          "display": "2.5"
+        },
+        "I12": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J12": {
+          "value": 0,
+          "display": "0"
+        },
+        "K12": {
+          "value": 50,
+          "display": "50"
+        },
+        "L12": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E13": {
+          "value": "Phonska plus",
+          "display": "Phonska plus"
+        },
+        "F13": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G13": {
+          "value": false,
+          "display": "False"
+        },
+        "H13": {
+          "value": 2.5,
+          "display": "2.5"
+        },
+        "I13": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J13": {
+          "value": 0,
+          "display": "0"
+        },
+        "K13": {
+          "value": 50,
+          "display": "50"
+        },
+        "L13": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "C14": {
+          "value": "Aplikasi pupuk foliar",
+          "display": "Aplikasi pupuk foliar"
+        },
+        "D14": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E14": {
+          "value": "Ultradap",
+          "display": "Ultradap"
+        },
+        "F14": {
+          "value": "Pupuk foliar",
+          "display": "Pupuk foliar"
+        },
+        "G14": {
+          "value": false,
+          "display": "False"
+        },
+        "H14": {
+          "value": 2,
+          "display": "2"
+        },
+        "I14": {
+          "value": "gram/L",
+          "display": "gram/L"
+        },
+        "J14": {
+          "value": 100,
+          "display": "100"
+        },
+        "K14": {
+          "value": 200,
+          "display": "200"
+        },
+        "L14": {
+          "value": "gram",
+          "display": "gram"
+        },
+        "C15": {
+          "value": "Aplikasi ZPT",
+          "display": "Aplikasi ZPT"
+        },
+        "D15": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E15": {
+          "value": "Atonik",
+          "display": "Atonik"
+        },
+        "F15": {
+          "value": "ZPT",
+          "display": "ZPT"
+        },
+        "G15": {
+          "value": false,
+          "display": "False"
+        },
+        "H15": {
+          "value": 1,
+          "display": "1"
+        },
+        "I15": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J15": {
+          "value": 100,
+          "display": "100"
+        },
+        "K15": {
+          "value": 100,
+          "display": "100"
+        },
+        "L15": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "A16": {
+          "value": 2,
+          "display": "2"
+        },
+        "B16": {
+          "value": 20,
+          "display": "20"
+        },
+        "C16": {
+          "value": "Pemupukan ke-2",
+          "display": "Pemupukan ke-2"
+        },
+        "D16": {
+          "value": "Tabur",
+          "display": "Tabur"
+        },
+        "E16": {
+          "value": "Phonska plus",
+          "display": "Phonska plus"
+        },
+        "F16": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G16": {
+          "value": false,
+          "display": "False"
+        },
+        "H16": {
+          "value": 2.5,
+          "display": "2.5"
+        },
+        "I16": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J16": {
+          "value": 0,
+          "display": "0"
+        },
+        "K16": {
+          "value": 50,
+          "display": "50"
+        },
+        "L16": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E17": {
+          "value": "NPK Grower",
+          "display": "NPK Grower"
+        },
+        "F17": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G17": {
+          "value": false,
+          "display": "False"
+        },
+        "H17": {
+          "value": 5,
+          "display": "5"
+        },
+        "I17": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J17": {
+          "value": 0,
+          "display": "0"
+        },
+        "K17": {
+          "value": 100,
+          "display": "100"
+        },
+        "L17": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E18": {
+          "value": "KCl MOP",
+          "display": "KCl MOP"
+        },
+        "F18": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G18": {
+          "value": false,
+          "display": "False"
+        },
+        "H18": {
+          "value": 3.75,
+          "display": "3.75"
+        },
+        "I18": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J18": {
+          "value": 0,
+          "display": "0"
+        },
+        "K18": {
+          "value": 75,
+          "display": "75"
+        },
+        "L18": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "C19": {
+          "value": "Aplikasi pupuk foliar",
+          "display": "Aplikasi pupuk foliar"
+        },
+        "D19": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E19": {
+          "value": "Ultradap",
+          "display": "Ultradap"
+        },
+        "F19": {
+          "value": "Pupuk foliar",
+          "display": "Pupuk foliar"
+        },
+        "G19": {
+          "value": false,
+          "display": "False"
+        },
+        "H19": {
+          "value": 4,
+          "display": "4"
+        },
+        "I19": {
+          "value": "gram/L",
+          "display": "gram/L"
+        },
+        "J19": {
+          "value": 100,
+          "display": "100"
+        },
+        "K19": {
+          "value": 400,
+          "display": "400"
+        },
+        "L19": {
+          "value": "gram",
+          "display": "gram"
+        },
+        "C20": {
+          "value": "Aplikasi ZPT",
+          "display": "Aplikasi ZPT"
+        },
+        "D20": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E20": {
+          "value": "Atonik",
+          "display": "Atonik"
+        },
+        "F20": {
+          "value": "ZPT",
+          "display": "ZPT"
+        },
+        "G20": {
+          "value": false,
+          "display": "False"
+        },
+        "H20": {
+          "value": 1,
+          "display": "1"
+        },
+        "I20": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J20": {
+          "value": 100,
+          "display": "100"
+        },
+        "K20": {
+          "value": 100,
+          "display": "100"
+        },
+        "L20": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "A21": {
+          "value": 3,
+          "display": "3"
+        },
+        "B21": {
+          "value": 28,
+          "display": "28"
+        },
+        "C21": {
+          "value": "Aplikasi pestisida ke-3",
+          "display": "Aplikasi pestisida ke-3"
+        },
+        "D21": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E21": {
+          "value": "Alika",
+          "display": "Alika"
+        },
+        "F21": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G21": {
+          "value": false,
+          "display": "False"
+        },
+        "H21": {
+          "value": 1,
+          "display": "1"
+        },
+        "I21": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J21": {
+          "value": 100,
+          "display": "100"
+        },
+        "K21": {
+          "value": 100,
+          "display": "100",
+          "formula": "H21*J21"
+        },
+        "L21": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "E22": {
+          "value": "Diazinon",
+          "display": "Diazinon"
+        },
+        "F22": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G22": {
+          "value": false,
+          "display": "False"
+        },
+        "H22": {
+          "value": 1.5,
+          "display": "1.5"
+        },
+        "I22": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J22": {
+          "value": 100,
+          "display": "100"
+        },
+        "K22": {
+          "value": 150,
+          "display": "150"
+        },
+        "L22": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "E23": {
+          "value": "Agristik",
+          "display": "Agristik"
+        },
+        "F23": {
+          "value": "Perekat",
+          "display": "Perekat"
+        },
+        "G23": {
+          "value": false,
+          "display": "False"
+        },
+        "H23": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "I23": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J23": {
+          "value": 100,
+          "display": "100"
+        },
+        "K23": {
+          "value": 50,
+          "display": "50"
+        },
+        "L23": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "E24": {
+          "value": "Klerat",
+          "display": "Klerat"
+        },
+        "F24": {
+          "value": "Rodentisida",
+          "display": "Rodentisida"
+        },
+        "G24": {
+          "value": false,
+          "display": "False"
+        },
+        "H24": {
+          "value": 100,
+          "display": "100"
+        },
+        "I24": {
+          "value": "bait/5000 m2",
+          "display": "bait/5000 m2"
+        },
+        "J24": {
+          "value": 0,
+          "display": "0"
+        },
+        "K24": {
+          "value": 100,
+          "display": "100"
+        },
+        "L24": {
+          "value": "bait",
+          "display": "bait"
+        },
+        "A25": {
+          "value": 4,
+          "display": "4"
+        },
+        "B25": {
+          "value": 28,
+          "display": "28"
+        },
+        "C25": {
+          "value": "Aplikasi pupuk foliar",
+          "display": "Aplikasi pupuk foliar"
+        },
+        "D25": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E25": {
+          "value": "Ultradap",
+          "display": "Ultradap"
+        },
+        "F25": {
+          "value": "Pupuk foliar",
+          "display": "Pupuk foliar"
+        },
+        "G25": {
+          "value": false,
+          "display": "False"
+        },
+        "H25": {
+          "value": 4,
+          "display": "4"
+        },
+        "I25": {
+          "value": "gram/L",
+          "display": "gram/L"
+        },
+        "J25": {
+          "value": 100,
+          "display": "100"
+        },
+        "K25": {
+          "value": 400,
+          "display": "400"
+        },
+        "L25": {
+          "value": "gram",
+          "display": "gram"
+        },
+        "C26": {
+          "value": "Aplikasi ZPT",
+          "display": "Aplikasi ZPT"
+        },
+        "D26": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E26": {
+          "value": "Atonik",
+          "display": "Atonik"
+        },
+        "F26": {
+          "value": "ZPT",
+          "display": "ZPT"
+        },
+        "G26": {
+          "value": false,
+          "display": "False"
+        },
+        "H26": {
+          "value": 1,
+          "display": "1"
+        },
+        "I26": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J26": {
+          "value": 100,
+          "display": "100"
+        },
+        "K26": {
+          "value": 100,
+          "display": "100"
+        },
+        "L26": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "A27": {
+          "value": 5,
+          "display": "5"
+        },
+        "B27": {
+          "value": 42,
+          "display": "42"
+        },
+        "C27": {
+          "value": "Aplikasi pupuk foliar",
+          "display": "Aplikasi pupuk foliar"
+        },
+        "D27": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E27": {
+          "value": "MKP",
+          "display": "MKP"
+        },
+        "F27": {
+          "value": "Pupuk foliar",
+          "display": "Pupuk foliar"
+        },
+        "G27": {
+          "value": false,
+          "display": "False"
+        },
+        "H27": {
+          "value": 2,
+          "display": "2"
+        },
+        "I27": {
+          "value": "gram/L",
+          "display": "gram/L"
+        },
+        "J27": {
+          "value": 200,
+          "display": "200"
+        },
+        "K27": {
+          "value": 400,
+          "display": "400",
+          "formula": "H27*J27"
+        },
+        "L27": {
+          "value": "gram",
+          "display": "gram"
+        },
+        "C28": {
+          "value": "Aplikasi ZPT",
+          "display": "Aplikasi ZPT"
+        },
+        "D28": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E28": {
+          "value": "Atonik",
+          "display": "Atonik"
+        },
+        "F28": {
+          "value": "ZPT",
+          "display": "ZPT"
+        },
+        "G28": {
+          "value": false,
+          "display": "False"
+        },
+        "H28": {
+          "value": 1,
+          "display": "1"
+        },
+        "I28": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J28": {
+          "value": 200,
+          "display": "200"
+        },
+        "K28": {
+          "value": 200,
+          "display": "200"
+        },
+        "L28": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "A29": {
+          "value": 6,
+          "display": "6"
+        },
+        "B29": {
+          "value": 56,
+          "display": "56"
+        },
+        "C29": {
+          "value": "Aplikasi pupuk foliar",
+          "display": "Aplikasi pupuk foliar"
+        },
+        "D29": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E29": {
+          "value": "MKP",
+          "display": "MKP"
+        },
+        "F29": {
+          "value": "Pupuk foliar",
+          "display": "Pupuk foliar"
+        },
+        "G29": {
+          "value": false,
+          "display": "False"
+        },
+        "H29": {
+          "value": 3,
+          "display": "3"
+        },
+        "I29": {
+          "value": "gram/L",
+          "display": "gram/L"
+        },
+        "J29": {
+          "value": 200,
+          "display": "200"
+        },
+        "K29": {
+          "value": 600,
+          "display": "600"
+        },
+        "L29": {
+          "value": "gram",
+          "display": "gram"
+        },
+        "A30": {
+          "value": 7,
+          "display": "7"
+        },
+        "B30": {
+          "value": 70,
+          "display": "70"
+        },
+        "C30": {
+          "value": "Aplikasi pupuk foliar",
+          "display": "Aplikasi pupuk foliar"
+        },
+        "D30": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E30": {
+          "value": "MKP",
+          "display": "MKP"
+        },
+        "F30": {
+          "value": "Pupuk foliar",
+          "display": "Pupuk foliar"
+        },
+        "G30": {
+          "value": false,
+          "display": "False"
+        },
+        "H30": {
+          "value": 4,
+          "display": "4"
+        },
+        "I30": {
+          "value": "gram/L",
+          "display": "gram/L"
+        },
+        "J30": {
+          "value": 200,
+          "display": "200"
+        },
+        "K30": {
+          "value": 800,
+          "display": "800"
+        },
+        "L30": {
+          "value": "gram",
+          "display": "gram"
+        }
+      }
+    },
+    {
+      "id": "kacang-tanah",
+      "sheetName": "Protokol Kacang Tanah",
+      "cropName": "Kacang Tanah",
+      "headerRow": 10,
+      "lastRow": 26,
+      "columnCount": 16,
+      "merges": [
+        "F2:H2",
+        "F3:H6",
+        "A11:A17",
+        "B11:B17",
+        "A18:A22",
+        "B18:B22",
+        "J18:J22",
+        "A24:A25",
+        "B24:B25"
+      ],
+      "cells": {
+        "C1": {
+          "value": "Komoditas",
+          "display": "Komoditas"
+        },
+        "D1": {
+          "value": "Kacang Tanah",
+          "display": "Kacang Tanah"
+        },
+        "C2": {
+          "value": "Masa tanam",
+          "display": "Masa tanam"
+        },
+        "D2": {
+          "value": "4 bulan",
+          "display": "4 bulan"
+        },
+        "F2": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C3": {
+          "value": "Luas lahan (m2)",
+          "display": "Luas lahan (m2)"
+        },
+        "D3": {
+          "value": 5000,
+          "display": "5000"
+        },
+        "F3": {
+          "value": 34,
+          "display": "34",
+          "formula": "TODAY()-D8"
+        },
+        "C4": {
+          "value": "Efisiensi lahan (%)",
+          "display": "Efisiensi lahan (%)"
+        },
+        "D4": {
+          "value": 0.7,
+          "display": "70%"
+        },
+        "C5": {
+          "value": "Jarak tanam dalam baris (m)",
+          "display": "Jarak tanam dalam baris (m)"
+        },
+        "D5": {
+          "value": 0.2,
+          "display": "0.2"
+        },
+        "C6": {
+          "value": "Jarak tanam antar baris (m)",
+          "display": "Jarak tanam antar baris (m)"
+        },
+        "D6": {
+          "value": 0.4,
+          "display": "0.4"
+        },
+        "C7": {
+          "value": "Populasi tanaman",
+          "display": "Populasi tanaman"
+        },
+        "D7": {
+          "value": 43750,
+          "display": "43,750",
+          "formula": "((D3/(D5*D6)*D4))"
+        },
+        "C8": {
+          "value": "Tanggal tanam",
+          "display": "Tanggal tanam"
+        },
+        "D8": {
+          "value": 46246,
+          "display": "8/12/2026"
+        },
+        "A10": {
+          "value": "Aktivitas",
+          "display": "Aktivitas"
+        },
+        "B10": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C10": {
+          "value": "Kegiatan",
+          "display": "Kegiatan"
+        },
+        "D10": {
+          "value": "Perlakuan",
+          "display": "Perlakuan"
+        },
+        "E10": {
+          "value": "Produk",
+          "display": "Produk"
+        },
+        "F10": {
+          "value": "Kategori",
+          "display": "Kategori"
+        },
+        "G10": {
+          "value": "Cek",
+          "display": "Cek"
+        },
+        "H10": {
+          "value": "Dosis",
+          "display": "Dosis"
+        },
+        "I10": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "J10": {
+          "value": "Pelarut (L)",
+          "display": "Pelarut (L)"
+        },
+        "K10": {
+          "value": "Kebutuhan",
+          "display": "Kebutuhan"
+        },
+        "L10": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "M10": {
+          "value": "Pekerja",
+          "display": "Pekerja"
+        },
+        "N10": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "O10": {
+          "value": "Biaya Satuan",
+          "display": "Biaya Satuan"
+        },
+        "P10": {
+          "value": "Biaya Total",
+          "display": "Biaya Total"
+        },
+        "A11": {
+          "value": 1,
+          "display": "1"
+        },
+        "B11": {
+          "value": -10,
+          "display": "-10"
+        },
+        "C11": {
+          "value": "Pengolahan lahan",
+          "display": "Pengolahan lahan"
+        },
+        "G11": {
+          "value": false,
+          "display": "False"
+        },
+        "M11": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "N11": {
+          "value": "Borongan",
+          "display": "Borongan"
+        },
+        "O11": {
+          "value": 1000000,
+          "display": "Rp1,000,000"
+        },
+        "P11": {
+          "value": 500000,
+          "display": "Rp500,000",
+          "formula": "M11*O11"
+        },
+        "C12": {
+          "value": "Aplikasi pupuk dasar (pemupukan ke-1)",
+          "display": "Aplikasi pupuk dasar (pemupukan ke-1)"
+        },
+        "D12": {
+          "value": "Tabur",
+          "display": "Tabur"
+        },
+        "E12": {
+          "value": "Pupuk kandang",
+          "display": "Pupuk kandang"
+        },
+        "F12": {
+          "value": "Pupuk dasar",
+          "display": "Pupuk dasar"
+        },
+        "G12": {
+          "value": false,
+          "display": "False"
+        },
+        "H12": {
+          "value": 12500,
+          "display": "12500"
+        },
+        "I12": {
+          "value": "kg/5000 m2",
+          "display": "kg/5000 m2"
+        },
+        "J12": {
+          "value": 0,
+          "display": "0"
+        },
+        "K12": {
+          "value": 12500,
+          "display": "12500"
+        },
+        "L12": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M12": {
+          "value": 3,
+          "display": "3"
+        },
+        "N12": {
+          "value": "HOK laki-laki",
+          "display": "HOK laki-laki"
+        },
+        "O12": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P12": {
+          "value": 300000,
+          "display": "Rp300,000"
+        },
+        "E13": {
+          "value": "Dolomit",
+          "display": "Dolomit"
+        },
+        "F13": {
+          "value": "Pupuk dasar",
+          "display": "Pupuk dasar"
+        },
+        "G13": {
+          "value": false,
+          "display": "False"
+        },
+        "H13": {
+          "value": 1000,
+          "display": "1000"
+        },
+        "I13": {
+          "value": "kg/5000 m2",
+          "display": "kg/5000 m2"
+        },
+        "J13": {
+          "value": 0,
+          "display": "0"
+        },
+        "K13": {
+          "value": 1000,
+          "display": "1000"
+        },
+        "L13": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E14": {
+          "value": "NPK phonska plus",
+          "display": "NPK phonska plus"
+        },
+        "F14": {
+          "value": "Pupuk dasar",
+          "display": "Pupuk dasar"
+        },
+        "G14": {
+          "value": false,
+          "display": "False"
+        },
+        "H14": {
+          "value": 1.14,
+          "display": "1.14"
+        },
+        "I14": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K14": {
+          "value": 50,
+          "display": "50"
+        },
+        "L14": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E15": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F15": {
+          "value": "Pupuk dasar",
+          "display": "Pupuk dasar"
+        },
+        "G15": {
+          "value": false,
+          "display": "False"
+        },
+        "H15": {
+          "value": 1.14,
+          "display": "1.14"
+        },
+        "I15": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K15": {
+          "value": 50,
+          "display": "50"
+        },
+        "L15": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "C16": {
+          "value": "Aplikasi pembenah tanah",
+          "display": "Aplikasi pembenah tanah"
+        },
+        "E16": {
+          "value": "Asam humat",
+          "display": "Asam humat"
+        },
+        "F16": {
+          "value": "Pembenah tanah",
+          "display": "Pembenah tanah"
+        },
+        "G16": {
+          "value": false,
+          "display": "False"
+        },
+        "H16": {
+          "value": 5,
+          "display": "5"
+        },
+        "I16": {
+          "value": "kg/5000 m2",
+          "display": "kg/5000 m2"
+        },
+        "J16": {
+          "value": 0,
+          "display": "0"
+        },
+        "K16": {
+          "value": 5,
+          "display": "5"
+        },
+        "L16": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "C17": {
+          "value": "Aplikasi herbisida sistemik",
+          "display": "Aplikasi herbisida sistemik"
+        },
+        "D17": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E17": {
+          "value": "Round up",
+          "display": "Round up"
+        },
+        "F17": {
+          "value": "Herbisida",
+          "display": "Herbisida"
+        },
+        "G17": {
+          "value": false,
+          "display": "False"
+        },
+        "H17": {
+          "value": 7,
+          "display": "7"
+        },
+        "I17": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J17": {
+          "value": 300,
+          "display": "300"
+        },
+        "K17": {
+          "value": 2100,
+          "display": "2100",
+          "formula": "H17*J17"
+        },
+        "L17": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "M17": {
+          "value": 1,
+          "display": "1"
+        },
+        "N17": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O17": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P17": {
+          "value": 100000,
+          "display": "Rp100,000",
+          "formula": "M17*O17"
+        },
+        "A18": {
+          "value": 2,
+          "display": "2"
+        },
+        "B18": {
+          "value": 14,
+          "display": "14"
+        },
+        "C18": {
+          "value": "Pemupukan foliar",
+          "display": "Pemupukan foliar"
+        },
+        "D18": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E18": {
+          "value": "Ultradap",
+          "display": "Ultradap"
+        },
+        "F18": {
+          "value": "Pupuk foliar",
+          "display": "Pupuk foliar"
+        },
+        "G18": {
+          "value": false,
+          "display": "False"
+        },
+        "H18": {
+          "value": 10,
+          "display": "10"
+        },
+        "I18": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J18": {
+          "value": 100,
+          "display": "100"
+        },
+        "K18": {
+          "value": 1,
+          "display": "1"
+        },
+        "L18": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M18": {
+          "value": 2,
+          "display": "2"
+        },
+        "N18": {
+          "value": "HOK laki-laki",
+          "display": "HOK laki-laki"
+        },
+        "O18": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P18": {
+          "value": 200000,
+          "display": "Rp200,000"
+        },
+        "C19": {
+          "value": "Aplikasi pestisida ke-2",
+          "display": "Aplikasi pestisida ke-2"
+        },
+        "D19": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E19": {
+          "value": "Agristick",
+          "display": "Agristick"
+        },
+        "F19": {
+          "value": "Perekat",
+          "display": "Perekat"
+        },
+        "G19": {
+          "value": false,
+          "display": "False"
+        },
+        "H19": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "I19": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "K19": {
+          "value": 50,
+          "display": "50",
+          "formula": "H19*J18"
+        },
+        "L19": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "E20": {
+          "value": "Alika",
+          "display": "Alika"
+        },
+        "F20": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G20": {
+          "value": false,
+          "display": "False"
+        },
+        "H20": {
+          "value": 1,
+          "display": "1"
+        },
+        "I20": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "K20": {
+          "value": 100,
+          "display": "100",
+          "formula": "H20*$J$18"
+        },
+        "L20": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "E21": {
+          "value": "Avidor",
+          "display": "Avidor"
+        },
+        "F21": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G21": {
+          "value": false,
+          "display": "False"
+        },
+        "H21": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "I21": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K21": {
+          "value": 50,
+          "display": "50"
+        },
+        "L21": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "E22": {
+          "value": "Tandem",
+          "display": "Tandem"
+        },
+        "F22": {
+          "value": "Fungisida",
+          "display": "Fungisida"
+        },
+        "G22": {
+          "value": false,
+          "display": "False"
+        },
+        "H22": {
+          "value": 1,
+          "display": "1"
+        },
+        "I22": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "K22": {
+          "value": 100,
+          "display": "100"
+        },
+        "L22": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "A23": {
+          "value": 3,
+          "display": "3"
+        },
+        "B23": {
+          "value": 15,
+          "display": "15"
+        },
+        "C23": {
+          "value": "Pemupukan ke-2",
+          "display": "Pemupukan ke-2"
+        },
+        "D23": {
+          "value": "Tabur",
+          "display": "Tabur"
+        },
+        "E23": {
+          "value": "NPK phonska plus",
+          "display": "NPK phonska plus"
+        },
+        "G23": {
+          "value": false,
+          "display": "False"
+        },
+        "H23": {
+          "value": 1.14,
+          "display": "1.14"
+        },
+        "I23": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K23": {
+          "value": 50,
+          "display": "50"
+        },
+        "L23": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M23": {
+          "value": 3,
+          "display": "3"
+        },
+        "N23": {
+          "value": "HOK laki-laki",
+          "display": "HOK laki-laki"
+        },
+        "O23": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P23": {
+          "value": 300000,
+          "display": "Rp300,000",
+          "formula": "M23*O23"
+        },
+        "A24": {
+          "value": 4,
+          "display": "4"
+        },
+        "B24": {
+          "value": 35,
+          "display": "35"
+        },
+        "C24": {
+          "value": "Pemupukan ke-3",
+          "display": "Pemupukan ke-3"
+        },
+        "D24": {
+          "value": "Tabur",
+          "display": "Tabur"
+        },
+        "E24": {
+          "value": "NPK phonska plus",
+          "display": "NPK phonska plus"
+        },
+        "G24": {
+          "value": false,
+          "display": "False"
+        },
+        "H24": {
+          "value": 0.92,
+          "display": "0.92"
+        },
+        "I24": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K24": {
+          "value": 40,
+          "display": "40"
+        },
+        "L24": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M24": {
+          "value": 3,
+          "display": "3"
+        },
+        "N24": {
+          "value": "HOK laki-laki",
+          "display": "HOK laki-laki"
+        },
+        "O24": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P24": {
+          "value": 300000,
+          "display": "Rp300,000"
+        },
+        "E25": {
+          "value": "KCl MOP",
+          "display": "KCl MOP"
+        },
+        "G25": {
+          "value": false,
+          "display": "False"
+        },
+        "H25": {
+          "value": 0.23,
+          "display": "0.23"
+        },
+        "I25": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K25": {
+          "value": 10,
+          "display": "10"
+        },
+        "L25": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A26": {
+          "value": 5,
+          "display": "5"
+        },
+        "B26": {
+          "value": 42,
+          "display": "42"
+        },
+        "C26": {
+          "value": "Pemupukan foliar",
+          "display": "Pemupukan foliar"
+        },
+        "D26": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E26": {
+          "value": "MKP",
+          "display": "MKP"
+        },
+        "G26": {
+          "value": false,
+          "display": "False"
+        },
+        "H26": {
+          "value": 5,
+          "display": "5"
+        },
+        "I26": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J26": {
+          "value": 200,
+          "display": "200"
+        },
+        "K26": {
+          "value": 1,
+          "display": "1"
+        },
+        "L26": {
+          "value": "kg",
+          "display": "kg"
+        }
+      }
+    },
+    {
+      "id": "jagung-manis",
+      "sheetName": "Protokol Jagung Manis",
+      "cropName": "Jagung Manis",
+      "headerRow": 10,
+      "lastRow": 20,
+      "columnCount": 16,
+      "merges": [
+        "A11:A17",
+        "B11:B17",
+        "J13:J17",
+        "A19:A20",
+        "B19:B20",
+        "F2:H2",
+        "F3:H6"
+      ],
+      "cells": {
+        "C1": {
+          "value": "Komoditas",
+          "display": "Komoditas"
+        },
+        "D1": {
+          "value": "Jagung Manis",
+          "display": "Jagung Manis"
+        },
+        "C2": {
+          "value": "Masa tanam",
+          "display": "Masa tanam"
+        },
+        "D2": {
+          "value": "3 bulan",
+          "display": "3 bulan"
+        },
+        "F2": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C3": {
+          "value": "Luas lahan (m2)",
+          "display": "Luas lahan (m2)"
+        },
+        "D3": {
+          "value": 5000,
+          "display": "5000"
+        },
+        "F3": {
+          "value": 11,
+          "display": "11",
+          "formula": "TODAY()-D8"
+        },
+        "C4": {
+          "value": "Efisiensi lahan (%)",
+          "display": "Efisiensi lahan (%)"
+        },
+        "D4": {
+          "value": 0.6,
+          "display": "60%"
+        },
+        "C5": {
+          "value": "Jarak tanam dalam baris (m)",
+          "display": "Jarak tanam dalam baris (m)"
+        },
+        "D5": {
+          "value": 0.2,
+          "display": "0.2"
+        },
+        "C6": {
+          "value": "Jarak tanam antar baris (m)",
+          "display": "Jarak tanam antar baris (m)"
+        },
+        "D6": {
+          "value": 0.75,
+          "display": "0.75"
+        },
+        "C7": {
+          "value": "Populasi tanaman",
+          "display": "Populasi tanaman"
+        },
+        "D7": {
+          "value": 20000,
+          "display": "20,000",
+          "formula": "((D3/(D5*D6)*D4))"
+        },
+        "C8": {
+          "value": "Tanggal tanam",
+          "display": "Tanggal tanam"
+        },
+        "D8": {
+          "value": 46269,
+          "display": "9/4/2026"
+        },
+        "A10": {
+          "value": "Aktivitas",
+          "display": "Aktivitas"
+        },
+        "B10": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C10": {
+          "value": "Kegiatan",
+          "display": "Kegiatan"
+        },
+        "D10": {
+          "value": "Perlakuan",
+          "display": "Perlakuan"
+        },
+        "E10": {
+          "value": "Produk",
+          "display": "Produk"
+        },
+        "F10": {
+          "value": "Kategori",
+          "display": "Kategori"
+        },
+        "G10": {
+          "value": "Cek",
+          "display": "Cek"
+        },
+        "H10": {
+          "value": "Dosis",
+          "display": "Dosis"
+        },
+        "I10": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "J10": {
+          "value": "Pelarut (L)",
+          "display": "Pelarut (L)"
+        },
+        "K10": {
+          "value": "Kebutuhan",
+          "display": "Kebutuhan"
+        },
+        "L10": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "M10": {
+          "value": "Pekerja",
+          "display": "Pekerja"
+        },
+        "N10": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "O10": {
+          "value": "Biaya Satuan",
+          "display": "Biaya Satuan"
+        },
+        "P10": {
+          "value": "Biaya Total",
+          "display": "Biaya Total"
+        },
+        "A11": {
+          "value": 1,
+          "display": "1"
+        },
+        "B11": {
+          "value": 14,
+          "display": "14"
+        },
+        "C11": {
+          "value": "Pemupukan ke-1",
+          "display": "Pemupukan ke-1"
+        },
+        "D11": {
+          "value": "Tugal",
+          "display": "Tugal"
+        },
+        "E11": {
+          "value": "Nitrea",
+          "display": "Nitrea"
+        },
+        "F11": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G11": {
+          "value": false,
+          "display": "False"
+        },
+        "H11": {
+          "value": 4.25,
+          "display": "4.25",
+          "formula": "85000/D7"
+        },
+        "I11": {
+          "value": "gr/tan.",
+          "display": "gr/tan."
+        },
+        "K11": {
+          "value": 85,
+          "display": "85"
+        },
+        "L11": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M11": {
+          "value": 3,
+          "display": "3"
+        },
+        "N11": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O11": {
+          "value": 70000,
+          "display": "Rp70,000"
+        },
+        "P11": {
+          "value": 210000,
+          "display": "Rp210,000",
+          "formula": "M11*O11"
+        },
+        "E12": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F12": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G12": {
+          "value": false,
+          "display": "False"
+        },
+        "H12": {
+          "value": 6.5,
+          "display": "6.5",
+          "formula": "130000/D7"
+        },
+        "I12": {
+          "value": "gr/tan.",
+          "display": "gr/tan."
+        },
+        "K12": {
+          "value": 130,
+          "display": "130"
+        },
+        "L12": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "C13": {
+          "value": "Aplikasi pestisida ke-2",
+          "display": "Aplikasi pestisida ke-2"
+        },
+        "D13": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E13": {
+          "value": "Alika",
+          "display": "Alika"
+        },
+        "F13": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G13": {
+          "value": false,
+          "display": "False"
+        },
+        "H13": {
+          "value": 1,
+          "display": "1"
+        },
+        "I13": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J13": {
+          "value": 100,
+          "display": "100"
+        },
+        "K13": {
+          "value": 100,
+          "display": "100",
+          "formula": "H13*$J$13"
+        },
+        "L13": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "M13": {
+          "value": 2,
+          "display": "2"
+        },
+        "N13": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O13": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P13": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M13*O13"
+        },
+        "E14": {
+          "value": "Dangke",
+          "display": "Dangke"
+        },
+        "F14": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G14": {
+          "value": false,
+          "display": "False"
+        },
+        "H14": {
+          "value": 3,
+          "display": "3"
+        },
+        "I14": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K14": {
+          "value": 300,
+          "display": "300"
+        },
+        "L14": {
+          "value": "gr",
+          "display": "gr"
+        },
+        "E15": {
+          "value": "Riovil",
+          "display": "Riovil"
+        },
+        "F15": {
+          "value": "Fungisida",
+          "display": "Fungisida"
+        },
+        "G15": {
+          "value": false,
+          "display": "False"
+        },
+        "H15": {
+          "value": 2,
+          "display": "2"
+        },
+        "I15": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "K15": {
+          "value": 200,
+          "display": "200"
+        },
+        "L15": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "E16": {
+          "value": "Sagri beat",
+          "display": "Sagri beat"
+        },
+        "F16": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G16": {
+          "value": false,
+          "display": "False"
+        },
+        "H16": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "I16": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K16": {
+          "value": 50,
+          "display": "50"
+        },
+        "L16": {
+          "value": "gr",
+          "display": "gr"
+        },
+        "E17": {
+          "value": "Agristick",
+          "display": "Agristick"
+        },
+        "F17": {
+          "value": "Perekat",
+          "display": "Perekat"
+        },
+        "G17": {
+          "value": false,
+          "display": "False"
+        },
+        "H17": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "I17": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "K17": {
+          "value": 50,
+          "display": "50"
+        },
+        "L17": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "A18": {
+          "value": 2,
+          "display": "2"
+        },
+        "B18": {
+          "value": 24,
+          "display": "24"
+        },
+        "C18": {
+          "value": "Pemupukan ke-2",
+          "display": "Pemupukan ke-2"
+        },
+        "D18": {
+          "value": "Tugal",
+          "display": "Tugal"
+        },
+        "E18": {
+          "value": "Phonska plus",
+          "display": "Phonska plus"
+        },
+        "F18": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G18": {
+          "value": false,
+          "display": "False"
+        },
+        "H18": {
+          "value": 5,
+          "display": "5",
+          "formula": "100000/D7"
+        },
+        "I18": {
+          "value": "gr/tan.",
+          "display": "gr/tan."
+        },
+        "K18": {
+          "value": 100,
+          "display": "100"
+        },
+        "L18": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M18": {
+          "value": 3,
+          "display": "3"
+        },
+        "N18": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O18": {
+          "value": 70000,
+          "display": "Rp70,000"
+        },
+        "P18": {
+          "value": 210000,
+          "display": "Rp210,000",
+          "formula": "M18*O18"
+        },
+        "A19": {
+          "value": 3,
+          "display": "3"
+        },
+        "B19": {
+          "value": 40,
+          "display": "40"
+        },
+        "C19": {
+          "value": "Pemupukan ke-3",
+          "display": "Pemupukan ke-3"
+        },
+        "D19": {
+          "value": "Tugal",
+          "display": "Tugal"
+        },
+        "E19": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F19": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G19": {
+          "value": false,
+          "display": "False"
+        },
+        "H19": {
+          "value": 2.5,
+          "display": "2.5",
+          "formula": "50000/D7"
+        },
+        "I19": {
+          "value": "gr/tan.",
+          "display": "gr/tan."
+        },
+        "K19": {
+          "value": 50,
+          "display": "50"
+        },
+        "L19": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M19": {
+          "value": 3,
+          "display": "3"
+        },
+        "N19": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O19": {
+          "value": 70000,
+          "display": "Rp70,000"
+        },
+        "P19": {
+          "value": 210000,
+          "display": "Rp210,000"
+        },
+        "E20": {
+          "value": "KCl MOP",
+          "display": "KCl MOP"
+        },
+        "F20": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G20": {
+          "value": false,
+          "display": "False"
+        },
+        "H20": {
+          "value": 1.75,
+          "display": "1.75",
+          "formula": "35000/D7"
+        },
+        "I20": {
+          "value": "gr/tan.",
+          "display": "gr/tan."
+        },
+        "K20": {
+          "value": 35,
+          "display": "35"
+        },
+        "L20": {
+          "value": "kg",
+          "display": "kg"
+        }
+      }
+    },
+    {
+      "id": "terong",
+      "sheetName": "Protokol Terong",
+      "cropName": "Terong",
+      "headerRow": 9,
+      "lastRow": 40,
+      "columnCount": 12,
+      "merges": [
+        "A10:A12",
+        "B10:B12",
+        "J10:J12",
+        "A13:A15",
+        "B13:B15",
+        "A16:A18",
+        "B16:B18",
+        "B27:B28",
+        "B29:B30",
+        "A31:A32",
+        "B31:B32",
+        "A33:A34",
+        "A35:A36",
+        "B35:B36",
+        "A37:A38",
+        "A39:A40",
+        "B39:B40",
+        "A19:A21",
+        "B19:B21",
+        "A22:A23",
+        "B22:B23",
+        "A24:A26",
+        "B24:B26",
+        "A27:A28"
+      ],
+      "cells": {
+        "C1": {
+          "value": "Komoditas",
+          "display": "Komoditas"
+        },
+        "D1": {
+          "value": "Terong",
+          "display": "Terong"
+        },
+        "C2": {
+          "value": "Masa tanam",
+          "display": "Masa tanam"
+        },
+        "D2": {
+          "value": "7 bulan",
+          "display": "7 bulan"
+        },
+        "F2": {
+          "value": "Kocor pupuk sebanyak 200 mL per tanaman",
+          "display": "Kocor pupuk sebanyak 200 mL per tanaman"
+        },
+        "C3": {
+          "value": "Luas lahan (m2)",
+          "display": "Luas lahan (m2)"
+        },
+        "D3": {
+          "value": 5000,
+          "display": "5000"
+        },
+        "F3": {
+          "value": "Panen dilakukan 4 hari sekali, namun disesuaikan dengan kondisi tanaman di lapangan",
+          "display": "Panen dilakukan 4 hari sekali, namun disesuaikan dengan kondisi tanaman di lapangan"
+        },
+        "C4": {
+          "value": "Efisiensi lahan (%)",
+          "display": "Efisiensi lahan (%)"
+        },
+        "D4": {
+          "value": 0.8,
+          "display": "80%"
+        },
+        "F4": {
+          "value": "Panen dilakukan sebelum aplikasi pestisida",
+          "display": "Panen dilakukan sebelum aplikasi pestisida"
+        },
+        "C5": {
+          "value": "Jarak tanam dalam baris (m)",
+          "display": "Jarak tanam dalam baris (m)"
+        },
+        "D5": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "C6": {
+          "value": "Jarak tanam antar baris (m)",
+          "display": "Jarak tanam antar baris (m)"
+        },
+        "D6": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "C7": {
+          "value": "Populasi tanaman",
+          "display": "Populasi tanaman"
+        },
+        "D7": {
+          "value": 6000,
+          "display": "6,000",
+          "formula": "((D3/(D5*D6)*D4))/2-2000"
+        },
+        "A9": {
+          "value": "Aktivitas",
+          "display": "Aktivitas"
+        },
+        "B9": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C9": {
+          "value": "Kegiatan",
+          "display": "Kegiatan"
+        },
+        "D9": {
+          "value": "Perlakuan",
+          "display": "Perlakuan"
+        },
+        "E9": {
+          "value": "Produk",
+          "display": "Produk"
+        },
+        "F9": {
+          "value": "Kategori",
+          "display": "Kategori"
+        },
+        "G9": {
+          "value": "Cek",
+          "display": "Cek"
+        },
+        "H9": {
+          "value": "Dosis",
+          "display": "Dosis"
+        },
+        "I9": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "J9": {
+          "value": "Pelarut (L)",
+          "display": "Pelarut (L)"
+        },
+        "K9": {
+          "value": "Kebutuhan",
+          "display": "Kebutuhan"
+        },
+        "L9": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "A10": {
+          "value": 1,
+          "display": "1"
+        },
+        "B10": {
+          "value": 10,
+          "display": "10"
+        },
+        "C10": {
+          "value": "Pemupukan ke-1",
+          "display": "Pemupukan ke-1"
+        },
+        "D10": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E10": {
+          "value": "NPK mutiara",
+          "display": "NPK mutiara"
+        },
+        "F10": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G10": {
+          "value": false,
+          "display": "False"
+        },
+        "H10": {
+          "value": 1.33,
+          "display": "1.33"
+        },
+        "I10": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J10": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K10": {
+          "value": 8,
+          "display": "8"
+        },
+        "L10": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E11": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F11": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G11": {
+          "value": false,
+          "display": "False"
+        },
+        "H11": {
+          "value": 0.78,
+          "display": "0.78"
+        },
+        "I11": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K11": {
+          "value": 4.7,
+          "display": "4.7"
+        },
+        "L11": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E12": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F12": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G12": {
+          "value": false,
+          "display": "False"
+        },
+        "H12": {
+          "value": 4.16,
+          "display": "4.16"
+        },
+        "I12": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K12": {
+          "value": 25,
+          "display": "25"
+        },
+        "L12": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A13": {
+          "value": 2,
+          "display": "2"
+        },
+        "B13": {
+          "value": 20,
+          "display": "20"
+        },
+        "C13": {
+          "value": "Pemupukan ke-2",
+          "display": "Pemupukan ke-2"
+        },
+        "D13": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E13": {
+          "value": "NPK mutiara",
+          "display": "NPK mutiara"
+        },
+        "F13": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G13": {
+          "value": false,
+          "display": "False"
+        },
+        "H13": {
+          "value": 1.33,
+          "display": "1.33"
+        },
+        "I13": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J13": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K13": {
+          "value": 8,
+          "display": "8"
+        },
+        "L13": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E14": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F14": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G14": {
+          "value": false,
+          "display": "False"
+        },
+        "H14": {
+          "value": 0.78,
+          "display": "0.78"
+        },
+        "I14": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K14": {
+          "value": 4.7,
+          "display": "4.7"
+        },
+        "L14": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E15": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F15": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G15": {
+          "value": false,
+          "display": "False"
+        },
+        "H15": {
+          "value": 4.16,
+          "display": "4.16"
+        },
+        "I15": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K15": {
+          "value": 25,
+          "display": "25"
+        },
+        "L15": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A16": {
+          "value": 3,
+          "display": "3"
+        },
+        "B16": {
+          "value": 30,
+          "display": "30"
+        },
+        "C16": {
+          "value": "Pemupukan ke-3",
+          "display": "Pemupukan ke-3"
+        },
+        "D16": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E16": {
+          "value": "NPK mutiara",
+          "display": "NPK mutiara"
+        },
+        "F16": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G16": {
+          "value": false,
+          "display": "False"
+        },
+        "H16": {
+          "value": 1.33,
+          "display": "1.33"
+        },
+        "I16": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J16": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K16": {
+          "value": 8,
+          "display": "8"
+        },
+        "L16": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E17": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F17": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G17": {
+          "value": false,
+          "display": "False"
+        },
+        "H17": {
+          "value": 0.78,
+          "display": "0.78"
+        },
+        "I17": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K17": {
+          "value": 4.7,
+          "display": "4.7"
+        },
+        "L17": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E18": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F18": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G18": {
+          "value": false,
+          "display": "False"
+        },
+        "H18": {
+          "value": 4.16,
+          "display": "4.16"
+        },
+        "I18": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K18": {
+          "value": 25,
+          "display": "25"
+        },
+        "L18": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A19": {
+          "value": 4,
+          "display": "4"
+        },
+        "B19": {
+          "value": 40,
+          "display": "40"
+        },
+        "C19": {
+          "value": "Pemupukan ke-4",
+          "display": "Pemupukan ke-4"
+        },
+        "D19": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E19": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F19": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G19": {
+          "value": false,
+          "display": "False"
+        },
+        "H19": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I19": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J19": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K19": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L19": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E20": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F20": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G20": {
+          "value": false,
+          "display": "False"
+        },
+        "H20": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I20": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K20": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L20": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "C21": {
+          "value": "Pembuangan tunas air",
+          "display": "Pembuangan tunas air"
+        },
+        "D21": {
+          "value": "Perempelan",
+          "display": "Perempelan"
+        },
+        "F21": {
+          "value": "Perawatan",
+          "display": "Perawatan"
+        },
+        "G21": {
+          "value": false,
+          "display": "False"
+        },
+        "A22": {
+          "value": 5,
+          "display": "5"
+        },
+        "B22": {
+          "value": 50,
+          "display": "50"
+        },
+        "C22": {
+          "value": "Pemupukan ke-5",
+          "display": "Pemupukan ke-5"
+        },
+        "D22": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E22": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F22": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G22": {
+          "value": false,
+          "display": "False"
+        },
+        "H22": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I22": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J22": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K22": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L22": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E23": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F23": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G23": {
+          "value": false,
+          "display": "False"
+        },
+        "H23": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I23": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K23": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L23": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A24": {
+          "value": 6,
+          "display": "6"
+        },
+        "B24": {
+          "value": 60,
+          "display": "60"
+        },
+        "C24": {
+          "value": "Pemupukan ke-6",
+          "display": "Pemupukan ke-6"
+        },
+        "D24": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E24": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F24": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G24": {
+          "value": false,
+          "display": "False"
+        },
+        "H24": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I24": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J24": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K24": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L24": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E25": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F25": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G25": {
+          "value": false,
+          "display": "False"
+        },
+        "H25": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I25": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K25": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L25": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "C26": {
+          "value": "Panen ke-2",
+          "display": "Panen ke-2"
+        },
+        "D26": {
+          "value": "Manual",
+          "display": "Manual"
+        },
+        "G26": {
+          "value": false,
+          "display": "False"
+        },
+        "A27": {
+          "value": 7,
+          "display": "7"
+        },
+        "B27": {
+          "value": 70,
+          "display": "70"
+        },
+        "C27": {
+          "value": "Pemupukan ke-7",
+          "display": "Pemupukan ke-7"
+        },
+        "D27": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E27": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F27": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G27": {
+          "value": false,
+          "display": "False"
+        },
+        "H27": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I27": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J27": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K27": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L27": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E28": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F28": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G28": {
+          "value": false,
+          "display": "False"
+        },
+        "H28": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I28": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K28": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L28": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A29": {
+          "value": 8,
+          "display": "8"
+        },
+        "B29": {
+          "value": 80,
+          "display": "80"
+        },
+        "C29": {
+          "value": "Pemupukan ke-8",
+          "display": "Pemupukan ke-8"
+        },
+        "D29": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E29": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F29": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G29": {
+          "value": false,
+          "display": "False"
+        },
+        "H29": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I29": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J29": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K29": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L29": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A30": {
+          "value": 9,
+          "display": "9"
+        },
+        "E30": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F30": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G30": {
+          "value": false,
+          "display": "False"
+        },
+        "H30": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I30": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K30": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L30": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A31": {
+          "value": 10,
+          "display": "10"
+        },
+        "B31": {
+          "value": 90,
+          "display": "90"
+        },
+        "C31": {
+          "value": "Pemupukan ke-9",
+          "display": "Pemupukan ke-9"
+        },
+        "D31": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E31": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F31": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G31": {
+          "value": false,
+          "display": "False"
+        },
+        "H31": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I31": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J31": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K31": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L31": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E32": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F32": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G32": {
+          "value": false,
+          "display": "False"
+        },
+        "H32": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I32": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K32": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L32": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A33": {
+          "value": 11,
+          "display": "11"
+        },
+        "B33": {
+          "value": 100,
+          "display": "100"
+        },
+        "C33": {
+          "value": "Pemupukan ke-10",
+          "display": "Pemupukan ke-10"
+        },
+        "D33": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E33": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F33": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G33": {
+          "value": false,
+          "display": "False"
+        },
+        "H33": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I33": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J33": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K33": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L33": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E34": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F34": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G34": {
+          "value": false,
+          "display": "False"
+        },
+        "H34": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I34": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K34": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L34": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A35": {
+          "value": 12,
+          "display": "12"
+        },
+        "B35": {
+          "value": 110,
+          "display": "110"
+        },
+        "C35": {
+          "value": "Pemupukan ke-11",
+          "display": "Pemupukan ke-11"
+        },
+        "D35": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E35": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F35": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G35": {
+          "value": false,
+          "display": "False"
+        },
+        "H35": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I35": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J35": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K35": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L35": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E36": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F36": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G36": {
+          "value": false,
+          "display": "False"
+        },
+        "H36": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I36": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K36": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L36": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A37": {
+          "value": 13,
+          "display": "13"
+        },
+        "B37": {
+          "value": 120,
+          "display": "120"
+        },
+        "C37": {
+          "value": "Panen ke-17",
+          "display": "Panen ke-17"
+        },
+        "D37": {
+          "value": "Manual",
+          "display": "Manual"
+        },
+        "G37": {
+          "value": false,
+          "display": "False"
+        },
+        "E38": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F38": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G38": {
+          "value": false,
+          "display": "False"
+        },
+        "H38": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I38": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K38": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L38": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A39": {
+          "value": 14,
+          "display": "14"
+        },
+        "B39": {
+          "value": 130,
+          "display": "130"
+        },
+        "C39": {
+          "value": "Pemupukan ke-13",
+          "display": "Pemupukan ke-13"
+        },
+        "D39": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E39": {
+          "value": "Karate boron",
+          "display": "Karate boron"
+        },
+        "F39": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G39": {
+          "value": false,
+          "display": "False"
+        },
+        "H39": {
+          "value": 1.42,
+          "display": "1.42"
+        },
+        "I39": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "J39": {
+          "value": 1200,
+          "display": "1200"
+        },
+        "K39": {
+          "value": 8.5,
+          "display": "8.5"
+        },
+        "L39": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E40": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F40": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G40": {
+          "value": false,
+          "display": "False"
+        },
+        "H40": {
+          "value": 1.04,
+          "display": "1.04"
+        },
+        "I40": {
+          "value": "gram/tan.",
+          "display": "gram/tan."
+        },
+        "K40": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L40": {
+          "value": "kg",
+          "display": "kg"
+        }
+      }
+    },
+    {
+      "id": "buncis",
+      "sheetName": "Protokol Buncis",
+      "cropName": "Buncis",
+      "headerRow": 9,
+      "lastRow": 32,
+      "columnCount": 16,
+      "merges": [
+        "A10:A16",
+        "B10:B16",
+        "J10:J11",
+        "J12:J16",
+        "A17:A18",
+        "B17:B18",
+        "J17:J18",
+        "J21:J23",
+        "J24:J25",
+        "J28:J29",
+        "J30:J31",
+        "J33:J37",
+        "A26:A27",
+        "B26:B27",
+        "A28:A29",
+        "B28:B29",
+        "A30:A31",
+        "B30:B31",
+        "A19:A20",
+        "B19:B20",
+        "J19:J20",
+        "A21:A23",
+        "B21:B23",
+        "A24:A25",
+        "B24:B25"
+      ],
+      "cells": {
+        "C1": {
+          "value": "Komoditas",
+          "display": "Komoditas"
+        },
+        "D1": {
+          "value": "Buncis",
+          "display": "Buncis"
+        },
+        "C2": {
+          "value": "Masa tanam",
+          "display": "Masa tanam"
+        },
+        "D2": {
+          "value": "4 bulan",
+          "display": "4 bulan"
+        },
+        "F2": {
+          "value": "Kocor pupuk sebanyak 200 mL per tanaman",
+          "display": "Kocor pupuk sebanyak 200 mL per tanaman"
+        },
+        "C3": {
+          "value": "Luas lahan (m2)",
+          "display": "Luas lahan (m2)"
+        },
+        "D3": {
+          "value": 5000,
+          "display": "5000"
+        },
+        "F3": {
+          "value": "Panen dilakukan mulai umur 50 HST dengan interval 3 hari sekali",
+          "display": "Panen dilakukan mulai umur 50 HST dengan interval 3 hari sekali"
+        },
+        "C4": {
+          "value": "Efisiensi lahan (%)",
+          "display": "Efisiensi lahan (%)"
+        },
+        "D4": {
+          "value": 0.7,
+          "display": "70%"
+        },
+        "C5": {
+          "value": "Jarak tanam dalam baris (m)",
+          "display": "Jarak tanam dalam baris (m)"
+        },
+        "D5": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "C6": {
+          "value": "Jarak tanam antar baris (m)",
+          "display": "Jarak tanam antar baris (m)"
+        },
+        "D6": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "C7": {
+          "value": "Populasi tanaman",
+          "display": "Populasi tanaman"
+        },
+        "D7": {
+          "value": 14000,
+          "display": "14,000",
+          "formula": "((D3/(D5*D6)*D4))"
+        },
+        "A9": {
+          "value": "Aktivitas",
+          "display": "Aktivitas"
+        },
+        "B9": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C9": {
+          "value": "Kegiatan",
+          "display": "Kegiatan"
+        },
+        "D9": {
+          "value": "Perlakuan",
+          "display": "Perlakuan"
+        },
+        "E9": {
+          "value": "Produk",
+          "display": "Produk"
+        },
+        "F9": {
+          "value": "Kategori",
+          "display": "Kategori"
+        },
+        "G9": {
+          "value": "Cek",
+          "display": "Cek"
+        },
+        "H9": {
+          "value": "Dosis",
+          "display": "Dosis"
+        },
+        "I9": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "J9": {
+          "value": "Pelarut (L)",
+          "display": "Pelarut (L)"
+        },
+        "K9": {
+          "value": "Kebutuhan",
+          "display": "Kebutuhan"
+        },
+        "L9": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "M9": {
+          "value": "Pekerja",
+          "display": "Pekerja"
+        },
+        "N9": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "O9": {
+          "value": "Biaya Satuan",
+          "display": "Biaya Satuan"
+        },
+        "P9": {
+          "value": "Biaya Total",
+          "display": "Biaya Total"
+        },
+        "A10": {
+          "value": 1,
+          "display": "1"
+        },
+        "B10": {
+          "value": 14,
+          "display": "14"
+        },
+        "C10": {
+          "value": "Pemupukan ke-1",
+          "display": "Pemupukan ke-1"
+        },
+        "D10": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E10": {
+          "value": "Nitrea",
+          "display": "Nitrea"
+        },
+        "F10": {
+          "value": "Pukuk susulan",
+          "display": "Pukuk susulan"
+        },
+        "G10": {
+          "value": false,
+          "display": "False"
+        },
+        "H10": {
+          "value": 2.232142857,
+          "display": "2.23",
+          "formula": "6250/2800"
+        },
+        "I10": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J10": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K10": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L10": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M10": {
+          "value": 2,
+          "display": "2"
+        },
+        "N10": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O10": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P10": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M10*O10"
+        },
+        "E11": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F11": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G11": {
+          "value": false,
+          "display": "False"
+        },
+        "H11": {
+          "value": 16.07142857,
+          "display": "16.07",
+          "formula": "45000/2800"
+        },
+        "I11": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K11": {
+          "value": 45,
+          "display": "45"
+        },
+        "L11": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "C12": {
+          "value": "Aplikasi pestisida ke-2",
+          "display": "Aplikasi pestisida ke-2"
+        },
+        "D12": {
+          "value": "Semprot",
+          "display": "Semprot"
+        },
+        "E12": {
+          "value": "Alika",
+          "display": "Alika"
+        },
+        "F12": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G12": {
+          "value": false,
+          "display": "False"
+        },
+        "H12": {
+          "value": 1,
+          "display": "1"
+        },
+        "I12": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "J12": {
+          "value": 100,
+          "display": "100"
+        },
+        "K12": {
+          "value": 100,
+          "display": "100",
+          "formula": "H12*$J$12"
+        },
+        "L12": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "M12": {
+          "value": 2,
+          "display": "2"
+        },
+        "N12": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O12": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P12": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M12*O12"
+        },
+        "E13": {
+          "value": "Avidor",
+          "display": "Avidor"
+        },
+        "F13": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G13": {
+          "value": false,
+          "display": "False"
+        },
+        "H13": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "I13": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K13": {
+          "value": 50,
+          "display": "50"
+        },
+        "L13": {
+          "value": "gr",
+          "display": "gr"
+        },
+        "E14": {
+          "value": "Dangke",
+          "display": "Dangke"
+        },
+        "F14": {
+          "value": "Insektisida",
+          "display": "Insektisida"
+        },
+        "G14": {
+          "value": false,
+          "display": "False"
+        },
+        "H14": {
+          "value": 3,
+          "display": "3"
+        },
+        "I14": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K14": {
+          "value": 300,
+          "display": "300"
+        },
+        "L14": {
+          "value": "gr",
+          "display": "gr"
+        },
+        "E15": {
+          "value": "Tandem",
+          "display": "Tandem"
+        },
+        "F15": {
+          "value": "Fungisida",
+          "display": "Fungisida"
+        },
+        "G15": {
+          "value": false,
+          "display": "False"
+        },
+        "H15": {
+          "value": 1,
+          "display": "1"
+        },
+        "I15": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "K15": {
+          "value": 100,
+          "display": "100"
+        },
+        "L15": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "E16": {
+          "value": "Agristick",
+          "display": "Agristick"
+        },
+        "F16": {
+          "value": "Perekat",
+          "display": "Perekat"
+        },
+        "G16": {
+          "value": false,
+          "display": "False"
+        },
+        "H16": {
+          "value": 0.5,
+          "display": "0.5"
+        },
+        "I16": {
+          "value": "mL/L",
+          "display": "mL/L"
+        },
+        "K16": {
+          "value": 50,
+          "display": "50"
+        },
+        "L16": {
+          "value": "mL",
+          "display": "mL"
+        },
+        "A17": {
+          "value": 2,
+          "display": "2"
+        },
+        "B17": {
+          "value": 21,
+          "display": "21"
+        },
+        "C17": {
+          "value": "Pemupukan ke-2",
+          "display": "Pemupukan ke-2"
+        },
+        "D17": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E17": {
+          "value": "Nitrea",
+          "display": "Nitrea"
+        },
+        "F17": {
+          "value": "Pukuk susulan",
+          "display": "Pukuk susulan"
+        },
+        "G17": {
+          "value": false,
+          "display": "False"
+        },
+        "H17": {
+          "value": 2.23,
+          "display": "2.23"
+        },
+        "I17": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J17": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K17": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L17": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M17": {
+          "value": 2,
+          "display": "2"
+        },
+        "N17": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O17": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P17": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M17*O17"
+        },
+        "E18": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F18": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G18": {
+          "value": false,
+          "display": "False"
+        },
+        "H18": {
+          "value": 16.07,
+          "display": "16.07"
+        },
+        "I18": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K18": {
+          "value": 45,
+          "display": "45"
+        },
+        "L18": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A19": {
+          "value": 3,
+          "display": "3"
+        },
+        "B19": {
+          "value": 35,
+          "display": "35"
+        },
+        "C19": {
+          "value": "Pemupukan ke-4",
+          "display": "Pemupukan ke-4"
+        },
+        "D19": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E19": {
+          "value": "Nitrea",
+          "display": "Nitrea"
+        },
+        "F19": {
+          "value": "Pukuk susulan",
+          "display": "Pukuk susulan"
+        },
+        "G19": {
+          "value": false,
+          "display": "False"
+        },
+        "H19": {
+          "value": 2.23,
+          "display": "2.23"
+        },
+        "I19": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J19": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K19": {
+          "value": 6.25,
+          "display": "6.25"
+        },
+        "L19": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M19": {
+          "value": 2,
+          "display": "2"
+        },
+        "N19": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O19": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P19": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M19*O19"
+        },
+        "E20": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F20": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G20": {
+          "value": false,
+          "display": "False"
+        },
+        "H20": {
+          "value": 16.07,
+          "display": "16.07"
+        },
+        "I20": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K20": {
+          "value": 45,
+          "display": "45"
+        },
+        "L20": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A21": {
+          "value": 4,
+          "display": "4"
+        },
+        "B21": {
+          "value": 42,
+          "display": "42"
+        },
+        "C21": {
+          "value": "Pemupukan ke-5",
+          "display": "Pemupukan ke-5"
+        },
+        "D21": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E21": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F21": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G21": {
+          "value": false,
+          "display": "False"
+        },
+        "H21": {
+          "value": 16.07,
+          "display": "16.07"
+        },
+        "I21": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J21": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K21": {
+          "value": 45,
+          "display": "45"
+        },
+        "L21": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M21": {
+          "value": 2,
+          "display": "2"
+        },
+        "N21": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O21": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P21": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M21*O21"
+        },
+        "E22": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F22": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G22": {
+          "value": false,
+          "display": "False"
+        },
+        "H22": {
+          "value": 1.785714286,
+          "display": "1.79",
+          "formula": "5000/2800"
+        },
+        "I22": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K22": {
+          "value": 5,
+          "display": "5"
+        },
+        "L22": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E23": {
+          "value": "KCl MOP",
+          "display": "KCl MOP"
+        },
+        "F23": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G23": {
+          "value": false,
+          "display": "False"
+        },
+        "H23": {
+          "value": 1.79,
+          "display": "1.79"
+        },
+        "I23": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K23": {
+          "value": 5,
+          "display": "5"
+        },
+        "L23": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A24": {
+          "value": 5,
+          "display": "5"
+        },
+        "B24": {
+          "value": 49,
+          "display": "49"
+        },
+        "C24": {
+          "value": "Pemupukan ke-6",
+          "display": "Pemupukan ke-6"
+        },
+        "D24": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E24": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F24": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G24": {
+          "value": false,
+          "display": "False"
+        },
+        "H24": {
+          "value": 1.79,
+          "display": "1.79"
+        },
+        "I24": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J24": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K24": {
+          "value": 5,
+          "display": "5"
+        },
+        "L24": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M24": {
+          "value": 2,
+          "display": "2"
+        },
+        "N24": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O24": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P24": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M24*O24"
+        },
+        "E25": {
+          "value": "KCl MOP",
+          "display": "KCl MOP"
+        },
+        "F25": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G25": {
+          "value": false,
+          "display": "False"
+        },
+        "H25": {
+          "value": 1.79,
+          "display": "1.79"
+        },
+        "I25": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K25": {
+          "value": 5,
+          "display": "5"
+        },
+        "L25": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A26": {
+          "value": 6,
+          "display": "6"
+        },
+        "B26": {
+          "value": 56,
+          "display": "56"
+        },
+        "C26": {
+          "value": "Panen ke-3",
+          "display": "Panen ke-3"
+        },
+        "D26": {
+          "value": "Manual",
+          "display": "Manual"
+        },
+        "F26": {
+          "value": "Hasil panen",
+          "display": "Hasil panen"
+        },
+        "G26": {
+          "value": false,
+          "display": "False"
+        },
+        "M26": {
+          "value": 10,
+          "display": "10"
+        },
+        "N26": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O26": {
+          "value": 70000,
+          "display": "Rp70,000"
+        },
+        "P26": {
+          "value": 700000,
+          "display": "Rp700,000",
+          "formula": "M26*O26"
+        },
+        "C27": {
+          "value": "Pemupukan ke-7",
+          "display": "Pemupukan ke-7"
+        },
+        "D27": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E27": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F27": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G27": {
+          "value": false,
+          "display": "False"
+        },
+        "H27": {
+          "value": 1.785714286,
+          "display": "1.79",
+          "formula": "5000/2800"
+        },
+        "I27": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J27": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K27": {
+          "value": 5,
+          "display": "5"
+        },
+        "L27": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M27": {
+          "value": 2,
+          "display": "2"
+        },
+        "N27": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O27": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P27": {
+          "value": 200000,
+          "display": "Rp200,000"
+        },
+        "A28": {
+          "value": 7,
+          "display": "7"
+        },
+        "B28": {
+          "value": 63,
+          "display": "63"
+        },
+        "C28": {
+          "value": "Pemupukan ke-8",
+          "display": "Pemupukan ke-8"
+        },
+        "D28": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E28": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F28": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G28": {
+          "value": false,
+          "display": "False"
+        },
+        "H28": {
+          "value": 1.79,
+          "display": "1.79"
+        },
+        "I28": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J28": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K28": {
+          "value": 5,
+          "display": "5"
+        },
+        "L28": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M28": {
+          "value": 2,
+          "display": "2"
+        },
+        "N28": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O28": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P28": {
+          "value": 200000,
+          "display": "Rp200,000"
+        },
+        "E29": {
+          "value": "KCl MOP",
+          "display": "KCl MOP"
+        },
+        "F29": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G29": {
+          "value": false,
+          "display": "False"
+        },
+        "H29": {
+          "value": 1.79,
+          "display": "1.79"
+        },
+        "I29": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K29": {
+          "value": 5,
+          "display": "5"
+        },
+        "L29": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A30": {
+          "value": 8,
+          "display": "8"
+        },
+        "B30": {
+          "value": 70,
+          "display": "70"
+        },
+        "C30": {
+          "value": "Pemupukan ke-9",
+          "display": "Pemupukan ke-9"
+        },
+        "D30": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E30": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F30": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G30": {
+          "value": false,
+          "display": "False"
+        },
+        "H30": {
+          "value": 1.79,
+          "display": "1.79"
+        },
+        "I30": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J30": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K30": {
+          "value": 5,
+          "display": "5"
+        },
+        "L30": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M30": {
+          "value": 2,
+          "display": "2"
+        },
+        "N30": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O30": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P30": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M30*O30"
+        },
+        "E31": {
+          "value": "KCl MOP",
+          "display": "KCl MOP"
+        },
+        "F31": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G31": {
+          "value": false,
+          "display": "False"
+        },
+        "H31": {
+          "value": 1.79,
+          "display": "1.79"
+        },
+        "I31": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K31": {
+          "value": 5,
+          "display": "5"
+        },
+        "L31": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A32": {
+          "value": 9,
+          "display": "9"
+        },
+        "B32": {
+          "value": 77,
+          "display": "77"
+        },
+        "C32": {
+          "value": "Pemupukan ke-10",
+          "display": "Pemupukan ke-10"
+        },
+        "D32": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E32": {
+          "value": "NPK grower",
+          "display": "NPK grower"
+        },
+        "F32": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G32": {
+          "value": false,
+          "display": "False"
+        },
+        "H32": {
+          "value": 1.79,
+          "display": "1.79"
+        },
+        "I32": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J32": {
+          "value": 2800,
+          "display": "2800"
+        },
+        "K32": {
+          "value": 5,
+          "display": "5"
+        },
+        "L32": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "M32": {
+          "value": 2,
+          "display": "2"
+        },
+        "N32": {
+          "value": "HOK",
+          "display": "HOK"
+        },
+        "O32": {
+          "value": 100000,
+          "display": "Rp100,000"
+        },
+        "P32": {
+          "value": 200000,
+          "display": "Rp200,000",
+          "formula": "M32*O32"
+        }
+      }
+    },
+    {
+      "id": "butternut",
+      "sheetName": "Protokol Butternut",
+      "cropName": "Butternut Pumpkin",
+      "headerRow": 9,
+      "lastRow": 18,
+      "columnCount": 12,
+      "merges": [
+        "A10:A12",
+        "B10:B12",
+        "J10:J12"
+      ],
+      "cells": {
+        "C1": {
+          "value": "Komoditas",
+          "display": "Komoditas"
+        },
+        "D1": {
+          "value": "Butternut Pumpkin",
+          "display": "Butternut Pumpkin"
+        },
+        "C2": {
+          "value": "Masa tanam",
+          "display": "Masa tanam"
+        },
+        "D2": {
+          "value": "5 bulan",
+          "display": "5 bulan"
+        },
+        "F2": {
+          "value": "Aplikasi pestisida dilakukan dengan interval 2 minggu (disesuaikan dengan kondisi aktual di lapangan)",
+          "display": "Aplikasi pestisida dilakukan dengan interval 2 minggu (disesuaikan dengan kondisi aktual di lapangan)"
+        },
+        "C3": {
+          "value": "Luas lahan (m2)",
+          "display": "Luas lahan (m2)"
+        },
+        "D3": {
+          "value": 5000,
+          "display": "5000"
+        },
+        "F3": {
+          "value": "Kocor pupuk sebanyak 200 mL per tanaman",
+          "display": "Kocor pupuk sebanyak 200 mL per tanaman"
+        },
+        "C4": {
+          "value": "Efisiensi lahan (%)",
+          "display": "Efisiensi lahan (%)"
+        },
+        "D4": {
+          "value": 0.6,
+          "display": "60%"
+        },
+        "C5": {
+          "value": "Jarak tanam dalam baris (m)",
+          "display": "Jarak tanam dalam baris (m)"
+        },
+        "D5": {
+          "value": 0.7,
+          "display": "0.7"
+        },
+        "C6": {
+          "value": "Jarak tanam antar baris (m)",
+          "display": "Jarak tanam antar baris (m)"
+        },
+        "D6": {
+          "value": 1,
+          "display": "1"
+        },
+        "C7": {
+          "value": "Populasi tanaman",
+          "display": "Populasi tanaman"
+        },
+        "D7": {
+          "value": 4285.714286,
+          "display": "4,286",
+          "formula": "((D3/(D5*D6)*D4))"
+        },
+        "A9": {
+          "value": "Aktivitas",
+          "display": "Aktivitas"
+        },
+        "B9": {
+          "value": "HST",
+          "display": "HST"
+        },
+        "C9": {
+          "value": "Kegiatan",
+          "display": "Kegiatan"
+        },
+        "D9": {
+          "value": "Perlakuan",
+          "display": "Perlakuan"
+        },
+        "E9": {
+          "value": "Produk",
+          "display": "Produk"
+        },
+        "F9": {
+          "value": "Kategori",
+          "display": "Kategori"
+        },
+        "G9": {
+          "value": "Cek",
+          "display": "Cek"
+        },
+        "H9": {
+          "value": "Dosis",
+          "display": "Dosis"
+        },
+        "I9": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "J9": {
+          "value": "Pelarut (L)",
+          "display": "Pelarut (L)"
+        },
+        "K9": {
+          "value": "Kebutuhan",
+          "display": "Kebutuhan"
+        },
+        "L9": {
+          "value": "Satuan",
+          "display": "Satuan"
+        },
+        "A10": {
+          "value": 1,
+          "display": "1"
+        },
+        "B10": {
+          "value": 7,
+          "display": "7"
+        },
+        "C10": {
+          "value": "Pemupukan ke-1",
+          "display": "Pemupukan ke-1"
+        },
+        "D10": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E10": {
+          "value": "Yaramila unik",
+          "display": "Yaramila unik"
+        },
+        "F10": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G10": {
+          "value": false,
+          "display": "False"
+        },
+        "H10": {
+          "value": 23.33177788,
+          "display": "23.33",
+          "formula": "20000/J10"
+        },
+        "I10": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J10": {
+          "value": 857.2,
+          "display": "857.2"
+        },
+        "K10": {
+          "value": 20,
+          "display": "20"
+        },
+        "L10": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E11": {
+          "value": "Fertiphos",
+          "display": "Fertiphos"
+        },
+        "F11": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G11": {
+          "value": false,
+          "display": "False"
+        },
+        "H11": {
+          "value": 29.16472235,
+          "display": "29.16",
+          "formula": "25000/J10"
+        },
+        "I11": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K11": {
+          "value": 25,
+          "display": "25"
+        },
+        "L11": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "E12": {
+          "value": "Nitrea",
+          "display": "Nitrea"
+        },
+        "F12": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G12": {
+          "value": false,
+          "display": "False"
+        },
+        "H12": {
+          "value": 11.66588894,
+          "display": "11.67",
+          "formula": "10000/J10"
+        },
+        "I12": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "K12": {
+          "value": 10,
+          "display": "10"
+        },
+        "L12": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A13": {
+          "value": 2,
+          "display": "2"
+        },
+        "B13": {
+          "value": 14,
+          "display": "14"
+        },
+        "C13": {
+          "value": "Pemupukan ke-2",
+          "display": "Pemupukan ke-2"
+        },
+        "D13": {
+          "value": "kocor",
+          "display": "kocor"
+        },
+        "E13": {
+          "value": "Yaramila unik",
+          "display": "Yaramila unik"
+        },
+        "F13": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G13": {
+          "value": false,
+          "display": "False"
+        },
+        "H13": {
+          "value": 29.16472235,
+          "display": "29.16",
+          "formula": "25000/J13"
+        },
+        "I13": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J13": {
+          "value": 857.2,
+          "display": "857.2"
+        },
+        "K13": {
+          "value": 25,
+          "display": "25"
+        },
+        "L13": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A14": {
+          "value": 3,
+          "display": "3"
+        },
+        "B14": {
+          "value": 21,
+          "display": "21"
+        },
+        "C14": {
+          "value": "Pemupukan ke-3",
+          "display": "Pemupukan ke-3"
+        },
+        "D14": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E14": {
+          "value": "Yaramila unik",
+          "display": "Yaramila unik"
+        },
+        "F14": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G14": {
+          "value": false,
+          "display": "False"
+        },
+        "H14": {
+          "value": 34.99766682,
+          "display": "35.00",
+          "formula": "30000/J14"
+        },
+        "I14": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J14": {
+          "value": 857.2,
+          "display": "857.2"
+        },
+        "K14": {
+          "value": 30,
+          "display": "30"
+        },
+        "L14": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A15": {
+          "value": 4,
+          "display": "4"
+        },
+        "B15": {
+          "value": 35,
+          "display": "35"
+        },
+        "C15": {
+          "value": "Pemupukan ke-5",
+          "display": "Pemupukan ke-5"
+        },
+        "D15": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E15": {
+          "value": "Yaramila winner",
+          "display": "Yaramila winner"
+        },
+        "F15": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G15": {
+          "value": false,
+          "display": "False"
+        },
+        "H15": {
+          "value": 29.16472235,
+          "display": "29.16",
+          "formula": "25000/J15"
+        },
+        "I15": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J15": {
+          "value": 857.2,
+          "display": "857.2"
+        },
+        "K15": {
+          "value": 25,
+          "display": "25"
+        },
+        "L15": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A16": {
+          "value": 5,
+          "display": "5"
+        },
+        "B16": {
+          "value": 42,
+          "display": "42"
+        },
+        "C16": {
+          "value": "Pemupukan ke-6",
+          "display": "Pemupukan ke-6"
+        },
+        "D16": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E16": {
+          "value": "Yaramila winner",
+          "display": "Yaramila winner"
+        },
+        "F16": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G16": {
+          "value": false,
+          "display": "False"
+        },
+        "H16": {
+          "value": 29.16472235,
+          "display": "29.16"
+        },
+        "I16": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J16": {
+          "value": 857.2,
+          "display": "857.2"
+        },
+        "K16": {
+          "value": 25,
+          "display": "25"
+        },
+        "L16": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A17": {
+          "value": 6,
+          "display": "6"
+        },
+        "B17": {
+          "value": 49,
+          "display": "49"
+        },
+        "C17": {
+          "value": "Pemupukan ke-7",
+          "display": "Pemupukan ke-7"
+        },
+        "D17": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E17": {
+          "value": "Yaramila winner",
+          "display": "Yaramila winner"
+        },
+        "F17": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G17": {
+          "value": false,
+          "display": "False"
+        },
+        "H17": {
+          "value": 29.16472235,
+          "display": "29.16"
+        },
+        "I17": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J17": {
+          "value": 857.2,
+          "display": "857.2"
+        },
+        "K17": {
+          "value": 25,
+          "display": "25"
+        },
+        "L17": {
+          "value": "kg",
+          "display": "kg"
+        },
+        "A18": {
+          "value": 7,
+          "display": "7"
+        },
+        "B18": {
+          "value": 56,
+          "display": "56"
+        },
+        "C18": {
+          "value": "Pemupukan ke-8",
+          "display": "Pemupukan ke-8"
+        },
+        "D18": {
+          "value": "Kocor",
+          "display": "Kocor"
+        },
+        "E18": {
+          "value": "Yaramila winner",
+          "display": "Yaramila winner"
+        },
+        "F18": {
+          "value": "Pupuk susulan",
+          "display": "Pupuk susulan"
+        },
+        "G18": {
+          "value": false,
+          "display": "False"
+        },
+        "H18": {
+          "value": 29.16472235,
+          "display": "29.16"
+        },
+        "I18": {
+          "value": "gr/L",
+          "display": "gr/L"
+        },
+        "J18": {
+          "value": 857.2,
+          "display": "857.2"
+        },
+        "K18": {
+          "value": 25,
+          "display": "25"
+        },
+        "L18": {
+          "value": "kg",
+          "display": "kg"
+        }
+      }
+    }
+  ]
+}

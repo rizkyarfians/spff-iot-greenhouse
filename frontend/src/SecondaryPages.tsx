@@ -10,6 +10,8 @@ import { ParameterPicker } from './ParameterPicker'
 import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
+  lazy,
+  Suspense,
   useEffect,
   useMemo,
   useRef,
@@ -510,6 +512,8 @@ function PlantStatusPage({
   )
 }
 
+
+const GuidePage=lazy(()=>import('./GuidePage').then(module=>({default:module.GuidePage})))
 
 const controlMetadata:
 Record<
@@ -4711,6 +4715,7 @@ export function SecondaryPage({
   onRefresh,
 }: SecondaryPageProps) {
   if (page === 'fertigation') return <FertigationPage devices={data?.devices ?? []} />
+  if (page === 'guide') return <Suspense fallback={<section className="guide-page" role="status">Memuat panduan…</section>}><GuidePage/></Suspense>
 
   const connectedProps = {
     data,

@@ -20,6 +20,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   BatteryMedium,
+  BookOpen,
   Bell,
   BellRing,
   CalendarDays,
@@ -493,6 +494,7 @@ Array<{
     icon: FlaskConical,
     label: 'Program Fertigasi',
   },
+  {key:'guide',icon:BookOpen,label:'Panduan'},
   {
     key: 'controls',
     icon: SlidersHorizontal,
