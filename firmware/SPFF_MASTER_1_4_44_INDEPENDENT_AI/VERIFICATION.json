@@ -1,0 +1,12 @@
+﻿{
+    "memoryProfiles":  [
+                           "qio_opi"
+                       ],
+    "appSha256":  "4731692dee28b90d22e44da64ecdb3f6160d69a26de7f08b7d9df7526cf99694",
+    "physicalDeviceTested":  true,
+    "testedOn":  "ESP32-S3 greenhouse-01 esp32-s3-01",
+    "appBytes":  876000,
+    "compileSuccess":  true,
+    "note":  "Soil slot 150 ms. Field result 13-14 of 14 soil fields valid, data age 8-25 s.",
+    "firmwareVersion":  "1.4.44-INDEPENDENT-AI"
+}
