@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react'
 import type {ApiDevice,GuideActivity,GuideProgram,GuideProgramConfig,GuideProgramPreview,GuideProgramRevision} from '@spff/contracts'
 import {guideProgramConfigSchema} from '@spff/contracts'
-import {BookOpen,Check,Plus,RefreshCw} from 'lucide-react'
+import {Check,Plus,RefreshCw,ChevronDown} from 'lucide-react'
 import {fetchGuidePrograms,previewGuideProgram,saveGuideProgram,completeGuideProgram,fetchGuideProgramHistory} from './api'
 import {useAuth} from './authContext'
 import source from './data/protocolGuide.json'
@@ -17,6 +17,7 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
  const [form,setForm]=useState<ProgramForm>(()=>initial(source.sheets.some(s=>s.id===preset)?preset!:source.sheets[0].id))
  const [editing,setEditing]=useState(admin&&!!preset),[preview,setPreview]=useState<GuideProgramPreview|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[loaded,setLoaded]=useState(false)
  const [filter,setFilter]=useState<'today'|'all'>('today'),[completing,setCompleting]=useState<string|null>(null),[completionNote,setCompletionNote]=useState('')
+ const [page,setPage]=useState(0),[openActivity,setOpenActivity]=useState<string|null>(null)
  const lock=useRef(false),mounted=useRef(true)
  useEffect(()=>{mounted.current=true;sessionStorage.removeItem('spff-guide-program-crop');void fetchGuidePrograms().then(rows=>{if(mounted.current){setPrograms(rows);setLoaded(true);if(!preset&&rows[0])setSelected(rows[0])}}).catch(e=>{if(mounted.current)setError(e instanceof Error?e.message:'Gagal memuat program.')});return()=>{mounted.current=false}},[preset])
  useEffect(()=>{
@@ -31,6 +32,8 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
  const plan=editing?preview?.plan:selected?.plan
  const activities=plan?.activities??[]
  const visible=editing||filter==='all'?activities:activities.filter(a=>a.hst===selected?.hst)
+ const pageCount=Math.max(1,Math.ceil(visible.length/4)),currentPage=Math.min(page,pageCount-1),paged=visible.slice(currentPage*4,currentPage*4+4)
+ useEffect(()=>{setPage(0);setOpenActivity(null);setCompleting(null)},[selected?.programId,preview,filter])
  const next=selected?.plan.activities.filter(a=>a.hst!==null&&a.hst>selected.hst).sort((a,b)=>a.hst!-b.hst!)[0]
  const pending=selected?.plan.activities.filter(a=>a.hst!==null&&a.hst<selected.hst&&!selected.completedActivityIds.includes(a.id)).length??0
  const changed=selected&&preview?[...new Set([...selected.plan.activities.map(a=>a.id),...preview.plan.activities.map(a=>a.id)])].map(id=>({id,before:selected.plan.activities.find(a=>a.id===id),after:preview.plan.activities.find(a=>a.id===id)})).filter(item=>JSON.stringify(item.before)!==JSON.stringify(item.after)):[]
@@ -41,16 +44,17 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
   <div className="gp-layout"><aside className="gp-panel gp-sidebar"><h3>Program tanaman</h3>
    {admin&&<button className="gp-primary" disabled={busy||editing} onClick={()=>start(null)}><Plus size={18}/>Buat dari Panduan</button>}
    {!loaded&&!error&&<p>Memuat…</p>}{loaded&&!programs.length&&<p>Belum ada program. Pilih Panduan lalu buat program.</p>}
-   {programs.map(p=><button className={`gp-program${selected?.programId===p.programId?' is-selected':''}`} key={p.programId} disabled={busy||editing} onClick={()=>{setSelected(p);setError('');setNotice('');setCompleting(null)}} aria-pressed={selected?.programId===p.programId}><strong>{p.plan.cropName}</strong><span>HST {p.hst} · {format(p.config.quantity)} {p.config.basis==='plants'?'tanaman':'m²'}</span><small>Panduan revisi {p.guideRevision} · {p.config.plantingDate}</small></button>)}
+   {programs.length>0&&<label>Pilih program<select value={selected?.programId??''} disabled={busy||editing} onChange={event=>{setSelected(programs.find(p=>p.programId===event.target.value)??null);setError('');setNotice('')}}><option value="" disabled>Pilih program tanaman</option>{programs.map(p=><option key={p.programId} value={p.programId}>{p.plan.cropName} · HST {p.hst} · tanam {p.config.plantingDate}</option>)}</select></label>}
+
   </aside><div className="gp-content">
   {editing&&<form className="gp-panel gp-form" onSubmit={e=>{e.preventDefault();void run(async()=>{setPreview(await previewGuideProgram(config()))})}}>
    <h3>{selected?'Tinjau perubahan program':'Buat program tanaman'}</h3>
-   <fieldset disabled={busy}><label>Tanaman<select value={form.cropId} onChange={e=>{setForm({...form,cropId:e.target.value});setPreview(null)}}>{source.sheets.map(s=><option key={s.id} value={s.id}>{s.cropName}</option>)}</select></label>
+   <fieldset disabled={busy} hidden={!!preview}><label>Tanaman<select value={form.cropId} onChange={e=>{setForm({...form,cropId:e.target.value});setPreview(null)}}>{source.sheets.map(s=><option key={s.id} value={s.id}>{s.cropName}</option>)}</select></label>
    <label>Tanggal tanam<input type="date" required value={form.plantingDate} onChange={e=>{setForm({...form,plantingDate:e.target.value});setPreview(null)}}/></label>
    <label>Hitung berdasarkan<select value={form.basis} onChange={e=>{setForm({...form,basis:e.target.value as ProgramForm['basis'],quantity:''});setPreview(null)}}><option value="plants">Jumlah tanaman</option><option value="area">Luas lahan</option></select></label>
    <label>{form.basis==='plants'?'Jumlah tanaman':'Luas lahan (m²)'}<input type="number" required min={form.basis==='plants'?1:0.001} max={1e7} step={form.basis==='plants'?1:'any'} value={form.quantity} onChange={e=>{setForm({...form,quantity:e.target.value});setPreview(null)}}/></label>
    <label>Perangkat (opsional)<select value={form.deviceId} onChange={e=>{setForm({...form,deviceId:e.target.value});setPreview(null)}}><option value="">Belum dihubungkan</option>{devices.map(d=><option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}</select></label>
-   </fieldset><div className="gp-actions"><button type="button" disabled={busy} onClick={()=>{setEditing(false);setPreview(null);setError('')}}>Batal</button><button className="gp-primary" disabled={busy} type="submit">{busy?'Menghitung…':'Hitung & periksa kebutuhan'}</button></div>
+   </fieldset>{preview&&<p className="gp-form-summary">{preview.plan.cropName} · tanam {form.plantingDate} · {format(Number(form.quantity))} {form.basis==='plants'?'tanaman':'m²'}</p>}<div className="gp-actions">{preview&&<button type="button" disabled={busy} onClick={()=>setPreview(null)}>Ubah pengaturan</button>}<button type="button" disabled={busy} onClick={()=>{setEditing(false);setPreview(null);setError('')}}>Batal</button><button className="gp-primary" disabled={busy} hidden={!!preview} type="submit">{busy?'Menghitung…':'Hitung & periksa kebutuhan'}</button></div>
    {preview&&<div className="gp-review"><p>Panduan revisi {preview.guideRevision} · {preview.plan.activities.length} kegiatan. Periksa kebutuhan di bawah sebelum menyimpan.</p>{selected&&<><p>Revisi lama tetap tercatat. Kegiatan yang berubah perlu ditinjau dan ditandai kembali.</p><details><summary>{changed.length} kegiatan berubah · lihat perbandingan</summary>{changed.map(item=><section key={item.id} className="gp-diff"><strong>{item.id}</strong><p>Sebelum: {summary(item.before)}</p><p>Sesudah: {summary(item.after)}</p></section>)}</details>{selected.config.plantingDate!==form.plantingDate&&<p>Tanggal tanam berubah: {selected.config.plantingDate} → {form.plantingDate}. Catatan selesai lama tetap ada dalam riwayat.</p>}</>}<button className="gp-primary" type="button" disabled={busy} onClick={()=>void run(async()=>{const saved=await saveGuideProgram({config:config(),sourceSha256:preview.sourceSha256,guideRevision:preview.guideRevision},selected??undefined);setPrograms(rows=>[saved,...rows.filter(p=>p.programId!==saved.programId)]);setSelected(saved);setEditing(false);setPreview(null);setLoaded(true);setNotice('Program tersimpan. Kegiatan dilaksanakan dan dicatat secara manual.')} )}><Check size={18}/>Simpan program ini</button></div>}
   </form>}
   {!editing&&selected&&<section className="gp-panel"><div className="gp-heading"><div><h3>{selected.plan.cropName} · HST {selected.hst}</h3><p>Tanam {selected.config.plantingDate} · Panduan revisi {selected.guideRevision}</p></div>{admin&&<button disabled={busy} onClick={()=>start(selected)}>Ubah program</button>}</div>
@@ -60,18 +64,25 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
   </section>}
   {plan&&<>
    <div className="gp-heading"><h3>{editing?'Periksa kebutuhan':'Kegiatan tanaman'}</h3>{!editing&&<div className="gp-tabs" role="group" aria-label="Filter kegiatan"><button aria-pressed={filter==='today'} onClick={()=>setFilter('today')}>Hari ini</button><button aria-pressed={filter==='all'} onClick={()=>setFilter('all')}>Semua</button></div>}</div>
-   <p className="gp-caption">Acuan: {format(plan.sourcePlants)} tanaman / {format(plan.sourceArea)} m². Hasil hitung menggunakan dosis Panduan; nilai acuan tetap ditampilkan.</p>
+   <p className="gp-caption">{visible.length} kegiatan · Pilih kegiatan untuk melihat bahan.</p>
    {!visible.length&&<div className="gp-panel"><p>Tidak ada kegiatan untuk HST hari ini.</p>{next&&<p>Berikutnya: HST {next.hst} · {next.title}</p>}</div>}
-   {visible.map(a=><article className="gp-panel gp-activity" key={a.id}>
-    <div className="gp-heading"><div><span className="gp-hst">{a.hst===null?'HST belum diisi':`HST ${a.hst}`}</span><h3>{a.title}</h3><p>{a.method} · {a.waterL!==null?`${format(a.waterL)} L larutan acuan`:'Volume larutan belum tersedia'}</p></div>{!editing&&<span className={`gp-status${selected?.completedActivityIds.includes(a.id)?' is-done':''}`}>{status(a)}</span>}</div>
+   {pageCount>1&&<nav className="gp-pagination" aria-label="Halaman kegiatan"><span>{currentPage*4+1}–{Math.min((currentPage+1)*4,visible.length)} dari {visible.length}</span><div><button type="button" disabled={currentPage===0} onClick={()=>{setPage(currentPage-1);setOpenActivity(null);setCompleting(null)}}>Sebelumnya</button><button type="button" disabled={currentPage===pageCount-1} onClick={()=>{setPage(currentPage+1);setOpenActivity(null);setCompleting(null)}}>Berikutnya</button></div></nav>}
+   {paged.map(a=><article className="gp-panel gp-activity gp-compact-activity" key={a.id}>
+    <button className="gp-activity-trigger" type="button" aria-expanded={openActivity===a.id} aria-controls={`gp-body-${a.id}`} onClick={()=>{setOpenActivity(openActivity===a.id?null:a.id);setCompleting(null)}}>
+     <span className="gp-activity-title"><span className="gp-hst">{a.hst===null?'HST —':`HST ${a.hst}`}</span><strong>{a.title}</strong><small>{a.method} · {a.requirements.length} bahan{a.waterL!==null?` · ${format(a.waterL)} L`:''}</small>
+     {(a.warnings.length>0||a.requirements.some(r=>r.warnings.length))&&<span className="gp-review-badge">Perlu diperiksa</span>}</span>
+     <span className="gp-activity-indicator">{!editing&&<span className={`gp-status${selected?.completedActivityIds.includes(a.id)?' is-done':''}`}>{status(a)}</span>}<ChevronDown size={20} aria-hidden="true"/></span>
+    </button>
+    <div id={`gp-body-${a.id}`} hidden={openActivity!==a.id} className="gp-activity-body">
     {a.warnings.map(w=><p className="gp-warning" key={w}>{w}</p>)}
-    <div className="gp-requirements">{a.requirements.map(r=><section key={r.row} className="gp-requirement"><h4>{r.product}</h4><p>{format(r.dose)} {r.doseUnit} · baris {r.row}</p><dl><div><dt>Kebutuhan lahan Anda</dt><dd>{format(r.amount)} {r.unit}</dd></div><div><dt>Acuan Panduan</dt><dd>{format(r.sourceAmount)} {r.sourceUnit}</dd></div>{r.concentrationGPerL!==null&&<div><dt>Konsentrasi hitung</dt><dd>{format(r.concentrationGPerL)} g/L</dd></div>}</dl>{r.warnings.length>0&&<ul className="gp-warnings">{r.warnings.map(w=><li key={w}>{w}</li>)}</ul>}</section>)}</div>
-    {a.requirements.length>0&&<details><summary>Detail perhitungan</summary><p>Faktor lahan/populasi: {format(plan.scale)}×. Dosis per tanaman × populasi; dosis per liter × pelarut; dosis per luas × luas lahan. Nilai acuan mengikuti tabel, hasil hitung belum dikonversi menjadi EC.</p><p>Larutan per kegiatan bukan penjumlahan volume tiap produk. Kesesuaian campuran perlu diperiksa sebelum aplikasi.</p></details>}
+    <div className="gp-material-list">{a.requirements.map(r=><section key={r.row} className="gp-material"><div className="gp-material-row"><div><h4>{r.product}</h4><small>{format(r.dose)} {r.doseUnit}</small></div><strong>{format(r.amount)} {r.unit}</strong></div>{r.warnings.length>0&&<ul className="gp-warnings">{r.warnings.map(w=><li key={w}>{w}</li>)}</ul>}</section>)}</div>
+    {a.requirements.length>0&&<details><summary>Acuan & perhitungan</summary><p>Acuan: {format(plan.sourcePlants)} tanaman / {format(plan.sourceArea)} m² · faktor {format(plan.scale)}×.</p>{a.requirements.map(r=><p key={r.row}><strong>{r.product}</strong>: acuan {format(r.sourceAmount)} {r.sourceUnit}{r.concentrationGPerL!==null?` · konsentrasi ${format(r.concentrationGPerL)} g/L`:''} · baris {r.row}</p>)}<p>Dosis × jumlah tanaman, pelarut, atau luas sesuai satuannya. Volume larutan tidak dijumlahkan per produk. Belum dikonversi menjadi EC.</p></details>}
     {!editing&&operator&&selected&&a.hst!==null&&a.hst<=selected.hst&&!selected.completedActivityIds.includes(a.id)&&<div className="gp-complete">
      {completing===a.id?<><p>Konfirmasi kegiatan ini sudah dilakukan secara manual.</p><label>Catatan (opsional)<input maxLength={500} value={completionNote} onChange={e=>setCompletionNote(e.target.value)}/></label><div className="gp-actions"><button disabled={busy} onClick={()=>setCompleting(null)}>Batal</button><button className="gp-primary" disabled={busy} onClick={()=>void run(async()=>{await completeGuideProgram(selected,a.id,completionNote);await reload();setCompleting(null);setCompletionNote('');setNotice('Kegiatan tercatat selesai.')} )}>Konfirmasi sudah dilakukan</button></div></>:<button disabled={busy} onClick={()=>{setCompleting(a.id);setCompletionNote('')}}><Check size={18}/>Tandai sudah dilakukan</button>}
     </div>}
+    </div>
    </article>)}
-   <p className="gp-caption"><BookOpen size={17}/>Program ini untuk perencanaan dan pencatatan manual. Konversi EC, progres flow meter, dan eksekusi pompa belum dihubungkan.</p>
+   <p className="gp-caption">Pencatatan manual · belum mengendalikan pompa.</p>
   </>}
   {!editing&&!selected&&loaded&&<section className="gp-panel"><h3>Mulai dari Panduan tanaman</h3><p>Buat program untuk menyesuaikan kebutuhan bahan dan melihat kegiatan sesuai HST.</p></section>}
   {selected&&!editing&&<ProgramRevisionHistory programId={selected.programId} revision={selected.revision}/>}

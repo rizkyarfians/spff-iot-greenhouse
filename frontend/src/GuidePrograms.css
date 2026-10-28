@@ -63,3 +63,36 @@
  .gp-complete > button { width:100%; }
 }
 .gp-diff { border-top:1px solid #d4e2d9; padding:12px 0; font-size:14px; }
+/* Keep the activity overview short; reveal one activity's materials at a time. */
+.gp-page .gp-compact-activity { padding:0; overflow:hidden; }
+.gp-page .gp-activity-trigger { display:flex; justify-content:space-between; align-items:center; text-align:left; width:100%; padding:16px 20px; border:0; border-radius:0; background:white; color:#183f31; gap:16px; }
+.gp-activity-title { display:grid; gap:5px; min-width:0; }
+.gp-activity-title strong { font-size:17px; overflow-wrap:anywhere; }
+.gp-activity-title small { font-size:14px; color:#526b5b; }
+.gp-activity-title .gp-hst { margin:0; padding:0; background:none; color:#176343; font-weight:700; font-size:13px; }
+.gp-activity-indicator { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+.gp-activity-indicator .gp-status { margin:0; }
+.gp-activity-trigger[aria-expanded="true"] { background:#eff7f2; }
+.gp-activity-trigger[aria-expanded="true"] .gp-activity-indicator > svg { transform:rotate(180deg); }
+.gp-activity-body { padding:0 20px 20px; border-top:1px solid #e0e9e3; }
+.gp-activity-body[hidden] { display:none; }
+.gp-material { padding:12px 0; border-bottom:1px solid #e0e9e3; }
+.gp-material-row { display:flex; justify-content:space-between; gap:16px; align-items:baseline; }
+.gp-material-row > div { min-width:0; }
+.gp-material-row h4 { font-size:16px; overflow-wrap:anywhere; }
+.gp-material-row small { font-size:13px; color:#526b5b; }
+.gp-material-row > strong { white-space:nowrap; }
+.gp-review-badge { color:#775521; font-size:12px; font-weight:700; }
+.gp-pagination { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:14px; }
+.gp-pagination > div { display:flex; gap:8px; }
+.gp-pagination button { padding:8px 12px; }
+@media(max-width:640px) {
+ .gp-page .gp-activity-trigger { padding:14px; gap:10px; }
+ .gp-activity-body { padding:0 14px 14px; }
+ .gp-activity-indicator { flex-direction:column; align-items:flex-end; gap:8px; }
+ .gp-activity-indicator .gp-status { font-size:12px; padding:4px 6px; }
+ .gp-sidebar > label { grid-column:1 / -1; }
+ .gp-content { gap:14px; }
+}
+.gp-form fieldset[hidden], .gp-page button[hidden] { display:none; }
+.gp-form-summary { padding-top:12px; color:#526b5b; }
