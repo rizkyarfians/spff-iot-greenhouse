@@ -6,7 +6,7 @@ export function AutomationMethod({method}:{method:string}){
  const supported=normalized==='kocor'
  const unknown=!normalized||normalized==='belum ditentukan'
  return <span className={`automation-method ${supported?'is-supported':'is-manual'}`} title={supported?'Metode didukung alat. Sesi tetap memerlukan konfigurasi dan sensor yang siap.':unknown?'Tentukan cara pemberian sebelum menilai dukungan otomasi.':'Metode ini dilakukan manual; perangkat hanya mendukung otomasi kocor.'}>
-  {supported?'Mendukung otomasi':unknown?'Metode belum ditentukan':'Manual · tidak didukung alat'}
+  {supported?'Mendukung otomasi':unknown?'Metode belum ditentukan':'Dikerjakan petani'}
  </span>
 }
 export function AutomationMethodNote(){
