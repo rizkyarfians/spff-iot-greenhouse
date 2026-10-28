@@ -1,6 +1,7 @@
+import {missingProgramField,programFieldStep} from './programWizard'
 import { SoilEcPulsePanel } from './SoilEcPulsePanel'
 import { useEffect, useRef, useState } from 'react'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Plus, RefreshCw, Droplets, FlaskConical, ArrowRight, ArrowLeft, Check } from 'lucide-react'
 import { cropProfiles, fertigationRecipeMutationSchema, fertigationLiveDecisionSchema, type ApiDevice, type FertigationRecipe, type FertigationLiveDecision } from '@spff/contracts'
 import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, evaluateFertigationSite } from './api'
 import { useAuth } from './authContext'
@@ -53,11 +54,20 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
   const lock = useRef(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const errorBox=useRef<HTMLDivElement>(null)
+  useEffect(()=>{if(error)errorBox.current?.focus()},[error])
   const [loaded, setLoaded] = useState(false)
   const [deviceId, setDeviceId] = useState('')
   const [result, setResult] = useState<FertigationLiveDecision>()
   const [withFertilizer, setWithFertilizer] = useState(false)
+  const [step,setStep]=useState(0)
+  const editorForm=useRef<HTMLFormElement>(null)
+  const stepHeading=useRef<HTMLHeadingElement>(null)
+  const [advanced,setAdvanced]=useState(false)
+  function goStep(next:number){setStep(next);setError('');requestAnimationFrame(()=>stepHeading.current?.focus())}
+
   function select(recipe?: FertigationRecipe) {
+    setStep(recipe?2:0);setAdvanced(false)
     setWithFertilizer((recipe?.targetStockL ?? 0) > 0)
     setSelected(recipe); setResult(undefined); setError(''); setNotice('')
     const next = empty()
@@ -76,8 +86,11 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     if (selected) select(rows.find(row => row.recipeId === selected.recipeId))
   }
   useEffect(() => { let active = true; fetchFertigationRecipes().then(rows => { if (active) { setRecipes(rows); setLoaded(true) } }).catch(e => { if (active) setError(message(e)) }); return () => { active = false } }, [])
+  useEffect(()=>{if(devices.length===1)setDeviceId(devices[0].deviceId)},[devices])
   const dirty = selected && (withFertilizer !== (selected.targetStockL > 0) || (Object.keys(form) as (keyof Form)[]).some(key => form[key] !== (selected[key] == null ? '' : String(selected[key]))))
-  async function save() {
+  function validatedInput() {
+    const missing=missingProgramField(form,withFertilizer)
+    if(missing){setStep(programFieldStep(missing));throw new Error(`Lengkapi ${fields.find(item=>item.key===missing)?.label??'tanaman'} sebelum menyimpan program.`)}
     const input = Object.fromEntries(fields.map(({key, type}) => [key, type === 'number' ? (form[key].trim() === '' ? null : Number(form[key])) : form[key].trim()]))
     input.cropId = form.cropId
     input.cropName = cropProfiles.find(crop => crop.id === form.cropId)?.commonName ?? ''
@@ -86,63 +99,120 @@ export function FertigationPage({ devices }: { devices: ApiDevice[] }) {
     input.applicationIntervalDays = null
     input.plantingDate = form.plantingDate || null
     input.applicationDate = null
-    if (withFertilizer && !(Number(form.targetStockL) > 0)) throw new Error('Isi volume larutan pupuk lebih dari 0 liter untuk pilihan Air dan pupuk.')
+    if (withFertilizer && !(Number(form.targetStockL) > 0)) {setStep(1);throw new Error('Isi volume larutan pupuk lebih dari 0 liter untuk pilihan Air dan pupuk.')}
     if (!withFertilizer) {
       input.targetStockL = 0; input.fertilizerName = null; input.stockConcentrationGPerL = null
       input.ecLowUsCm = null; input.ecTargetUsCm = null; input.ecHighUsCm = null
       input.minStockTankPercent = form.minStockTankPercent.trim() ? Number(form.minStockTankPercent) : 0
     }
     const parsed = fertigationRecipeMutationSchema.safeParse({ ...input, useForEvaluation: true })
-    if (!parsed.success) throw new Error(parsed.error.issues.map(i => {
-      const key = i.path[0]
-      const label = fields.find(field => field.key === key)?.label ?? (key === 'cropId' ? 'Tanaman' : 'Pengaturan program')
-      return `${label}: ${i.message}`
-    }).join('; '))
-    const saved = await saveFertigationRecipe(parsed.data, selected)
-    select(saved); setRecipes(rows => [saved, ...rows.filter(r => r.recipeId !== saved.recipeId)]); setLoaded(true)
-    setNotice('Aturan tersimpan dan digunakan untuk evaluasi kondisi tanaman.')
+    if (!parsed.success) {
+      const key=parsed.error.issues[0]?.path[0]
+      setStep(programFieldStep(key))
+      if(key==='triggerSampleCount')setAdvanced(true)
+      throw new Error(parsed.error.issues.map(i => {
+        const key = i.path[0]
+        const label = fields.find(field => field.key === key)?.label ?? (key === 'cropId' ? 'Tanaman' : 'Pengaturan program')
+        return `${label}: ${i.message}`
+      }).join('; '))
+    }
+    return parsed.data
   }
-  return <section className="fertigation-test">
-    <header className="ft-intro"><span className="ft-badge">Aturan dan sesi EC tanah</span>
-      <details className="ft-guidance"><summary>Tentang evaluasi program</summary><p>Program mengevaluasi kondisi tanaman dari data perangkat. Menyimpan atau memeriksa aturan tidak menjalankan pompa dan tidak mengubah pengaturan kontrol sensor pada perangkat.</p></details>
-    </header>
-    {error && <div role="alert" className="ft-error">{error}</div>}
+  async function save() {
+    const saved = await saveFertigationRecipe(validatedInput(), selected)
+    select(saved); setRecipes(rows => [saved, ...rows.filter(r => r.recipeId !== saved.recipeId)]); setLoaded(true)
+    setStep(2)
+    setNotice('Program tersimpan untuk evaluasi. Pompa tidak dinyalakan oleh tombol simpan.')
+  }
+  const titles=['Tanaman & umur','Kebutuhan tanaman','Periksa & simpan']
+  const display=(key:keyof Form,unit='')=>form[key].trim()?`${form[key]}${unit}`:'Belum diisi'
+  function field(key:keyof Form){
+    const {label,type,max,hint,placeholder}=fields.find(item=>item.key===key)!
+    return <div className="ft-form-field" key={key}><label htmlFor={`program-${key}`}><span>{label}</span><input id={`program-${key}`} type={type} value={form[key]}
+      min={type==='number'?(key==='triggerSampleCount'?1:0):undefined} max={max}
+      step={key==='hstFrom'||key==='hstTo'||key==='triggerSampleCount'?1:'any'}
+      required={key!=='triggerSampleCount'} placeholder={placeholder} maxLength={120}
+      onChange={e=>{setForm(current=>({...current,[key]:e.target.value}));setResult(undefined)}}/></label>
+      {hint&&<details className="ft-input-help"><summary>Petunjuk pengisian</summary><p>{hint}</p></details>}
+    </div>
+  }
+  function next(){
+    if(!admin){goStep(Math.min(2,step+1));return}
+    if(!editorForm.current?.reportValidity())return
+    if(step===0){
+      if(Number(form.hstFrom)>Number(form.hstTo)){setError('Umur akhir harus sama atau lebih besar dari umur mulai.');return}
+      goStep(1)
+    }else void run(async()=>{validatedInput();goStep(2)})
+  }
+  return <section className="fertigation-test ft-guided">
+    <header className="ft-intro"><p>Atur kebutuhan tanaman dalam 3 langkah.</p></header>
+    {error && <div ref={errorBox} tabIndex={-1} role="alert" className="ft-error">{error}</div>}
     {notice && <div role="status" className="ft-notice">{notice}</div>}
-    <div className="ft-layout"><aside className="ft-panel ft-sidebar"><div className="ft-actions"><h3>Program</h3><button className="ft-icon-button" title="Muat ulang program" aria-label="Muat ulang program" disabled={busy} onClick={() => void run(reload)}><RefreshCw size={16}/></button></div>
-      {admin && <button className="ft-new-button" disabled={busy} onClick={() => select()}><Plus size={16}/> Program baru</button>}
+    <div className="ft-layout"><aside className="ft-panel ft-sidebar"><div className="ft-actions"><h3>Program tanaman</h3><button className="ft-icon-button" title="Muat ulang program" aria-label="Muat ulang program" disabled={busy} onClick={() => void run(reload)}><RefreshCw size={20}/></button></div>
+      {admin && <button className="ft-new-button" disabled={busy} onClick={() => select()}><Plus size={20}/> Buat program</button>}
       {!loaded && !error && <p>Memuat program…</p>}
-      {loaded && recipes.length === 0 && <p>Belum ada program. Admin dapat mengisi aturan melalui form.</p>}
-      <div className="ft-program-list">{recipes.map(recipe => <button className={`ft-recipe ${selected?.recipeId === recipe.recipeId ? 'active' : ''}`} key={recipe.recipeId} disabled={busy} onClick={() => select(recipe)}><strong>{recipe.cropName}</strong><span>{recipe.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</span><span>Air {recipe.targetWaterL} L · stok {recipe.targetStockL} L</span></button>)}</div>
-    </aside><div className="ft-panel ft-editor"><div className="ft-editor-heading"><h3>{selected ? selected.cropName : 'Program baru'}</h3><span>{selected ? 'Ubah program' : 'Buat program'}</span></div>
+      {loaded && recipes.length === 0 && <p>Belum ada program tersimpan.</p>}
+      <div className="ft-program-list">{recipes.map(recipe => <button className={`ft-recipe ${selected?.recipeId === recipe.recipeId ? 'active' : ''}`} key={recipe.recipeId} disabled={busy} aria-pressed={selected?.recipeId===recipe.recipeId} onClick={() => select(recipe)}>
+        <strong>{recipe.cropName}</strong><span>{recipe.targetStockL>0?'Air dan pupuk':'Air saja'} · umur {recipe.hstFrom}–{recipe.hstTo} hari</span><span>{recipe.approvalStatus==='approved'?'Tersimpan untuk evaluasi':'Belum digunakan'}</span>
+      </button>)}</div>
+    </aside><div className="ft-panel ft-editor">
+      <div className="ft-editor-heading"><h3>{selected ? selected.cropName : 'Buat program tanaman'}</h3>{dirty&&<span className="ft-draft-badge">Ada perubahan</span>}</div>
+      <ol className="ft-steps" aria-label="Langkah pengaturan">{titles.map((title,index)=><li key={title} aria-current={step===index?'step':undefined} className={step===index?'is-current':step>index?'is-complete':''}>
+        <span>{step>index?<Check size={18} aria-hidden="true"/>:index+1}</span><strong>{title}</strong>
+      </li>)}</ol>
+      <div className="ft-step-title"><span>Langkah {step+1} dari 3</span><h3 ref={stepHeading} tabIndex={-1}>{titles[step]}</h3></div>
       {!admin && <p>Hanya Admin yang dapat mengubah aturan.</p>}
-      <form onSubmit={e => { e.preventDefault(); void run(save) }}><fieldset disabled={!admin || busy}><div className="ft-fields">
-        <label>Tanaman<select required value={form.cropId} onChange={e => {
-          const crop = cropProfiles.find(item => item.id === e.target.value)
-          setForm({...form, cropId: crop?.id ?? '', cropName: crop?.commonName ?? ''})
-          setResult(undefined)
-        }}><option value="">Pilih tanaman</option>{cropProfiles.map(crop => <option key={crop.id} value={crop.id}>{crop.commonName}</option>)}</select></label>
-        <label>Jenis pemberian<select value={withFertilizer ? 'fertilizer' : 'water'} onChange={e => { setWithFertilizer(e.target.value === 'fertilizer'); setResult(undefined) }}><option value="water">Air saja</option><option value="fertilizer">Air dan pupuk</option></select></label>
-        {selected && selected.applicationMode !== 'sensor' && <p role="status">Simpan ulang untuk memakai pemicu sensor. Jadwal lama tetap berlaku sampai perubahan disimpan.</p>}
-        {selected && !selected.cropId && <p role="status">Program lama belum terhubung ke tanaman Smart Soil. Pilih tanaman lalu simpan ulang.</p>}
-        {fieldGroups.filter(group => !group.fertilizerOnly || withFertilizer).map(group => <section className={`ft-field-group${group.keys.includes('plantingDate') ? ' ft-age-group' : ''}${group.keys.includes('moistureLowPercent') ? ' ft-irrigation-group' : ''}${group.fertilizerOnly ? ' ft-fertilizer-group' : ''}`} key={group.title} aria-label={group.title}>
-          <h4>{group.title}</h4>
-          <div className="ft-fields">{group.keys.map(key => fields.find(field => field.key === key)!).filter(field => withFertilizer || field.key !== 'minStockTankPercent').map(({key, label, type, max, hint, placeholder}) => {
-          const thresholdField = ['moistureLowPercent', 'moistureTargetPercent', 'ecLowUsCm', 'ecTargetUsCm', 'ecHighUsCm'].includes(key)
-          return <label key={key} htmlFor={`program-${key}`}>{label}<input id={`program-${key}`} aria-describedby={hint ? `program-${key}-hint` : undefined} type={type} value={form[key]} min={type === 'number' ? (key === 'triggerSampleCount' ? 1 : 0) : undefined} max={max} step={key === 'hstFrom' || key === 'hstTo' || key === 'triggerSampleCount' ? 1 : 'any'} required={type !== 'date' && !thresholdField} placeholder={placeholder} maxLength={key === 'sourceReference' ? 500 : key === 'cropName' ? 100 : 120} onChange={e => { setForm({...form, [key]: e.target.value}); setResult(undefined) }} />{hint && <span className="ft-field-hint" id={`program-${key}-hint`}>{hint}</span>}</label>
-        })}</div>
-          {group.keys.includes('plantingDate') && <p className="ft-field-hint">Tanggal tanam dipakai menghitung umur. Hari tanam dihitung sebagai umur 0 hari.{effectiveDate(form.plantingDate, form.hstFrom) && effectiveDate(form.plantingDate, form.hstTo) && <> Aturan ini berlaku {effectiveDate(form.plantingDate, form.hstFrom)} sampai {effectiveDate(form.plantingDate, form.hstTo)}.</>}</p>}
+      <form ref={editorForm} onSubmit={e=>{e.preventDefault();if(step<2)next();else if(admin)void run(save)}}>
+      <fieldset disabled={!admin || busy}>
+      {step===0&&<div className="ft-step-body">
+        <label>Tanaman<select required value={form.cropId} onChange={e=>{
+          const crop=cropProfiles.find(item=>item.id===e.target.value)
+          setForm({...form,cropId:crop?.id??'',cropName:crop?.commonName??''});setResult(undefined)
+        }}><option value="">Pilih tanaman</option>{cropProfiles.map(crop=><option key={crop.id} value={crop.id}>{crop.commonName}</option>)}</select></label>
+        <fieldset className="ft-delivery"><legend>Apa yang dibutuhkan tanaman?</legend><div className="ft-delivery-options">
+          <button type="button" aria-pressed={!withFertilizer} className={!withFertilizer?'is-selected':''} onClick={()=>{setWithFertilizer(false);setResult(undefined)}}><Droplets size={24} aria-hidden="true"/><span><strong>Air saja</strong><small>Atur penyiraman</small></span>{!withFertilizer&&<Check size={20} aria-hidden="true"/>}</button>
+          <button type="button" aria-pressed={withFertilizer} className={withFertilizer?'is-selected':''} onClick={()=>{setWithFertilizer(true);setResult(undefined)}}><FlaskConical size={24} aria-hidden="true"/><span><strong>Air dan pupuk</strong><small>Atur penyiraman dan pemupukan</small></span>{withFertilizer&&<Check size={20} aria-hidden="true"/>}</button>
+        </div></fieldset>
+        <section className="ft-form-block"><h4>Kapan tanaman ditanam?</h4>{field('plantingDate')}<p className="ft-short-hint">Tanggal tanam digunakan untuk menghitung umur tanaman.</p></section>
+        <section className="ft-form-block"><h4>Aturan berlaku pada umur</h4><div className="ft-fields">{field('hstFrom')}{field('hstTo')}</div>
+          {effectiveDate(form.plantingDate,form.hstFrom)&&effectiveDate(form.plantingDate,form.hstTo)&&<p className="ft-date-preview">{effectiveDate(form.plantingDate,form.hstFrom)} – {effectiveDate(form.plantingDate,form.hstTo)}</p>}
+        </section>
+        {selected&&selected.applicationMode!=='sensor'&&<p role="status">Simpan ulang untuk memakai pemicu sensor. Jadwal lama tetap berlaku sampai perubahan disimpan.</p>}
+        {selected&&!selected.cropId&&<p role="status">Pilih tanaman untuk menghubungkan program lama.</p>}
+      </div>}
+      {step===1&&<div className="ft-step-body">
+        {fieldGroups.filter(group=>group.title!=='Masa berlaku'&&(!group.fertilizerOnly||withFertilizer)).map(group=><section className="ft-form-block" key={group.title}>
+          <h4>{group.title}</h4><div className="ft-fields">{group.keys.filter(key=>key!=='triggerSampleCount'&&(withFertilizer||key!=='minStockTankPercent')).map(field)}</div>
         </section>)}
-      </div><div className="ft-save-row"><button className="ft-primary" type="submit">{busy ? 'Memproses…' : 'Simpan dan gunakan aturan'}</button></div></fieldset></form>
-      {selected && <section className="ft-device-selection" aria-label="Perangkat program">
+        <details className="ft-confirmation-settings" open={advanced} onToggle={e=>setAdvanced(e.currentTarget.open)}><summary>Pengaturan konfirmasi sensor</summary>{field('triggerSampleCount')}</details>
+      </div>}
+      {step===2&&<div className="ft-step-body">
+        <div className="ft-review-title"><strong>{form.cropName||'Tanaman belum dipilih'}</strong><span>{withFertilizer?'Air dan pupuk':'Air saja'}</span></div>
+        <section className="ft-review-section"><div><h4>Tanaman & umur</h4><button type="button" className="ft-review-edit" onClick={()=>goStep(0)}>Ubah</button></div>
+          <dl><div><dt>Tanggal tanam</dt><dd>{form.plantingDate?effectiveDate(form.plantingDate,'0'):'Belum diisi'}</dd></div><div><dt>Umur berlaku</dt><dd>{display('hstFrom')}–{display('hstTo')} hari</dd></div></dl>
+        </section>
+        <section className="ft-review-section"><div><h4>Kebutuhan tanaman</h4><button type="button" className="ft-review-edit" onClick={()=>goStep(1)}>Ubah</button></div>
+          <dl><div><dt>Konfirmasi sensor</dt><dd>{display('triggerSampleCount',' bacaan')}</dd></div><div><dt>Kelembapan mulai / target</dt><dd>{display('moistureLowPercent','%')} / {display('moistureTargetPercent','%')}</dd></div><div><dt>Air per penyiraman</dt><dd>{display('targetWaterL',' L')}</dd></div><div><dt>Minimum tandon air</dt><dd>{display('minWaterTankPercent','%')}</dd></div>
+            {withFertilizer&&<><div><dt>Pupuk</dt><dd>{display('fertilizerName')}</dd></div><div><dt>Larutan pupuk per pemberian</dt><dd>{display('targetStockL',' L')}</dd></div><div><dt>Konsentrasi larutan pupuk</dt><dd>{display('stockConcentrationGPerL',' g/L')}</dd></div><div><dt>EC mulai / target / maksimum</dt><dd>{display('ecLowUsCm')} / {display('ecTargetUsCm')} / {display('ecHighUsCm')} µS/cm</dd></div><div><dt>Minimum tandon pupuk</dt><dd>{display('minStockTankPercent','%')}</dd></div></>}
+          </dl>
+        </section>
+        <p className="ft-save-explanation">Simpan untuk evaluasi tanaman. Tindakan ini tidak menyalakan pompa.</p>
+      </div>}
+      </fieldset><div className="ft-wizard-actions">
+        {step>0&&<button type="button" disabled={busy} onClick={()=>goStep(step-1)}><ArrowLeft size={20} aria-hidden="true"/> Kembali</button>}
+        {step<2?<button className="ft-primary" type="submit" disabled={busy||(!admin&&!selected)}>{step===0?'Lanjut: kebutuhan tanaman':'Periksa program'}<ArrowRight size={20} aria-hidden="true"/></button>:admin&&<button className="ft-primary" type="submit" disabled={busy}>{busy?'Menyimpan…':'Simpan program'}<Check size={20} aria-hidden="true"/></button>}
+      </div>
+      </form>
+      {selected && step===2 && <section className="ft-device-selection" aria-label="Perangkat program">
         <label>Perangkat program<select disabled={busy} value={deviceId} onChange={e => { setDeviceId(e.target.value); setResult(undefined) }}><option value="">Pilih perangkat</option>{devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}</select></label>
       </section>}
-      {selected && withFertilizer && <SoilEcPulsePanel key={selected.recipeId} recipe={selected} deviceId={deviceId} admin={admin} operator={operator} dirty={!!dirty}/>}
-      {selected && <section className="ft-evaluation"><h3>Evaluasi rekomendasi lama</h3><p>Evaluasi ini masih memakai EC cairan. Sesi pulse EC tanah memakai pembacaan tanah yang terpisah.</p><p>Status aturan: <strong>{selected.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</strong></p>
+      {selected && step===2 && withFertilizer && <SoilEcPulsePanel key={selected.recipeId} recipe={selected} deviceId={deviceId} admin={admin} operator={operator} dirty={!!dirty}/>}
+      {selected && step===2 && <details className="ft-evaluation"><summary>Periksa rekomendasi penyiraman</summary><p>Evaluasi ini masih memakai EC cairan. Sesi pulse EC tanah memakai pembacaan tanah yang terpisah.</p><p>Status aturan: <strong>{selected.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</strong></p>
         {dirty && <p className="ft-error">Ada perubahan belum disimpan. Simpan dahulu atau pilih ulang program.</p>}
 
         <button className="ft-primary" disabled={busy || !!dirty || !operator || !deviceId} onClick={() => void run(async () => { setResult(undefined); const response = await evaluateFertigationSite(selected.recipeId, deviceId); setResult(fertigationLiveDecisionSchema.parse(response)) })}>Periksa kondisi tanaman</button>
         {result && <div className="ft-result" role="status"><h3>{result.decision.action === 'DELAY' ? 'Ditunda' : 'Rekomendasi tersedia'} · {result.decision.action}</h3><p>HST: {result.hst ?? 'belum tersedia'} · air: {result.decision.targetWaterL ?? '—'} L · stok: {result.decision.targetStockL ?? '—'} L</p><p>Tanaman cocok: {cropProfiles.find(crop => crop.id === result.activeCropId)?.commonName ?? 'Belum cocok / belum dipilih'} · kelembapan tanah: {result.observations.soilMoisturePercent ?? '—'} % · EC larutan: {result.observations.liquidEcUsCm ?? '—'} µS/cm</p><p>Hasil evaluasi lama ini hanya rekomendasi; tidak mengirim perintah pompa. Eksekusi pulse memakai sesi EC tanah di atas.</p><ul>{result.decision.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul><p>Waktu evaluasi: {result.siteObservedAt}<br/>Telemetry: {result.telemetryRecordedAt ?? 'Tidak tersedia'}<br/>Status perangkat: {result.deviceRecordedAt ?? 'Tidak tersedia'}</p><details><summary>Respons JSON</summary><pre>{JSON.stringify(result, null, 2)}</pre></details></div>}
-      </section>}
+      </details>}
     </div></div>
   </section>
 }

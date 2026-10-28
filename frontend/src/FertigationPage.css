@@ -90,3 +90,73 @@
   .ft-panel { border-radius: 12px; }
   .ft-result { padding: 16px; }
 }
+
+/* Guided program editor */
+.ft-guided { font-size:16px; }
+.ft-guided .ft-layout { grid-template-columns:270px minmax(0,1fr); gap:24px; }
+.ft-guided .ft-editor { max-width:1080px; padding:28px 32px; }
+.ft-guided .ft-intro p { font-size:16px; margin:0 0 8px; color:#4b6258; }
+.ft-guided .ft-editor-heading { margin-bottom:22px; }
+.ft-guided .ft-editor-heading h3 { font-size:24px; }
+.ft-guided label { font-size:16px; color:#244638; gap:8px; }
+.ft-guided input, .ft-guided select { min-height:52px; font-size:17px; padding:12px 14px; border-color:#b6c9be; }
+.ft-guided button { min-height:48px; font-size:15px; }
+.ft-guided .ft-primary { background:#16845a; border-color:#16845a; }
+.ft-guided .ft-primary:hover:not(:disabled) { background:#116b49; }
+.ft-guided .ft-sidebar h3 { font-size:18px; }
+.ft-guided .ft-recipe { padding:17px; gap:8px; }
+.ft-guided .ft-recipe strong { font-size:17px; }
+.ft-guided .ft-recipe span { font-size:14px; color:#4b6258; }
+.ft-guided .ft-recipe.active { border:2px solid #16845a; padding:16px; }
+.ft-draft-badge { padding:6px 10px; background:#fff4df; border-radius:7px; color:#805114; }
+.ft-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); list-style:none; gap:12px; padding:0; margin:0 0 28px; }
+.ft-steps li { display:flex; align-items:center; gap:9px; padding:12px 8px; border-bottom:3px solid #e1e9e4; color:#60746a; font-size:14px; }
+.ft-steps li > span { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; background:#eef3ef; flex-shrink:0; }
+.ft-steps .is-current { border-color:#16845a; color:#126344; }
+.ft-steps .is-current > span, .ft-steps .is-complete > span { background:#16845a; color:white; }
+.ft-step-title { margin-bottom:24px; }
+.ft-step-title > span { display:block; font-size:14px; color:#586d62; margin-bottom:4px; }
+.ft-step-title h3 { font-size:23px; }
+.ft-step-title h3:focus { outline:none; }
+.ft-step-body { display:grid; gap:24px; }
+.ft-step-body .ft-fields { grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+.ft-form-block { border:1px solid #dce5df; padding:22px; border-radius:12px; }
+.ft-form-block h4 { margin:0 0 18px; font-size:18px; }
+.ft-guided .ft-short-hint { font-size:14px; margin:10px 0 0; }
+.ft-guided .ft-date-preview { font-size:15px; margin:16px 0 0; padding:12px; background:#edf7f1; border-radius:8px; color:#1c6244; }
+.ft-guided .ft-delivery { margin:0; }
+.ft-delivery legend { font-size:17px; font-weight:700; margin-bottom:12px; }
+.ft-delivery-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.ft-guided .ft-delivery-options button { padding:18px; gap:12px; justify-content:flex-start; text-align:left; color:#244638; border:1px solid #bbcfc2; }
+.ft-delivery-options button > span { flex:1; }
+.ft-delivery-options strong, .ft-delivery-options small { display:block; }
+.ft-delivery-options small { font-size:14px; font-weight:400; margin-top:5px; line-height:1.5; }
+.ft-guided .ft-delivery-options .is-selected { border:2px solid #16845a; padding:17px; background:#eaf6ef; }
+.ft-guided details.ft-input-help { margin:0; }
+.ft-guided .ft-input-help summary { padding:3px 0; font-size:13px; font-weight:400; color:#256d4b; }
+.ft-guided .ft-input-help p { font-size:14px; margin:6px 0; }
+.ft-confirmation-settings > label { max-width:400px; margin-top:12px; }
+.ft-wizard-actions { display:flex; justify-content:space-between; gap:14px; margin-top:28px; padding-top:22px; border-top:1px solid #dce5df; }
+.ft-wizard-actions > .ft-primary { margin-left:auto; }
+.ft-wizard-actions button { padding:12px 20px; }
+.ft-review-title { padding:18px 20px; background:#eaf6ef; border-radius:12px; display:flex; align-items:center; flex-wrap:wrap; gap:10px; justify-content:space-between; }
+.ft-review-title strong { font-size:22px; }
+.ft-review-title span { font-size:15px; }
+.ft-review-section { border:1px solid #dce5df; border-radius:12px; padding:20px; }
+.ft-review-section > div { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.ft-review-section h4 { margin:0; font-size:18px; }
+.ft-guided .ft-review-edit { border:0; min-height:44px; padding:8px 12px; }
+.ft-review-section dl { margin:8px 0 0; }
+.ft-review-section dl > div { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px 20px; padding:13px 0; border-bottom:1px solid #edf1ee; }
+.ft-review-section dl > div:last-child { border:0; }
+.ft-review-section dt { color:#50675b; }
+.ft-review-section dd { margin:0; font-weight:700; color:#244638; }
+.ft-guided .ft-save-explanation { margin:0; font-size:15px; }
+@container fertigation (max-width:1050px) { .ft-guided .ft-layout { grid-template-columns:minmax(0,1fr); } .ft-guided .ft-editor { max-width:none; } }
+@container fertigation (max-width:650px) { .ft-guided .ft-editor { padding:22px 16px; } .ft-step-body .ft-fields, .ft-delivery-options { grid-template-columns:1fr; } .ft-form-block { padding:16px; } .ft-steps { gap:6px; } .ft-steps li { flex-direction:column; text-align:center; padding:10px 3px; font-size:12px; } .ft-wizard-actions button { padding:12px; flex:1; } .ft-guided .ft-editor-heading h3 { font-size:21px; } }
+.ft-form-field { min-width:0; }
+.ft-guided .ft-input-help { margin-top:6px; }
+.ft-confirmation-settings > .ft-form-field { max-width:400px; margin-top:12px; }
+.ft-guided .ft-error:focus { outline:2px solid #a74627; outline-offset:3px; }
+.ft-guided p { font-size:15px; }
+@container fertigation (max-width:650px) { .ft-steps li { font-size:14px; } }

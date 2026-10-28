@@ -80,16 +80,16 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
     await (release?releaseSoilEcPulseSession(id):stopSoilEcPulseSession(id));const data=await fetchSoilEcPulseSessions(deviceId);setSessions(data.sessions)
   }catch(e){setError(e instanceof Error?e.message:'Gagal menghentikan sesi')}finally{busyRef.current=false;setBusy(false)}}
   const active=sessions.some(s=>['waiting','in_flight','fault'].includes(s.status))
-  return <section className="ft-field-group" aria-label="Sesi pulse EC tanah"><h3>Sesi pulse EC tanah</h3>
-    {deviceId&&<FertigationProgressPanel report={progress.report} error={progress.error} loading={progress.loading} onRetry={progress.retry}/>}
-    <p>Server menghitung durasi ON dari selisih EC tanah zona 1. Perangkat menjalankan satu pulse, OFF sendiri, lalu server menunggu pembacaan baru. Tidak menghitung liter stok pupuk.</p>
-    <p>Nonaktifkan fertilizer sensor legacy dan tunggu konfigurasi diterapkan sebelum memulai. Target aturan: {recipe.ecTargetUsCm??'belum diisi'} µS/cm. Jadwal tetap berjalan sebagai pemicu terpisah. AI mengevaluasi EC di luar jadwal; jadwal aktif didahulukan. Setelah sesi normal selesai, kontrol jadwal dikembalikan otomatis.</p>
+  return <section className="ft-field-group" aria-label="Sesi pulse EC tanah"><h3>Pemupukan otomatis</h3>
+    {deviceId&&<FertigationProgressPanel minimal report={progress.report} error={progress.error} loading={progress.loading} onRetry={progress.retry}/>}
+    <details className="ft-ai-guidance"><summary>Cara kerja dan persiapan</summary><p>Server menghitung durasi ON dari selisih EC tanah zona 1. Perangkat menjalankan satu pulse, OFF sendiri, lalu server menunggu pembacaan baru. Tidak menghitung liter stok pupuk.</p>
+    <p>Nonaktifkan fertilizer sensor legacy dan tunggu konfigurasi diterapkan sebelum memulai. Target aturan: {recipe.ecTargetUsCm??'belum diisi'} µS/cm. Jadwal tetap berjalan sebagai pemicu terpisah. AI mengevaluasi EC di luar jadwal; jadwal aktif didahulukan. Setelah sesi normal selesai, kontrol jadwal dikembalikan otomatis.</p></details>
     {!deviceId?<p>Pilih perangkat terlebih dahulu.</p>:!enabled?<p>Eksekusi pulse belum tersedia pada server atau koneksi status gagal. Evaluasi rekomendasi tetap terpisah.</p>:null}
     {enabled&&!executionEnabled&&<p>Aktifkan AI Fertigasi EC Tanah di Settings sebelum memulai sesi.</p>}
     {automatic&&<p role="status">AI otomatis: {automatic.armed?'siap mengevaluasi':'dihentikan operator'} · {reasons[automatic.reason]??automatic.reason}</p>}
     {notice&&<p role="status">{notice}</p>}
     {error&&<p className="ft-error" role="alert">{error}</p>}
-    {enabled&&admin&&<details><summary>Kalibrasi dan batas sesi</summary>
+    {enabled&&admin&&<details><summary>Kalibrasi dan pengaman (untuk teknisi)</summary>
       <fieldset disabled={busy||active||dirty}><div className="ft-fields">
         <label>Referensi hasil kalibrasi<input value={reference} onChange={e=>{setReference(e.target.value);requestId.current=null;setConfirmed(false)}}/></label>
         {numericFields.map(([key,label])=><label key={key}>{label}<input type="number" step="any" value={values[key]??''}
