@@ -717,7 +717,7 @@ function App() {
     setDashboardSensorGroup,
   ] =
     useState<DashboardSensorGroup>(
-      'greenhouse',
+      'soil1',
     )
 
 
@@ -2595,10 +2595,6 @@ const soilNpkGroups =
                               setChartHour('')
                             }}
                           >
-                            <option value="greenhouse">
-                              Semua Greenhouse
-                            </option>
-
                             <option value="soil1">Tanah 1</option>
                             <option value="soil2">Tanah 2</option>
                             <option value="solution">Larutan &amp; Tandon</option>
