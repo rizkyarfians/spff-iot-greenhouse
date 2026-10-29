@@ -80,3 +80,7 @@ Record<
   users:
     'Kelola akun dan hak akses Admin serta Operator.',
 }
+
+// Keep the page implementation available while the feature is temporarily disabled.
+export const disabledPages: ReadonlySet<PageKey> = new Set(['smart-soil'])
+export const isPageEnabled = (page:PageKey) => !disabledPages.has(page)

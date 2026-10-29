@@ -54,6 +54,7 @@ import {
 
 import {
   pageTitles,
+  isPageEnabled,
   type PageKey,
 } from './pageConfig'
 
@@ -514,9 +515,11 @@ PageKey {
       .replace(/\/$/, '') as PageKey
 
 
-  return pageKeys.includes(page)
-    ? page
-    : 'dashboard'
+  if (pageKeys.includes(page) && !isPageEnabled(page)) {
+    window.history.replaceState(window.history.state, '', '#/dashboard')
+    return 'dashboard'
+  }
+  return pageKeys.includes(page) ? page : 'dashboard'
 }
 
 
@@ -800,8 +803,7 @@ function App() {
       () =>
         navItems.filter(
           (item) =>
-            item.key !== 'users'
-            || user.role === 'admin',
+            isPageEnabled(item.key) && (item.key !== 'users' || user.role === 'admin'),
         ),
       [
         user.role,
@@ -1234,6 +1236,7 @@ function App() {
       }
 
 
+      if (!isPageEnabled(page)) page = 'dashboard'
       const nextHash =
         `#/${page}`
 
