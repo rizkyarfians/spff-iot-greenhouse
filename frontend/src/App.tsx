@@ -55,6 +55,7 @@ import {
 import {
   pageTitles,
   isPageEnabled,
+  pageDestination,
   type PageKey,
 } from './pageConfig'
 
@@ -516,8 +517,9 @@ PageKey {
 
 
   if (pageKeys.includes(page) && !isPageEnabled(page)) {
-    window.history.replaceState(window.history.state, '', '#/dashboard')
-    return 'dashboard'
+    const destination = pageDestination(page)
+    window.history.replaceState(window.history.state, '', `#/${destination}`)
+    return destination
   }
   return pageKeys.includes(page) ? page : 'dashboard'
 }
@@ -1236,7 +1238,7 @@ function App() {
       }
 
 
-      if (!isPageEnabled(page)) page = 'dashboard'
+      page = pageDestination(page)
       const nextHash =
         `#/${page}`
 

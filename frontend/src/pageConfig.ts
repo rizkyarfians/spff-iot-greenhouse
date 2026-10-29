@@ -82,5 +82,7 @@ Record<
 }
 
 // Keep the page implementation available while the feature is temporarily disabled.
-export const disabledPages: ReadonlySet<PageKey> = new Set(['smart-soil'])
+export const disabledPages: ReadonlySet<PageKey> = new Set(['smart-soil','settings'])
 export const isPageEnabled = (page:PageKey) => !disabledPages.has(page)
+
+export const pageDestination = (page:PageKey):PageKey => page==='settings'?'controls':isPageEnabled(page)?page:'dashboard'
