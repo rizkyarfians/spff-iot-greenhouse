@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react'
 import type {FertigationProgress,GuideEcConversion,GuideProgram} from '@spff/contracts'
 import {fetchGuidePrograms,fetchGuideEcConversions,fetchAdaptiveProgress,type AdaptiveProgressReport} from './api'
+import {automaticGuideActivities,supportsFertigationAutomation} from './fertigationSupport'
 import {GuideEcTarget} from './GuideEcTarget'
 import {AutomationMethod} from './AutomationMethod'
 import './AdaptiveRecommendation.css'
@@ -24,7 +25,7 @@ export function AdaptiveRecommendation({deviceId,report,onOpen}:{deviceId:string
   async function load(){
    if(inFlight)return;inFlight=true
    try{
-    const rows=(await fetchGuidePrograms()).filter(p=>p.config.deviceId===deviceId)
+    const rows=(await fetchGuidePrograms()).filter(p=>p.config.deviceId===deviceId&&automaticGuideActivities(p).length>0)
     const p=rows.find(p=>p.programId===id)??(rows.length===1?rows[0]:null)
     const next=p?{program:p,conversions:await fetchGuideEcConversions(p.programId),progress:await fetchAdaptiveProgress(p.programId)}:null
     if(active){setPrograms(rows);setData(next);setError('');setLoading(false)}
@@ -34,28 +35,28 @@ export function AdaptiveRecommendation({deviceId,report,onOpen}:{deviceId:string
   return()=>{active=false;clearInterval(timer)}
  },[deviceId,id,retry])
  const p=data?.program
- const activities=p?.plan.activities??[]
+ const activities=p?automaticGuideActivities(p):[]
  // Prefer the earliest unfinished kocor activity that is due; never add EC across days.
- const a=activities.find(a=>a.id===activityId)??activities.filter(a=>a.method.toLowerCase()==='kocor'&&a.hst!==null&&a.hst<=p!.hst&&!p!.completedActivityIds.includes(a.id)&&data!.progress.activities.find(v=>v.activityId===a.id)?.remainingMassG!==0).sort((a,b)=>a.hst!-b.hst!)[0]??activities[0]
+ const a=activities.find(a=>a.id===activityId)??activities.filter(a=>supportsFertigationAutomation(a)&&a.hst!==null&&a.hst<=p!.hst&&!p!.completedActivityIds.includes(a.id)&&data!.progress.activities.find(v=>v.activityId===a.id)?.remainingMassG!==0).sort((a,b)=>a.hst!-b.hst!)[0]??activities[0]
  const conversion=data?.conversions.find(c=>c.activityId===a?.id),progress=data?.progress.activities.find(v=>v.activityId===a?.id)
  const session=progress?.sessions[0],t=session?.last_telemetry
  const age=t?Date.now()-Date.parse(t.timestamp):Infinity
  const live=age>=0&&age<=90000?t:null
  const currentEc=live?.filteredEc??(report?.deviceId===deviceId&&report.telemetryFresh?report.liquidEc.value:null)
  const target=conversion?.targetEcMsCm==null?null:conversion.targetEcMsCm*1000
- const kocor=a?.method.toLowerCase()==='kocor'
+ const kocor=!!a&&supportsFertigationAutomation(a)
  const manuallyDone=!!a&&!!p?.completedActivityIds.includes(a.id)
  const status=progress?.requiresReconciliation?'Perlu diperiksa':manuallyDone?'Selesai · dicatat petani':!a?'Belum ada kegiatan':!kocor?'Dikerjakan petani':progress?.requiresReconciliation?'Perlu diperiksa':session&&['queued','running','paused'].includes(session.status)?({queued:'Menunggu alat',running:live?'Sesi berjalan':'Menunggu data alat',paused:'Dijeda'}[session.status]):progress?.remainingMassG===0?'Jatah terpenuhi':a&&a.hst!==null&&p&&a.hst>p.hst?'Belum waktunya':conversion?.status==='ready'?'Target tersedia':'Target EC belum tersedia'
  return <div className="adaptive-recommendation" aria-busy={loading}>
   <label>Program tanaman<select value={p?.programId??''} onChange={e=>{setId(e.target.value);setActivityId('')}}><option value="">Pilih program</option>{programs.map(p=><option value={p.programId} key={p.programId}>{p.plan.cropName} · HST {p.hst}</option>)}</select></label>
-  {error?<><p role="alert">{error}</p><button onClick={()=>setRetry(v=>v+1)}>Muat ulang</button></>:loading?<p>Memuat rekomendasi…</p>:!p?<p>{programs.length?'Pilih program untuk melihat hasil konversi.':'Belum ada program untuk perangkat ini.'}</p>:<>
+  {error?<><p role="alert">{error}</p><button onClick={()=>setRetry(v=>v+1)}>Muat ulang</button></>:loading?<p>Memuat rekomendasi…</p>:!p?<p>{programs.length?'Pilih program untuk melihat hasil konversi.':'Belum ada program kocor untuk perangkat ini. Kegiatan manual tetap tersedia di Program Fertigasi.'}</p>:<>
    <section className="ar-activities" aria-label="Target setiap kegiatan">
     <h3>Target kegiatan · HST {p.hst}</h3>
     <div className="ar-activity-list">{activities.map(item=>{
      const doses=data?.progress.activities.find(v=>v.activityId===item.id)
      const converted=data?.conversions.find(v=>v.activityId===item.id)
      const manual=p.completedActivityIds.includes(item.id)
-     const supported=item.method.toLowerCase()==='kocor'
+     const supported=supportsFertigationAutomation(item)
      const reached=doses?.targetMassG!=null&&doses.targetMassG>0&&doses.remainingMassG===0
      const review=!!doses?.requiresReconciliation
      const label=review?'Perlu diperiksa':manual?'Selesai · dicatat petani':supported&&reached?'Target tercapai':item.hst!==null&&item.hst>p.hst?'Belum waktunya':supported?'Belum tercapai':'Belum dicatat selesai'
@@ -70,7 +71,6 @@ export function AdaptiveRecommendation({deviceId,report,onOpen}:{deviceId:string
     })}</div>
    </section>
    <div className="ar-status"><AutomationMethod method={a?.method??''}/><strong>{status}</strong></div>
-   {a&&!kocor&&<GuideEcTarget activity={a} conversion={conversion}/>}
    {kocor?<><div className="ar-grid">
     <section><h3>EC campuran</h3><strong>{fmt(currentEc)} <small>µS/cm</small></strong><p>Target konversi: {fmt(target)} µS/cm</p><RecommendationBar value={currentEc} target={target} label="EC dibanding target" missing={target===null?'Menunggu hasil konversi':'Menunggu sensor valid'}/>{currentEc!==null&&target!==null&&currentEc>target&&<small className="ar-above">Di atas target {fmt(currentEc-target)} µS/cm</small>}</section>
     <section><h3>Kebutuhan panduan</h3><strong>{fmt(progress?.targetMassG==null?null:progress.targetMassG/1000)} <small>kg pupuk</small></strong><p>{fmt(a?.waterL)} L larutan akhir</p></section>

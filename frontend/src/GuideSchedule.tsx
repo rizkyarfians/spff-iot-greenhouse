@@ -1,6 +1,7 @@
 import {useState} from 'react'
 import type {GuideProgram,GuideEcConversion} from '@spff/contracts'
 import {ChevronLeft,ChevronRight} from 'lucide-react'
+import {supportsFertigationAutomation} from './fertigationSupport'
 import {GuideEcTarget} from './GuideEcTarget'
 import {guideActivityDate,guideCalendarMonth,shiftGuideMonth} from './guideSchedule'
 const dateLabel=(date:string)=>new Intl.DateTimeFormat('id-ID',{dateStyle:'long',timeZone:'UTC'}).format(new Date(`${date}T00:00:00Z`))
@@ -21,7 +22,7 @@ export function GuideSchedule({program,conversions=[]}:{program:GuideProgram;con
    })}</div>
    <div className="gp-calendar-legend"><span><i className="is-pending"/>Belum selesai</span><span><i className="is-done"/>Selesai</span><span><i className="is-next"/>Akan datang</span></div>
   </div>
-  <aside className="gp-panel gp-calendar-details"><h3>{dateLabel(chosen)}</h3><p>{selected.length} kegiatan</p>{!selected.length&&<p>Tidak ada kegiatan terjadwal.</p>}{selected.map(a=><article key={a.id}><span className="gp-hst">HST {a.hst}</span><h4>{a.title}</h4><GuideEcTarget activity={a} conversion={conversions.find(c=>c.activityId===a.id)}/><p>{a.method} · {program.completedActivityIds.includes(a.id)?'Selesai':a.date<=today?'Belum selesai':'Akan datang'}</p><ul>{a.requirements.map(r=><li key={r.row}>{r.product}<strong>{r.amount===null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:3}).format(r.amount)} {r.unit}</strong></li>)}</ul>{a.waterL!==null&&<p>Larutan {a.waterL.toLocaleString('id-ID')} L</p>}</article>)}
+  <aside className="gp-panel gp-calendar-details"><h3>{dateLabel(chosen)}</h3><p>{selected.length} kegiatan</p>{!selected.length&&<p>Tidak ada kegiatan terjadwal.</p>}{selected.map(a=><article key={a.id}><span className="gp-hst">HST {a.hst}</span><h4>{a.title}</h4><>{supportsFertigationAutomation(a)&&<GuideEcTarget activity={a} conversion={conversions.find(c=>c.activityId===a.id)}/>}</><p>{a.method} · {program.completedActivityIds.includes(a.id)?'Selesai':a.date<=today?'Belum selesai':'Akan datang'}</p><ul>{a.requirements.map(r=><li key={r.row}>{r.product}<strong>{r.amount===null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:3}).format(r.amount)} {r.unit}</strong></li>)}</ul>{a.waterL!==null&&<p>Larutan {a.waterL.toLocaleString('id-ID')} L</p>}</article>)}
   {program.plan.activities.some(a=>a.hst===null)&&<p className="gp-warning">Ada kegiatan tanpa HST. Periksa di Semua kegiatan.</p>}
   </aside>
  </section>
