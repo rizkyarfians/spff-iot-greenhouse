@@ -102,5 +102,20 @@ function ProgramRevisionHistory({programId,revision}:{programId:string;revision:
   void fetchGuideProgramHistory(programId).then(next=>{if(active)setRows(next)}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Gagal memuat riwayat.')}).finally(()=>{if(active)setLoading(false)})
   return()=>{active=false}
  },[open,programId,revision])
- return <details className="gp-panel" open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary>Riwayat revisi program</summary>{loading&&<p>Memuat riwayat…</p>}{error&&<p role="alert">{error}</p>}{rows.map(item=><details key={item.revision}><summary>Program revisi {item.revision} · Panduan revisi {item.guideRevision}</summary><p>{item.actor} · {new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Jakarta'}).format(new Date(item.savedAt))} WIB · tanam {item.config.plantingDate}</p>{item.plan.activities.map(a=><p key={a.id}>{summary(a)}</p>)}</details>)}{rows.length===20&&<p>Menampilkan 20 revisi terakhir.</p>}</details>
+ return <details className="gp-panel" open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary>Riwayat revisi program</summary>{loading&&<p>Memuat riwayat…</p>}{error&&<p role="alert">{error}</p>}{rows.map(item=><details key={item.revision}><summary>Program revisi {item.revision} · Panduan revisi {item.guideRevision}</summary><p>{item.actor} · {new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Jakarta'}).format(new Date(item.savedAt))} WIB · tanam {item.config.plantingDate}</p><ActivityHistoryTable activities={item.plan.activities}/></details>)}{rows.length===20&&<p>Menampilkan 20 revisi terakhir.</p>}</details>
+}
+
+function ActivityHistoryTable({activities}:{activities:GuideActivity[]}){
+ return <div className="gp-history-table-scroll" role="region" aria-label="Tabel kebutuhan kegiatan" tabIndex={0}>
+  <table className="gp-history-table"><caption>Rincian kebutuhan kegiatan</caption>
+   <thead><tr><th scope="col">HST</th><th scope="col">Kegiatan</th><th scope="col">Cara pemberian</th><th scope="col">Larutan (L)</th><th scope="col">Bahan</th><th scope="col">Dosis</th><th scope="col">Kebutuhan</th><th scope="col">Acuan</th></tr></thead>
+   <tbody>{activities.flatMap(a=>{
+    const materials=a.requirements.length?a.requirements:[null]
+    return materials.map((r,i)=><tr key={`${a.id}-${r?.row??'empty'}`} className={i===0?'gp-history-activity-start':undefined}>
+     {i===0&&<><td rowSpan={materials.length}>{a.hst??'—'}</td><th scope="rowgroup" rowSpan={materials.length}>{a.title}</th><td rowSpan={materials.length}>{a.method}</td><td rowSpan={materials.length}>{format(a.waterL)}</td></>}
+     <td>{r?.product??'—'}</td><td>{r?`${format(r.dose)} ${r.doseUnit}`:'—'}</td><td>{r?`${format(r.amount)} ${r.unit}`:'—'}</td><td>{r?`${format(r.sourceAmount)} ${r.sourceUnit}`:'—'}</td>
+    </tr>)
+   })}</tbody>
+  </table>
+ </div>
 }

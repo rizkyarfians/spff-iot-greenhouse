@@ -96,3 +96,14 @@
 }
 .gp-form fieldset[hidden], .gp-page button[hidden] { display:none; }
 .gp-form-summary { padding-top:12px; color:#526b5b; }
+
+.gp-history-table-scroll { width:100%; max-width:100%; overflow-x:auto; margin-top:16px; border:1px solid #d4e2d9; border-radius:10px; }
+.gp-history-table-scroll:focus-visible { outline:3px solid #16845a; outline-offset:3px; }
+.gp-history-table { width:100%; min-width:960px; border-collapse:collapse; font-size:14px; text-align:left; }
+.gp-history-table caption { text-align:left; padding:12px 14px; font-weight:700; background:#f6f9f7; }
+.gp-history-table th,.gp-history-table td { padding:12px 14px; border-right:1px solid #e1e9e4; border-bottom:1px solid #e1e9e4; vertical-align:top; }
+.gp-history-table thead th { color:#245b40; background:#e8f5ed; white-space:nowrap; }
+.gp-history-table tbody th { min-width:180px; }
+.gp-history-table td:nth-last-child(-n+3) { white-space:nowrap; }
+.gp-history-activity-start>* { border-top:2px solid #cfdfd5; }
+.gp-history-table tbody tr:hover { background:#f4faf6; }
