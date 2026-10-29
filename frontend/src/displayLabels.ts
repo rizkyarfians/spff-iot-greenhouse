@@ -1,4 +1,8 @@
 const reasonLabels: Record<string, string> = {
+  water_tank_interlock:'Proteksi tandon air aktif',
+  pulse_outcome_unknown:'Hasil pemberian belum terkonfirmasi',
+  server_pulse_owner:'Pompa sedang digunakan sesi AI',
+  calibration_missing:'Kalibrasi belum tersedia',
   automatic_water: 'Kontrol otomatis pompa air',
   automatic_fertilizer: 'Kontrol otomatis pompa pupuk',
   automatic_config_change: 'Pengaturan otomatis diperbarui',
@@ -25,7 +29,5 @@ export const farmerReasonLabel = (
 ) => {
   if (!reason) return ''
   return reasonLabels[reason]
-    ?? reason
-      .replaceAll('_', ' ')
-      .replace(/^./, (letter) => letter.toUpperCase())
+    ?? 'Periksa kondisi alat sebelum mencoba kembali.'
 }

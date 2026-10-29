@@ -66,7 +66,7 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
     try{
       const next=await saveWaterInterlock(deviceId,proposal.revision,proposal.enabled)
       if(current===generation.current){setView(next);setSaved(true)}
-    }catch(e){if(current===generation.current){const message=switchSaveError(e);setSaveError(message);setNotice({kind:'error',message:`Perubahan interlock belum terkonfirmasi. ${message}`})}}
+    }catch(e){if(current===generation.current){const message=switchSaveError(e);setSaveError(message);setNotice({kind:'error',message:`Perubahan proteksi belum terkonfirmasi. ${message}`})}}
     finally{busyRef.current=false;setBusy(false)}
   }
   const confirmed=view?.acknowledgementStatus==='applied'&&view.acknowledgedRevision===view.revision&&view.appliedEnabled===view.enabled
@@ -79,24 +79,24 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
     if(notified.current===key)return
     notified.current=key
     setNotice(rejected
-      ?{kind:'error',message:`Firmware menolak perubahan interlock. ${view.reason??'Periksa perangkat.'}`}
+      ?{kind:'error',message:`Perangkat menolak perubahan. Periksa alat sebelum mencoba kembali.`}
       :confirmed&&reported
-        ?{kind:'success',message:`Interlock tandon air ${view.enabled?'aktif':'nonaktif'}; perangkat sudah mengonfirmasi.`}
-        :{kind:'warning',message:'Pengaturan interlock tersimpan. Menunggu konfirmasi perangkat; perubahan belum dianggap diterapkan.'})
+        ?{kind:'success',message:`Proteksi tandon air ${view.enabled?'aktif':'nonaktif'}; perangkat sudah mengonfirmasi.`}
+        :{kind:'warning',message:'Pengaturan tersimpan. Menunggu konfirmasi alat.'})
   },[saved,view,deviceId,rejected,confirmed,reported])
   const status=rejected?'Perangkat menolak perubahan.':confirmed&&reported?'Perubahan sudah diterapkan pada perangkat.':'Tersimpan. Menunggu konfirmasi perangkat.'
   const action=proposal?.enabled?'Aktifkan':'Nonaktifkan'
   return <div className="setting-toggle-row">
     {!open&&notice&&createPortal(<SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>,document.body)}
-    <div><strong>Interlock Tandon Air</strong></div>
+    <div><strong>Proteksi Tandon Air</strong></div>
     <button className={`switch ${view?.enabled!==false?'is-on':''}`} type="button" role="switch"
-      aria-label="Interlock tandon air" aria-checked={view?.enabled??true} aria-busy={busy}
+      aria-label="Proteksi tandon air" aria-checked={view?.enabled??true} aria-busy={busy}
       aria-haspopup="dialog" disabled={!admin||!connected||!deviceId||busy} onClick={show}><span/></button>
     {open&&createPortal(<dialog ref={dialog} className="water-interlock-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
       onCancel={event=>{if(busyRef.current)event.preventDefault();else setOpen(false)}}
       onClick={event=>{if(event.target===event.currentTarget)close()}}>
       <SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>
-      <h2 id={titleId}>{saved?'Interlock Tandon Air':`${action} interlock tandon air?`}</h2>
+      <h2 id={titleId}>{saved?'Proteksi Tandon Air':`${action} proteksi tandon air?`}</h2>
       {devices.length>1&&!saved&&<label className="field-label"><span>Perangkat</span>
         <select value={deviceId} disabled={busy} onChange={event=>{setChosen(event.target.value);setProposal(null);setSaveError('')}}>
           {devices.map(device=><option key={device.deviceId} value={device.deviceId}>{device.displayName}</option>)}
@@ -109,11 +109,11 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
       {!view&&!loadError&&<p role="status">Memuat pengaturan…</p>}
       {loadError&&<p role="alert">{loadError}</p>}
       {saveError&&<p role="alert">{saveError}</p>}
-      {saved&&<p role="status" aria-live="polite">{rejected?'Periksa perangkat sebelum mencoba kembali.':confirmed&&reported?'Interlock '+(view?.enabled?'aktif.':'nonaktif.'):'Switch belum dianggap diterapkan sampai perangkat mengonfirmasi.'}</p>}
+      {saved&&<p role="status" aria-live="polite">{rejected?'Periksa perangkat sebelum mencoba kembali.':confirmed&&reported?'Interlock '+(view?.enabled?'aktif.':'nonaktif.'):'Menunggu konfirmasi alat.'}</p>}
       <div className="water-interlock-dialog-actions">
         <button className="secondary-button" type="button" disabled={busy} onClick={close}>{saved?'Tutup':'Batal'}</button>
         {!saved&&<button className="primary-button" type="button" disabled={busy||!connected||!view||!proposal||!!loadError}
-          onClick={()=>void confirm()}>{busy?'Menyimpan…':`${action} interlock`}</button>}
+          onClick={()=>void confirm()}>{busy?'Menyimpan…':`${action} proteksi`}</button>}
       </div>
     </dialog>,document.body)}
   </div>

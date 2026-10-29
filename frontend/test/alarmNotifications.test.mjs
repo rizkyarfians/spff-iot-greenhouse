@@ -4,7 +4,7 @@ import {alarmNotification,notificationBadgeText} from '../src/alarmNotifications
 const alarm={id:'1',deviceId:'esp32-s3-01',ruleKey:'command_failed',sourceKey:'pump_water',title:'Command aktuator gagal',description:'Gagal',createdAt:'2026-10-27T01:00:00Z',triggeredAt:'2026-10-27T01:00:00Z',lastSeenAt:'2026-10-27T01:00:00Z',metadata:{commandId:'a',requestedIsActive:true,reason:'water_tank_interlock'}}
 test('bell explains a rejected start without calling an interlocked pump broken',()=>{
  const n=alarmNotification(alarm)
- assert.equal(n.title,'Pompa air gagal menyala');assert.match(n.description,/Interlock tandon air/)
+ assert.equal(n.title,'Pompa air gagal menyala');assert.match(n.description,/Proteksi tandon air/)
  assert.match(n.description,/esp32-s3-01/)
  assert.notEqual(n.id,alarmNotification({...alarm,metadata:{...alarm.metadata,commandId:'b'}}).id)
  assert.equal(n.id,alarmNotification({...alarm,lastSeenAt:'2026-10-27T01:00:30Z'}).id)

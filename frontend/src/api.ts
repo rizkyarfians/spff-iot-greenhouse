@@ -1,3 +1,4 @@
+import {userFacingMessage} from './userFacingMessage'
 import type {ProtocolGuideState,ProtocolGuideSave,ProtocolGuideRevision} from '@spff/contracts'
 import type {
   ApiActuator,
@@ -147,7 +148,7 @@ export class ApiError
     errors: string[] = [],
   ) {
 
-    super(message)
+    super(userFacingMessage(message))
 
     this.name =
       'ApiError'
@@ -156,7 +157,7 @@ export class ApiError
       status
 
     this.errors =
-      errors
+      errors.map(userFacingMessage)
   }
 }
 

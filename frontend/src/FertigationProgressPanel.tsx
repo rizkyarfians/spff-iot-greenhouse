@@ -8,18 +8,18 @@ const reasonLabels:Record<string,string>={
  soil_ec_above_start_threshold:'EC belum turun di bawah batas mulai. AI menunggu, meskipun bar belum penuh.',
  target_confirmation:'EC mendekati target; menunggu pembacaan stabil sebelum menyatakan cukup.',
  waiting_new_samples:'Menunggu sampel tanah baru yang valid.',settling:'Menunggu larutan meresap sebelum menghitung ulang.',soil_ec_unstable:'EC belum stabil; AI menunggu pembacaan berikutnya.',
- pulse_in_flight:'Sesi pulse aktif atau menunggu konfirmasi perangkat. Lihat kondisi pompa untuk status relay.',
+ pulse_in_flight:'Sesi pulse aktif atau menunggu konfirmasi perangkat. Lihat kondisi pompa.',
  calibration_missing:'Simpan kalibrasi terverifikasi di Program Fertigasi agar AI dapat menghitung pulse.',
  calibration_rule_changed:'Aturan atau program berubah. Verifikasi lalu simpan ulang kalibrasi otomatis.',
  rule_missing:'Belum ada program EC tanah yang cocok. Pilih tanaman dan aturan hari ini.',rule_ambiguous:'Ada beberapa aturan yang cocok. Tentukan satu program untuk AI.',
  rule_not_applicable:'Program belum disetujui atau tidak cocok dengan tanaman/HST hari ini.',
- ai_disabled:'Izin AI sedang OFF. Angka sensor dan target tetap ditampilkan.',server_disabled:'Eksekusi AI belum tersedia pada server.',operator_stop:'AI dihentikan operator. Periksa sesi sebelum mengaktifkan kembali.',
+ ai_disabled:'Izin AI sedang OFF. Angka sensor dan target tetap ditampilkan.',server_disabled:'Pemupukan otomatis belum tersedia.',operator_stop:'AI dihentikan operator. Periksa sesi sebelum mengaktifkan kembali.',
  schedule_priority:'Jadwal timer sedang diprioritaskan. AI mengevaluasi lagi setelah jadwal selesai.',cooldown:'Menunggu jeda minimum antar sesi.',
  tank_sensor_or_level_invalid:'Sensor tandon belum valid atau isinya di bawah batas minimum.',soil_sensor_invalid_or_stale:'Sensor tanah belum valid atau datanya sudah kedaluwarsa.',
  moisture_outside_calibrated_range:'Kelembapan tanah berada di luar rentang kalibrasi AI.',invalid_confirmation_samples:'Sampel konfirmasi belum memenuhi syarat sensor.',
  pulse_budget_limit:'Batas pulse sesi atau harian tercapai. Periksa kebutuhan tanaman dan batas yang disetujui.',
  soil_ec_high:'EC mencapai batas tinggi. AI menahan pemberian pupuk.',soil_ec_overshoot:'EC melewati toleransi setelah pulse. Periksa sesi sebelum melanjutkan.',
- command_pending:'Menunggu perintah sebelumnya selesai dan dikonfirmasi perangkat.',ownership_unreleased:'Kontrol sesi sebelumnya belum dilepas dan dikonfirmasi. Periksa sesi serta ACK perangkat.',
+ command_pending:'Menunggu perintah sebelumnya selesai dan dikonfirmasi perangkat.',ownership_unreleased:'Kontrol sesi sebelumnya belum dilepas dan dikonfirmasi. Periksa sesi dan kondisi pompa.',
  equipment_not_ready:'Perangkat atau mode belum siap.',pulse_outcome_unknown:'Hasil pulse belum dikonfirmasi; periksa perangkat.',
 }
 const shortReasons:Record<string,string>={
@@ -61,15 +61,11 @@ export function FertigationProgressPanel({report,error='',compact=false,minimal=
   {error&&<p className="ai-progress-error" role="alert">{error}</p>}
   {onRetry&&<button className="ai-open-program" type="button" disabled={loading} onClick={onRetry}>{loading?'Memuat…':'Muat ulang rekomendasi'}</button>}
  </section>
- const detail=reasonLabels[report.reason]??report.reason
+ const detail=shortReasons[report.reason]??reasonLabels[report.reason]??'Periksa kondisi alat sebelum melanjutkan.'
  const notes=(
   <div className="ai-progress-notes">
-   <span>Target EC berasal dari aturan tanaman/HST yang disimpan. AI menghitung selisih dan durasi pulse, bukan membuat angka target baru. EC adalah pembacaan sensor, bukan jumlah pupuk atau air yang sudah disiram. {report.soilEcBasis==='stable_mean'?'Nilai tanah memakai rata-rata sampel stabil.':''}</span>
-   {report.soilEcToleranceUsCm!==null&&<span>Toleransi EC tanah: ±{number(report.soilEcToleranceUsCm)} µS/cm; kecukupan diperiksa dari sampel stabil.</span>}
-   <span>Target EC larutan memakai pengaturan tandon tersendiri{report.liquidControlEnabled?'':'; kontrol otomatis EC larutan nonaktif'}.</span>
-   {report.nextPulseOnMs!==null&&<span>Rekomendasi pulse berikutnya: <b>{number(report.nextPulseOnMs/1000)} detik</b>. Server memeriksa ulang sebelum eksekusi.</span>}
-   {report.dailyLimitMs!==null&&<span>Durasi pulse diperintahkan hari ini: {number(report.dailyOnMs/1000)} / {number(report.dailyLimitMs/1000)} detik.</span>}
-   {!report.executionEnabled&&<span>Izin AI OFF; jadwal timer tetap terpisah.</span>}
+   {report.soilEcToleranceUsCm!==null&&<span>Toleransi EC: ±{number(report.soilEcToleranceUsCm)} µS/cm.</span>}
+   {!report.executionEnabled&&<span>AI nonaktif.</span>}
    <span>{report.telemetryFresh?'Data sensor':'Data terakhir'}: {report.telemetryAt?new Intl.DateTimeFormat('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Jakarta'}).format(new Date(report.telemetryAt))+' WIB':'belum tersedia'} · diperbarui otomatis</span>
   </div>
  )

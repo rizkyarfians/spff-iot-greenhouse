@@ -20,11 +20,11 @@ const reasons:Record<string,string> = {
   waiting_new_samples:'Menunggu sampel tanah baru', settling:'Menunggu larutan meresap',
   target_confirmation:'Menunggu semua sampel masuk toleransi target', soil_ec_unstable:'Pembacaan EC belum stabil', soil_ec_above_start_threshold:'EC belum di bawah batas mulai',
   soil_ec_already_sufficient:'EC tanah sudah cukup; AI tidak perlu menyalakan pompa pupuk',
-  soil_ec_target_stable:'Target EC tanah tercapai dan stabil', soil_ec_below_target:'Pulse disiapkan dari selisih EC tanah',
-  pulse_outcome_unknown:'Hasil pulse belum dapat dipastikan; sesi dihentikan',
+  soil_ec_target_stable:'Target EC tanah tercapai dan stabil', soil_ec_below_target:'Menyiapkan pemberian pupuk',
+  pulse_outcome_unknown:'Hasil pemberian belum dapat dipastikan; sesi dihentikan',
   operator_stop:'Dihentikan operator; periksa konfirmasi OFF', pulse_budget_limit:'Batas pemberian tercapai',
   soil_ec_no_response:'EC tanah tidak merespons', soil_ec_overshoot:'EC melewati toleransi target',
-  soil_ec_high:'EC melewati batas tinggi', moisture_outside_calibrated_range:'Moisture di luar rentang kalibrasi',
+  soil_ec_high:'EC melewati batas tinggi', moisture_outside_calibrated_range:'Kelembapan di luar rentang kalibrasi',
   rule_mode_schedule_or_device_changed:'Aturan, mode, jadwal, atau perangkat tidak lagi siap',
   soil_sensor_invalid_or_stale:'Sensor tanah tidak valid atau terlambat', device_rejected_or_fault:'Perangkat menolak atau melaporkan fault',
 }
@@ -80,13 +80,11 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
     await (release?releaseSoilEcPulseSession(id):stopSoilEcPulseSession(id));const data=await fetchSoilEcPulseSessions(deviceId);setSessions(data.sessions)
   }catch(e){setError(e instanceof Error?e.message:'Gagal menghentikan sesi')}finally{busyRef.current=false;setBusy(false)}}
   const active=sessions.some(s=>['waiting','in_flight','fault'].includes(s.status))
-  return <section className="ft-field-group" aria-label="Sesi pulse EC tanah"><h3>Pemupukan otomatis</h3>
+  return <section className="ft-field-group" aria-label="Sesi pemupukan EC tanah"><h3>Pemupukan otomatis</h3>
     {deviceId&&<FertigationProgressPanel minimal report={progress.report} error={progress.error} loading={progress.loading} onRetry={progress.retry}/>}
-    <details className="ft-ai-guidance"><summary>Cara kerja dan persiapan</summary><p>Server menghitung durasi ON dari selisih EC tanah zona 1. Perangkat menjalankan satu pulse, OFF sendiri, lalu server menunggu pembacaan baru. Tidak menghitung liter stok pupuk.</p>
-    <p>Nonaktifkan fertilizer sensor legacy dan tunggu konfigurasi diterapkan sebelum memulai. Target aturan: {recipe.ecTargetUsCm??'belum diisi'} µS/cm. Jadwal tetap berjalan sebagai pemicu terpisah. AI mengevaluasi EC di luar jadwal; jadwal aktif didahulukan. Setelah sesi normal selesai, kontrol jadwal dikembalikan otomatis.</p></details>
-    {!deviceId?<p>Pilih perangkat terlebih dahulu.</p>:!enabled?<p>Eksekusi pulse belum tersedia pada server atau koneksi status gagal. Evaluasi rekomendasi tetap terpisah.</p>:null}
+    {!deviceId?<p>Pilih perangkat terlebih dahulu.</p>:!enabled?<p>Pemupukan otomatis belum tersedia. Periksa koneksi atau hubungi pengelola.</p>:null}
     {enabled&&!executionEnabled&&<p>Aktifkan AI Fertigasi EC Tanah di halaman Kontrol sebelum memulai sesi.</p>}
-    {automatic&&<p role="status">AI otomatis: {automatic.armed?'siap mengevaluasi':'dihentikan operator'} · {reasons[automatic.reason]??automatic.reason}</p>}
+    {automatic&&<p role="status">AI otomatis: {automatic.armed?'siap mengevaluasi':'dihentikan operator'} · {reasons[automatic.reason]??'Periksa kondisi alat.'}</p>}
     {notice&&<p role="status">{notice}</p>}
     {error&&<p className="ft-error" role="alert">{error}</p>}
     {enabled&&admin&&<details><summary>Kalibrasi dan pengaman (untuk teknisi)</summary>
@@ -100,13 +98,13 @@ export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:
         <label className="ft-pulse-check"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>Target dataset sudah diverifikasi untuk sensor EC tanah ini; respons pulse, waktu meresap, dan aliran Venturi sudah dikalibrasi.</label>
       </div></fieldset>
       <button type="button" className="ft-primary" disabled={busy||active||dirty||!confirmed||!deviceId} onClick={()=>void start(true)}>Simpan kalibrasi untuk AI otomatis</button>
-      <button type="button" className="ft-primary" disabled={busy||active||dirty||!confirmed||!deviceId||!executionEnabled} onClick={()=>void start()}>Mulai sesi pulse sekali</button>
+      <button type="button" className="ft-primary" disabled={busy||active||dirty||!confirmed||!deviceId||!executionEnabled} onClick={()=>void start()}>Mulai satu sesi</button>
     </details>}
-    {sessions.map(s=><article className="ft-result" key={s.session_id}><strong>{s.status}</strong>
-      <p>{reasons[s.reason]??s.reason}</p><p>Cycle: {s.cycles} · waktu ON diperintahkan: {Number(s.total_on_ms)/1000} detik · EC sebelum pulse terakhir: {s.previous_ec??'—'} µS/cm</p>
-      <p>ACK pulse terakhir: {s.commands.filter(c=>c.operation==='pulse').at(-1)?.status??'belum ada'}</p>
-      {admin&&['completed','cancelled','fault'].includes(s.status)&&<button type="button" disabled={busy} onClick={()=>void stop(s.session_id,true)}>Lepas strategi pulse (setelah mode Manual diterapkan)</button>}
-      {operator&&['waiting','in_flight','fault'].includes(s.status)&&<button type="button" disabled={busy} onClick={()=>void stop(s.session_id)}>Hentikan sesi / tangani fault</button>}
+    {sessions.map(s=><article className="ft-result" key={s.session_id}><strong>{{waiting:'Menunggu',in_flight:'Sedang berjalan',completed:'Selesai',cancelled:'Dihentikan',fault:'Perlu diperiksa'}[s.status]??'Menunggu konfirmasi'}</strong>
+      <p>{reasons[s.reason]??'Periksa kondisi alat.'}</p><p>Siklus: {s.cycles} · durasi pemberian: {Number(s.total_on_ms)/1000} detik · EC sebelumnya: {s.previous_ec??'—'} µS/cm</p>
+
+      {admin&&['completed','cancelled','fault'].includes(s.status)&&<button type="button" disabled={busy} onClick={()=>void stop(s.session_id,true)}>Akhiri kontrol sesi (mode Manual)</button>}
+      {operator&&['waiting','in_flight','fault'].includes(s.status)&&<button type="button" disabled={busy} onClick={()=>void stop(s.session_id)}>Hentikan sesi</button>}
     </article>)}
   </section>
 }

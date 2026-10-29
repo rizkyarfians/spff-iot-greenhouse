@@ -54,10 +54,10 @@ export function SoilEcExecutionSettings({devices,admin,connected}:{devices:ApiDe
       if(current===generation.current){
         setStored(next);setSaved(true)
         setNotice(next.enabled
-          ?{kind:next.capable?'success':'warning',message:next.capable?'Izin AI berhasil diaktifkan. Sesi belum dimulai.':'Izin AI tersimpan aktif, tetapi firmware belum melaporkan kesiapan pulse. Sesi belum dimulai.'}
+          ?{kind:next.capable?'success':'warning',message:next.capable?'Izin AI berhasil diaktifkan. Sesi belum dimulai.':'AI diaktifkan. Perangkat belum siap memulai.'}
           :next.unconfirmedStopSessions>0
-            ?{kind:'warning',message:'AI dinonaktifkan di server. Stop pompa belum terkonfirmasi; periksa ACK dan perangkat.'}
-            :{kind:'success',message:'Izin AI berhasil dinonaktifkan. Pulse baru diblokir.'})
+            ?{kind:'warning',message:'AI dinonaktifkan. Pompa belum terkonfirmasi berhenti; periksa alat.'}
+            :{kind:'success',message:'AI dinonaktifkan. Sesi baru diblokir.'})
       }
     }catch(e){if(current===generation.current){const message=switchSaveError(e);setSaveError(message);setNotice({kind:'error',message:`Perubahan AI belum terkonfirmasi. ${message}`})}}
     finally{busyRef.current=false;setBusy(false)}
@@ -79,14 +79,14 @@ export function SoilEcExecutionSettings({devices,admin,connected}:{devices:ApiDe
           {devices.map(d=><option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}
         </select></label>}
       <p id={description}>{saved
-        ?view?.enabled?'Izin AI tersimpan aktif. Mulai sesi dari Program Fertigasi setelah kalibrasi dan pemeriksaan perangkat.':'Izin AI tersimpan nonaktif. Pulse baru diblokir dan sesi aktif diminta berhenti; ini belum membuktikan pompa OFF.'
-        :proposal?.enabled?'Mengizinkan server menjalankan sesi pulse EC tanah yang dimulai admin. Durasi dihitung dari sensor dan kalibrasi. Switch ini tidak langsung memulai pemupukan.':'Pulse baru akan diblokir dan sesi aktif diminta berhenti. Perintah yang sudah terkirim mungkin masih berjalan hingga stop diterima atau batas waktu lokal tercapai.'}</p>
+        ?view?.enabled?'AI aktif. Mulai sesi dari Program Fertigasi.':'AI nonaktif. Pastikan pompa sudah berhenti.'
+        :proposal?.enabled?'Izinkan pemupukan otomatis. Mengaktifkan izin ini belum menyalakan pompa.':'Hentikan sesi aktif dan blokir sesi baru. Tunggu konfirmasi pompa berhenti.'}</p>
       <p className="water-interlock-device">{devices.find(d=>d.deviceId===deviceId)?.displayName??deviceId}</p>
       {!view&&!error&&<p role="status">Memuat pengaturan…</p>}
-      {view&&!view.installed&&<p>Terapkan migration 030 sebelum menggunakan switch ini.</p>}
-      {view&&!view.serverAvailable&&<p>Eksekusi masih dibatasi konfigurasi server. Admin instalasi perlu mengaktifkan dukungan pulse pada API dan worker sekali saat pemasangan.</p>}
-      {view&&!view.capable&&<p>Firmware belum melaporkan dukungan pulse yang aktif dan segar. Izin tersimpan tidak berarti perangkat siap.</p>}
-      {!!view?.unconfirmedStopSessions&&<p role="status">{view.unconfirmedStopSessions} sesi belum memiliki konfirmasi stop/release dengan pompa OFF. Periksa ACK dan perangkat.</p>}
+      {view&&!view.installed&&<p>Fitur belum siap. Hubungi pengelola.</p>}
+      {view&&!view.serverAvailable&&<p>Pemupukan otomatis belum tersedia. Hubungi pengelola.</p>}
+      {view&&!view.capable&&<p>Perangkat belum siap. Periksa koneksi alat.</p>}
+      {!!view?.unconfirmedStopSessions&&<p role="status">{view.unconfirmedStopSessions} sesi belum terkonfirmasi berhenti. Periksa pompa pada alat.</p>}
       {error&&<p role="alert">{error}</p>}
       {saveError&&<p role="alert">{saveError}</p>}
       <div className="water-interlock-dialog-actions">

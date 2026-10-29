@@ -5,10 +5,10 @@ export function AutomationMethod({method}:{method:string}){
  const normalized=method.trim().toLowerCase()
  const supported=normalized==='kocor'
  const unknown=!normalized||normalized==='belum ditentukan'
- return <span className={`automation-method ${supported?'is-supported':'is-manual'}`} title={supported?'Metode didukung alat. Sesi tetap memerlukan konfigurasi dan sensor yang siap.':unknown?'Tentukan cara pemberian sebelum menilai dukungan otomasi.':'Metode ini dilakukan manual; perangkat hanya mendukung otomasi kocor.'}>
+ return <span className={`automation-method ${supported?'is-supported':'is-manual'}`} title={supported?'Periksa kesiapan alat sebelum memulai.':unknown?'Pilih cara pemberian.':'Dilakukan oleh petani.'}>
   {supported?'Mendukung otomasi':unknown?'Metode belum ditentukan':'Dikerjakan petani'}
  </span>
 }
 export function AutomationMethodNote(){
- return <p className="automation-method-note"><strong>Otomasi hanya untuk kocor.</strong> Tabur, tugal, dan semprot dilakukan manual. Dukungan metode belum berarti pompa aktif.</p>
+ return <p className="automation-method-note"><strong>Otomasi hanya untuk kocor.</strong> Kegiatan lainnya dikerjakan petani.</p>
 }

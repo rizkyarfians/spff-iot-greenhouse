@@ -17,14 +17,14 @@ const fields: { key: keyof Form; label: string; type: string; max?: number; hint
   { key: 'hstFrom', label: 'Mulai umur (hari)', type: 'number', max: 1000 },
   { key: 'hstTo', label: 'Sampai umur (hari)', type: 'number', max: 1000 },
   { key: 'triggerSampleCount', label: 'Konfirmasi kering (bacaan)', type: 'number', max: 20, hint: 'Jumlah bacaan rendah berturut-turut sebelum menyarankan penyiraman.' },
-  { key: 'targetWaterL', label: 'Batas air per penyiraman (L)', type: 'number', max: 100000, hint: 'Batas untuk rekomendasi program; belum menjadi pembatas volume pompa pada perangkat.' },
+  { key: 'targetWaterL', label: 'Batas air per penyiraman (L)', type: 'number', max: 100000, hint: 'Acuan rekomendasi, bukan batas penghentian pompa.' },
   { key: 'targetStockL', label: 'Larutan dari tandon pupuk sekali pemberian (liter)', type: 'number', max: 100000 },
   { key: 'fertilizerName', label: 'Nama pupuk', type: 'text' },
-  { key: 'stockConcentrationGPerL', label: 'Pupuk dalam setiap 1 liter larutan tandon (gram)', type: 'number', max: 10000, hint: 'Isi gram pupuk dibagi liter larutan. Contoh hitung: 100 gram dalam 10 liter = 10 g/L, bukan anjuran dosis.' },
-  { key: 'minWaterTankPercent', label: 'Sisa air minimum di tandon (%)', type: 'number', max: 100, hint: 'Evaluasi rekomendasi ditahan jika isi tandon di bawah angka ini. Ini bukan konfirmasi proteksi tandon pada perangkat.' },
-  { key: 'minStockTankPercent', label: 'Sisa larutan pupuk minimum di tandon (%)', type: 'number', max: 100, hint: 'Batas evaluasi rekomendasi; proteksi pompa tetap mengikuti firmware yang terpasang.' },
+  { key: 'stockConcentrationGPerL', label: 'Pupuk dalam setiap 1 liter larutan tandon (gram)', type: 'number', max: 10000, hint: 'Gram pupuk ÷ liter larutan.' },
+  { key: 'minWaterTankPercent', label: 'Sisa air minimum di tandon (%)', type: 'number', max: 100, hint: 'Rekomendasi ditunda di bawah batas ini.' },
+  { key: 'minStockTankPercent', label: 'Sisa larutan pupuk minimum di tandon (%)', type: 'number', max: 100, hint: 'Rekomendasi ditunda di bawah batas ini.' },
   { key: 'moistureLowPercent', label: 'Batas kelembapan rendah (%)', type: 'number', max: 100, hint: 'Penyiraman disarankan saat bacaan sama dengan atau lebih rendah dari batas ini.' },
-  { key: 'moistureTargetPercent', label: 'Target kelembapan (%)', type: 'number', max: 100, hint: 'Target program untuk evaluasi; menyimpan aturan ini tidak mengubah parameter kontrol sensor pada perangkat.' },
+  { key: 'moistureTargetPercent', label: 'Target kelembapan (%)', type: 'number', max: 100, hint: 'Acuan rekomendasi. Aturan pompa diatur di Kontrol.' },
   { key: 'ecLowUsCm', label: 'Batas mulai EC aturan (µS/cm)', type: 'number', max: 100000 },
   { key: 'ecTargetUsCm', label: 'Target EC aturan (µS/cm)', type: 'number', max: 100000 },
   { key: 'ecHighUsCm', label: 'Batas EC aturan tertinggi (µS/cm)', type: 'number', max: 100000 },
@@ -43,7 +43,7 @@ function effectiveDate(plantingDate: string, days: string) {
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('id-ID', {timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric'}).format(date) : null
 }
 function message(error: unknown) {
-  if (error instanceof ApiError && error.status === 530) return 'Koneksi ke server belum tersedia. Coba muat ulang beberapa saat lagi. (HTTP 530)'
+  if (error instanceof ApiError && error.status === 530) return 'Koneksi terputus. Coba muat ulang.'
   return error instanceof ApiError ? `${error.message}${error.errors.length ? ' — '+error.errors.join(', ') : ''}${error.status === 409 ? ' Muat ulang daftar lalu pilih ulang program sebelum mengedit.' : ''}` : error instanceof Error ? error.message : 'Permintaan gagal.'
 }
 export function FertigationPage({devices}:{devices:ApiDevice[]}){
@@ -228,11 +228,11 @@ function SensorFertigationPage({ devices }: { devices: ApiDevice[] }) {
         <label>Perangkat program<select disabled={busy} value={deviceId} onChange={e => { setDeviceId(e.target.value); setResult(undefined) }}><option value="">Pilih perangkat</option>{devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}</select></label>
       </section>}
       {selected && step===2 && withFertilizer && <SoilEcPulsePanel key={selected.recipeId} recipe={selected} deviceId={deviceId} admin={admin} operator={operator} dirty={!!dirty}/>}
-      {selected && step===2 && <details className="ft-evaluation"><summary>Periksa rekomendasi penyiraman</summary><p>Evaluasi ini masih memakai EC cairan. Sesi pulse EC tanah memakai pembacaan tanah yang terpisah.</p><p>Status aturan: <strong>{selected.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</strong></p>
+      {selected && step===2 && <details className="ft-evaluation"><summary>Periksa rekomendasi penyiraman</summary><p>Rekomendasi penyiraman berdasarkan kondisi tanaman.</p><p>Status aturan: <strong>{selected.approvalStatus === 'approved' ? 'Digunakan untuk evaluasi' : 'Belum digunakan'}</strong></p>
         {dirty && <p className="ft-error">Ada perubahan belum disimpan. Simpan dahulu atau pilih ulang program.</p>}
 
         <button className="ft-primary" disabled={busy || !!dirty || !operator || !deviceId} onClick={() => void run(async () => { setResult(undefined); const response = await evaluateFertigationSite(selected.recipeId, deviceId); setResult(fertigationLiveDecisionSchema.parse(response)) })}>Periksa kondisi tanaman</button>
-        {result && <div className="ft-result" role="status"><h3>{result.decision.action === 'DELAY' ? 'Ditunda' : 'Rekomendasi tersedia'} · {result.decision.action}</h3><p>HST: {result.hst ?? 'belum tersedia'} · air: {result.decision.targetWaterL ?? '—'} L · stok: {result.decision.targetStockL ?? '—'} L</p><p>Tanaman cocok: {cropProfiles.find(crop => crop.id === result.activeCropId)?.commonName ?? 'Belum cocok / belum dipilih'} · kelembapan tanah: {result.observations.soilMoisturePercent ?? '—'} % · EC larutan: {result.observations.liquidEcUsCm ?? '—'} µS/cm</p><p>Hasil evaluasi lama ini hanya rekomendasi; tidak mengirim perintah pompa. Eksekusi pulse memakai sesi EC tanah di atas.</p><ul>{result.decision.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul><p>Waktu evaluasi: {result.siteObservedAt}<br/>Telemetry: {result.telemetryRecordedAt ?? 'Tidak tersedia'}<br/>Status perangkat: {result.deviceRecordedAt ?? 'Tidak tersedia'}</p><details><summary>Respons JSON</summary><pre>{JSON.stringify(result, null, 2)}</pre></details></div>}
+        {result && <div className="ft-result" role="status"><h3>{result.decision.action === 'DELAY' ? 'Ditunda' : 'Rekomendasi tersedia'}</h3><p>HST: {result.hst ?? 'belum tersedia'} · air: {result.decision.targetWaterL ?? '—'} L · stok: {result.decision.targetStockL ?? '—'} L</p><p>Tanaman cocok: {cropProfiles.find(crop => crop.id === result.activeCropId)?.commonName ?? 'Belum cocok / belum dipilih'} · kelembapan tanah: {result.observations.soilMoisturePercent ?? '—'} % · EC larutan: {result.observations.liquidEcUsCm ?? '—'} µS/cm</p><p>Rekomendasi ini tidak menyalakan pompa.</p><ul>{result.decision.reasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul><p>Diperiksa {new Intl.DateTimeFormat('id-ID',{dateStyle:'short',timeStyle:'short',timeZone:'Asia/Jakarta'}).format(new Date(result.siteObservedAt))} WIB</p></div>}
       </details>}
     </div></div>
   </section>

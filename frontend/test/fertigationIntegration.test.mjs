@@ -31,7 +31,7 @@ test('catalog-backed program payload meets the new contract; unbound crops fail'
 test('legacy evaluation exposes observed sensor values and remains advisory', () => {
   assert.match(page, /result.observations.soilMoisturePercent/)
   assert.match(page, /result.observations.liquidEcUsCm/)
-  assert.match(page, /tidak mengirim perintah pompa/)
+  assert.match(page, /tidak menyalakan pompa/)
   assert.match(page, /fertigationLiveDecisionSchema.parse/)
   assert.doesNotMatch(page, /updateActuator|saveAutomaticControl|Resep|resep/)
 })

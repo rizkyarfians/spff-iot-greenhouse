@@ -25,7 +25,7 @@ export function GuidePage(){
   useEffect(()=>{
     let active=true;const controller=new AbortController()
     setStored(null);setError('');setNotice('');setDraft({});setNote('');setEditing(false);setShowOriginal(false);setHistory([])
-    fetchProtocolGuide(crop,controller.signal).then(next=>{if(active){setStored(next);if(next.sourceSha256!==guide.sourceSha256)setError('Sumber panduan berubah. Hubungi admin untuk memeriksa revisi data.')}})
+    fetchProtocolGuide(crop,controller.signal).then(next=>{if(active){setStored(next);if(next.sourceSha256!==guide.sourceSha256)setError('Panduan berubah. Muat ulang atau hubungi pengelola.')}})
       .catch(e=>{if(active)setError(e instanceof Error?e.message:'Gagal memuat perubahan panduan.')})
     return()=>{active=false;controller.abort()}
   },[crop,reload])
@@ -53,7 +53,7 @@ export function GuidePage(){
     saveLock.current=true;setSaving(true);setError('');setNotice('')
     try{
       const next=await saveProtocolGuide(crop,{sourceSha256:guide.sourceSha256,expectedRevision:view.revision,changes:changes.map(([address,value])=>({address,value})),note})
-      setStored(next);setEditing(false);setDraft({});setNote('');setNotice(`Perubahan tersimpan · revisi ${next.revision}.`)
+      setStored(next);setEditing(false);setDraft({});setNote('');setNotice('Perubahan tersimpan.')
     }catch(e){setError(e instanceof Error?e.message:'Perubahan belum tersimpan. Draf tetap tersedia.')}
     finally{saveLock.current=false;setSaving(false)}
   }
@@ -77,8 +77,8 @@ export function GuidePage(){
     </div>
     {error&&<p className="guide-edit-error" role="alert">{error}</p>}
     {notice&&<p className="guide-edit-notice" role="status">{notice}</p>}
-    <p className="guide-version">{showOriginal?'Acuan Excel asli':view?`Versi tersimpan · revisi ${view.revision}${view.updatedBy?` · ${view.updatedBy}`:''}`:error?'Acuan Excel · versi tersimpan belum tersedia':'Memuat versi tersimpan…'}</p>
-    {editing&&<p className="guide-edit-note">Edit sel tabel di bawah. Total kebutuhan belum dihitung ulang otomatis.</p>}
+    <p className="guide-version">{showOriginal?'Panduan asli':!view?'Memuat panduan…':null}</p>
+    {editing&&<p className="guide-edit-note">Edit sel tabel di bawah. Periksa kembali total kebutuhan setelah mengedit.</p>}
 
     <section className="guide-source-card" aria-labelledby="guide-crop-heading">
       <div className="guide-source-heading"><span className="guide-icon" aria-hidden="true"><BookOpen size={23}/></span><div><h2 id="guide-crop-heading">{sheet.sheetName}</h2><p>Informasi lahan dan tanaman</p></div>
@@ -130,6 +130,6 @@ export function GuidePage(){
       </article>)}
       {history.length===20&&<p>Menampilkan 20 revisi terakhir.</p>}
     </details>
-    <details className="guide-source-details"><summary>Sumber data</summary><p>{guide.sourceName}</p><p>Acuan Excel tetap tersimpan. Perubahan tabel disimpan terpisah dengan riwayat revisi.</p></details>
+    <details className="guide-source-details"><summary>Sumber data</summary><p>{guide.sourceName}</p><p>Acuan Excel tetap tersimpan. Riwayat perubahan tetap tersimpan.</p></details>
   </section>
 }

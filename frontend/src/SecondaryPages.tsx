@@ -1,3 +1,4 @@
+import {userFacingMessage} from './userFacingMessage'
 import {ScheduleTimeRange} from './ScheduleTimeRange'
 import {mergeAutomaticDraft} from './automaticDraftState'
 import {isAutomaticControlConfig} from '@spff/contracts'
@@ -2139,7 +2140,7 @@ const datalogDisplayRow = (
 
   const sourceLabel = {
     telemetry:
-      'Telemetry Perangkat',
+      'Data Sensor',
     command_ack:
       'Konfirmasi perintah',
     manual:
@@ -2958,14 +2959,14 @@ function LogsPage({
                           + (
                             logType
                             === 'sensor'
-                              ? ' data telemetry.'
+                              ? ' data sensor.'
                               : ' aktivitas pompa.'
                           )
                         )
                       : (
                           logType
                           === 'sensor'
-                            ? 'Belum ada data telemetry untuk filter ini.'
+                            ? 'Belum ada data sensor untuk filter ini.'
                             : 'Belum ada aktivitas pompa untuk filter ini.'
                         )
                   )
@@ -3229,7 +3230,7 @@ const apiAlarmToRecord = (
   return {
     id: alarm.id,
     title: alarm.title,
-    sensor: alarm.sourceKey,
+    sensor: ({pump_water:'Pompa air',pump_fert:'Pompa pupuk',soil_1_moisture:'Kelembapan Tanah 1',soil_2_moisture:'Kelembapan Tanah 2',soil_1_ec_us_cm:'EC Tanah 1',soil_2_ec_us_cm:'EC Tanah 2',tank_water_level_pct:'Isi tandon air',tank_fert_level_pct:'Isi tandon pupuk',device:'Perangkat',liquid_ph:'pH larutan',liquid_ec_us_cm:'EC larutan',air_temp:'Suhu udara',air_humidity:'Kelembapan udara',flow_water_lpm:'Debit air',flow_fert_lpm:'Debit pupuk'} as Record<string,string>)[alarm.sourceKey]??alarm.sourceKey.replaceAll('_',' '),
     value: measuredValue,
     threshold:
       alarm.thresholdText
@@ -3894,7 +3895,7 @@ function AlarmPage({
 
                     <p>
                       {
-                        selectedAlarm.recommendation
+                        userFacingMessage(selectedAlarm.recommendation)
                       }
                     </p>
                   </div>
