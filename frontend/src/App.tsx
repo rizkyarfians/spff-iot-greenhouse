@@ -1,3 +1,4 @@
+import {dashboardSensorsFor,type DashboardSensorGroup} from './dashboardSensors'
 import {FloatingAiRecommendation} from './FloatingAiRecommendation'
 import {useFertigationProgress} from './useFertigationProgress'
 import { ChartHover } from './ChartHover'
@@ -84,11 +85,6 @@ import { ActuatorSummary } from './ActuatorSummary'
 
 
 type SensorKey = string
-
-
-type DashboardSensorGroup =
-  | 'greenhouse'
-  | 'energy'
 
 
 type SensorData = {
@@ -439,31 +435,6 @@ SensorData[] =
       telemetryFreshness: 'waiting',
     }),
   )
-
-
-const greenhouseDashboardSensorKeys:
-SensorKey[] = [
-  'soil_1_moisture',
-  'soil_1_ec_us_cm',
-  'soil_2_moisture',
-  'soil_2_ec_us_cm',
-  'liquid_ph',
-  'liquid_ec_us_cm',
-  'tank_water_level_pct',
-  'tank_fert_level_pct',
-]
-
-
-const energyDashboardSensorKeys:
-SensorKey[] = [
-  'battery_voltage',
-  'ac_voltage_v',
-  'ac_current_a',
-  'ac_power_w',
-  'ac_energy_kwh',
-  'ac_frequency_hz',
-  'ac_power_factor',
-]
 
 
 const heroSensorKeys:
@@ -1344,7 +1315,11 @@ function App() {
           )
 
 
-        return sensorData.map(
+        const catalog = [...sensorData]
+        for (const definition of backendData?.sensorDefinitions ?? []) {
+          if (!catalog.some(sensor => sensor.key === definition.sensorKey)) catalog.push({key:definition.sensorKey,label:definition.displayName,unit:definition.unit,glyph:'',color:'#299b70',softColor:'#e6f5ef',ideal:definition.groupName,value:null,history:[],telemetryFreshness:'waiting'})
+        }
+        return catalog.map(
           (sensor) => {
             const source =
               apiSensors.get(
@@ -1408,18 +1383,7 @@ function App() {
     ?? mergedSensorData[0]
 
 
-  const dashboardSensors =
-    (
-      dashboardSensorGroup === 'energy'
-        ? energyDashboardSensorKeys
-        : greenhouseDashboardSensorKeys
-    ).map(
-      (key) =>
-        mergedSensorData.find(
-          (sensor) =>
-            sensor.key === key,
-        ) as SensorData,
-    )
+  const dashboardSensors = dashboardSensorsFor(mergedSensorData,dashboardSensorGroup,backendData?.sensorDefinitions??[])
 
 
   const heroSensors =
@@ -2624,21 +2588,22 @@ const soilNpkGroups =
                               )
 
 
-                              setSelectedSensor(
-                                group === 'energy'
-                                  ? energyDashboardSensorKeys[0]
-                                  : greenhouseDashboardSensorKeys[0],
-                              )
-
+                              const first = dashboardSensorsFor(mergedSensorData,group,backendData?.sensorDefinitions??[])[0]
+                              if (first) setSelectedSensor(first.key)
 
                               setChartDate('')
                               setChartHour('')
                             }}
                           >
                             <option value="greenhouse">
-                              Greenhouse
+                              Semua Greenhouse
                             </option>
 
+                            <option value="soil1">Tanah 1</option>
+                            <option value="soil2">Tanah 2</option>
+                            <option value="solution">Larutan &amp; Tandon</option>
+                            <option value="flow">Aliran</option>
+                            <option value="air">Udara</option>
                             <option value="energy">
                               Energi
                             </option>
@@ -2647,6 +2612,7 @@ const soilNpkGroups =
                       </div>
 
 
+                      {!dashboardSensors.length&&<p className="sensor-panel-empty">Tidak ada sensor aktif pada kelompok ini.</p>}
                       {
                         dashboardSensors.map(
                           (sensor) => (

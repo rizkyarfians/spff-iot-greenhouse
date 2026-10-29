@@ -3307,3 +3307,5 @@ and (
    ========================= */
 
 /* Desktop density and container breakpoints are defined in ResponsiveLayout.css. */
+
+.sensor-panel-empty { grid-column:1 / -1; margin:8px 0; color:var(--muted); }
