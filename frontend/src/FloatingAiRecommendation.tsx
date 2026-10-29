@@ -22,19 +22,19 @@ export function FloatingAiRecommendation({deviceId,report,onOpenProgram}:{
  },[open])
  return <div className="ai-floating" ref={root}>
   {open&&<section className="ai-floating-panel" role="dialog" aria-modal="false" aria-labelledby={titleId} id={panelId}>
-   <header className="ai-floating-header"><div><strong id={titleId}>Rekomendasi AI</strong></div>
-    <button type="button" className="ai-floating-close" ref={closeButton} aria-label="Tutup rekomendasi AI" onClick={close}><X size={19} aria-hidden="true"/></button>
+   <header className="ai-floating-header"><div><strong id={titleId}>Kebutuhan tanaman</strong></div>
+    <button type="button" className="ai-floating-close" ref={closeButton} aria-label="Tutup kebutuhan tanaman" onClick={close}><X size={19} aria-hidden="true"/></button>
    </header>
    <AdaptiveRecommendation deviceId={deviceId} report={report} onOpen={()=>{close();onOpenProgram()}}/>
   </section>}
-  <button type="button" className={`ai-floating-trigger${open?' is-open':''}`} ref={trigger} aria-label={open?'Tutup rekomendasi AI':'Buka rekomendasi AI'}
+  <button type="button" className={`ai-floating-trigger${open?' is-open':''}`} ref={trigger} aria-label={open?'Tutup kebutuhan tanaman':'Buka kebutuhan tanaman'}
    aria-expanded={open} aria-controls={open?panelId:undefined} aria-haspopup="dialog" onClick={()=>open?close():setOpen(true)}>
    {open?<X size={26} aria-hidden="true"/>:<svg width="31" height="31" viewBox="0 0 36 36" fill="currentColor" aria-hidden="true">
     <path d="M13 8C15 15 17 17 24 19C17 21 15 23 13 30C11 23 9 21 2 19C9 17 11 15 13 8Z"/>
     <path d="M27 1C28 5 30 7 34 8C30 9 28 11 27 15C26 11 24 9 20 8C24 7 26 5 27 1Z"/>
     <path d="M27 24C28 27 29 28 32 29C29 30 28 31 27 34C26 31 25 30 22 29C25 28 26 27 27 24Z"/>
    </svg>}
-   <span className="ai-floating-tooltip" aria-hidden="true">Rekomendasi AI</span>
+   <span className="ai-floating-tooltip" aria-hidden="true">Kebutuhan tanaman</span>
   </button>
  </div>
 }
