@@ -27,6 +27,16 @@ test('EC profile persistence, exact recipe matching, audit rollback, revision co
   await assert.rejects(ec.saveGuideEcProfile(p.programId,{...input,expectedProgramRevision:99,expectedProfileRevision:1},'admin'),e=>e.status===409)
   const batch=await create({...config,quantity:3000}),batchConversion=(await ec.readGuideEcConversions(batch.programId)).find(a=>a.activityId==='row-10')
   assert.equal(batchConversion.targetEcMsCm,result.targetEcMsCm)
+  // Conversion follows the solution recipe; automation eligibility is independent.
+  const wet=await create();const wetPlan=structuredClone(wet.plan);wetPlan.activities.find(a=>a.id==='row-10').method='Semprot';
+  await query('UPDATE spff.guide_programs SET plan=$1 WHERE program_id=$2',[JSON.stringify(wetPlan),wet.programId]);
+  assert.equal((await ec.readGuideEcConversions(wet.programId)).find(a=>a.activityId==='row-10').targetEcMsCm,result.targetEcMsCm)
+  for(const method of ['Tabur','Tugal']){
+   wetPlan.activities.find(a=>a.id==='row-10').method=method;
+   await query('UPDATE spff.guide_programs SET plan=$1 WHERE program_id=$2',[JSON.stringify(wetPlan),wet.programId]);
+   const dry=(await ec.readGuideEcConversions(wet.programId)).find(a=>a.activityId==='row-10');assert.equal(dry.targetEcMsCm,null);assert.match(dry.reason,/pemberian kering/);
+   await assert.rejects(ec.saveGuideEcProfile(wet.programId,{...input,expectedProfileRevision:1},'admin'),e=>e.status===400)
+  }
   const noWater=await create({...config,waterEcMsCm:undefined});assert.equal((await ec.readGuideEcConversions(noWater.programId)).find(a=>a.activityId==='row-10').targetEcMsCm,null)
   await guide.saveProtocolGuide('terong',{sourceSha256:p.sourceSha256,expectedRevision:0,changes:[{address:'E10',value:'Different product'}],note:'Changed blend'},'admin')
   const changed=await create();assert.equal((await ec.readGuideEcConversions(changed.programId)).find(a=>a.activityId==='row-10').targetEcMsCm,null)

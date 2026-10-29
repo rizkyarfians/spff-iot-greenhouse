@@ -8,10 +8,13 @@ import source from './data/protocolGuide.json'
 import './GuidePrograms.css'
 import {GuideSchedule} from './GuideSchedule'
 import {guideTaskSummary} from './guideSchedule'
+import {GuideEcSettings} from './GuideEcSettings'
+import {useGuideEcConversions} from './useGuideEcConversions'
+import {GuideEcTarget} from './GuideEcTarget'
 import {AutomationMethod} from './AutomationMethod'
 const format=(value:number|null)=>value===null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:3}).format(value)
-const initial=(cropId:string)=>({cropId,plantingDate:'',basis:'plants' as const,quantity:'',deviceId:''})
-type ProgramForm={cropId:string;plantingDate:string;basis:'plants'|'area';quantity:string;deviceId:string}
+const initial=(cropId:string)=>({cropId,plantingDate:'',basis:'plants' as const,quantity:'',deviceId:'',waterEcMsCm:''})
+type ProgramForm={cropId:string;plantingDate:string;basis:'plants'|'area';quantity:string;deviceId:string;waterEcMsCm:string}
 function summary(a:GuideActivity|undefined){return a?`HST ${a.hst??'—'} · ${a.title} · ${a.method} · ${format(a.waterL)} L · ${a.requirements.map(r=>`${r.product}: ${format(r.amount)} ${r.unit} (dosis ${format(r.dose)} ${r.doseUnit}; acuan ${format(r.sourceAmount)} ${r.sourceUnit})`).join('; ')}`:'Tidak ada'}
 export function GuidePrograms({devices}:{devices:ApiDevice[]}){
  const {user}=useAuth(),admin=user.role==='admin',operator=admin||user.role==='operator'
@@ -29,9 +32,10 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
   return()=>clearInterval(timer)
  },[editing])
  async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);setError('');setNotice('');try{await action()}catch(e){setError(e instanceof Error?e.message:'Permintaan gagal.')}finally{lock.current=false;if(mounted.current)setBusy(false)}}
- function config():GuideProgramConfig {const parsed=guideProgramConfigSchema.safeParse({...form,quantity:Number(form.quantity),deviceId:form.deviceId||null});if(!parsed.success)throw new Error('Lengkapi tanggal tanam dan jumlah tanaman/luas yang valid.');return parsed.data}
- function start(program:GuideProgram|null){setSelected(program);setPreview(null);setCompleting(null);setCompletionNote('');setError('');setNotice('');setEditing(true);setForm(program?{...program.config,quantity:String(program.config.quantity),deviceId:program.config.deviceId??''}:initial(source.sheets[0].id))}
+ function config():GuideProgramConfig {const parsed=guideProgramConfigSchema.safeParse({...form,quantity:Number(form.quantity),deviceId:form.deviceId||null,waterEcMsCm:form.waterEcMsCm.trim()===''?undefined:Number(form.waterEcMsCm)});if(!parsed.success)throw new Error('Periksa tanggal tanam, jumlah tanaman/luas, dan EC air baku (0–20 mS/cm).');return parsed.data}
+ function start(program:GuideProgram|null){setSelected(program);setPreview(null);setCompleting(null);setCompletionNote('');setError('');setNotice('');setEditing(true);setForm(program?{...program.config,quantity:String(program.config.quantity),deviceId:program.config.deviceId??'',waterEcMsCm:program.config.waterEcMsCm===undefined?'':String(program.config.waterEcMsCm)}:initial(source.sheets[0].id))}
  async function reload(){const rows=await fetchGuidePrograms();setPrograms(rows);setLoaded(true);if(selected)setSelected(rows.find(p=>p.programId===selected.programId)??null)}
+ const conversions=useGuideEcConversions(editing?null:selected)
  const plan=editing?preview?.plan:selected?.plan
  const activities=plan?.activities??[]
  const taskSummary=selected?guideTaskSummary(selected):null
@@ -61,23 +65,27 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
    <label>Hitung berdasarkan<select value={form.basis} onChange={e=>{setForm({...form,basis:e.target.value as ProgramForm['basis'],quantity:''});setPreview(null)}}><option value="plants">Jumlah tanaman</option><option value="area">Luas lahan</option></select></label>
    <label>{form.basis==='plants'?'Jumlah tanaman':'Luas lahan (m²)'}<input type="number" required min={form.basis==='plants'?1:0.001} max={1e7} step={form.basis==='plants'?1:'any'} value={form.quantity} onChange={e=>{setForm({...form,quantity:e.target.value});setPreview(null)}}/></label>
    <label>Perangkat (opsional)<select value={form.deviceId} onChange={e=>{setForm({...form,deviceId:e.target.value});setPreview(null)}}><option value="">Belum dihubungkan</option>{devices.map(d=><option key={d.deviceId} value={d.deviceId}>{d.displayName}</option>)}</select></label>
+   <label>EC air baku (mS/cm, untuk konversi)<input type="number" min="0" max="20" step="any" value={form.waterEcMsCm} onChange={e=>{setForm({...form,waterEcMsCm:e.target.value});setPreview(null)}} placeholder="Hasil ukur air sebelum diberi pupuk"/></label>
    </fieldset>{preview&&<p className="gp-form-summary">{preview.plan.cropName} · tanam {form.plantingDate} · {format(Number(form.quantity))} {form.basis==='plants'?'tanaman':'m²'}</p>}<div className="gp-actions">{preview&&<button type="button" disabled={busy} onClick={()=>setPreview(null)}>Ubah pengaturan</button>}<button type="button" disabled={busy} onClick={()=>{setEditing(false);setPreview(null);setError('')}}>Batal</button><button className="gp-primary" disabled={busy} hidden={!!preview} type="submit">{busy?'Menghitung…':'Hitung & periksa kebutuhan'}</button></div>
    {preview&&<div className="gp-review"><p>{preview.plan.activities.length} kegiatan. Periksa kebutuhan sebelum menyimpan.</p>{selected&&<><p>Periksa ulang kegiatan yang berubah.</p><details><summary>{changed.length} kegiatan berubah · lihat perbandingan</summary>{changed.map(item=><section key={item.id} className="gp-diff"><strong>{item.after?.title??item.before?.title}</strong><p>Sebelum: {summary(item.before)}</p><p>Sesudah: {summary(item.after)}</p></section>)}</details>{selected.config.plantingDate!==form.plantingDate&&<p>Tanggal tanam berubah: {selected.config.plantingDate} → {form.plantingDate}. Catatan selesai lama tetap ada dalam riwayat.</p>}</>}<button className="gp-primary" type="button" disabled={busy} onClick={()=>void run(async()=>{const saved=await saveGuideProgram({config:config(),sourceSha256:preview.sourceSha256,guideRevision:preview.guideRevision},selected??undefined);setPrograms(rows=>[saved,...rows.filter(p=>p.programId!==saved.programId)]);setSelected(saved);setEditing(false);setPreview(null);setLoaded(true);setNotice('Program tersimpan.')} )}><Check size={18}/>Simpan program ini</button></div>}
   </form>}
   {!editing&&selected?.sourceChanged&&<div className="gp-warning"><strong>Panduan diperbarui</strong>{admin&&<button disabled={busy} onClick={()=>start(selected)}>Tinjau perubahan</button>}</div>}
+  {!editing&&conversions.error&&<p className="gp-error" role="alert">{conversions.error}<button type="button" onClick={conversions.refresh}>Muat ulang target EC</button></p>}
   {plan&&<>
    {!editing&&<div className="gp-view-tabs" role="group" aria-label="Tampilan kegiatan"><button type="button" aria-pressed={filter==='pending'} onClick={()=>setFilter('pending')}>Perlu dikerjakan ({pending})</button><button type="button" aria-pressed={filter==='all'} onClick={()=>setFilter('all')}>Semua kegiatan</button><button type="button" aria-pressed={filter==='schedule'} onClick={()=>setFilter('schedule')}><CalendarDays size={18}/>Jadwal</button></div>}
-   {!editing&&filter==='schedule'&&selected?<GuideSchedule key={`${selected.programId}:${selected.config.plantingDate}`} program={selected}/>:<div className={`gp-work-layout${editing?' is-editing':''}`}>
+   {!editing&&filter==='schedule'&&selected?<GuideSchedule key={`${selected.programId}:${selected.config.plantingDate}`} program={selected} conversions={conversions.rows}/>:<div className={`gp-work-layout${editing?' is-editing':''}`}>
     <section className="gp-task-list" aria-label="Kegiatan tanaman">
      <h3>{editing?'Periksa kebutuhan':filter==='pending'?`${pending} kegiatan perlu dikerjakan`:'Semua kegiatan'}</h3>
      {!visible.length&&<div className="gp-panel"><h4>{filter==='pending'?'Tidak ada tugas tertunda':'Belum ada kegiatan'}</h4>{next&&<p>Berikutnya: HST {next.hst} · {next.title}</p>}</div>}
      {paged.map(a=><article className="gp-panel gp-task" key={a.id}>
       <div className="gp-task-heading"><span className="gp-task-hst">HST<strong>{a.hst??'—'}</strong></span><div><h4>{a.title}</h4><small>{a.method}</small><AutomationMethod method={a.method}/></div>{!editing&&<span className={`gp-status${selected?.completedActivityIds.includes(a.id)?' is-done':''}`}>{status(a)}</span>}</div>
+      {!editing&&<GuideEcTarget activity={a} conversion={conversions.rows.find(c=>c.activityId===a.id)} error={conversions.error}/>}
       <div className="gp-task-main"><ul className="gp-task-targets">{a.requirements.map(r=><li key={r.row}><span>{r.product}</span><strong>{format(r.amount)} {r.unit}</strong></li>)}{!a.requirements.length&&<li>Kebutuhan belum tersedia</li>}{a.waterL!==null&&<li className="gp-task-water"><span>Larutan akhir</span><strong>{format(a.waterL)} L</strong></li>}</ul>
        <div className="gp-task-actions">{!editing&&operator&&selected&&a.hst!==null&&a.hst<=selected.hst&&!selected.completedActivityIds.includes(a.id)&&<button className="gp-primary" disabled={busy} onClick={()=>{setCompleting(completing===a.id?null:a.id);setCompletionNote('')}}><Check size={18}/>Tandai selesai</button>}
         <button type="button" aria-expanded={openActivity===a.id} aria-controls={`gp-body-${a.id}`} onClick={()=>setOpenActivity(openActivity===a.id?null:a.id)}>Detail<ChevronDown size={18}/></button>
        </div>
       </div>
+      {!editing&&admin&&selected&&<GuideEcSettings key={`${selected.programId}:${a.id}`} program={selected} activity={a} conversion={conversions.rows.find(c=>c.activityId===a.id)} onSaved={conversions.refresh} onWater={()=>start(selected)}/>}
       {completing===a.id&&selected&&<div className="gp-complete"><p>Sudah dilakukan sesuai kebutuhan di atas?</p><label>Catatan (opsional)<input maxLength={500} value={completionNote} onChange={e=>setCompletionNote(e.target.value)}/></label><div className="gp-actions"><button disabled={busy} onClick={()=>setCompleting(null)}>Batal</button><button className="gp-primary" disabled={busy} onClick={()=>void run(async()=>{await completeGuideProgram(selected,a.id,completionNote);await reload();setCompleting(null);setCompletionNote('');setNotice('Kegiatan tercatat selesai.')} )}>Ya, catat selesai</button></div></div>}
       <div id={`gp-body-${a.id}`} hidden={openActivity!==a.id} className="gp-task-detail">{a.warnings.map(w=><p className="gp-warning" key={w}>{w}</p>)}{a.requirements.map(r=><section key={r.row}><strong>{r.product}</strong><p>Dosis {format(r.dose)} {r.doseUnit} · acuan {format(r.sourceAmount)} {r.sourceUnit}</p>{r.warnings.map(w=><p className="gp-warning" key={w}>{w}</p>)}</section>)}</div>
      </article>)}

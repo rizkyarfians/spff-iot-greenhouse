@@ -1,0 +1,14 @@
+.gp-ec-target { display:flex; align-items:baseline; flex-wrap:wrap; gap:8px; padding:10px 12px; border-radius:8px; background:#eff6f1; margin:12px 0; font-size:14px; }
+.gp-ec-target strong { color:#176343; font-size:20px; }
+.gp-ec-target small { color:#526b5b; }
+.gp-ec-target.is-dry { background:#f2f4f5; color:#526b5b; }
+.gp-ec-target.is-blocked { background:#fff7df; color:#775521; }
+.gp-ec-settings { margin-top:12px; }
+.gp-ec-editor { padding:16px; margin-top:12px; border:1px solid #d4e2d9; border-radius:10px; }
+.gp-ec-editor fieldset { border:0; margin:16px 0; padding:0; display:grid; gap:14px; min-width:0; }
+.gp-ec-point { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px; gap:8px; align-items:center; font-size:13px; }
+.gp-ec-point input { width:100%; min-width:0; }
+.gp-page .gp-ec-point button { padding:8px; }
+.gp-page .gp-ec-verify { display:flex; align-items:flex-start; font-size:14px; font-weight:400; }
+.gp-page .gp-ec-verify input { width:20px; height:20px; min-height:20px; flex-shrink:0; margin-top:2px; }
+@media(max-width:600px){.gp-ec-editor{padding:10px}.gp-ec-point{gap:5px;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px}}

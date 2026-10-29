@@ -10,6 +10,7 @@ export async function readGuideEcConversions(id:string,database:Pick<typeof pool
   const recipe=guideEcRecipe(activity),recipeKey=recipe?keyFor(recipe.key):null,row=profiles.find(profile=>profile.recipe_key===recipeKey);
   const profile:GuideEcProfile|null=row?{...row.profile,recipeKey,revision:row.revision,updatedBy:row.updated_by,updatedAt:row.updated_at.toISOString()}:null;
   const base:GuideEcConversion={activityId:activity.id,status:'blocked',reason:'Resep/volume/satuan belum valid untuk konversi.',recipeKey,concentrationGPerL:recipe?.concentrationGPerL??null,targetEcMsCm:null,profile,automaticExecutionEnabled:false};
+  if(['tabur','tugal'].includes(activity.method.trim().toLowerCase()))return {...base,reason:'EC tidak berlaku untuk pemberian kering.',targetEcMsCm:null};
   if(!recipe)return base;
   if(!profile)return {...base,reason:'Profil konversi untuk campuran ini belum tersedia.'};
   const water=(p.config as GuideProgramConfig).waterEcMsCm;
@@ -27,6 +28,7 @@ export async function saveGuideEcProfile(id:string,input:GuideEcProfileInput,act
   if(!p)fail(404,'Program tidak ditemukan.');
   if(p.revision!==input.expectedProgramRevision)fail(409,'Program berubah. Muat ulang sebelum menyimpan profil.');
   const activity=(p.plan.activities as GuideActivity[]).find(a=>a.id===input.activityId),recipe=activity?guideEcRecipe(activity):null;
+  if(activity&&['tabur','tugal'].includes(activity.method.trim().toLowerCase()))return fail(400,'EC tidak berlaku untuk pemberian kering.');
   if(!recipe)return fail(400,'Resep tidak dapat dikonversi. Periksa massa pupuk, satuan dan volume larutan.');
   const recipeKey=keyFor(recipe.key);
   // Serialize first inserts and subsequent edits for this exact site + recipe.

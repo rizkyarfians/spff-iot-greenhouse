@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react'
 import type {FertigationProgress,GuideEcConversion,GuideProgram} from '@spff/contracts'
 import {fetchGuidePrograms,fetchGuideEcConversions,fetchAdaptiveProgress,type AdaptiveProgressReport} from './api'
+import {GuideEcTarget} from './GuideEcTarget'
 import {AutomationMethod} from './AutomationMethod'
 import './AdaptiveRecommendation.css'
 const fmt=(v:number|null|undefined)=>v==null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(v)
@@ -63,12 +64,13 @@ export function AdaptiveRecommendation({deviceId,report,onOpen}:{deviceId:string
       <span className="ar-activity-method">{item.method}{!supported?' · Dikerjakan petani':''}</span>
       <span className="ar-activity-target">{item.requirements.length?item.requirements.map(r=>`${r.product}: ${fmt(r.amount)} ${r.unit}`).join(' · '):'Kebutuhan belum tersedia'}</span>
       {item.waterL!==null&&<span>Larutan akhir: {fmt(item.waterL)} L</span>}
-      <span>Target EC: {converted?.status==='ready'?`${fmt((converted.targetEcMsCm??0)*1000)} µS/cm`:supported?'Target EC belum tersedia':'—'}</span>
+      <GuideEcTarget activity={item} conversion={converted}/>
       {supported&&doses?.targetMassG!=null&&doses.targetMassG>0&&<span className="ar-activity-dose">{fmt(doses.estimatedDeliveredMassG/1000)} / {fmt(doses.targetMassG/1000)} kg tersalurkan (estimasi)<progress aria-label={`Progres pupuk ${item.title} HST ${item.hst}`} max={doses.targetMassG} value={Math.max(0,Math.min(doses.targetMassG,doses.estimatedDeliveredMassG))}/></span>}
      </button>
     })}</div>
    </section>
    <div className="ar-status"><AutomationMethod method={a?.method??''}/><strong>{status}</strong></div>
+   {a&&!kocor&&<GuideEcTarget activity={a} conversion={conversion}/>}
    {kocor?<><div className="ar-grid">
     <section><h3>EC campuran</h3><strong>{fmt(currentEc)} <small>µS/cm</small></strong><p>Target konversi: {fmt(target)} µS/cm</p><RecommendationBar value={currentEc} target={target} label="EC dibanding target" missing={target===null?'Menunggu hasil konversi':'Menunggu sensor valid'}/>{currentEc!==null&&target!==null&&currentEc>target&&<small className="ar-above">Di atas target {fmt(currentEc-target)} µS/cm</small>}</section>
     <section><h3>Kebutuhan panduan</h3><strong>{fmt(progress?.targetMassG==null?null:progress.targetMassG/1000)} <small>kg pupuk</small></strong><p>{fmt(a?.waterL)} L larutan akhir</p></section>
