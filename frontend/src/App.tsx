@@ -2597,9 +2597,7 @@ const soilNpkGroups =
                           >
                             <option value="soil1">Tanah 1</option>
                             <option value="soil2">Tanah 2</option>
-                            <option value="solution">Larutan &amp; Tandon</option>
-                            <option value="flow">Aliran</option>
-                            <option value="air">Udara</option>
+                            <option value="environment">Air &amp; Lingkungan</option>
                             <option value="energy">
                               Energi
                             </option>
