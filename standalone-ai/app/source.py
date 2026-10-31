@@ -8,7 +8,7 @@ from uuid import uuid4
 from .guide_programs import read_guide_programs
 
 REQUIRED = {
-    "telemetry_samples": {"telemetry_id", "site_id", "device_id", "message_id", "recorded_at", "sensor_health",
+    "telemetry_samples": {"telemetry_id", "site_id", "device_id", "message_id", "recorded_at", "received_at", "sensor_health",
                           "soil_1_moisture", "tank_water_level_pct", "tank_fert_level_pct",
                           "flow_water_total_l", "flow_fert_total_l"},
     "fertigation_recipes": {"site_id", "recipe_id", "planting_date", "application_date", "application_mode",
@@ -51,7 +51,17 @@ class SPFFSource:
             if missing:
                 return {"schema_compatible": False, "missing": missing, "can_dispatch": False}
             args = (self.site_id, self.device_id)
-            telemetry = connection.execute("SELECT * FROM spff.telemetry_samples WHERE site_id=%s AND device_id=%s ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 1", args).fetchone()
+            # Reject poisoned future sensor clocks (e.g. the 2085 record). Source
+            # freshness/maximum age is still enforced by LiveEngine using the
+            # active runtime planning profile; never invent a fresh reading.
+            telemetry = connection.execute(
+                "SELECT * FROM spff.telemetry_samples "
+                "WHERE site_id=%s AND device_id=%s "
+                "AND recorded_at <= received_at + INTERVAL '5 seconds' "
+                "AND received_at <= NOW() + INTERVAL '5 seconds' "
+                "AND recorded_at <= NOW() + INTERVAL '5 seconds' "
+                "ORDER BY recorded_at DESC, telemetry_id DESC LIMIT 1", args
+            ).fetchone()
             status = connection.execute("SELECT * FROM spff.device_status_events WHERE site_id=%s AND device_id=%s ORDER BY recorded_at DESC,device_status_id DESC LIMIT 1", args).fetchone()
             control = connection.execute("SELECT * FROM spff.device_automatic_control_configs WHERE site_id=%s AND device_id=%s", args).fetchone()
             programs = connection.execute("SELECT r.* FROM spff.fertigation_recipes r JOIN spff.site_crop_selections c ON r.site_id=c.site_id AND r.zone_id=c.zone_id AND r.crop_id=c.crop_id WHERE r.site_id=%s AND r.zone_id=%s AND r.approval_status='approved' ORDER BY r.created_at", (self.site_id, self.zone_id)).fetchall()
