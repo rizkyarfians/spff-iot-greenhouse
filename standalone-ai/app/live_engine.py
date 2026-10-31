@@ -252,7 +252,9 @@ class LiveEngine:
                 else:
                     fuzzy = fuzzy_volume(sample[ckey], config)
                     proposal = "IRRIGATE" if fuzzy["water_l"] else "OFF"
-                if quality_ok and water_ok:
+                # An OFF recommendation is not a zero-volume irrigation plan.
+                # Only a trusted positive demand may produce a water plan.
+                if quality_ok and water_ok and proposal == "IRRIGATE":
                     budget = max(0, tank_liters(sample["tank_water_level_pct"], config.water_curve)-tank_liters(config.water_level_stop_threshold, config.water_curve)-config.minimum_flush_reserve)
                     volume = min(fuzzy["water_l"], budget, config.max_session_water_l, config.water_flow_lpm*config.max_session_seconds/60)
                     plan = {"water_l": volume, "stock_l": 0, "mass_g": 0, "duration_seconds": volume/config.water_flow_lpm*60}
