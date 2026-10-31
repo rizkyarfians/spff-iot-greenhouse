@@ -99,6 +99,18 @@ def create_app(settings=None, config=None, store=None):
     def decisions(limit: int = Query(default=30, ge=1, le=200)):
         return list(store.read()["decisions"].values())[-limit:][::-1]
 
+    @app.get("/obligations")
+    def obligations():
+        return list(store.read().get("live", {}).get("obligations", {}).values())
+
+    @app.get("/live/state")
+    def live_state():
+        state = store.read().get("live", {})
+        return {"mode": settings.mode, "can_dispatch": False, "obligations": state.get("obligations", {}),
+                "sessions": state.get("sessions", {}), "ema": state.get("ema", {}),
+                "decision_count": len(state.get("decisions", {})),
+                "ec_target_required_for_scheduling": False}
+
     @app.get("/simulations")
     def scenarios():
         return SCENARIOS

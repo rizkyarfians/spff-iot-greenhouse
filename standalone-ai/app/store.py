@@ -83,3 +83,13 @@ class PostgresStore:
 
     def close(self):
         pass
+
+    def runtime_profile(self):
+        import psycopg
+        with psycopg.connect(self.dsn, connect_timeout=5) as connection:
+            connection.execute("SET TRANSACTION READ ONLY")
+            row = connection.execute("SELECT to_regclass('spff_ai.runtime_profiles')").fetchone()
+            if row[0] is None:
+                return None
+            row = connection.execute("SELECT profile FROM spff_ai.runtime_profiles WHERE scope=%s", (self.scope,)).fetchone()
+            return row[0] if row else None

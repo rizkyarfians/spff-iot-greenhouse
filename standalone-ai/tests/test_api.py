@@ -20,6 +20,8 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/health").json()["mode"], "SHADOW_MODE")
         self.assertEqual(self.client.get("/ready").status_code, 200)
         self.assertFalse(self.client.get("/ready").json()["hardware_ready"])
+        self.assertEqual(self.client.get("/obligations").json(), [])
+        self.assertFalse(self.client.get("/live/state").json()["ec_target_required_for_scheduling"])
 
     def test_config_has_no_credentials(self):
         self.assertNotIn("dsn", self.client.get("/config").text.lower())

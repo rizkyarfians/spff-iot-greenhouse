@@ -90,3 +90,13 @@ Seluruh **70 tes lolos** pada CPython 3.10.11 Windows dengan PostgreSQL disposab
 Empat regresi baru memeriksa rute Tabur/Semprot, identitas/dosis tetap, kategori
 produk, default tanpa override, dan penolakan konfigurasi rute tidak dikenal.
 Verifikasi di Orange setelah pemasangan opsi baru masih perlu dilakukan.
+
+
+## Live-source Python scheduling tanpa syarat target EC
+
+93 tes lolos pada CPython 3.10.11 Windows dan PostgreSQL 18 disposable.
+Scheduler di /source/evaluate serta polling sekarang membuat kewajiban dari
+program web, menjaga histori/revisi/manual completion dan memprioritaskan
+pemupukan sebelum Mamdani. State/profile PostgreSQL, restart/idempotence,
+feedback terikat sesi, mass balance dan EMA debit diuji. Eksekusi pompa/auto-resume
+fisik tetap belum tersedia; lihat docs/live-shadow.md untuk batas dan deployment.

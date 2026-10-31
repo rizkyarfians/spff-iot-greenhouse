@@ -19,6 +19,7 @@ class PostgresTests(unittest.TestCase):
             if existing is not None:
                 raise RuntimeError("integration tests require a disposable database without schema spff")
             connection.execute((Path(__file__).resolve().parents[1] / "migrations/001_ai_state.sql").read_text())
+            connection.execute((Path(__file__).resolve().parents[1] / "migrations/002_runtime_profiles.sql").read_text())
 
     def test_migration_transaction_persistence_and_rollback(self):
         scope = "test/" + str(uuid4())
@@ -60,3 +61,22 @@ class PostgresTests(unittest.TestCase):
         audit = source.inspect()
         self.assertFalse(audit["schema_compatible"])
         self.assertFalse(audit["can_dispatch"])
+
+    def test_live_obligations_and_runtime_profile_persist_in_postgres(self):
+        import psycopg
+        from psycopg.types.json import Jsonb
+        from datetime import datetime, timezone
+        from app.live_engine import LiveEngine
+        from test_live_engine import real_observation, calibrated_profile
+        scope = "test/" + str(uuid4())
+        store = PostgresStore(self.dsn, scope)
+        profile = calibrated_profile()
+        with psycopg.connect(self.dsn) as connection:
+            connection.execute("INSERT INTO spff_ai.runtime_profiles(scope,version,profile,updated_by) VALUES (%s,%s,%s,'test')", (scope, profile.version, Jsonb(profile.model_dump(mode="json"))))
+        self.assertEqual(store.runtime_profile()["version"], profile.version)
+        now = datetime(2026, 10, 28, 1, tzinfo=timezone.utc)
+        result = LiveEngine(store, "s", "d", "z").evaluate(real_observation(now), profile, now)
+        restarted = PostgresStore(self.dsn, scope)
+        duplicate = LiveEngine(restarted, "s", "d", "z").evaluate(real_observation(now), profile, now)
+        self.assertEqual(result["decision_id"], duplicate["decision_id"])
+        self.assertEqual(len(restarted.read()["live"]["obligations"]), 1)

@@ -61,23 +61,42 @@ class SPFFSource:
                 telemetry.pop("raw_payload", None)
             if status:
                 status.pop("raw_payload", None)
+            relation = connection.execute("SELECT to_regclass('spff.adaptive_fert_events') AS relation").fetchone()["relation"]
+            adaptive = None
+            adaptive_access = "missing_relation"
+            if relation:
+                allowed = connection.execute("SELECT has_table_privilege(current_user,'spff.adaptive_fert_events','SELECT') AS allowed").fetchone()["allowed"]
+                adaptive_access = "available" if allowed else "select_permission_required"
+                if allowed:
+                    adaptive = connection.execute("SELECT message_id,payload,received_at FROM spff.adaptive_fert_events WHERE site_id=%s AND device_id=%s AND payload->>'kind'='adaptive_fert_telemetry' ORDER BY received_at DESC,stored_at DESC LIMIT 1", args).fetchone()
             return {"schema_compatible": True, "telemetry": telemetry, "device_status": status,
                     "automatic_control": control, "approved_programs": programs, "recent_sessions": sessions,
                     "guide_programs": read_guide_programs(connection, self.site_id, self.device_id, self.zone_id,
                                                          fertilizer_delivery_route=self.fertilizer_delivery_route),
+                    "execution_evidence": {"status": adaptive_access, "latest_adaptive": adaptive},
                     "can_dispatch": False, "blocking_reason": "volume_session_and_safety_contract_not_verified"}
 
     def record_shadow(self, store):
-        observation = self.inspect()
-        decision = {"decision_id": str(uuid4()), "type": "HOLD", "mode": "SHADOW_MODE",
-                    "at": datetime.now(timezone.utc).isoformat(), "can_dispatch": False,
-                    "dispatch_status": "NOT_DISPATCHED", "simulation": False,
-                    "reason": observation.get("blocking_reason", "source_schema_incompatible"),
-                    "source_observation": observation}
-        # Normalize datetime/UUID/Decimal to JSON without ever recording the DSN.
+        from .live_engine import LiveEngine, LiveProfile
         import json
-        decision = json.loads(json.dumps(decision, default=str, allow_nan=False))
-        with store.transaction() as state:
-            state["decisions"][decision["decision_id"]] = decision
-            state["current_decision_id"] = decision["decision_id"]
-        return decision
+        observation = self.inspect()
+        observation = json.loads(json.dumps(observation, default=str, allow_nan=False))
+        self.process_bound_feedback(store)
+        raw_profile = store.runtime_profile() if hasattr(store, "runtime_profile") else None
+        profile = LiveProfile.model_validate(raw_profile) if raw_profile else None
+        return LiveEngine(store, self.site_id, self.device_id, self.zone_id).evaluate(observation, profile)
+
+    def process_bound_feedback(self, store):
+        """Only DB-origin events explicitly bound by a dispatcher may debit a dose."""
+        sessions = store.read().get("live", {}).get("sessions", {})
+        if not sessions:
+            return
+        import psycopg
+        from psycopg.rows import dict_row
+        from .live_feedback import process_feedback
+        with psycopg.connect(self.dsn, connect_timeout=5, row_factory=dict_row) as connection:
+            connection.execute("SET TRANSACTION READ ONLY")
+            connection.execute("SET LOCAL statement_timeout='5s'")
+            rows = connection.execute("SELECT message_id,payload FROM spff.adaptive_fert_events WHERE site_id=%s AND device_id=%s AND payload->>'kind'='adaptive_fert_telemetry' AND payload->>'sessionId'=ANY(%s) AND NOT(message_id=ANY(%s)) ORDER BY received_at,stored_at,message_id LIMIT 1000", (self.site_id, self.device_id, list(sessions), list(store.read().get("live", {}).get("feedback", {})))).fetchall()
+        for event in rows:
+            process_feedback(store, event, datetime.now(timezone.utc))

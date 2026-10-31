@@ -25,6 +25,15 @@ Tidak perlu menyalakan backend Node, MQTT, atau ESP32 untuk mencoba simulasi.
 .\.venv\Scripts\python.exe scripts/verify_postgres.py
 ```
 
+## Pembaruan engine real-source
+
+`POST /source/evaluate` dan polling shadow sekarang menjalankan scheduler Python
+dengan kewajiban per produk dari program Panduan. Target konversi EC tidak menjadi
+syarat penjadwalan. Ledger dan profil konfigurasi bisa dipersist di PostgreSQL
+`spff_ai`; endpoint `/obligations` dan `/live/state` memperlihatkan progres.
+Lihat [panduan live shadow](docs/live-shadow.md) untuk update Orange, 93 tes yang
+lolos, serta batas yang masih belum diimplementasikan pada eksekutor hardware.
+
 ## Yang tersedia
 
 - Fuzzy Mamdani: trapezoid configurable, MIN, MAX, centroid numerik → liter air.
@@ -76,7 +85,8 @@ Untuk state PostgreSQL, migrator menerapkan `migrations/001_ai_state.sql` pada d
 yang dituju, kemudian isi `AI_STATE_DSN` dengan role khusus AI. Tidak ada migrasi otomatis
 saat startup. Gunakan hak akses yang dicatat di migration. `AI_POLL_ENABLED=true`
 memerlukan kedua DSN dan SHADOW_MODE; interval default 10 detik. Polling saat ini
-menyimpan keputusan HOLD kompatibilitas, belum mengeksekusi perencanaan real-data.
+menjalankan kewajiban dan proposal dari sumber nyata; seluruh hasil tetap
+SHADOW_MODE dan tidak membuat command aktuator.
 
 ## Kebijakan yang eksplisit
 
