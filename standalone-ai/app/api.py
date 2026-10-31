@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -97,7 +98,20 @@ def create_app(settings=None, config=None, store=None):
 
     @app.get("/decisions")
     def decisions(limit: int = Query(default=30, ge=1, le=200)):
-        return list(store.read()["decisions"].values())[-limit:][::-1]
+        # PostgreSQL JSONB objects do not preserve insertion order. Sort by
+        # explicit UTC timestamps instead of relying on dict ordering.
+        def order_key(decision):
+            try:
+                observed = datetime.fromisoformat(str(decision.get("at", "")).replace("Z", "+00:00"))
+                if observed.tzinfo is None:
+                    observed = datetime.min.replace(tzinfo=timezone.utc)
+                else:
+                    observed = observed.astimezone(timezone.utc)
+            except (ValueError, TypeError, OverflowError):
+                observed = datetime.min.replace(tzinfo=timezone.utc)
+            return (observed, str(decision.get("decision_id") or ""))
+
+        return sorted(store.read()["decisions"].values(), key=order_key, reverse=True)[:limit]
 
     @app.get("/obligations")
     def obligations():
