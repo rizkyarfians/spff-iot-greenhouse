@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from .calculations import fuzzy_volume, plan_fertigation, tank_liters
 from .quality import check_soil_control_quality
+from .adaptive_feedback import assess_adaptive_feedback
 from .engine import digest, timestamp
 from .models import Config, Model
 from pydantic import Field, model_validator
@@ -181,15 +182,10 @@ class LiveEngine:
             reasons.append("control_mode_not_acknowledged")
         if any(s["status"] in ("RUNNING", "REQUIRES_REVIEW") for s in state["sessions"].values()):
             reasons.append("previous_session_needs_completion_or_reconciliation")
-        frame = evidence.get("latest_adaptive")
-        if not frame:
-            reasons.append("execution_feedback_unavailable")
-        else:
-            payload = frame.get("payload", {})
-            if not fresh(payload.get("timestamp"), now, 25) or not fresh(frame.get("received_at"), now, 25):
-                reasons.append("execution_feedback_stale")
-            if payload.get("state") not in ("IDLE", "COMPLETED") or payload.get("waterPumpKnown") is not True or payload.get("fertPumpKnown") is not True or payload.get("waterPump") is not False or payload.get("fertPump") is not False:
-                reasons.append("device_busy_faulted_or_pumps_not_verified_off")
+        feedback = assess_adaptive_feedback(evidence.get("latest_adaptive"), device, now)
+        reasons.extend(feedback["hold_reasons"])
+        if evidence.get("status") not in (None, "available"):
+            reasons.append("execution_feedback_source_" + str(evidence["status"]))
         # Current MCU protocol retains its own EC controller and uses legacy
         # Manual for external sessions. Never silently bypass the prompt's Manual gate.
         reasons.append("firmware_external_volume_only_authority_not_implemented")
@@ -276,7 +272,8 @@ class LiveEngine:
                 "priority_obligation_id": active[0]["obligation_id"] if active else None,
                 "obligations": summary, "plan": plan, "fuzzy": fuzzy,
                 "configuration_version": profile.version if profile else None,
-                "input_snapshot": observation, "ec_target_required_for_scheduling": False}
+                "input_snapshot": observation, "ec_target_required_for_scheduling": False,
+                "pump_feedback": feedback}
         key = digest(core)
         if key in state["decisions"]:
             return state["decisions"][key]
