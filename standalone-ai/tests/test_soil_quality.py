@@ -14,7 +14,11 @@ class SoilQualityTests(unittest.TestCase):
             "message_id": f"telemetry-{n}",
             "recorded_at": (self.start + timedelta(seconds=30*n)).isoformat(),
             "soil_1_moisture": moisture,
-            "sensor_health": {"soil_1_moisture": {"valid": True, **health}},
+            "sensor_health": {"soil_1_moisture": {
+                "valid": True, "raw": round(moisture * 10), "rawAgeMs": 1000,
+                "rawFresh": True, "lastPollOk": True, "pollBootId": "boot-1",
+                **health,
+            }},
         }
 
     def check(self, n, moisture, **health):
@@ -51,6 +55,21 @@ class SoilQualityTests(unittest.TestCase):
         self.assertFalse(self.check(0, 0)[0])
         self.assertFalse(self.check(1, 0)[0])
         self.assertTrue(self.check(2, 0)[0])
+
+    def test_cached_value_in_new_telemetry_does_not_confirm_zero(self):
+        self.check(0, 58.6)
+        self.assertFalse(self.check(1, 0)[0])
+        # A telemetry packet 30 seconds later carries the identical Modbus
+        # sample age+30s; this MUST NOT count as a second confirmation.
+        self.assertEqual(self.check(2, 0, rawAgeMs=31000),
+                         (False, "soil_moisture_cached_measurement"))
+        self.assertEqual(self.state["moisture_quality"]["soil_1_moisture"]["candidate"]["count"], 1)
+
+    def test_missing_sensor_diagnostics_stay_hold(self):
+        self.assertEqual(self.check(0, 58, pollBootId=None)[1],
+                         "soil_moisture_diagnostics_missing_or_failed")
+        self.assertEqual(self.check(1, 58, rawFresh=None)[1],
+                         "soil_moisture_diagnostics_missing_or_failed")
 
     def test_failed_poll_and_explicit_control_invalid_are_blocked(self):
         self.check(0, 58.6)
