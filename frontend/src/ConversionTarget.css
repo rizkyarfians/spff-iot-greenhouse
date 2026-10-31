@@ -1,0 +1,10 @@
+.conversion-target{margin:14px 0;padding:14px;border:1px solid #c7ddce;border-radius:10px;background:#f1f8f3;color:#193d2c;overflow-wrap:anywhere}
+.conversion-target h3{margin:0 0 4px;font-size:14px}
+.conversion-target .conversion-target-activity{margin:0 0 12px;color:#52685b;font-size:12px}
+.conversion-target-value{font-size:28px;line-height:1.25;font-variant-numeric:tabular-nums}
+.conversion-target-value small{font-size:14px;font-weight:400}
+.conversion-target .conversion-target-secondary{margin:4px 0 12px;font-size:13px}
+.conversion-target dl{display:grid;gap:8px;margin:12px 0;font-size:12px}
+.conversion-target dl>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px}
+.conversion-target dt{color:#52685b}.conversion-target dd{margin:0;font-weight:700}
+.conversion-target .conversion-target-note,.conversion-target .conversion-target-reason{font-size:12px;margin-bottom:0}

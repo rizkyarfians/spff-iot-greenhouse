@@ -4,6 +4,7 @@ import {fetchGuidePrograms,fetchGuideEcConversions,fetchAdaptiveProgress,type Ad
 import {automaticGuideActivities,supportsFertigationAutomation} from './fertigationSupport'
 import {GuideEcTarget} from './GuideEcTarget'
 import {AutomationMethod} from './AutomationMethod'
+import {ConversionTarget} from './ConversionTarget'
 import './AdaptiveRecommendation.css'
 const fmt=(v:number|null|undefined)=>v==null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(v)
 function RecommendationBar({value,target,label,missing}:{value:number|null|undefined;target:number|null|undefined;label:string;missing:string}){
@@ -71,6 +72,7 @@ export function AdaptiveRecommendation({deviceId,report,onOpen}:{deviceId:string
      </button>
     })}</div>
    </section>
+   {a&&<ConversionTarget programId={p.programId} activityId={a.id} title={`${a.title} · HST ${a.hst??'—'}`} waterEcMsCm={p.config.waterEcMsCm}/>}
    <div className="ar-status"><AutomationMethod method={a?.method??''}/><strong>{status}</strong></div>
    {kocor?<><div className="ar-grid">
     <section><h3>EC campuran</h3><strong>{fmt(currentEc)} <small>µS/cm</small></strong><p>Target konversi: {fmt(target)} µS/cm</p><RecommendationBar value={currentEc} target={target} label="EC dibanding target" missing={target===null?'Menunggu hasil konversi':'Menunggu sensor valid'}/>{currentEc!==null&&target!==null&&currentEc>target&&<small className="ar-above">Di atas target {fmt(currentEc-target)} µS/cm</small>}</section>
