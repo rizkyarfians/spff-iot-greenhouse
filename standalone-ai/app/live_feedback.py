@@ -80,7 +80,8 @@ def process_feedback(store, event, now):
             review_reason = accept_delivery(
                 state, session["obligation_id"], payload["sessionId"], event_id,
                 obligation, stock_l=delta_stock, mass_g=mass_g,
-                concentration_g_l=concentration, counter_status=counter_status
+                concentration_g_l=concentration, counter_status=counter_status,
+                tolerance_g=tolerance
             )
         if not valid or not safe_terminal or counter_status == "INVALID" or review_reason:
             session["status"] = obligation["status"] = "REQUIRES_REVIEW"
