@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="id"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPFF AI Engine</title>
+<style>
+:root{font:16px system-ui;color:#dce9e5;background:#101b18}body{max-width:980px;margin:50px auto;padding:0 24px}h1{font-size:2.5rem;margin-bottom:8px}p{color:#a7bdb4;line-height:1.6}a{color:#72e8ac}button{background:#254c3b;color:#e5fff0;border:1px solid #46755c;border-radius:8px;padding:12px 18px;cursor:pointer}button:disabled{opacity:.5}nav{display:flex;gap:20px;margin:26px 0}section{padding:24px;background:#182923;border:1px solid #2f473c;border-radius:12px;margin-top:20px}select{padding:12px;background:#13271d;color:#e5fff0;border:1px solid #46755c;border-radius:8px;max-width:100%}pre{overflow:auto;max-height:500px;font-size:13px;white-space:pre-wrap}small{color:#a7bdb4}.badge{display:inline-block;padding:6px 12px;border-radius:20px;background:#334b24;color:#d5f6a7}
+</style>
+<span class="badge">Standalone · SHADOW_MODE</span>
+<h1>SPFF Adaptive AI</h1>
+<p>Simulasikan keputusan penyiraman dan progres pemupukan. Semua skenario memakai data sintetis dan tidak mengirim perintah ke pompa.</p>
+<nav><a href="/docs">API docs</a><a href="/health">Health</a><a href="/config">Konfigurasi</a><a href="/decisions">Keputusan tersimpan</a></nav>
+<section><h2>Status service</h2><pre id="status">Memuat…</pre></section>
+<section><h2>Jalankan simulasi</h2><p>Pilih skenario untuk melihat keputusan, volume, sisa kewajiban, dan perubahan EMA.</p><select id="scenario"></select> <button id="run">Jalankan</button><pre id="output">Hasil akan muncul di sini.</pre></section>
+<p><small>Koneksi SPFF diatur melalui .env project ini. Mode ACTIVE belum tersedia karena kontrak sesi perangkat belum terverifikasi.</small></p>
+<script>
+const output=document.querySelector('#output'),button=document.querySelector('#run');
+async function json(url,options){const response=await fetch(url,options);const data=await response.json();if(!response.ok)throw Error(JSON.stringify(data));return data;}
+json('/status').then(data=>document.querySelector('#status').textContent=JSON.stringify(data,null,2)).catch(error=>document.querySelector('#status').textContent=error.message);
+json('/simulations').then(names=>names.forEach(name=>{const option=document.createElement('option');option.value=name;option.textContent=name;document.querySelector('#scenario').append(option);}));
+button.onclick=async()=>{button.disabled=true;output.textContent='Menjalankan…';try{const data=await json('/simulations/'+encodeURIComponent(document.querySelector('#scenario').value),{method:'POST'});output.textContent=JSON.stringify(data,null,2);}catch(error){output.textContent=error.message;}finally{button.disabled=false;}};
+</script></html>
