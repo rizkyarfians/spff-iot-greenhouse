@@ -26,15 +26,19 @@ def real_observation(now, *, manual=False, due_today=True):
                               "soil_1_moisture": {"valid": True, "raw": 200,
                                   "rawAgeMs": 1000, "rawFresh": True,
                                   "lastPollOk": True, "pollBootId": "test-boot"}}},
-            "device_status": {"online": True, "mode": mode, "recorded_at": at},
+            "device_status": {"online": True, "mode": mode, "recorded_at": at,
+                              "received_at": at, "pulse_boot_id": "ecc559ca86d29e48"},
             "automatic_control": {"desired_mode": mode, "applied_mode": mode, "revision": 1,
                                   "acknowledged_revision": 1, "acknowledgement_status": "applied", "water_sensor_key": "soil_1_moisture"},
             "guide_programs": {"status": "READ_ONLY_PREVIEW", "programs": [
                 {"status": "PREVIEW_ONLY", "program_id": "web-program", "revision": 1, "source_sha256": "a"*64,
                  "guide_revision": 0, "config": {"plantingDate": "2026-10-18"}, "plant_count": 20000,
                  "guide_edits_changed": False, "hold_reasons": [], "activities": [activity]}]},
-            "execution_evidence": {"latest_adaptive": {"received_at": at, "payload": {
-                "timestamp": at, "state": "IDLE", "waterPumpKnown": True, "fertPumpKnown": True,
+            "execution_evidence": {"status": "available", "latest_adaptive": {"received_at": at, "payload": {
+                "kind": "adaptive_fert_telemetry", "timestamp": at, "state": "IDLE",
+                "firmwareVersion": "1.5.03-SHT20-TELEMETRY-SYNC",
+                "bootId": "ecc559ca86d29e48",
+                "waterPumpKnown": True, "fertPumpKnown": True,
                 "waterPump": False, "fertPump": False}}}}
 
 
@@ -166,6 +170,30 @@ class LiveEngineTests(unittest.TestCase):
         when += timedelta(seconds=31)
         result = self.engine.evaluate(real_observation(when), calibrated_profile(), now=when)
         self.assertEqual(result["obligations"][0]["status"], "READY")
+        self.assertFalse(result["can_dispatch"])
+
+    def test_adaptive_feedback_is_reported_off_not_actuation_authority(self):
+        observation = real_observation(self.now, manual=True)
+        result = self.engine.evaluate(observation, calibrated_profile(), now=self.now)
+        evidence = result["pump_feedback"]
+        self.assertEqual(evidence["status"], "REPORTED_OFF_FRESH")
+        self.assertTrue(evidence["reported_off"])
+        self.assertFalse(evidence["safe_shutdown_verified"])
+        self.assertFalse(evidence["physical_relay_contact_verified"])
+        self.assertFalse(result["can_dispatch"])
+        self.assertIn("manual_mode_blocks_automatic_start", result["hold_reasons"])
+
+    def test_adaptive_boot_mismatch_and_stale_are_holds(self):
+        observation = real_observation(self.now)
+        observation["execution_evidence"]["latest_adaptive"]["payload"]["bootId"] = "f" * 16
+        result = self.engine.evaluate(observation, calibrated_profile(), now=self.now)
+        self.assertIn("execution_feedback_boot_mismatch", result["hold_reasons"])
+        self.assertFalse(result["pump_feedback"]["reported_off"])
+        observation["execution_evidence"]["latest_adaptive"]["payload"]["bootId"] = "ecc559ca86d29e48"
+        observation["execution_evidence"]["latest_adaptive"]["received_at"] = (
+            self.now - timedelta(minutes=2)).isoformat()
+        result = self.engine.evaluate(observation, calibrated_profile(), now=self.now)
+        self.assertIn("execution_feedback_stale", result["hold_reasons"])
         self.assertFalse(result["can_dispatch"])
 
     def test_manual_revokes_waiting_auto_resume(self):
