@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .calculations import fuzzy_volume, plan_fertigation, tank_liters
+from .quality import check_soil_control_quality
 from .engine import digest, timestamp
 from .models import Config, Model
 from pydantic import Field, model_validator
@@ -245,9 +246,13 @@ class LiveEngine:
         else:
             proposal = "IRRIGATE"
             if config and ckey and valid_sensor(sample, ckey):
-                fuzzy = fuzzy_volume(sample[ckey], config)
-                proposal = "IRRIGATE" if fuzzy["water_l"] else "OFF"
-                if water_ok:
+                quality_ok, quality_reason = check_soil_control_quality(state, sample, ckey)
+                if not quality_ok:
+                    reasons.append(quality_reason or "soil_moisture_not_control_valid")
+                else:
+                    fuzzy = fuzzy_volume(sample[ckey], config)
+                    proposal = "IRRIGATE" if fuzzy["water_l"] else "OFF"
+                if quality_ok and water_ok:
                     budget = max(0, tank_liters(sample["tank_water_level_pct"], config.water_curve)-tank_liters(config.water_level_stop_threshold, config.water_curve)-config.minimum_flush_reserve)
                     volume = min(fuzzy["water_l"], budget, config.max_session_water_l, config.water_flow_lpm*config.max_session_seconds/60)
                     plan = {"water_l": volume, "stock_l": 0, "mass_g": 0, "duration_seconds": volume/config.water_flow_lpm*60}
