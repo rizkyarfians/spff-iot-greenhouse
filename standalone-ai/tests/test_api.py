@@ -23,6 +23,22 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/obligations").json(), [])
         self.assertFalse(self.client.get("/live/state").json()["ec_target_required_for_scheduling"])
 
+    def test_decisions_sorted_by_timestamp_not_jsonb_key_order(self):
+        from datetime import datetime, timedelta, timezone
+        when = datetime(2026, 11, 1, tzinfo=timezone.utc)
+        with self.store.transaction() as state:
+            # Simulate JSONB lexicographic key ordering and an old 2085 snapshot.
+            state["decisions"] = {
+                "z-old": {"decision_id": "z-old", "at": (when - timedelta(hours=2)).isoformat(),
+                          "type": "HOLD", "input_snapshot": {"telemetry": {"telemetry_id": 88368}}},
+                "a-new": {"decision_id": "a-new", "at": when.isoformat(),
+                          "type": "HOLD", "input_snapshot": {"telemetry": {"telemetry_id": 140817}}},
+            }
+        results = self.client.get("/decisions?limit=1")
+        self.assertEqual(results.status_code, 200)
+        self.assertEqual(results.json()[0]["decision_id"], "a-new")
+        self.assertEqual(results.json()[0]["input_snapshot"]["telemetry"]["telemetry_id"], 140817)
+
     def test_config_has_no_credentials(self):
         self.assertNotIn("dsn", self.client.get("/config").text.lower())
 
