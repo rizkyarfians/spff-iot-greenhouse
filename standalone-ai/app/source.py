@@ -5,6 +5,7 @@ device contract is proven, this adapter records an explicit integration HOLD.
 """
 from datetime import datetime, timezone
 from uuid import uuid4
+from .guide_programs import read_guide_programs
 
 REQUIRED = {
     "telemetry_samples": {"telemetry_id", "site_id", "device_id", "message_id", "recorded_at", "sensor_health",
@@ -22,6 +23,14 @@ REQUIRED = {
 class SPFFSource:
     def __init__(self, dsn, site_id, device_id, zone_id):
         self.dsn, self.site_id, self.device_id, self.zone_id = dsn, site_id, device_id, zone_id
+
+    def inspect_guides(self):
+        import psycopg
+        from psycopg.rows import dict_row
+        with psycopg.connect(self.dsn, connect_timeout=5, row_factory=dict_row) as connection:
+            connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            connection.execute("SET LOCAL statement_timeout='5s'")
+            return read_guide_programs(connection, self.site_id, self.device_id, self.zone_id)
 
     def inspect(self):
         import psycopg
@@ -50,6 +59,7 @@ class SPFFSource:
                 status.pop("raw_payload", None)
             return {"schema_compatible": True, "telemetry": telemetry, "device_status": status,
                     "automatic_control": control, "approved_programs": programs, "recent_sessions": sessions,
+                    "guide_programs": read_guide_programs(connection, self.site_id, self.device_id, self.zone_id),
                     "can_dispatch": False, "blocking_reason": "volume_session_and_safety_contract_not_verified"}
 
     def record_shadow(self, store):

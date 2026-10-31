@@ -55,3 +55,23 @@ semua skenario simulator, API, dan 3 tes PostgreSQL pada cluster sementara.
 Ini pengujian runtime 3.10 Windows, bukan pengujian OS/arsitektur Orange Pi.
 Resolusi wheel Python 3.10 Linux ARM64 diperiksa terpisah. Verifikasi endpoint
 pada Orange Pi setelah update masih perlu dijalankan oleh operator.
+
+
+## Adapter Program dari Panduan — 31 Oktober 2026
+
+Adapter kini membaca snapshot migration 034 (`spff.guide_programs`) melalui
+`GET /source/guide-programs` dan field `guide_programs` pada audit sumber.
+Kebutuhan produk sudah dihitung web; reader tidak menskalakan ulang atau memakai
+fixture demo sebagai dosis nyata. Izin SELECT tambahan diperlukan untuk
+`guide_programs`, `protocol_guide_edits`, dan `guide_program_completions`.
+
+Seluruh **66 tes lolos** pada CPython 3.10.11 Windows x64 dengan cluster PostgreSQL
+18 disposable. Tes baru mencakup dosis 2,5 g × 20.000 tanaman = 50.000 g per produk,
+konversi kg, populasi 2.000 tanpa double scaling, tanggal HST/WIB, scope site/device,
+izin SELECT, transaksi read-only, penolakan UPDATE, perubahan revisi Panduan,
+metode aplikasi, mL bukan gram, dan catatan manual bukan pengukuran dosis.
+Tes database memakai migration SPFF 033/034 asli dari commit audit production.
+
+Ini verifikasi lokal reader, belum verifikasi endpoint reader baru pada Orange Pi.
+Belum ada pengubahan dosis web, kewajiban otomatis dari Panduan, atau dispatch
+aktuator. Seluruh preview tetap can_dispatch=false; lihat docs/guide-source.md.

@@ -126,6 +126,16 @@ def create_app(settings=None, config=None, store=None):
             log.warning("source_read_failed", extra={"error_type": type(error).__name__})
             raise HTTPException(503, "SPFF source unavailable or schema incompatible")
 
+    @app.get("/source/guide-programs")
+    def source_guide_programs():
+        if not source:
+            raise HTTPException(503, "SPFF source is not configured")
+        try:
+            return source.inspect_guides()
+        except Exception as error:
+            log.warning("guide_source_read_failed", extra={"error_type": type(error).__name__})
+            raise HTTPException(503, "SPFF guide source unavailable or schema incompatible")
+
     @app.post("/source/evaluate")
     def source_evaluate():
         if not source:
