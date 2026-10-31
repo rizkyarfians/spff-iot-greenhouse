@@ -15,7 +15,9 @@ def digest(value):
 
 
 def timestamp(value):
-    return datetime.fromisoformat(value)
+    """Accept Pydantic/RFC3339 UTC Z timestamps on Python 3.10 as well."""
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    return datetime.fromisoformat(normalized)
 
 
 class Engine:
