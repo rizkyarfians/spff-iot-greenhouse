@@ -108,9 +108,38 @@ class LiveEngineTests(unittest.TestCase):
         self.assertEqual(result["proposed_action"], "IRRIGATE")
         self.assertGreater(result["plan"]["water_l"], 0)
         self.assertEqual(result["plan"]["stock_l"], 0)
+        # A sudden 20->95 change is suspicious, not a trustworthy OFF decision.
+        observation["telemetry"]["soil_1_moisture"] = 95
+        observation["telemetry"]["message_id"] = "next-message"
+        observation["telemetry"]["recorded_at"] = (self.now + timedelta(seconds=30)).isoformat()
+        observation["device_status"]["recorded_at"] = observation["telemetry"]["recorded_at"]
+        result = self.engine.evaluate(observation, calibrated_profile(), now=self.now + timedelta(seconds=30))
+        self.assertEqual(result["type"], "HOLD")
+        self.assertIn("soil_moisture_suspect_change", result["hold_reasons"])
+        self.assertIsNone(result["fuzzy"])
+
+    def test_stable_high_moisture_proposes_off(self):
+        observation = real_observation(self.now)
+        observation["guide_programs"]["programs"] = []
         observation["telemetry"]["soil_1_moisture"] = 95
         result = self.engine.evaluate(observation, calibrated_profile(), now=self.now)
         self.assertEqual(result["proposed_action"], "OFF")
+        self.assertIsNone(result["plan"])
+
+    def test_moisture_zero_spike_blocks_fuzzy_even_with_valid_transport_health(self):
+        observation = real_observation(self.now)
+        observation["guide_programs"]["programs"] = []
+        observation["telemetry"]["soil_1_moisture"] = 59
+        self.engine.evaluate(observation, calibrated_profile(), now=self.now)
+        observation["telemetry"]["soil_1_moisture"] = 0
+        observation["telemetry"]["message_id"] = "zero-frame-crc-valid"
+        observation["telemetry"]["recorded_at"] = (self.now + timedelta(seconds=30)).isoformat()
+        observation["device_status"]["recorded_at"] = observation["telemetry"]["recorded_at"]
+        result = self.engine.evaluate(observation, calibrated_profile(), now=self.now + timedelta(seconds=30))
+        self.assertEqual(result["type"], "HOLD")
+        self.assertIsNone(result["fuzzy"])
+        self.assertIn("soil_moisture_suspect_change", result["hold_reasons"])
+        self.assertFalse(result["can_dispatch"])
 
     def test_validated_stock_allows_plan_without_ec_target(self):
         result = self.engine.evaluate(real_observation(self.now), calibrated_profile(), now=self.now)
