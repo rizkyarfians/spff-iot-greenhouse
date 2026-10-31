@@ -17,8 +17,8 @@ export class AdaptiveFertigationTransport {
    await c.query("UPDATE spff.adaptive_fert_commands SET status='expired' WHERE status='pending' AND expires_at<now()");
    await c.query(`UPDATE spff.adaptive_fert_sessions s SET status='fault',reason='start_expired_before_dispatch' WHERE status='queued' AND EXISTS(SELECT 1 FROM spff.adaptive_fert_commands cmd WHERE cmd.site_id=s.site_id AND cmd.session_id=s.session_id AND cmd.payload->>'commandType'='start' AND cmd.status='expired')`);
    rows=(await c.query(`SELECT cmd.*,s.device_id FROM spff.adaptive_fert_commands cmd JOIN spff.adaptive_fert_sessions s USING(site_id,session_id)
-    WHERE cmd.status='pending' AND cmd.expires_at>now() AND s.status NOT IN ('completed','fault')
-    AND (cmd.payload->>'commandType'<>'start' OR $1::boolean)
+    WHERE cmd.status='pending' AND cmd.expires_at>now() AND (s.status NOT IN ('completed','fault') OR cmd.payload->>'commandType'='reset_fault')
+    AND (cmd.payload->>'commandType' NOT IN ('start','resume') OR $1::boolean)
     AND (cmd.payload->>'commandType'<>'start' OR NOT EXISTS(SELECT 1 FROM spff.adaptive_fert_commands earlier WHERE earlier.site_id=cmd.site_id AND earlier.session_id=cmd.session_id AND earlier.created_at<cmd.created_at AND earlier.status IN ('pending','dispatching','forwarded')))
     ORDER BY cmd.created_at FOR UPDATE OF cmd SKIP LOCKED LIMIT 10`,[process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED==='true'])).rows;
    for(const row of rows)await c.query("UPDATE spff.adaptive_fert_commands SET status='dispatching',dispatch_started_at=now() WHERE site_id=$1 AND command_id=$2",[row.site_id,row.command_id]);

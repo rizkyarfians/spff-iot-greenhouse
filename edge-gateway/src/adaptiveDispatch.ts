@@ -13,7 +13,7 @@ export class AdaptiveDispatchGuard {
   const message=adaptiveDispatchSchema.parse(raw),command=message.command;
   const ack=async(status:'forwarded'|'expired'|'unknown',reason:string)=>this.report(adaptiveEnvelope({kind:'adaptive_fert_gateway_ack',schemaVersion:1,siteId:message.siteId,deviceId:message.deviceId,sessionId:command.sessionId,commandId:command.commandId,status,timestamp:new Date().toISOString(),reason}));
   if(Date.parse(message.expiresAt)<=Date.now()){await ack('expired','gateway_expiry');return;}
-  if('issuedAt' in command&&Date.parse(command.issuedAt)>Date.now()){await ack('expired','gateway_command_not_yet_valid');return;}
+  if(typeof command.issuedAt==='string'&&Date.parse(command.issuedAt)>Date.now()){await ack('expired','gateway_command_not_yet_valid');return;}
   await mkdir(this.directory,{recursive:true});
   const filename=path.join(this.directory,`${command.commandId}.json`),serialized=JSON.stringify(message);
   try{const file=await open(filename,'wx',0o600);try{await file.writeFile(serialized);await file.sync();}finally{await file.close();}

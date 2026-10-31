@@ -34,8 +34,37 @@ remain in force.
 
 ## Deployment scope
 
-Apply to an SPFF checkout based on production commit
-`219e444a09c92b7400a765e579f72780e71f1899`, after inspecting local modifications.
+The Orange checkout has operator changes on top of production commit
+`219e444a09c92b7400a765e579f72780e71f1899`, including device diagnostics, extended
+telemetry, resume/reset operations, routes and UI. These were supplied as source
+on 31 October. The merged version preserves those features; only the device
+panel's stale 1.5.01 firmware check is changed to 1.5.03. Resume now requires the
+same boot/session, a PAUSED report, fresh valid sensors/counters and verified OFF
+outputs; it cannot resume a water-low FAULT or a session interrupted by reboot.
+Reset remains an explicit operation and requires a terminal/reconciliation state
+and a current FAULT/COMPLETED controller report with known OFF relays. Reset does
+not erase the backend reconciliation requirement. Worker dispatch switches gate
+both START and RESUME, while STOP remains available.
+
+**Do not blindly cherry-pick the earlier 67524eb commit into that dirty checkout.**
+Use the source installer with reviewed fingerprints. It changes only five files:
+contracts, adaptive service, adaptive transport, device diagnostics service and
+gateway dispatch guard. Existing UI/controller/routes and all other files remain
+untouched. Default is check-only:
+
+```bash
+python3 ~/spff-1503-fix/scripts/apply-firmware-1503-compat.py --target /opt/spff
+```
+
+It accepts only known base or supplied Orange file hashes, normalized for BOM and
+CRLF. A changed/unrecognized or missing file stops the operation before any write.
+After READY is reviewed, `--apply` saves raw originals and install metadata under
+`~/spff-1503-backups/<timestamp>-<id>/`, then atomically replaces each reviewed
+file. Interrupted writes attempt rollback; unrelated concurrent edits are never
+overwritten during rollback and are reported for manual recovery. Reapplying an
+unchanged installed patch is a no-op. No Git reset/stash/checkout, .env edit,
+database operation, build or service restart is performed by the installer.
+
 No database migration is needed; existing migration 036 stores command payloads
 and raw adaptive events. No UI rebuild is required for this backend patch.
 
@@ -60,10 +89,16 @@ Contracts/backend/edge/worker builds and their static checks passed on Windows
 with Node 24.18.1 (repository API engine declares Node 22). Contracts + edge +
 worker mjs tests passed (80 tests), 17 additional worker TypeScript tests passed
 with a dummy DATABASE_URL and mock database, and the adaptive SQL integration
-test passed using temporary PGlite and the real migration chain (98 distinct
-tests total). The integration test exercises boot
+test passed using temporary PGlite and the real migration chain. Two device-panel
+tests and six installer tests passed as well (**106 distinct tests total**).
+Installer tests also ran on CPython 3.10.11. A separate smoke test used the exact
+operator-supplied Orange source snapshots: all five replacements applied, six
+unrelated UI/controller/env markers remained byte-for-byte intact, and a second
+check reported ALREADY_APPLIED for every file. The integration test exercises boot
 mismatch, unbound preview rejection, allocation/dedup, exact wire expiry, invalid
-measurement evidence, IDLE isolation, ownership and reconciliation.
+measurement evidence, IDLE isolation, ownership, guarded resume/reset, disabled
+resume dispatch, and reconciliation. Installer tests cover preflight, conflicts,
+raw backups, rollback, path traversal, source tampering and idempotence.
 
 The existing frontend build fails on Windows because GuideSchedule.tsx and
 guideSchedule.ts imports collide under case-insensitive resolution. No frontend
@@ -76,7 +111,8 @@ Local tests do not prove Linux power-loss durability or physical relay behavior.
 This compatibility patch does not implement WAITING_FOR_WATER, automatic refill
 resume, firmware water-only volume sessions, or Python-controlled injection.
 The supplied firmware still uses EC hysteresis, faults on low water, and accepts
-resume only from PAUSED. Backend resume remains disabled pending recovery work.
+resume only from PAUSED. Guarded operator resume is supported; automatic refill
+recovery from FAULT is not implemented by this patch.
 Source methods / EC-conversion requirements of the existing API remain intact;
 the standalone AI's fertilizer route request does not silently bypass these.
 Stock batch data, hydraulic calibration and physical commissioning remain needed

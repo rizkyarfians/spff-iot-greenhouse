@@ -1,0 +1,44 @@
+{
+  "description": "Reviewed source hashes from Orange operator snapshot; installer does not touch other files",
+  "base_commit": "219e444a09c92b7400a765e579f72780e71f1899",
+  "files": [
+    {
+      "path": "packages/contracts/src/adaptiveFertigation.ts",
+      "before_sha256": [
+        "3a9b1c5f0c32da285bfc2439b86784157ef6778446301e5ad44a93710ec2d53f",
+        "5b062bb0347fc292cd727e76b752dc7923fe4957336f2ab441a20a7c11eea6c4"
+      ],
+      "after_sha256": "4c95ead8363f924288bea71d8877edce33f1bc61a7ca45a1d66ed9414abb479c"
+    },
+    {
+      "path": "functions/src/services/adaptiveFertigationService.ts",
+      "before_sha256": [
+        "aaf9123d973ed666edd564125d7d47135800695dd88143bbecd5a76b69968ce5",
+        "e9966ebe66234060f66ba6dd95e8a6272e2515062f37babeb43e6c3d686926f2"
+      ],
+      "after_sha256": "059172b8feb5335705d4f61f1bef1c31dccd151787b82b625f0c4269606997db"
+    },
+    {
+      "path": "mqtt-worker/src/adaptiveFertigationTransport.ts",
+      "before_sha256": [
+        "345e7fb4f94f75d00a98797569104c2d1f40f17f0d3243ef4a1412563649f33b",
+        "356036d4451d3eb059bbafcd062170f97d6110f8ee3b940f44987bb1776323c0"
+      ],
+      "after_sha256": "57f57bc64919c352294f8b314e612c3fea5be502eecfa7cce7aee2ba81203b8d"
+    },
+    {
+      "path": "functions/src/services/adaptiveDeviceService.ts",
+      "before_sha256": [
+        "6c58bb5ac8ca4df617d2bcbf242cdc124613972d1810fafad2876269f6d1f403"
+      ],
+      "after_sha256": "0c0f3cf8bbed7b8651d8e9171b646e39e0f9542fec15a6605f7b46ac82bf778a"
+    },
+    {
+      "path": "edge-gateway/src/adaptiveDispatch.ts",
+      "before_sha256": [
+        "2bd59b43c9e31a48606658e18607992d57bd00bde0d6a629cb00e89d4a19cab3"
+      ],
+      "after_sha256": "49deb90fde24e88531dca6e033fe4a1ae997f6c0706d3731a0ea467415fa3e35"
+    }
+  ]
+}

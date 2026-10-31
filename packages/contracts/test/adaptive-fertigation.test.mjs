@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {adaptiveStartCommandSchema,adaptiveStartPlanSchema,adaptiveDispatchSchema,adaptiveSessionInputSchema,adaptiveAckSchema,adaptiveTelemetrySchema} from '../dist/index.js'
-const command={kind:'adaptive_fert_command',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',commandId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',commandType:'start',targetEcUs:2500,ecToleranceUs:100,maxDurationSec:600,targetWaterVolumeL:100,targetFertVolumeL:5,nominalConcentrationGPerL:10,plantCount:2000,flushDurationSec:30,bootId:'boot-1503',issuedAt:'2026-10-31T12:00:00Z',expiresAt:'2026-10-31T12:00:15Z'}
+const command={kind:'adaptive_fert_command',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',commandId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',commandType:'start',targetEcUs:2500,ecToleranceUs:100,maxDurationSec:600,targetWaterVolumeL:100,targetFertVolumeL:5,nominalConcentrationGPerL:10,plantCount:2000,flushDurationSec:30,bootId:'0123456789abcdef',issuedAt:'2026-10-31T12:00:00Z',expiresAt:'2026-10-31T12:00:15Z'}
 test('adaptive starts require every supported v1.5 configuration field and enforce exact firmware bounds',()=>{
  assert.equal(adaptiveStartCommandSchema.safeParse(command).success,true)
  for(const key of ['targetEcUs','ecToleranceUs','maxDurationSec','targetWaterVolumeL','targetFertVolumeL','nominalConcentrationGPerL','plantCount','flushDurationSec','bootId','issuedAt','expiresAt']){const missing={...command};delete missing[key];assert.equal(adaptiveStartCommandSchema.safeParse(missing).success,false,key)}
@@ -28,7 +28,7 @@ test('firmware rejection with empty IDs remains diagnostic, while numeric teleme
  assert.equal(adaptiveTelemetrySchema.safeParse(telemetry).success,true)
  assert.equal(adaptiveTelemetrySchema.safeParse({...telemetry,fertVolumeL:-1}).success,false)
  assert.equal(adaptiveTelemetrySchema.safeParse({...telemetry,rawEc:NaN}).success,false)
- const frame={...telemetry,bootId:'boot-1503',ecValid:true,flowValid:true,ecAgeMs:100,flowAgeMs:200,waterPumpKnown:true,fertPumpKnown:true,volumeEstimated:false,targetEcUs:2500,controlAlgorithm:'ec_hysteresis_ema',firmwareVersion:'1.5.03-SHT20-TELEMETRY-SYNC'}
+ const frame={...telemetry,bootId:'0123456789abcdef',ecValid:true,flowValid:true,ecAgeMs:100,flowAgeMs:200,waterPumpKnown:true,fertPumpKnown:true,volumeEstimated:false,targetEcUs:2500,controlAlgorithm:'ec_hysteresis_ema',firmwareVersion:'1.5.03-SHT20-TELEMETRY-SYNC'}
  assert.deepEqual(adaptiveTelemetrySchema.parse(frame),frame)
  assert.equal(adaptiveTelemetrySchema.safeParse({...frame,state:'IDLE',sessionId:''}).success,true)
  assert.equal(adaptiveTelemetrySchema.safeParse({...frame,sessionId:''}).success,false)
