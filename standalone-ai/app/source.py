@@ -66,9 +66,30 @@ class SPFFSource:
             control = connection.execute("SELECT * FROM spff.device_automatic_control_configs WHERE site_id=%s AND device_id=%s", args).fetchone()
             programs = connection.execute("SELECT r.* FROM spff.fertigation_recipes r JOIN spff.site_crop_selections c ON r.site_id=c.site_id AND r.zone_id=c.zone_id AND r.crop_id=c.crop_id WHERE r.site_id=%s AND r.zone_id=%s AND r.approval_status='approved' ORDER BY r.created_at", (self.site_id, self.zone_id)).fetchall()
             sessions = connection.execute("SELECT session_id,status,pumps_off,last_recorded_at FROM spff.fertigation_sessions WHERE site_id=%s AND device_id=%s ORDER BY last_recorded_at DESC LIMIT 20", args).fetchall()
-            # raw_payload can contain unsanitized device input. Keep only audited typed DB columns in responses.
+            # Keep only audited, bounded sensor diagnostics from raw payload.
+            # Never return arbitrary device JSON or trust it as control authority.
             if telemetry:
-                telemetry.pop("raw_payload", None)
+                raw_payload = telemetry.pop("raw_payload", None)
+                if isinstance(raw_payload, dict):
+                    reported = raw_payload.get("sensorHealth")
+                    if isinstance(reported, dict):
+                        for key in ("soil_1_moisture", "soil_2_moisture"):
+                            raw_diag = reported.get(key)
+                            if not isinstance(raw_diag, dict):
+                                continue
+                            normalized = telemetry.get("sensor_health")
+                            if not isinstance(normalized, dict):
+                                continue
+                            current = normalized.get(key)
+                            if not isinstance(current, dict):
+                                continue
+                            control_diag = {
+                                name: raw_diag[name]
+                                for name in ("raw", "rawAgeMs", "rawFresh",
+                                             "lastPollOk", "pollBootId", "controlValid")
+                                if name in raw_diag
+                            }
+                            current.update(control_diag)
             if status:
                 status.pop("raw_payload", None)
             relation = connection.execute("SELECT to_regclass('spff.adaptive_fert_events') AS relation").fetchone()["relation"]
