@@ -11,7 +11,7 @@ EPSILON_G = 0.000001
 
 
 def accept_delivery(state, obligation_id, session_id, event_id, obligation,
-                    *, stock_l, mass_g, concentration_g_l, counter_status):
+                    *, stock_l, mass_g, concentration_g_l, counter_status, tolerance_g=0):
     """Atomically add one verified terminal delivery within caller transaction.
 
     Returns a review reason or None. Caller must check safe shutdown and
@@ -22,9 +22,9 @@ def accept_delivery(state, obligation_id, session_id, event_id, obligation,
         return "invalid_delivery_identity"
     delivered = obligation.get("delivered_g")
     target = (obligation.get("snapshot") or {}).get("target_g")
-    if (not all(number(x) for x in (stock_l, mass_g, concentration_g_l, delivered, target))
+    if (not all(number(x) for x in (stock_l, mass_g, concentration_g_l, delivered, target, tolerance_g))
             or stock_l < 0 or mass_g < 0 or delivered < 0 or target < 0
-            or concentration_g_l <= 0
+            or tolerance_g < 0 or concentration_g_l <= 0
             or abs(stock_l * concentration_g_l - mass_g) > EPSILON_G):
         return "invalid_mass_balance_measurement"
 
@@ -51,7 +51,7 @@ def accept_delivery(state, obligation_id, session_id, event_id, obligation,
         return "mass_balance_ledger_mismatch_requires_review"
     if session_id in ledger:
         return "duplicate_bound_session_delivery_requires_review"
-    if delivered + mass_g > target + EPSILON_G and mass_g > 0:
+    if delivered + mass_g > target + tolerance_g + EPSILON_G and mass_g > 0:
         return "mass_balance_target_exceeded_requires_review"
 
     ledger[session_id] = {
