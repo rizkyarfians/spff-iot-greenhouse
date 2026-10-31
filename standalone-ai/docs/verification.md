@@ -75,3 +75,18 @@ Tes database memakai migration SPFF 033/034 asli dari commit audit production.
 Ini verifikasi lokal reader, belum verifikasi endpoint reader baru pada Orange Pi.
 Belum ada pengubahan dosis web, kewajiban otomatis dari Panduan, atau dispatch
 aktuator. Seluruh preview tetap can_dispatch=false; lihat docs/guide-source.md.
+
+
+## Pilihan rute drip untuk seluruh pupuk
+
+Operator memilih semua produk pupuk lewat pompa/drip. Pilihan ini sekarang
+tersedia sebagai AI_FERTILIZER_DELIVERY_ROUTE=drip, dengan metode sumber dan dosis
+web tetap dipertahankan. Override berlaku untuk kategori pupuk; tidak memperluas
+izin ke kategori ZPT, pestisida, atau kategori tidak diketahui. Tidak mengubah
+isi/struktur database atau mengaktifkan aktuator. Data batch stok, kesesuaian
+formulasi drip, serta kontrak firmware sesi volume tetap belum terverifikasi.
+
+Seluruh **70 tes lolos** pada CPython 3.10.11 Windows dengan PostgreSQL disposable.
+Empat regresi baru memeriksa rute Tabur/Semprot, identitas/dosis tetap, kategori
+produk, default tanpa override, dan penolakan konfigurasi rute tidak dikenal.
+Verifikasi di Orange setelah pemasangan opsi baru masih perlu dilakukan.

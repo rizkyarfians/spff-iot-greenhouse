@@ -74,19 +74,26 @@ def mass_g(amount, unit):
     return amount * 1000 if unit == "kg" else amount if unit in ("g", "gram", "gr") else None
 
 
-def summarize_program(row, completions, latest_edit, selected_crop, device_id, now=None):
+def summarize_program(row, completions, latest_edit, selected_crop, device_id, now=None,
+                      fertilizer_delivery_route="reference"):
+    if fertilizer_delivery_route not in ("reference", "drip"):
+        raise ValueError("unknown fertilizer delivery route")
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(ZoneInfo("Asia/Jakarta")).date()
     result = {"program_id": str(row["program_id"]), "revision": row["revision"],
               "source": "spff.guide_programs.plan", "guide_revision": row["guide_revision"],
               "source_sha256": row["source_sha256"], "can_dispatch": False,
-              "planning_only": True, "activities": []}
+              "planning_only": True, "fertilizer_delivery_route": fertilizer_delivery_route, "activities": []}
     try:
         config = GuideConfig.model_validate(row["config"])
         plan = SavedPlan.model_validate(row["plan"])
     except (ValidationError, TypeError):
         return {**result, "status": "REQUIRES_REVIEW", "hold_reasons": ["invalid_saved_program_snapshot"]}
-    reasons = ["volume_session_and_safety_contract_not_verified", "application_route_not_verified_for_drip"]
+    reasons = ["volume_session_and_safety_contract_not_verified"]
+    if fertilizer_delivery_route == "drip":
+        reasons.extend(["stock_batch_not_configured", "drip_formulation_not_verified"])
+    else:
+        reasons.append("application_route_not_verified_for_drip")
     if config.deviceId != device_id:
         reasons.append("device_binding_not_verified")
     if GUIDE_CROP_BINDINGS.get(config.cropId) != selected_crop or selected_crop is None:
@@ -123,7 +130,15 @@ def summarize_program(row, completions, latest_edit, selected_crop, device_id, n
                 review.append("computed_amount_unavailable")
             category_cell = cells.get("F" + str(req.row), {})
             category = category_cell.get("value") if isinstance(category_cell, dict) else None
+            # Preserve source classification; a fertilizer route preference does not
+            # silently authorize ZPT, pesticide or unknown-category products.
+            fertilizer = isinstance(category, str) and (category.strip().lower() == "pupuk" or category.strip().lower().startswith("pupuk "))
+            drip_requested = fertilizer_delivery_route == "drip" and fertilizer
             products.append({"source_row": req.row, "product": req.product, "category": category,
+                             "source_method": activity.method, "is_fertilizer": fertilizer,
+                             "requested_delivery_route": "drip" if drip_requested else None,
+                             "route_request_source": "AI_FERTILIZER_DELIVERY_ROUTE" if drip_requested else None,
+                             "drip_formulation_verified": False, "can_dispatch": False,
                              "dose": req.dose, "dose_unit": req.doseUnit,
                              "amount": req.amount, "unit": req.unit, "product_mass_g": amount_g,
                              "per_plant_crosscheck_g": expected,
@@ -139,7 +154,8 @@ def summarize_program(row, completions, latest_edit, selected_crop, device_id, n
     return result
 
 
-def read_guide_programs(connection, site_id, device_id, zone_id, now=None):
+def read_guide_programs(connection, site_id, device_id, zone_id, now=None,
+                        fertilizer_delivery_route="reference"):
     """Called inside an existing read-only transaction with dict_row enabled."""
     missing, missing_columns, denied = [], {}, []
     for table, required in GUIDE_COLUMNS.items():
@@ -165,6 +181,7 @@ def read_guide_programs(connection, site_id, device_id, zone_id, now=None):
     crop = selection["crop_id"] if selection else None
     programs = [summarize_program(row, [c for c in completions if c["program_id"] == row["program_id"]],
                                   edits.get(row["config"].get("cropId")) if isinstance(row["config"], dict) else None,
-                                  crop, device_id, now) for row in rows]
+                                  crop, device_id, now, fertilizer_delivery_route) for row in rows]
     return {"status": "READ_ONLY_PREVIEW", "programs": programs, "can_dispatch": False,
+            "fertilizer_delivery_route": fertilizer_delivery_route,
             "scope": {"site_id": site_id, "device_id": device_id, "zone_id": zone_id}}

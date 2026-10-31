@@ -35,6 +35,7 @@ class Settings:
     zone_id: str = "soil-1"
     poll_seconds: float = 10
     poll_enabled: bool = False
+    fertilizer_delivery_route: str = "reference"
 
     @classmethod
     def load(cls):
@@ -44,13 +45,16 @@ class Settings:
                      source_dsn=os.getenv("AI_SOURCE_DSN", ""), state_dsn=os.getenv("AI_STATE_DSN", ""),
                      site_id=os.getenv("AI_SITE_ID", "greenhouse-01"), device_id=os.getenv("AI_DEVICE_ID", "esp32-s3-01"),
                      zone_id=os.getenv("AI_ZONE_ID", "soil-1"), poll_seconds=float(os.getenv("AI_POLL_SECONDS", "10")),
-                     poll_enabled=os.getenv("AI_POLL_ENABLED", "false").lower() == "true")
+                     poll_enabled=os.getenv("AI_POLL_ENABLED", "false").lower() == "true",
+                     fertilizer_delivery_route=os.getenv("AI_FERTILIZER_DELIVERY_ROUTE", "reference"))
         if result.host != "127.0.0.1":
             raise ValueError("local prototype API must bind to 127.0.0.1")
         if not 1 <= result.port <= 65535 or result.poll_seconds < 1:
             raise ValueError("invalid port or polling interval")
         if result.mode not in ("DRY_RUN", "SHADOW_MODE"):
             raise ValueError("ACTIVE is unavailable until the session firmware contract is verified")
+        if result.fertilizer_delivery_route not in ("reference", "drip"):
+            raise ValueError("AI_FERTILIZER_DELIVERY_ROUTE must be reference or drip")
         if result.poll_enabled and (not result.source_dsn or not result.state_dsn or result.mode != "SHADOW_MODE"):
             raise ValueError("background shadow polling requires source + PostgreSQL state DSNs and SHADOW_MODE")
         return result

@@ -39,12 +39,14 @@ class ApiTests(unittest.TestCase):
         with patch("app.api.SPFFSource") as source:
             source.return_value.inspect_guides.return_value = {
                 "status": "READ_ONLY_PREVIEW", "programs": [], "can_dispatch": False}
-            with TestClient(create_app(Settings(source_dsn="test-only"), Config(), self.store)) as client:
+            with TestClient(create_app(Settings(source_dsn="test-only", fertilizer_delivery_route="drip"), Config(), self.store)) as client:
                 response = client.get("/source/guide-programs")
+                self.assertEqual(client.get("/status").json()["fertilizer_delivery_route"], "drip")
             self.assertEqual(response.status_code, 200)
             self.assertFalse(response.json()["can_dispatch"])
             self.assertEqual(self.store.read()["decisions"], {})
             source.return_value.inspect_guides.assert_called_once()
+            self.assertEqual(source.call_args.kwargs["fertilizer_delivery_route"], "drip")
 
     def test_index_and_openapi(self):
         self.assertEqual(self.client.get("/").status_code, 200)

@@ -31,7 +31,8 @@ def create_app(settings=None, config=None, store=None):
     if store is None:
         store = PostgresStore(settings.state_dsn, scope) if settings.state_dsn else SQLiteStore(str(ROOT / settings.state_path), scope)
     engine = Engine(store, config, mode=settings.mode)
-    source = SPFFSource(settings.source_dsn, settings.site_id, settings.device_id, settings.zone_id) if settings.source_dsn else None
+    source = SPFFSource(settings.source_dsn, settings.site_id, settings.device_id, settings.zone_id,
+                        fertilizer_delivery_route=settings.fertilizer_delivery_route) if settings.source_dsn else None
     poll_status = {"enabled": settings.poll_enabled, "last_success": None, "last_error": None}
 
     async def poll():
@@ -85,6 +86,7 @@ def create_app(settings=None, config=None, store=None):
     def status():
         state = store.read()
         return {"mode": settings.mode, "port": settings.port, "can_dispatch": False,
+                "fertilizer_delivery_route": settings.fertilizer_delivery_route,
                 "source_configured": source is not None, "state_backend": "postgresql" if settings.state_dsn else "sqlite-local",
                 "polling": poll_status, "decision_count": len(state["decisions"]),
                 "blocking_reason": "existing firmware volume-session contract is unverified"}

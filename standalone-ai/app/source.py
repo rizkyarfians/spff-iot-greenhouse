@@ -21,8 +21,11 @@ REQUIRED = {
 
 
 class SPFFSource:
-    def __init__(self, dsn, site_id, device_id, zone_id):
+    def __init__(self, dsn, site_id, device_id, zone_id, *, fertilizer_delivery_route="reference"):
         self.dsn, self.site_id, self.device_id, self.zone_id = dsn, site_id, device_id, zone_id
+        if fertilizer_delivery_route not in ("reference", "drip"):
+            raise ValueError("unknown fertilizer delivery route")
+        self.fertilizer_delivery_route = fertilizer_delivery_route
 
     def inspect_guides(self):
         import psycopg
@@ -30,7 +33,8 @@ class SPFFSource:
         with psycopg.connect(self.dsn, connect_timeout=5, row_factory=dict_row) as connection:
             connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             connection.execute("SET LOCAL statement_timeout='5s'")
-            return read_guide_programs(connection, self.site_id, self.device_id, self.zone_id)
+            return read_guide_programs(connection, self.site_id, self.device_id, self.zone_id,
+                                       fertilizer_delivery_route=self.fertilizer_delivery_route)
 
     def inspect(self):
         import psycopg
@@ -59,7 +63,8 @@ class SPFFSource:
                 status.pop("raw_payload", None)
             return {"schema_compatible": True, "telemetry": telemetry, "device_status": status,
                     "automatic_control": control, "approved_programs": programs, "recent_sessions": sessions,
-                    "guide_programs": read_guide_programs(connection, self.site_id, self.device_id, self.zone_id),
+                    "guide_programs": read_guide_programs(connection, self.site_id, self.device_id, self.zone_id,
+                                                         fertilizer_delivery_route=self.fertilizer_delivery_route),
                     "can_dispatch": False, "blocking_reason": "volume_session_and_safety_contract_not_verified"}
 
     def record_shadow(self, store):

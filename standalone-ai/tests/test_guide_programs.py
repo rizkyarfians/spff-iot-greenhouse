@@ -25,7 +25,34 @@ class GuideProgramTests(unittest.TestCase):
     def summarize(self, **kwargs):
         return summarize_program(self.row, kwargs.get("completions", []), kwargs.get("edit"),
                                  kwargs.get("crop", "sweet-potato"), kwargs.get("device", "esp32-s3-01"),
-                                 kwargs.get("now", self.now))
+                                 kwargs.get("now", self.now), kwargs.get("route", "reference"))
+
+    def test_operator_can_request_drip_for_tabur_fertilizer(self):
+        p = self.summarize(route="drip")
+        product = p["activities"][0]["products"][0]
+        self.assertEqual(product["requested_delivery_route"], "drip")
+        self.assertEqual(product["source_method"], "Tabur")
+        self.assertEqual(product["product_mass_g"], 50000)
+        self.assertFalse(product["can_dispatch"])
+        self.assertNotIn("application_route_not_verified_for_drip", p["hold_reasons"])
+        self.assertIn("stock_batch_not_configured", p["hold_reasons"])
+
+    def test_foliar_fertilizer_also_gets_requested_drip_route(self):
+        self.row["plan"]["activities"][0]["method"] = "Semprot"
+        self.row["sheet_snapshot"]["cells"]["F11"]["value"] = "Pupuk foliar"
+        self.assertEqual(self.summarize(route="drip")["activities"][0]["products"][0]["requested_delivery_route"], "drip")
+
+    def test_zpt_and_pesticides_not_in_fertilizer_route_override(self):
+        for category in ("ZPT", "Insektisida", None):
+            self.row["sheet_snapshot"]["cells"]["F11"]["value"] = category
+            product = self.summarize(route="drip")["activities"][0]["products"][0]
+            self.assertIsNone(product["requested_delivery_route"])
+            self.assertFalse(product["is_fertilizer"])
+
+    def test_default_keeps_source_route_and_unknown_route_rejected(self):
+        self.assertIsNone(self.summarize()["activities"][0]["products"][0]["requested_delivery_route"])
+        with self.assertRaises(ValueError):
+            self.summarize(route="anything")
 
     def test_real_population_not_demo_population(self):
         p = self.summarize()
