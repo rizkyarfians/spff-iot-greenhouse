@@ -40,3 +40,18 @@ perencanaan penuh dan pemrosesan feedback saat ini dibuktikan pada simulator.
 File unit systemd adalah template yang belum diaktifkan/diuji di Orange Pi.
 Engine tidak mengubah backend, dashboard SPFF, service gateway, mode kontrol
 perangkat, database operasional, maupun archive firmware pengguna.
+
+
+## Regresi Python 3.10 — perbaikan timestamp UTC
+
+Log Orange Pi memperlihatkan HTTP 500 pada `/simulations/complete`: Pydantic
+menserialkan waktu UTC dengan akhiran `Z`, sedangkan `datetime.fromisoformat`
+Python 3.10 menolak format tersebut. Parser kini menormalkan akhiran `Z` menjadi
+`+00:00` sebelum parsing; offset lain dipertahankan.
+
+Error asli direproduksi pada CPython 3.10.11 Windows x64 yang terisolasi.
+Sesudah perbaikan, seluruh **52 tes lolos**, termasuk 4 regresi timestamp,
+semua skenario simulator, API, dan 3 tes PostgreSQL pada cluster sementara.
+Ini pengujian runtime 3.10 Windows, bukan pengujian OS/arsitektur Orange Pi.
+Resolusi wheel Python 3.10 Linux ARM64 diperiksa terpisah. Verifikasi endpoint
+pada Orange Pi setelah update masih perlu dijalankan oleh operator.
