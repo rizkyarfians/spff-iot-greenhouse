@@ -91,15 +91,31 @@ class SPFFSource:
                             }
                             current.update(control_diag)
             if status:
-                status.pop("raw_payload", None)
+                # The normalized device_status row does not expose the boot
+                # token. Whitelist only the status pulseBootId; do not copy
+                # arbitrary raw device JSON into a control decision.
+                raw_status = status.pop("raw_payload", None)
+                status["pulse_boot_id"] = (
+                    raw_status.get("pulseBootId")
+                    if isinstance(raw_status, dict) and isinstance(raw_status.get("pulseBootId"), str)
+                    else None
+                )
             relation = connection.execute("SELECT to_regclass('spff.adaptive_fert_events') AS relation").fetchone()["relation"]
             adaptive = None
             adaptive_access = "missing_relation"
             if relation:
+                required_adaptive = {"site_id", "device_id", "message_id", "payload", "received_at", "stored_at"}
                 allowed = connection.execute("SELECT has_table_privilege(current_user,'spff.adaptive_fert_events','SELECT') AS allowed").fetchone()["allowed"]
                 adaptive_access = "available" if allowed else "select_permission_required"
-                if allowed:
-                    adaptive = connection.execute("SELECT message_id,payload,received_at FROM spff.adaptive_fert_events WHERE site_id=%s AND device_id=%s AND payload->>'kind'='adaptive_fert_telemetry' ORDER BY received_at DESC,stored_at DESC LIMIT 1", args).fetchone()
+                if allowed and not required_adaptive.issubset(columns.get("adaptive_fert_events", set())):
+                    adaptive_access = "incompatible_schema"
+                elif allowed:
+                    adaptive = connection.execute(
+                        "SELECT message_id,payload,received_at FROM spff.adaptive_fert_events "
+                        "WHERE site_id=%s AND device_id=%s AND payload->>'kind'='adaptive_fert_telemetry' "
+                        "AND received_at <= NOW() + INTERVAL '5 seconds' "
+                        "ORDER BY received_at DESC,stored_at DESC LIMIT 1", args
+                    ).fetchone()
             return {"schema_compatible": True, "telemetry": telemetry, "device_status": status,
                     "automatic_control": control, "approved_programs": programs, "recent_sessions": sessions,
                     "guide_programs": read_guide_programs(connection, self.site_id, self.device_id, self.zone_id,
