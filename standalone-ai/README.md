@@ -93,11 +93,25 @@ menyimpan keputusan HOLD kompatibilitas, belum mengeksekusi perencanaan real-dat
 
 ## Orange Pi
 
-Salin project tanpa `.venv` Windows. Buat venv Linux dan install dari requirements lock
-atau pyproject, dengan `tzdata` agar kalender WIB tersedia. Buat user `spff-ai`, direktori
+Minimum Python 3.10, termasuk Python bawaan Ubuntu 22.04. Salin project tanpa `.venv`
+Windows. Buat venv Linux dan install memakai `pip install -e /opt/spff-ai` agar pip
+memilih dependency yang sesuai versi Python dan arsitektur ARM64. `requirements.lock.txt`
+mencatat environment Windows pengujian awal, bukan lock universal untuk Orange Pi.
+Paket `tzdata` menyediakan kalender WIB. Template service memakai user `spff-ai`;
+boleh diganti ke user Linux existing dengan menyesuaikan User/Group dan izin direktori. Siapkan direktori
 `/opt/spff-ai/data`, dan environment `/etc/spff-ai/engine.env`. Unit contoh ada di
 `deploy/spff-ai-engine.service`. Jalankan `python -m app` untuk memeriksa startup sebelum
 memasang unit. Gunakan `curl -f http://127.0.0.1:5010/ready` untuk health check.
 Tidak ada unit gateway yang diubah, dihentikan, atau diganti oleh service ini.
 
 Lihat `docs/audit.md` dan `docs/verification.md` untuk temuan aktual serta bukti pengujian.
+
+## Pemulihan instalasi Python 3.10
+
+Jika checkout awal gagal dengan `requires a different Python`, ambil update branch
+`codex/standalone-ai-engine`, salin `standalone-ai/pyproject.toml` ke `/opt/spff-ai/`,
+lalu ulangi `sudo /opt/spff-ai/.venv/bin/python -m pip install -e /opt/spff-ai`.
+Venv Python 3.10 yang sudah dibuat dapat dipakai kembali. Tidak perlu mengganti Python
+sistem, menghapus venv, atau mengulang clone. Jalankan foreground dahulu sebelum
+mengaktifkan systemd. Dukungan sintaks 3.10 dan resolusi wheel Linux ARM64 diperiksa;
+runtime Orange Pi tetap perlu diverifikasi di perangkat.
