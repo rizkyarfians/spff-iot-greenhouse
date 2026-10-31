@@ -1,11 +1,16 @@
-"""Process database-origin feedback for explicitly bound sessions only.
+"""Commit authoritative per-session delivery evidence to the shadow ledger.
 
-No HTTP feedback endpoint or session auto-matching is provided. Bindings must be
-created by the future validated dispatcher; existing manual/legacy executions
-cannot be retroactively assigned by matching dates, product names or EC.
+Only a future validated dispatcher can bind a session. No HTTP feedback intake,
+no old-session guessing, and no actuator dispatch. Counter checks are independent
+proof for flow EMA; a contradiction makes the dose require reconciliation.
 """
 from .engine import digest, timestamp
+from .flow_evidence import counter_evidence, learn_counter_ema, number
 from .live_engine import empty_live, fresh
+
+
+TERMINAL = {"COMPLETED", "FAULT", "WAITING_FOR_WATER", "PARTIAL"}
+CLOSED = {"COMPLETED", "PARTIAL", "WAITING_FOR_WATER", "REQUIRES_REVIEW"}
 
 
 def process_feedback(store, event, now):
@@ -18,61 +23,87 @@ def process_feedback(store, event, now):
         event_id = event["message_id"]
         fingerprint = digest(event)
         previous = state["feedback"].get(event_id)
+        obligation = state["obligations"][session["obligation_id"]]
         if previous:
             if previous["fingerprint"] != fingerprint:
-                session["status"] = "REQUIRES_REVIEW"
-                state["obligations"][session["obligation_id"]]["status"] = "REQUIRES_REVIEW"
+                session["status"] = obligation["status"] = "REQUIRES_REVIEW"
+                if "conflicting_delivery_replay" not in obligation["review_reasons"]:
+                    obligation["review_reasons"].append("conflicting_delivery_replay")
                 return {"status": "CONFLICTING_REPLAY", "dose_changed": False}
             return previous["result"]
-        o = state["obligations"][session["obligation_id"]]
-        terminal = payload.get("state") in ("COMPLETED", "FAULT", "WAITING_FOR_WATER", "PARTIAL")
-        valid = (payload.get("bootId") == session["boot_id"] and payload.get("flowValid") is True
-                 and payload.get("volumeEstimated") is False and payload.get("flowAgeMs", 1e9) <= 25000
-                 and payload.get("waterPumpKnown") is True and payload.get("fertPumpKnown") is True
-                 and fresh(payload.get("timestamp"), now, 120)
-                 and timestamp(payload["timestamp"]) >= timestamp(session["started_at"]))
-        try:
-            water, stock = float(payload["waterVolumeL"]), float(payload["fertVolumeL"])
-            import math
-            valid = valid and math.isfinite(water) and math.isfinite(stock) and water >= session.get("water_l", 0) and stock >= session.get("stock_l", 0)
-            valid = valid and stock <= session["target_stock_l"] + session["tolerance_g"]/session["concentration_g_l"]
-            valid = valid and o["delivered_g"] + (stock-session.get("stock_l", 0))*session["concentration_g_l"] <= o["snapshot"]["target_g"]+session["tolerance_g"]
-        except (KeyError, TypeError, ValueError):
-            valid, water, stock = False, 0, 0
-        if terminal and (payload.get("waterPump") is not False or payload.get("fertPump") is not False):
-            valid = False
-        if session["status"] in ("COMPLETED", "PARTIAL", "WAITING_FOR_WATER", "REQUIRES_REVIEW"):
-            valid = False
-        changed = False
+
+        elapsed_valid = fresh(payload.get("timestamp"), now, 120)
+        elapsed_valid = elapsed_valid and timestamp(payload["timestamp"]) >= timestamp(session["started_at"])
+        flow_age = payload.get("flowAgeMs")
+        valid = (session["status"] not in CLOSED
+                 and payload.get("bootId") == session["boot_id"]
+                 and payload.get("flowValid") is True
+                 and payload.get("volumeEstimated") is False
+                 and number(flow_age) and 0 <= flow_age <= 25000
+                 and payload.get("waterPumpKnown") is True
+                 and payload.get("fertPumpKnown") is True
+                 and elapsed_valid)
+        water, stock = payload.get("waterVolumeL"), payload.get("fertVolumeL")
+        concentration = session.get("concentration_g_l")
+        target = obligation.get("snapshot", {}).get("target_g")
+        tolerance = session.get("tolerance_g")
+        previous_stock = session.get("stock_l", 0)
+        previous_water = session.get("water_l", 0)
+        valid = valid and all(number(x) for x in (
+            water, stock, concentration, target, tolerance,
+            previous_stock, previous_water, obligation.get("delivered_g")
+        ))
         if valid:
-            delta = stock-session.get("stock_l", 0)
-            o["delivered_g"] += delta*session["concentration_g_l"]
+            valid = (water >= previous_water >= 0 and stock >= previous_stock >= 0
+                     and concentration > 0 and tolerance >= 0 and target >= 0
+                     and stock <= session["target_stock_l"] + tolerance / concentration
+                     and obligation["delivered_g"] + (stock - previous_stock) * concentration
+                     <= target + tolerance)
+        terminal = payload.get("state") in TERMINAL
+        safe_terminal = (terminal and payload.get("state") != "FAULT"
+                         and payload.get("safeShutdownComplete") is True
+                         and payload.get("waterPump") is False
+                         and payload.get("fertPump") is False)
+        counter_status, counter_reason, proof = (
+            counter_evidence(state, session, payload) if terminal and valid
+            else ("NOT_EVALUATED", None, {})
+        )
+        if not valid or not safe_terminal or counter_status == "INVALID":
+            session["status"] = obligation["status"] = "REQUIRES_REVIEW"
+            reasons = obligation.setdefault("review_reasons", [])
+            reason = counter_reason if counter_status == "INVALID" else "execution_feedback_requires_reconciliation"
+            if reason not in reasons:
+                reasons.append(reason)
+            result = {"status": "REQUIRES_REVIEW", "dose_changed": False,
+                      "delivered_g": obligation["delivered_g"],
+                      "counter_evidence": counter_status}
+        else:
+            # Credit measured incremental delivery only after a safe terminal
+            # report. Not on a running/FAULT/unsafe frame, nor from EMA estimates.
+            delta_stock = stock - previous_stock
+            mass_g = delta_stock * concentration
+            obligation["delivered_g"] += mass_g
             session.update(water_l=water, stock_l=stock)
-            changed = delta > 0
-        safe_end = (terminal and valid and payload.get("safeShutdownComplete") is True)
-        if not valid or (terminal and not safe_end) or payload.get("state") == "FAULT":
-            session["status"] = o["status"] = "REQUIRES_REVIEW"
-            if "execution_feedback_requires_reconciliation" not in o["review_reasons"]:
-                o["review_reasons"].append("execution_feedback_requires_reconciliation")
-        elif safe_end:
-            if o["snapshot"]["target_g"]-o["delivered_g"] <= session["tolerance_g"]:
-                session["status"] = o["status"] = "COMPLETED"
+            evidence = state.setdefault("mass_balance_evidence", {})
+            if session["obligation_id"] not in evidence:
+                evidence[session["obligation_id"]] = {}
+            evidence[session["obligation_id"]][payload["sessionId"]] = {
+                "event_id": event_id, "actual_stock_l": stock, "mass_g": mass_g,
+                "concentration_g_l": concentration, "counter_status": counter_status,
+                "safe_shutdown_verified": True
+            }
+            if target - obligation["delivered_g"] <= tolerance:
+                session["status"] = obligation["status"] = "COMPLETED"
             elif payload["state"] == "WAITING_FOR_WATER" and payload.get("stopReason") == "water_low":
-                session["status"] = o["status"] = "WAITING_FOR_WATER"
+                session["status"] = obligation["status"] = "WAITING_FOR_WATER"
                 state["stable_since"] = None
             else:
-                session["status"] = o["status"] = "PARTIAL"
-            # The firmware must report per-pump active duration, not elapsed wall
-            # time that includes priming, pauses, mixing and flushing for both.
-            for pump, volume, field in (("water", water, "waterOnSeconds"), ("fertilizer", stock, "fertilizerOnSeconds")):
-                seconds = payload.get(field)
-                elapsed = (timestamp(payload["timestamp"])-timestamp(session["started_at"])).total_seconds()
-                if isinstance(seconds, (int, float)) and 0 < seconds <= elapsed+1 and volume > 0:
-                    model = state["ema"].setdefault(session["configuration_version"], dict(session["ema_used"]))
-                    old, actual = model[pump], volume/seconds*60
-                    model[pump] = session["alpha"]*actual+(1-session["alpha"])*old
-                    state["ema_history"].append({"session_id": payload["sessionId"], "pump": pump, "old": old,
-                                                 "actual": actual, "new": model[pump], "event_id": event_id})
-        result = {"status": session["status"], "dose_changed": changed, "delivered_g": o["delivered_g"]}
+                session["status"] = obligation["status"] = "PARTIAL"
+            if counter_status == "MATCHED":
+                learn_counter_ema(state, session, payload, event_id, proof)
+            result = {"status": session["status"], "dose_changed": mass_g > 0,
+                      "delivered_g": obligation["delivered_g"],
+                      "counter_evidence": counter_status}
+
         state["feedback"][event_id] = {"fingerprint": fingerprint, "result": result}
         return result
