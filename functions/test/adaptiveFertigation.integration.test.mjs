@@ -18,7 +18,7 @@ test('adaptive backend pins conversion, allocates batches, persists duplicate te
  const event=raw=>{const payload=adaptiveEventPayloadSchema.parse(raw);return adaptiveEventSchema.parse({kind:'adaptive_fert_event',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',messageId:createHash('sha256').update(JSON.stringify(payload)).digest('hex'),receivedAt:new Date().toISOString(),payload})}
  try{
   const dir=resolve(import.meta.dirname,'../../infrastructure/postgres/migrations');for(const name of readdirSync(dir).sort())await db.exec(readFileSync(resolve(dir,name),'utf8'))
-  await db.exec("INSERT INTO spff.sites(site_id,name)VALUES('greenhouse-01','Test');INSERT INTO spff.devices(site_id,device_id,display_name)VALUES('greenhouse-01','esp32-s3-01','ESP');INSERT INTO spff.device_automatic_control_configs(site_id,device_id,desired_mode,water_enabled,fertilizer_enabled,acknowledgement_status,acknowledged_revision,applied_mode)VALUES('greenhouse-01','esp32-s3-01','manual',false,false,'applied',1,'manual');UPDATE spff.device_automatic_control_configs SET water_min_tank_level_pct=10,fertilizer_min_tank_level_pct=10;INSERT INTO spff.device_status_events(site_id,device_id,online,mode,recorded_at,raw_payload)VALUES('greenhouse-01','esp32-s3-01',true,'manual',now(),'{\"firmwareVersion\":\"1.5.00-ADAPTIVE-FERTIGATION\"}');")
+  await db.exec("INSERT INTO spff.sites(site_id,name)VALUES('greenhouse-01','Test');INSERT INTO spff.devices(site_id,device_id,display_name)VALUES('greenhouse-01','esp32-s3-01','ESP');INSERT INTO spff.device_automatic_control_configs(site_id,device_id,desired_mode,water_enabled,fertilizer_enabled,acknowledgement_status,acknowledged_revision,applied_mode)VALUES('greenhouse-01','esp32-s3-01','manual',false,false,'applied',1,'manual');UPDATE spff.device_automatic_control_configs SET water_min_tank_level_pct=10,fertilizer_min_tank_level_pct=10;INSERT INTO spff.device_status_events(site_id,device_id,online,mode,recorded_at,raw_payload)VALUES('greenhouse-01','esp32-s3-01',true,'manual',now(),'{\"firmwareVersion\":\"1.5.03-SHT20-TELEMETRY-SYNC\",\"pulseBootId\":\"boot-1503\"}');")
   await query("INSERT INTO spff.telemetry_samples(site_id,device_id,message_id,sequence,recorded_at,liquid_ec_us_cm,tank_water_level_pct,tank_fert_level_pct,flow_water_lpm,flow_fert_lpm,sensor_health,raw_payload)VALUES('greenhouse-01','esp32-s3-01','test-adaptive',1,now(),100,80,70,0,0,$1,'{}')",[JSON.stringify(Object.fromEntries(['liquid_ec_us_cm','tank_water_level_pct','tank_fert_level_pct','flow_water_lpm','flow_fert_lpm'].map(k=>[k,{valid:true}])))]);
   await query("INSERT INTO spff.alarm_rules(site_id,rule_key,source_type,source_key,comparator,severity,trigger_count,recovery_count,title,description,recommendation)VALUES('greenhouse-01','adaptive_fertigation_attention','actuator','pump_fert','failed','warning',1,1,'Adaptive','Test','Check session')");
   const config={cropId:'terong',plantingDate:'2026-01-01',basis:'plants',quantity:6000,deviceId:'esp32-s3-01',waterEcMsCm:0.1}
@@ -32,14 +32,27 @@ test('adaptive backend pins conversion, allocates batches, persists duplicate te
   await assert.rejects(adaptive.createAdaptiveSession(input,'admin'),/belum diaktifkan/)
   process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED='true'
   await assert.rejects(adaptive.createAdaptiveSession({...input,expectedProfileRevision:99},'admin'),/Profil konversi/);
+  await assert.rejects(adaptive.createAdaptiveSession(input,'admin'),/Telemetry adaptive/);
+  const evidence={ecValid:true,flowValid:true,ecAgeMs:100,flowAgeMs:100,waterPumpKnown:true,fertPumpKnown:true,volumeEstimated:false,targetEcUs:2608,bootId:'boot-1503',controlAlgorithm:'ec_hysteresis_ema',firmwareVersion:'1.5.03-SHT20-TELEMETRY-SYNC'};
+  const idle={kind:'adaptive_fert_telemetry',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:'',timestamp:new Date().toISOString(),state:'IDLE',filteredEc:2000,rawEc:2000,waterFlowLpm:0,fertFlowLpm:0,waterVolumeL:0,fertVolumeL:0,fertMassGrams:0,volumePerPlantMl:0,waterPump:false,fertPump:false,faultReason:'none',ecTargetUnreachable:false,...evidence};
+  await transport.saveEvent(event({...idle,bootId:'wrong-boot'}));
+  await assert.rejects(adaptive.createAdaptiveSession(input,'admin'),/Boot\/status/);
+  await transport.saveEvent(event({...idle,timestamp:new Date().toISOString()}));
   const session=await adaptive.createAdaptiveSession(input,'admin');assert.equal((await adaptive.createAdaptiveSession(input,'admin')).session_id,session.session_id)
+  assert.equal(session.command_snapshot.bootId,'boot-1503');assert.equal(adaptiveStartCommandSchema.safeParse(session.command_snapshot).success,true)
+  const savedCommand=(await query('SELECT payload,expires_at FROM spff.adaptive_fert_commands WHERE command_id=$1',[session.command_snapshot.commandId])).rows[0]
+  assert.equal(savedCommand.expires_at.toISOString(),session.command_snapshot.expiresAt)
+  assert.equal(Date.parse(savedCommand.payload.expiresAt)-Date.parse(savedCommand.payload.issuedAt),15000)
   await assert.rejects(adaptive.createAdaptiveSession({...input,requestId:randomUUID()},'admin'),/masih aktif/)
   await assert.rejects(query("UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',water_enabled=true,water_moisture_low_pct=10,water_moisture_target_pct=60,water_max_runtime_seconds=600,water_cooldown_seconds=60,water_min_tank_level_pct=10,water_min_flow_lpm=1 WHERE site_id='greenhouse-01'"),/adaptive_session_owns_relays/)
   await transport.dispatch();await transport.dispatch();assert.equal(sent.length,1)
-  const now=new Date().toISOString(),telemetry={kind:'adaptive_fert_telemetry',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:session.session_id,timestamp:now,state:'EC_CONTROL',filteredEc:2000,rawEc:2000,waterFlowLpm:10,fertFlowLpm:1,waterVolumeL:10,fertVolumeL:1,fertMassGrams:100,volumePerPlantMl:1,waterPump:true,fertPump:true,faultReason:'none',ecTargetUnreachable:false}
+  const now=new Date().toISOString(),telemetry={kind:'adaptive_fert_telemetry',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:session.session_id,timestamp:now,state:'EC_CONTROL',filteredEc:2000,rawEc:2000,waterFlowLpm:10,fertFlowLpm:1,waterVolumeL:10,fertVolumeL:1,fertMassGrams:100,volumePerPlantMl:1,waterPump:true,fertPump:true,faultReason:'none',ecTargetUnreachable:false,...evidence}
   const first=event(telemetry);await transport.saveEvent(first);await transport.saveEvent(first)
   let progress=await adaptive.adaptiveProgress(p.programId);assert.equal(progress.activities[0].estimatedDeliveredMassG,100);assert.equal(progress.history[0].status,'running')
-  assert.equal((await query('SELECT count(*)::int AS n FROM spff.adaptive_fert_events')).rows[0].n,1)
+  assert.equal((await query("SELECT count(*)::int AS n FROM spff.adaptive_fert_events WHERE payload->>'sessionId'=$1",[session.session_id])).rows[0].n,1)
+  await transport.saveEvent(event({...idle,sessionId:session.session_id,timestamp:new Date().toISOString(),fertVolumeL:999,fertMassGrams:99900}));
+  assert.equal((await adaptive.adaptiveProgress(p.programId)).history[0].status,'running')
+  assert.equal((await adaptive.adaptiveProgress(p.programId)).activities[0].estimatedDeliveredMassG,100)
   await transport.saveEvent(event({...telemetry,timestamp:new Date(Date.now()-1000).toISOString(),waterVolumeL:5,fertVolumeL:0.5,fertMassGrams:50}));assert.equal((await adaptive.adaptiveProgress(p.programId)).activities[0].estimatedDeliveredMassG,100)
   await assert.rejects(adaptive.controlAdaptiveSession(session.session_id,'resume',randomUUID()),/priming/)
   const pause=await adaptive.controlAdaptiveSession(session.session_id,'pause',randomUUID());await transport.dispatch();assert.equal(sent.length,2)
@@ -48,6 +61,10 @@ test('adaptive backend pins conversion, allocates batches, persists duplicate te
   assert.notEqual((await query('SELECT status FROM spff.adaptive_fert_commands WHERE command_id=$1',[pause.command_id])).rows[0].status,'accepted')
   await transport.saveEvent(event({...telemetry,timestamp:new Date().toISOString(),state:'FAULT',waterPump:false,fertPump:false,faultReason:'dry_run_water'}))
   assert.equal((await adaptive.adaptiveProgress(p.programId)).history[0].status,'reconciliation_required')
+  for(const invalid of [{bootId:'other-boot'},{volumeEstimated:true},{flowValid:false},{waterPumpKnown:false}]){
+   await transport.saveEvent(event({...telemetry,timestamp:new Date().toISOString(),waterVolumeL:20,fertVolumeL:2,fertMassGrams:200,...invalid}));
+   assert.equal((await adaptive.adaptiveProgress(p.programId)).activities[0].estimatedDeliveredMassG,100)
+  }
   await query("INSERT INTO spff.actuators(site_id,device_id,actuator_key,display_name,actuator_type)VALUES('greenhouse-01','esp32-s3-01','pump_water','Water','pump')")
   const controlSql="INSERT INTO spff.control_commands(command_id,site_id,device_id,actuator_key,requested_is_active,requested_by,issued_at,expires_at)VALUES($1,'greenhouse-01','esp32-s3-01','pump_water',$2,'test',now(),now()+interval '15 seconds')"
   await assert.rejects(query(controlSql,['blocked-on',true]),/adaptive_session_owns_relays/)

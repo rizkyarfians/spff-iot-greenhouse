@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import {adaptiveStartCommandSchema,guideEcRecipe,guideProgramHst,type AdaptiveSessionInput,type GuideActivity} from '@spff/contracts';
+import {adaptiveStartCommandSchema,adaptiveStartPlanSchema,adaptiveTelemetrySchema,guideEcRecipe,guideProgramHst,type AdaptiveSessionInput,type GuideActivity} from '@spff/contracts';
 import {pool,configuredSiteId as siteId} from './postgresRepository.js';
 import {readGuideEcConversions} from './guideEcConversionService.js';
 import {activityFingerprint} from './guideProgramService.js';
@@ -31,11 +31,11 @@ async function plan(input:AdaptiveSessionInput,database:Pick<typeof pool,'query'
  const proposedStock=input.waterMeterPosition==='before_injector'?cMix*input.waterVolumeL/(cStock-cMix):cMix*input.waterVolumeL/cStock;
  const stockL=Math.min(proposedStock,remaining.remainingMassG/cStock),mixedL=stockL*cStock/cMix;
  const waterL=input.waterMeterPosition==='before_injector'?mixedL-stockL:mixedL;
- const command=adaptiveStartCommandSchema.safeParse({kind:'adaptive_fert_command',schemaVersion:1,siteId,deviceId:p.config.deviceId,sessionId:randomUUID(),commandId:randomUUID(),commandType:'start',targetEcUs:conversion.targetEcMsCm*1000,ecToleranceUs:input.ecToleranceUs,maxDurationSec:input.maxDurationSec,targetWaterVolumeL:waterL,targetFertVolumeL:stockL,nominalConcentrationGPerL:cStock,plantCount:Math.round(p.plan.plants),flushDurationSec:input.flushDurationSec});
- if(!command.success)return fail('Hasil konversi/jatah sesi di luar batas firmware v1.5.00. Target tidak dibulatkan atau diganti default.');
+ const command=adaptiveStartPlanSchema.safeParse({kind:'adaptive_fert_command',schemaVersion:1,siteId,deviceId:p.config.deviceId,sessionId:randomUUID(),commandId:randomUUID(),commandType:'start',targetEcUs:conversion.targetEcMsCm*1000,ecToleranceUs:input.ecToleranceUs,maxDurationSec:input.maxDurationSec,targetWaterVolumeL:waterL,targetFertVolumeL:stockL,nominalConcentrationGPerL:cStock,plantCount:Math.round(p.plan.plants),flushDurationSec:input.flushDurationSec});
+ if(!command.success)return fail('Hasil konversi/jatah sesi di luar batas firmware 1.5.03. Target tidak dibulatkan atau diganti default.');
  return {program:p,activity,conversion,command:command.data,remainingMassG:remaining.remainingMassG,mixedVolumeL:mixedL};
 }
-export async function previewAdaptiveSession(input:AdaptiveSessionInput){const p=await plan(input);return {command:p.command,conversion:p.conversion,remainingMassG:p.remainingMassG,mixedVolumeL:p.mixedVolumeL,dispatchEnabled:process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED==='true',resumeSupported:false};}
+export async function previewAdaptiveSession(input:AdaptiveSessionInput){const p=await plan(input);return {command:p.command,conversion:p.conversion,remainingMassG:p.remainingMassG,mixedVolumeL:p.mixedVolumeL,dispatchEnabled:process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED==='true',firmwareBindingRequired:true,resumeSupported:false};}
 export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:string){
  if(process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED!=='true')return fail('Dispatch adaptif belum diaktifkan; preview dan penerimaan telemetry tetap tersedia.');
  const client=await pool.connect();
@@ -56,7 +56,15 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
   const equipment=(await client.query(`SELECT c.*,st.online,st.recorded_at,st.raw_payload,st.mode FROM spff.device_automatic_control_configs c
    JOIN LATERAL(SELECT * FROM spff.device_status_events WHERE site_id=c.site_id AND device_id=c.device_id ORDER BY recorded_at DESC,device_status_id DESC LIMIT 1)st ON true
    WHERE c.site_id=$1 AND c.device_id=$2 FOR SHARE OF c`,[siteId,device])).rows[0];
-  if(!equipment||!equipment.online||equipment.recorded_at.getTime()>Date.now()||Date.now()-equipment.recorded_at.getTime()>90000||equipment.raw_payload?.firmwareVersion!=='1.5.00-ADAPTIVE-FERTIGATION'||equipment.water_enabled||equipment.fertilizer_enabled||equipment.desired_mode!=='manual'||equipment.applied_mode!=='manual'||equipment.mode!=='manual'||equipment.acknowledgement_status!=='applied'||String(equipment.revision)!==String(equipment.acknowledged_revision))return fail('Perlu firmware 1.5.00 online, mode Manual tersinkron, dan kedua aturan sensor dinonaktifkan agar relay tidak diperebutkan.');
+  if(!equipment||!equipment.online||equipment.recorded_at.getTime()>Date.now()||Date.now()-equipment.recorded_at.getTime()>90000||equipment.raw_payload?.firmwareVersion!=='1.5.03-SHT20-TELEMETRY-SYNC'||equipment.water_enabled||equipment.fertilizer_enabled||equipment.desired_mode!=='manual'||equipment.applied_mode!=='manual'||equipment.mode!=='manual'||equipment.acknowledgement_status!=='applied'||String(equipment.revision)!==String(equipment.acknowledged_revision))return fail('Perlu firmware 1.5.03 online, mode legacy Manual tersinkron, dan kedua aturan sensor dinonaktifkan agar relay tidak diperebutkan.');
+  // Bind to the actual current boot, not a client-supplied or cached boot token.
+  const latest=(await client.query(`SELECT payload,received_at FROM spff.adaptive_fert_events WHERE site_id=$1 AND device_id=$2 AND payload->>'kind'='adaptive_fert_telemetry' ORDER BY received_at DESC,stored_at DESC LIMIT 1`,[siteId,device])).rows[0];
+  const live=adaptiveTelemetrySchema.safeParse(latest?.payload);
+  if(!live.success||!latest||latest.received_at.getTime()>Date.now()||Date.now()-latest.received_at.getTime()>25000)return fail('Telemetry adaptive 1.5.03 terbaru diperlukan untuk mengikat boot sesi.');
+  const frame=live.data,frameAt=Date.parse(frame.timestamp);
+  if(frame.firmwareVersion!=='1.5.03-SHT20-TELEMETRY-SYNC'||!frame.bootId||frame.bootId!==equipment.raw_payload?.pulseBootId||frameAt>Date.now()||Date.now()-frameAt>25000||frame.state!=='IDLE'||frame.waterPump||frame.fertPump||frame.waterPumpKnown!==true||frame.fertPumpKnown!==true||frame.ecValid!==true||frame.flowValid!==true||frame.ecAgeMs===undefined||frame.ecAgeMs>30000||frame.flowAgeMs===undefined||frame.flowAgeMs>25000)return fail('Boot/status adaptive belum cocok, sensor belum siap, atau pompa belum terverifikasi OFF.');
+  const issuedAt=new Date(Math.floor(Date.now()/1000)*1000).toISOString();
+  const command=adaptiveStartCommandSchema.parse({...p.command,bootId:frame.bootId,issuedAt,expiresAt:new Date(Date.parse(issuedAt)+15000).toISOString()});
   const sample=(await client.query(`SELECT * FROM spff.telemetry_samples WHERE site_id=$1 AND device_id=$2 AND recorded_at<=now() ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 1`,[siteId,device])).rows[0];
   const sensorKeys=['liquid_ec_us_cm','tank_water_level_pct','tank_fert_level_pct','flow_water_lpm','flow_fert_lpm'];
   if(!sample||Date.now()-sample.recorded_at.getTime()>120000||sensorKeys.some(key=>!Number.isFinite(sample[key])||sample[key]<0||sample.sensor_health?.[key]?.valid!==true))return fail('Sensor EC, tandon dan debit wajib valid serta terbaru sebelum sesi dimulai.');
@@ -68,9 +76,9 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
    UNION ALL SELECT 1 FROM spff.soil_ec_pulse_sessions WHERE site_id=$1 AND device_id=$2 AND status IN ('waiting','in_flight','fault')
    UNION ALL SELECT 1 FROM spff.control_commands WHERE site_id=$1 AND device_id=$2 AND status IN ('pending','published','accepted') LIMIT 1`,[siteId,device]);
   if(blockers.rows.length)return fail('Jadwal, AI EC tanah, command atau sesi lain masih aktif.');
-  const args=[siteId,p.command.sessionId,device,input.programId,input.expectedProgramRevision,input.activityId,activityFingerprint(p.activity,p.program.config),input.requestId,JSON.stringify(input),JSON.stringify(p.command),JSON.stringify(p.conversion),actor];
+  const args=[siteId,command.sessionId,device,input.programId,input.expectedProgramRevision,input.activityId,activityFingerprint(p.activity,p.program.config),input.requestId,JSON.stringify(input),JSON.stringify(command),JSON.stringify(p.conversion),actor];
   const row=(await client.query(`INSERT INTO spff.adaptive_fert_sessions(site_id,session_id,device_id,program_id,program_revision,activity_id,activity_fingerprint,request_id,input,command_snapshot,conversion_snapshot,created_by)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)RETURNING *`,args)).rows[0];
-  await client.query(`INSERT INTO spff.adaptive_fert_commands(site_id,command_id,session_id,request_id,payload,expires_at)VALUES($1,$2,$3,$4,$5,now()+interval '15 seconds')`,[siteId,p.command.commandId,p.command.sessionId,input.requestId,JSON.stringify(p.command)]);
+  await client.query(`INSERT INTO spff.adaptive_fert_commands(site_id,command_id,session_id,request_id,payload,expires_at)VALUES($1,$2,$3,$4,$5,$6)`,[siteId,command.commandId,command.sessionId,input.requestId,JSON.stringify(command),command.expiresAt]);
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 }
