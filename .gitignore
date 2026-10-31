@@ -16,6 +16,12 @@ edge-outbox/
 *.tsbuildinfo
 db-backups/
 
+# Python shadow AI development
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
 # Edge runtime durable outbox
 /edge-gateway/data/
 

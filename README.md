@@ -113,6 +113,13 @@ Template Orange Pi tersedia di:
 Template production Nginx sudah memakai Basic Auth dan meneruskan operator identity ke API; buat `/etc/nginx/spff.htpasswd` secara lokal dan gunakan TLS bila jaringan tidak tepercaya. Commissioning hardware tetap wajib sebelum kontrol pompa dianggap go-live. Tidak ada deployment yang dilakukan otomatis oleh repository ini.
 
 
+## Python Adaptive AI Engine (shadow)
+
+Fondasi Python SPFF Adaptive AI Engine v1.0.0 tersedia di
+[python-ai/README.md](python-ai/README.md). Modul ini hanya mendukung
+`SHADOW_MODE`, menyimpan evaluasi ke tabel terpisah, dan tidak mengirim command
+atau mengubah relay. Migration shadow disediakan untuk review, belum dijalankan.
+
 ## Hardening runtime Orange Pi
 
 - API production bind ke `127.0.0.1`; akses LAN melewati Nginx.
