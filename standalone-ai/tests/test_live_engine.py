@@ -21,7 +21,11 @@ def real_observation(now, *, manual=False, due_today=True):
     return {"schema_compatible": True,
             "telemetry": {"message_id": at, "recorded_at": at, "soil_1_moisture": 20,
                           "tank_water_level_pct": 100, "tank_fert_level_pct": 100,
-                          "sensor_health": {key: {"valid": True} for key in keys}},
+                          "sensor_health": {
+                              **{key: {"valid": True} for key in keys},
+                              "soil_1_moisture": {"valid": True, "raw": 200,
+                                  "rawAgeMs": 1000, "rawFresh": True,
+                                  "lastPollOk": True, "pollBootId": "test-boot"}}},
             "device_status": {"online": True, "mode": mode, "recorded_at": at},
             "automatic_control": {"desired_mode": mode, "applied_mode": mode, "revision": 1,
                                   "acknowledged_revision": 1, "acknowledgement_status": "applied", "water_sensor_key": "soil_1_moisture"},
@@ -110,6 +114,7 @@ class LiveEngineTests(unittest.TestCase):
         self.assertEqual(result["plan"]["stock_l"], 0)
         # A sudden 20->95 change is suspicious, not a trustworthy OFF decision.
         observation["telemetry"]["soil_1_moisture"] = 95
+        observation["telemetry"]["sensor_health"]["soil_1_moisture"]["raw"] = 950
         observation["telemetry"]["message_id"] = "next-message"
         observation["telemetry"]["recorded_at"] = (self.now + timedelta(seconds=30)).isoformat()
         observation["device_status"]["recorded_at"] = observation["telemetry"]["recorded_at"]
@@ -122,6 +127,7 @@ class LiveEngineTests(unittest.TestCase):
         observation = real_observation(self.now)
         observation["guide_programs"]["programs"] = []
         observation["telemetry"]["soil_1_moisture"] = 95
+        observation["telemetry"]["sensor_health"]["soil_1_moisture"]["raw"] = 950
         result = self.engine.evaluate(observation, calibrated_profile(), now=self.now)
         self.assertEqual(result["proposed_action"], "OFF")
         self.assertIsNone(result["plan"])
@@ -130,8 +136,10 @@ class LiveEngineTests(unittest.TestCase):
         observation = real_observation(self.now)
         observation["guide_programs"]["programs"] = []
         observation["telemetry"]["soil_1_moisture"] = 59
+        observation["telemetry"]["sensor_health"]["soil_1_moisture"]["raw"] = 590
         self.engine.evaluate(observation, calibrated_profile(), now=self.now)
         observation["telemetry"]["soil_1_moisture"] = 0
+        observation["telemetry"]["sensor_health"]["soil_1_moisture"]["raw"] = 0
         observation["telemetry"]["message_id"] = "zero-frame-crc-valid"
         observation["telemetry"]["recorded_at"] = (self.now + timedelta(seconds=30)).isoformat()
         observation["device_status"]["recorded_at"] = observation["telemetry"]["recorded_at"]
