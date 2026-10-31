@@ -7,6 +7,7 @@ proof for flow EMA; a contradiction makes the dose require reconciliation.
 from .engine import digest, timestamp
 from .flow_evidence import counter_evidence, learn_counter_ema, number
 from .live_engine import empty_live, fresh
+from .mass_evidence import accept_delivery
 
 
 TERMINAL = {"COMPLETED", "FAULT", "WAITING_FOR_WATER", "PARTIAL"}
@@ -68,30 +69,31 @@ def process_feedback(store, event, now):
             counter_evidence(state, session, payload) if terminal and valid
             else ("NOT_EVALUATED", None, {})
         )
-        if not valid or not safe_terminal or counter_status == "INVALID":
+        review_reason = (counter_reason if counter_status == "INVALID"
+                         else "execution_feedback_requires_reconciliation")
+        if valid and safe_terminal and counter_status != "INVALID":
+            # Confirm the cumulative ledger BEFORE updating delivered_g.
+            # The ledger identifies measured terminal session deliveries; it
+            # never retroactively attributes legacy/manual volume by date.
+            delta_stock = stock - previous_stock
+            mass_g = delta_stock * concentration
+            review_reason = accept_delivery(
+                state, session["obligation_id"], payload["sessionId"], event_id,
+                obligation, stock_l=delta_stock, mass_g=mass_g,
+                concentration_g_l=concentration, counter_status=counter_status
+            )
+        if not valid or not safe_terminal or counter_status == "INVALID" or review_reason:
             session["status"] = obligation["status"] = "REQUIRES_REVIEW"
             reasons = obligation.setdefault("review_reasons", [])
-            reason = counter_reason if counter_status == "INVALID" else "execution_feedback_requires_reconciliation"
-            if reason not in reasons:
-                reasons.append(reason)
+            if review_reason not in reasons:
+                reasons.append(review_reason)
             result = {"status": "REQUIRES_REVIEW", "dose_changed": False,
                       "delivered_g": obligation["delivered_g"],
                       "counter_evidence": counter_status}
         else:
-            # Credit measured incremental delivery only after a safe terminal
-            # report. Not on a running/FAULT/unsafe frame, nor from EMA estimates.
-            delta_stock = stock - previous_stock
-            mass_g = delta_stock * concentration
+            # All evidence committed atomically with the persistent ledger.
             obligation["delivered_g"] += mass_g
             session.update(water_l=water, stock_l=stock)
-            evidence = state.setdefault("mass_balance_evidence", {})
-            if session["obligation_id"] not in evidence:
-                evidence[session["obligation_id"]] = {}
-            evidence[session["obligation_id"]][payload["sessionId"]] = {
-                "event_id": event_id, "actual_stock_l": stock, "mass_g": mass_g,
-                "concentration_g_l": concentration, "counter_status": counter_status,
-                "safe_shutdown_verified": True
-            }
             if target - obligation["delivered_g"] <= tolerance:
                 session["status"] = obligation["status"] = "COMPLETED"
             elif payload["state"] == "WAITING_FOR_WATER" and payload.get("stopReason") == "water_low":
