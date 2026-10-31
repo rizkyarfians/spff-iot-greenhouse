@@ -17,14 +17,14 @@
 
 1. `/decisions` sorts explicitly by timezone-aware event timestamp, then decision ID. Old audit entries are preserved.
 2. Source SQL rejects `recorded_at > received_at + 5s`, future receipt times and future measurement times. Source time-to-live is still enforced by the live engine using `sensor_data_max_age`; the query never fabricates readings.
-3. `app/quality.py` adds a conservative SHADOW Fuzzy quality gate: rejects invalid/failed/explicitly non-control-valid health; detects abrupt moisture jumps; requires three distinct chronological and consistent telemetry messages before adopting a suspect new baseline; never counts the same message again or substitutes last-good sensor values.
+3. `app/quality.py` adds a conservative SHADOW Fuzzy quality gate: rejects invalid/failed/explicitly non-control-valid health; detects abrupt moisture jumps; requires three distinct chronological and consistent *sensor acquisition timestamps* before adopting a suspect new baseline; never counts cached repeated Modbus readings as new evidence or substitutes last-good values. Missing per-register diagnostic proof fails closed.
 4. Add regression tests for chronological ordering, poisoned source clock SQL contract, contradictory message IDs, stale/failed poll, valid-zero spikes and stable recovery.
 
 Provisional constants (`15` percentage-point abrupt change, `3` point confirmation spread, `3` distinct samples, maximum `120` seconds between confirmations) **are NOT field-calibrated** and must be validated before any ACTIVE use. The quality gate is deliberately fail-closed; raw zero may be real, so a sustained consistent zero may be accepted for later analysis. Dashboard telemetry remains unmodified.
 
 ### Known integration caveat
 
-`spff.telemetry_samples.sensor_health` may expose only normalized `valid`, while diagnostic fields like `lastPollOk` live in `raw_payload.sensorHealth`. The gate uses diagnostic fields if available and always checks jump consistency, but it must not claim to validate Modbus polls when the normalized columns omit those fields. Explicit contract design is needed with the firmware/backend owners.
+`spff.telemetry_samples.sensor_health` may expose only normalized `valid`, while diagnostic fields like `lastPollOk` live in `raw_payload.sensorHealth`. The source adapter now explicitly whitelists diagnostic metadata from `raw_payload.sensorHealth` into the AI-only observation, but never exposes the arbitrary raw payload. Absence of `lastPollOk`, `rawFresh`, `rawAgeMs`, `raw` or `pollBootId` means `HOLD`, not a substitute or an inferred successful poll. This does not change the operational telemetry contract; the diagnostic schema still requires firmware-team validation.
 
 ## Branch comparison: `feature/python-adaptive-ai-engine`
 
@@ -52,4 +52,4 @@ npm run build
 npm run lint
 ```
 
-These commands are **not claimed as executed in this remote-only edit session**. PostgreSQL integration test with a genuine future-dated row and hardware/RS485 validation remain pending. Production service and `/opt/spff-ai` are unchanged. Review and explicit approval are required before deployment.
+These commands are **not claimed as executed in this remote-only edit session**. A separately reconstructed quality gate was exercised locally with 7 isolated behavioral checks; this is not equivalent to running repository tests. Full checkout was not accessible in the isolated terminal because DNS access to GitHub was unavailable; psycopg is also absent from that terminal environment. PostgreSQL integration test with a genuine future-dated row and hardware/RS485 validation remain pending. Production service and `/opt/spff-ai` are unchanged. Review and explicit approval are required before deployment.
