@@ -1,0 +1,26 @@
+[Unit]
+Description=SPFF standalone Adaptive AI (shadow only)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=spff-ai
+Group=spff-ai
+WorkingDirectory=/opt/spff-ai
+EnvironmentFile=/etc/spff-ai/engine.env
+ExecStart=/opt/spff-ai/.venv/bin/python -m app
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/spff-ai/data
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

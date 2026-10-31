@@ -1,0 +1,93 @@
+{
+  "version": "simulation-1",
+  "simulation_only": true,
+  "timezone": "Asia/Jakarta",
+  "alpha": 0.3,
+  "water_flow_lpm": 220,
+  "fertilizer_flow_lpm": 7,
+  "water_curve": [
+    [
+      0,
+      0
+    ],
+    [
+      100,
+      5000
+    ]
+  ],
+  "fertilizer_curve": [
+    [
+      0,
+      0
+    ],
+    [
+      100,
+      500
+    ]
+  ],
+  "water_level_start_threshold": 30,
+  "water_level_stop_threshold": 5,
+  "water_level_stable_duration": 30,
+  "minimum_flush_reserve": 100,
+  "priming_water_l": 20,
+  "sensor_data_max_age": 120,
+  "minimum_restart_interval": 60,
+  "minimum_stock_session_l": 1,
+  "fertilizer_stop_percent": 2,
+  "max_session_water_l": 4500,
+  "max_session_seconds": 1800,
+  "max_irrigation_l": 500,
+  "dose_tolerance_g": 1,
+  "fuzzy_off_threshold": 0.04,
+  "fuzzy_inputs": {
+    "LOW": [
+      0,
+      0,
+      25,
+      50
+    ],
+    "MEDIUM": [
+      25,
+      45,
+      55,
+      75
+    ],
+    "HIGH": [
+      55,
+      75,
+      100,
+      100
+    ]
+  },
+  "fuzzy_outputs": {
+    "OFF": [
+      0,
+      0,
+      0.01,
+      0.02
+    ],
+    "LOW": [
+      0.05,
+      0.15,
+      0.25,
+      0.4
+    ],
+    "MEDIUM": [
+      0.25,
+      0.4,
+      0.6,
+      0.75
+    ],
+    "HIGH": [
+      0.6,
+      0.8,
+      1,
+      1
+    ]
+  },
+  "fuzzy_rules": {
+    "LOW": "HIGH",
+    "MEDIUM": "LOW",
+    "HIGH": "OFF"
+  }
+}
