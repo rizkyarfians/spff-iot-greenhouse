@@ -104,6 +104,18 @@ export function UnifiedAiNeedsPage(){
         <article className="ain-stat"><span><Leaf size={17}/> Massa pupuk terencana</span><strong>{show(plan?.fertilizer_mass_g,'g')}</strong><small>Perhitungan dosis rencana, bukan realisasi</small></article>
         <article className="ain-stat"><span><Clock3 size={17}/> Estimasi durasi</span><strong>{plan?.duration_seconds==null?'—':show(plan.duration_seconds/60,'menit')}</strong><small>Memerlukan debit pompa terkalibrasi</small></article>
       </div>
+      {data.fuzzy_preview&&<article className="ain-panel ain-fuzzy-preview" aria-label="Pratinjau Fuzzy simulasi">
+        <div className="ain-panel-heading">
+          <h3><Activity size={18}/> Hasil hitung Fuzzy — simulasi</h3>
+          <span>SIMULASI · Bukan rekomendasi operasional</span>
+        </div>
+        <div className="ain-fuzzy-preview-grid">
+          <div><small>Kelembapan sumber</small><strong>{show(data.fuzzy_preview.moisture_pct,'%')}</strong><small>{data.fuzzy_preview.input_key==='soil_2_moisture'?'Sensor Tanah 2':'Sensor Tanah 1'}</small></div>
+          <div><small>Skor centroid Mamdani</small><strong>{show(data.fuzzy_preview.score)}</strong><small>Skala 0–1</small></div>
+          <div><small>Volume ilustratif model</small><strong>{show(data.fuzzy_preview.illustrative_water_l,'L')}</strong><small>Bukan volume siram yang disetujui</small></div>
+        </div>
+        <p className="ain-footnote">Dihitung memakai profil {data.fuzzy_preview.config_version}, dengan batas model {show(data.fuzzy_preview.model_max_irrigation_l,'L')}; input sensor tercatat {when(data.fuzzy_preview.recorded_at)}. Hanya untuk memeriksa fungsi matematis Fuzzy. Tidak memperhitungkan kesiapan pompa, debit aktual, kebutuhan agronomis terkalibrasi, atau kewajiban pemupukan. Status keputusan tetap {data.status}; tidak mengubah HOLD dan tidak mengirim perintah.</p>
+      </article>}
       {aiCalculationReadiness(data).length>0&&<article className="ain-notice ain-calculation-explanation" aria-label="Mengapa perhitungan belum tersedia">
         <div className="ain-calculation-intro"><AlertTriangle size={17}/><strong>Mengapa nilai AI belum muncul?</strong></div>
         <ul className="ain-reasons">{aiCalculationReadiness(data).map(reason=><li key={reason}>{reason}</li>)}</ul>
