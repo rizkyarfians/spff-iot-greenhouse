@@ -80,6 +80,15 @@ def activity_planning_preview(activity, flow, stock_concentration_g_l=None, plan
     # durations as if Venturi or pump sequence were independently certified.
     water_minutes = water / water_rate if water is not None and water_rate else None
     stock_minutes = stock / stock_rate if stock is not None and stock_rate else None
+    # Advisory only: stock cannot finish within the observed water-running
+    # window if both references describe concurrent flow at these rates.
+    for item in product_options:
+        if (water_minutes is not None and item["stock_duration_minutes"] is not None
+                and item["stock_duration_minutes"] > water_minutes):
+            item["reasons"].append("stock_duration_exceeds_water_duration")
+    if (water_minutes is not None and stock_minutes is not None
+            and stock_minutes > water_minutes):
+        reasons.append("stock_duration_exceeds_water_duration")
     return {
         "basis": "GUIDE_WITH_UNVERIFIED_HISTORICAL_FLOW",
         "water_l": water,
