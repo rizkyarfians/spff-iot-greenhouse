@@ -6,6 +6,8 @@ promoted to a plant recommendation. A missing or stale decision stays explicit.
 from datetime import datetime, timezone
 from math import isfinite
 
+from .calculations import fuzzy_volume
+
 
 def _iso(value):
     try:
@@ -37,7 +39,7 @@ def _str_list(values, cap=40):
     return [_text(v) for v in values[:cap] if isinstance(v, str)] if isinstance(values, list) else []
 
 
-def present_shadow_dashboard(decisions, now=None):
+def present_shadow_dashboard(decisions, now=None, simulation_config=None):
     """Return one schema for Node validation and mobile-first React presentation.
 
     A shadow ledger 'delivered_g' means credited by AI only, not external/manual
@@ -167,6 +169,60 @@ def present_shadow_dashboard(decisions, now=None):
     plan = plan if isinstance(plan, dict) and "hold" not in plan else {}
     fuzzy = decision.get("fuzzy")
     fuzzy = fuzzy if isinstance(fuzzy, dict) else {}
+
+    # Independent, NON-OPERATIONAL Fuzzy model preview from the genuine stored
+    # SHADOW sensor snapshot. This is never the LiveEngine irrigation plan and
+    # may not be used to dispatch or claim agronomic/hydraulic accuracy.
+    # Only intentionally simulation-only profiles are eligible.
+    fuzzy_preview = None
+    selected_value = _number(telemetry.get(selected_soil)) if selected_soil else None
+    selected_health = health.get(selected_soil) if selected_soil else None
+    sensor_reported_valid = (
+        isinstance(selected_health, dict)
+        and selected_health.get("valid") is True
+        and selected_health.get("controlValid") is not False
+        and selected_health.get("rawFresh") is not False
+        and selected_health.get("lastPollOk") is not False
+    )
+    raw_value = selected_health.get("raw") if sensor_reported_valid else None
+    raw_age = selected_health.get("rawAgeMs") if sensor_reported_valid else None
+    raw_consistent = (
+        raw_value is None
+        or (type(raw_value) is int and 0 <= raw_value <= 1000
+            and selected_value is not None and abs(raw_value / 10 - selected_value) <= 0.11)
+    )
+    raw_age_acceptable = (
+        raw_age is None
+        or (type(raw_age) is int and 0 <= raw_age <= 60000)
+    )
+    config_acknowledged = (
+        control.get("acknowledgement_status") == "applied"
+        and type(control.get("revision")) is int
+        and control.get("revision") == control.get("acknowledged_revision")
+    )
+    if (
+        selected and simulation_config is not None
+        and getattr(simulation_config, "simulation_only", False) is True
+        and selected_soil is not None
+        and selected_value is not None and 0 <= selected_value <= 100
+        and sensor_reported_valid and raw_consistent and raw_age_acceptable
+        and config_acknowledged and _iso(telemetry.get("recorded_at"))
+    ):
+        try:
+            projected = fuzzy_volume(selected_value, simulation_config)
+            fuzzy_preview = {
+                "basis": "SIMULATION_PROFILE",
+                "config_version": _text(simulation_config.version) or "simulation",
+                "input_key": selected_soil,
+                "moisture_pct": selected_value,
+                "score": _number(projected.get("score")),
+                "illustrative_water_l": _number(projected.get("water_l")),
+                "model_max_irrigation_l": _number(simulation_config.max_irrigation_l),
+                "recorded_at": _iso(telemetry.get("recorded_at")),
+            }
+        except (ValueError, ArithmeticError, KeyError, TypeError):
+            # Missing/invalid simulator rules are not silently replaced.
+            fuzzy_preview = None
     return {
         "schemaVersion": 1,
         "mode": "SHADOW_MODE",
@@ -208,6 +264,7 @@ def present_shadow_dashboard(decisions, now=None):
             "duration_seconds": _number(plan.get("duration_seconds")),
             "fuzzy_score": _number(fuzzy.get("score")),
         },
+        "fuzzy_preview": fuzzy_preview,
         "programs": programs,
         "note": "Rencana SHADOW; kebutuhan panduan bukan bukti aplikasi fisik.",
     }
