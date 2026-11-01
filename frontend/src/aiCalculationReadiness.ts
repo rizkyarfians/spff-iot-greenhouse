@@ -25,16 +25,16 @@ export function aiCalculationReadiness(data: UnifiedAiDashboard): string[] {
   if (data.calculation.stock_l === null && reasons.includes('verified_stock_concentration_missing')) {
     messages.push('Konsentrasi stok pupuk dan ikatan batch ke kegiatan belum diverifikasi; kilogram panduan tidak bisa langsung dikonversi menjadi liter injeksi.')
   }
-  if (data.calculation.fuzzy_score === null && data.decision.proposed_action === 'FERTIGATE') {
+  if (data.calculation.fuzzy_score === null && data.fuzzy_preview === null && data.decision.proposed_action === 'FERTIGATE') {
     messages.push('Engine sedang memprioritaskan kewajiban pemupukan; Fuzzy penyiraman berada di jalur IRRIGATE dan belum dihitung pada keputusan ini.')
   }
-  if (data.calculation.fuzzy_score === null && data.decision.proposed_action !== 'FERTIGATE'
+  if (data.calculation.fuzzy_score === null && data.fuzzy_preview === null && data.decision.proposed_action !== 'FERTIGATE'
       && !reasons.includes('validated_planning_configuration_missing')) {
     messages.push('Fuzzy belum tersedia untuk keputusan ini; periksa kualitas sensor kontrol, konfigurasi, dan data terbaru.')
   }
   if (data.sensors.control_moisture_source === 'soil_2_moisture'
       && data.sensors.soil_2_valid === true
-      && data.calculation.fuzzy_score === null) {
+      && data.calculation.fuzzy_score === null && data.fuzzy_preview === null) {
     messages.push('Sensor Tanah 2 sudah dipilih dan dilaporkan valid, tetapi itu saja belum menghasilkan rencana Fuzzy.')
   }
   if (reasons.includes('outstanding_obligation_requires_review')) {
