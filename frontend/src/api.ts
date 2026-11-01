@@ -946,9 +946,19 @@ export const fetchAdaptiveProgress=(id:string)=>request<AdaptiveProgressReport>(
 export const saveGuideEcProfile=(id:string,input:import('@spff/contracts').GuideEcProfileInput)=>request<{revision:number}>(`/guide-programs/${encodeURIComponent(id)}/ec-profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})
  
 // Unified AI is read-only; values are computed in the Python SHADOW engine.
-export const fetchUnifiedAiDashboard = (signal?: AbortSignal, stockConcentrationGL?: number) =>
-  request<import('@spff/contracts').UnifiedAiDashboard>(
-    '/unified-ai/dashboard' + (stockConcentrationGL === undefined ? '' :
-      '?stock_concentration_g_l=' + encodeURIComponent(String(stockConcentrationGL))),
-    {signal},
+export const fetchUnifiedAiDashboard = (
+  signal?: AbortSignal,
+  stockConcentrationGL?: number,
+  waterInput?: {liters: number; programId: string; activityId: string},
+) => {
+  const params = new URLSearchParams();
+  if (stockConcentrationGL !== undefined) params.set('stock_concentration_g_l', String(stockConcentrationGL));
+  if (waterInput !== undefined) {
+    params.set('planned_water_l', String(waterInput.liters));
+    params.set('selected_program_id', waterInput.programId);
+    params.set('selected_activity_id', waterInput.activityId);
+  }
+  return request<import('@spff/contracts').UnifiedAiDashboard>(
+    '/unified-ai/dashboard' + (params.size ? '?' + params.toString() : ''), {signal},
   );
+};
