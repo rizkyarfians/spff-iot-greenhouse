@@ -119,7 +119,7 @@ def create_app(settings=None, config=None, store=None):
         stock_concentration_g_l: float | None = Query(default=None, ge=0.000001, le=1000000),
         planned_water_l: float | None = Query(default=None, gt=0, le=1000000),
         selected_program_id: str | None = Query(default=None, min_length=1, max_length=200),
-        selected_activity_id: str | None = Query(default=None, pattern=r"^row-\\d+$", max_length=50),
+        selected_activity_id: str | None = Query(default=None, pattern=r"^row-\d+$", max_length=50),
     ):
         if planned_water_l is not None and not (selected_program_id and selected_activity_id):
             raise HTTPException(422, "Water estimate must identify a specific program and activity")
