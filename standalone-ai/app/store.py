@@ -4,6 +4,7 @@ PostgreSQL uses a different schema and a transaction-scoped advisory lock. The
 SPFF operational tables are never written by this repository.
 """
 import copy
+import hashlib
 import json
 import sqlite3
 import threading
@@ -74,12 +75,35 @@ class PostgresStore:
             before = copy.deepcopy(state)
             yield state
             if state != before:
+                # Keep the authoritative state atomic, but do not append another
+                # complete (potentially multi-megabyte) snapshot to every audit
+                # event. Historic audit snapshots remain untouched.
+                canonical = json.dumps(state, sort_keys=True, separators=(",", ":"),
+                                       ensure_ascii=False, allow_nan=False).encode("utf-8")
+                audit = {
+                    "kind": "state_checkpoint_v1",
+                    "state_sha256": hashlib.sha256(canonical).hexdigest(),
+                    "state_bytes": len(canonical),
+                    "changed_sections": sorted(
+                        key for key in (state.keys() | before.keys())
+                        if state.get(key) != before.get(key)
+                    ),
+                }
                 connection.execute("INSERT INTO spff_ai.engine_state(scope,payload) VALUES (%s,%s) ON CONFLICT(scope) DO UPDATE SET payload=excluded.payload, updated_at=now()", (self.scope, Jsonb(state)))
-                connection.execute("INSERT INTO spff_ai.audit_events(scope,payload) VALUES (%s,%s)", (self.scope, Jsonb(state)))
+                connection.execute("INSERT INTO spff_ai.audit_events(scope,payload) VALUES (%s,%s)", (self.scope, Jsonb(audit)))
 
     def read(self):
-        with self.transaction() as state:
-            return copy.deepcopy(state)
+        # PostgreSQL MVCC already provides an atomic committed snapshot.
+        # Read-only requests must not acquire the writer's advisory lock or
+        # SELECT FOR UPDATE: a slow writer must not block /ready or /status.
+        import psycopg
+        with psycopg.connect(self.dsn, connect_timeout=5) as connection:
+            connection.execute("SET TRANSACTION READ ONLY")
+            connection.execute("SET LOCAL statement_timeout = '5s'")
+            row = connection.execute(
+                "SELECT payload FROM spff_ai.engine_state WHERE scope=%s", (self.scope,)
+            ).fetchone()
+            return row[0] if row else initial_state()
 
     def close(self):
         pass
