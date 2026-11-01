@@ -71,6 +71,21 @@ def present_shadow_dashboard(decisions, now=None):
     device = device if isinstance(device, dict) else {}
     guide = snapshot.get("guide_programs")
     guide = guide if isinstance(guide, dict) else {}
+    control = snapshot.get("automatic_control")
+    control = control if isinstance(control, dict) else {}
+    health = telemetry.get("sensor_health")
+    health = health if isinstance(health, dict) else {}
+
+    def sensor_valid(key):
+        diagnostic = health.get(key)
+        if not isinstance(diagnostic, dict):
+            return None
+        return diagnostic.get("valid") if type(diagnostic.get("valid")) is bool else None
+
+    soil_1_valid = sensor_valid("soil_1_moisture")
+    soil_2_valid = sensor_valid("soil_2_moisture")
+    selected_soil = control.get("water_sensor_key")
+    selected_soil = selected_soil if selected_soil in ("soil_1_moisture", "soil_2_moisture") else None
     report = decision.get("pump_feedback")
     report = report if isinstance(report, dict) else {}
     feedback_fresh = (current and _fresh(report.get("reported_at"), now, 25)
@@ -175,7 +190,13 @@ def present_shadow_dashboard(decisions, now=None):
         },
         "sensors": {
             "recorded_at": _iso(telemetry.get("recorded_at")),
-            "soil_moisture_pct": _number(telemetry.get("soil_1_moisture")),
+            # A numeric reading is not trustworthy without its source health.
+            # Never silently substitute soil 2 for a missing soil 1.
+            "soil_moisture_pct": _number(telemetry.get("soil_1_moisture")) if soil_1_valid is True else None,
+            "soil_2_moisture_pct": _number(telemetry.get("soil_2_moisture")) if soil_2_valid is True else None,
+            "soil_1_valid": soil_1_valid,
+            "soil_2_valid": soil_2_valid,
+            "control_moisture_source": selected_soil,
             "water_tank_pct": _number(telemetry.get("tank_water_level_pct")),
             "stock_tank_pct": _number(telemetry.get("tank_fert_level_pct")),
             "device_mode": _text(device.get("mode")),
