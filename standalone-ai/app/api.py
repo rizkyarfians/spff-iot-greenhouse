@@ -115,14 +115,14 @@ def create_app(settings=None, config=None, store=None):
         return sorted(store.read()["decisions"].values(), key=order_key, reverse=True)[:limit]
 
     @app.get("/dashboard/summary")
-    def dashboard_summary():
+    def dashboard_summary(stock_concentration_g_l: float | None = Query(default=None, gt=0, le=1000000)):
         # Read stored REAL source-shadow decisions; do not trigger evaluation,
         # synthesize input, or return arbitrary raw source / credential payloads.
         if not source:
             raise HTTPException(503, "real SPFF source is not configured")
         try:
             saved = store.read()["decisions"]
-            return present_shadow_dashboard(saved.values(), simulation_config=config)
+            return present_shadow_dashboard(saved.values(), simulation_config=config, stock_concentration_g_l=stock_concentration_g_l)
         except Exception:
             log.warning("shadow_dashboard_read_failed")
             raise HTTPException(503, "shadow dashboard unavailable")
