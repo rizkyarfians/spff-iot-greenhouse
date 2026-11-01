@@ -60,6 +60,12 @@ export function UnifiedAiNeedsPage(){
   const [activityId,setActivityId]=useState('');
   const [productRow,setProductRow]=useState('');
   const [concentrationText,setConcentrationText]=useState('');
+  const [waterText,setWaterText]=useState('');
+  const activeProgram=data?.programs.find(p=>p.program_id===programId)??data?.programs[0];
+  const activeActivity=activeProgram?.activities.find(a=>a.activity_id===activityId)??activeProgram?.activities[0];
+  const activeProgramId=activeProgram?.program_id;
+  const activeActivityId=activeActivity?.activity_id;
+  const waterInputValid=waterText.trim()!==''&&Number.isFinite(Number(waterText))&&Number(waterText)>0&&Number(waterText)<=1000000;
   useEffect(()=>{
     const abort=new AbortController();
     let pending=false;
@@ -69,7 +75,12 @@ export function UnifiedAiNeedsPage(){
       try{
         const concentration=Number(concentrationText);
         const validConcentration=concentrationText.trim()!==''&&Number.isFinite(concentration)&&concentration>=0.000001&&concentration<=1000000;
-        const response=await fetchUnifiedAiDashboard(abort.signal, validConcentration?concentration:undefined);
+        const temporaryWater=waterInputValid&&activeActivity?.reference_water_l==null&&activeProgramId&&activeActivityId
+          ?{liters:Number(waterText),programId:activeProgramId,activityId:activeActivityId}
+          :undefined;
+        const response=await fetchUnifiedAiDashboard(
+          abort.signal, validConcentration?concentration:undefined, temporaryWater
+        );
         if(abort.signal.aborted)return;
         setData(response);
         setError('');
@@ -86,7 +97,7 @@ export function UnifiedAiNeedsPage(){
     void refresh();
     const interval=setInterval(()=>void refresh(),15000);
     return()=>{abort.abort();clearInterval(interval)};
-  },[retry,concentrationText]);
+  },[retry,concentrationText,waterText,waterInputValid,activeProgramId,activeActivityId,activeActivity?.reference_water_l]);
 
   const current=data?.status==='CURRENT';
   const selected=data?.programs.find(p=>p.program_id===programId)??data?.programs[0];
@@ -97,6 +108,7 @@ export function UnifiedAiNeedsPage(){
   const productOptions=guideCalc?.product_options??[];
   const chosenProduct=productOptions.find(p=>String(p.source_row)===productRow)??(productOptions.length===1?productOptions[0]:undefined);
   const isFoliar=selectedActivity?.method?.toLowerCase().includes('semprot')||selectedActivity?.title?.toLowerCase().includes('foliar');
+  const waterInvalid=waterText.trim()!==''&&!waterInputValid;
   const concentrationInvalid=concentrationText.trim()!==''&&(!Number.isFinite(Number(concentrationText))||Number(concentrationText)<0.000001||Number(concentrationText)>1000000);
   const feedback=data?.feedback;
   return <section className="secondary-page ai-needs-page" aria-label="AI dan kebutuhan tanaman">
@@ -147,17 +159,22 @@ export function UnifiedAiNeedsPage(){
               {productOptions.map((p,i)=><option key={p.source_row??i} value={p.source_row??''}>{p.product} · {show(p.mass_g,'g')}</option>)}
             </select>
           </label>
+          {selectedActivity?.reference_water_l==null&&<label>Volume larutan akhir rencana (L)
+            <input type="number" min="0.001" max="1000000" step="any" value={waterText}
+              onChange={e=>setWaterText(e.target.value)} placeholder="Isi volume rencana untuk kegiatan ini"/>
+          </label>}
           <label>Konsentrasi larutan stok (g/L)
             <input type="number" min="0.000001" max="1000000" step="any" value={concentrationText} onChange={e=>setConcentrationText(e.target.value)} placeholder="Isi konsentrasi stok aktual"/>
           </label>
         </div>
+        {waterInvalid&&<p className="ain-note">Volume rencana harus angka positif maksimal 1.000.000 L; nilai tidak valid tidak dikirim.</p>}
         {concentrationInvalid&&<p className="ain-note">Konsentrasi harus angka positif maksimal 1.000.000 g/L. Nilai tidak valid tidak dikirim.</p>}
         {productOptions.length>1&&<p className="ain-note">Kegiatan ini berisi beberapa jenis pupuk. Pilih satu produk untuk menghitung dosis; tidak digabung sebagai campuran.</p>}
         {isFoliar&&<p className="ain-note">Kegiatan ini menggunakan metode foliar/semprot di Panduan. Nilai hanya referensi matematika, bukan perintah mengalihkan aplikasi semprot menjadi fertigasi Venturi.</p>}
-        <p className="ain-footnote">Hitungan berasal dari kebutuhan per kegiatan pada Panduan. Estimasi waktu menggunakan histori counter flowmeter yang belum dikalibrasi. Nilai konsentrasi hanya digunakan untuk kalkulasi sesaat dan tidak disimpan. Tidak ada perintah pompa atau perubahan dosis di ledger.</p>
+        <p className="ain-footnote">Jika Panduan belum punya volume air, isian volume di sini hanya asumsi perencanaan untuk kegiatan yang dipilih, bukan data Panduan dan tidak disimpan. Hitungan lain berasal dari kebutuhan per kegiatan pada Panduan. Estimasi waktu menggunakan histori counter flowmeter yang belum dikalibrasi. Nilai konsentrasi hanya digunakan untuk kalkulasi sesaat dan tidak disimpan. Tidak ada perintah pompa atau perubahan dosis di ledger.</p>
       </article>
       <div className="ain-stat-grid">
-        <article className="ain-stat"><span><Droplets size={17}/> {hasGuide?'Larutan akhir Panduan':'Usulan kebutuhan air'}</span><strong>{show(hasGuide?guideCalc?.water_l:plan?.water_l,'L')}</strong><small>{hasGuide?'Volume referensi per kegiatan; belum tersalurkan':current&&plan?.water_l!=null?'Rencana AI, belum disalurkan':'Belum tersedia'}</small></article>
+        <article className="ain-stat"><span><Droplets size={17}/> {hasGuide?'Larutan akhir Panduan':'Usulan kebutuhan air'}</span><strong>{show(hasGuide?guideCalc?.water_l:plan?.water_l,'L')}</strong><small>{hasGuide?(guideCalc?.water_source==='OPERATOR_INPUT'?'Volume sementara yang lo isi; bukan data Panduan': 'Volume referensi per kegiatan; belum tersalurkan'):current&&plan?.water_l!=null?'Rencana AI, belum disalurkan':'Belum tersedia'}</small></article>
         <article className="ain-stat"><span><FlaskConical size={17}/> Volume stok terhitung</span><strong>{show(hasGuide?chosenProduct?.stock_l:plan?.stock_l,'L')}</strong><small>{hasGuide?'Massa pupuk ÷ konsentrasi yang diisi; bukan volume aktual':'Belum tersedia / HOLD'}</small></article>
         <article className="ain-stat"><span><Leaf size={17}/> Massa pupuk Panduan</span><strong>{show(hasGuide?chosenProduct?.mass_g:plan?.fertilizer_mass_g,'g')}</strong><small>{hasGuide?'Target satu pupuk pada kegiatan, bukan sisa atau realisasi':'Rencana AI, bukan realisasi'}</small></article>
         <article className="ain-stat"><span><Clock3 size={17}/> Estimasi waktu aliran air</span><strong>{show(hasGuide?guideCalc?.water_duration_minutes:plan?.duration_seconds==null?null:plan.duration_seconds/60,'menit')}</strong><small>{hasGuide?'Hanya estimasi dari debit historis, bukan waktu pompa tervalidasi':'Memerlukan debit terkalibrasi'}</small></article>
