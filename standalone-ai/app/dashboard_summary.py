@@ -104,8 +104,11 @@ def present_shadow_dashboard(decisions, now=None):
                 )
                 # Do not assert that no delivery occurred merely because no AI-bound
                 # session was tracked. Manual completed activities are never '0g done'.
-                delivered = _number(tracked.get("delivered_g")) if tracked and not manually_completed else None
-                remaining = _number(tracked.get("remaining_g")) if tracked and not review else None
+                has_proof = (tracked is not None
+                             and type(tracked.get("verified_session_count")) is int
+                             and tracked["verified_session_count"] > 0)
+                delivered = _number(tracked.get("delivered_g")) if has_proof and not review else None
+                remaining = _number(tracked.get("remaining_g")) if has_proof and not review else None
                 products.append({
                     "product": _text(product.get("product")) or "Produk tidak diketahui",
                     "source_row": product.get("source_row") if type(product.get("source_row")) is int else None,
