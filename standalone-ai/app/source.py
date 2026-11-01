@@ -20,6 +20,40 @@ REQUIRED = {
 }
 
 
+
+def normalize_soil_diagnostics(telemetry):
+    """Copy only audited firmware sensor diagnostics into the source snapshot.
+
+    The current firmware calls its control gate "controlEligible"; early
+    adapters expected "controlValid". Preserve the real firmware rejection
+    rather than assuming a merely valid transport reading is control-ready.
+    """
+    raw_payload = telemetry.pop("raw_payload", None)
+    reported = raw_payload.get("sensorHealth") if isinstance(raw_payload, dict) else None
+    normalized = telemetry.get("sensor_health")
+    if not isinstance(reported, dict) or not isinstance(normalized, dict):
+        return
+    for key in ("soil_1_moisture", "soil_2_moisture"):
+        raw_diag = reported.get(key)
+        current = normalized.get(key)
+        if not isinstance(raw_diag, dict) or not isinstance(current, dict):
+            continue
+        control_diag = {
+            name: raw_diag[name]
+            for name in ("raw", "rawAgeMs", "rawFresh", "lastPollOk", "pollBootId")
+            if name in raw_diag
+        }
+        # Treat an explicit firmware-level rejection as authoritative.
+        # Do not synthesize eligibility when the field is absent.
+        eligible = raw_diag.get("controlEligible")
+        legacy = raw_diag.get("controlValid")
+        if type(eligible) is bool:
+            control_diag["controlValid"] = eligible
+        elif type(legacy) is bool:
+            control_diag["controlValid"] = legacy
+        current.update(control_diag)
+
+
 class SPFFSource:
     def __init__(self, dsn, site_id, device_id, zone_id, *, fertilizer_delivery_route="reference"):
         self.dsn, self.site_id, self.device_id, self.zone_id = dsn, site_id, device_id, zone_id
@@ -66,30 +100,9 @@ class SPFFSource:
             control = connection.execute("SELECT * FROM spff.device_automatic_control_configs WHERE site_id=%s AND device_id=%s", args).fetchone()
             programs = connection.execute("SELECT r.* FROM spff.fertigation_recipes r JOIN spff.site_crop_selections c ON r.site_id=c.site_id AND r.zone_id=c.zone_id AND r.crop_id=c.crop_id WHERE r.site_id=%s AND r.zone_id=%s AND r.approval_status='approved' ORDER BY r.created_at", (self.site_id, self.zone_id)).fetchall()
             sessions = connection.execute("SELECT session_id,status,pumps_off,last_recorded_at FROM spff.fertigation_sessions WHERE site_id=%s AND device_id=%s ORDER BY last_recorded_at DESC LIMIT 20", args).fetchall()
-            # Keep only audited, bounded sensor diagnostics from raw payload.
-            # Never return arbitrary device JSON or trust it as control authority.
+            # Never leak arbitrary firmware payload fields into a decision.
             if telemetry:
-                raw_payload = telemetry.pop("raw_payload", None)
-                if isinstance(raw_payload, dict):
-                    reported = raw_payload.get("sensorHealth")
-                    if isinstance(reported, dict):
-                        for key in ("soil_1_moisture", "soil_2_moisture"):
-                            raw_diag = reported.get(key)
-                            if not isinstance(raw_diag, dict):
-                                continue
-                            normalized = telemetry.get("sensor_health")
-                            if not isinstance(normalized, dict):
-                                continue
-                            current = normalized.get(key)
-                            if not isinstance(current, dict):
-                                continue
-                            control_diag = {
-                                name: raw_diag[name]
-                                for name in ("raw", "rawAgeMs", "rawFresh",
-                                             "lastPollOk", "pollBootId", "controlValid")
-                                if name in raw_diag
-                            }
-                            current.update(control_diag)
+                normalize_soil_diagnostics(telemetry)
             if status:
                 # The normalized device_status row does not expose the boot
                 # token. Whitelist only the status pulseBootId; do not copy
