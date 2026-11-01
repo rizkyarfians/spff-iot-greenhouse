@@ -158,7 +158,9 @@ export function UnifiedAiNeedsPage(){
           <article className="ain-panel">
             <div className="ain-panel-heading"><h3><CheckCircle2 size={18}/> Sensor &amp; Feedback</h3></div>
             <dl className="ain-details">
-              <div><dt>Kelembapan tanah</dt><dd>{show(data.sensors.soil_moisture_pct,'%')}</dd></div>
+              <div><dt>Kelembapan tanah 1</dt><dd>{data.sensors.soil_1_valid===true?show(data.sensors.soil_moisture_pct,'%'):data.sensors.soil_1_valid===false?'Tidak valid / stale':'Belum terverifikasi'}</dd></div>
+              <div><dt>Kelembapan tanah 2</dt><dd>{data.sensors.soil_2_valid===true?show(data.sensors.soil_2_moisture_pct,'%'):data.sensors.soil_2_valid===false?'Tidak valid / stale':'Belum terverifikasi'}</dd></div>
+              <div><dt>Sumber kontrol air</dt><dd>{data.sensors.control_moisture_source==='soil_1_moisture'?'Sensor tanah 1':data.sensors.control_moisture_source==='soil_2_moisture'?'Sensor tanah 2':'Belum terkonfirmasi'}</dd></div>
               <div><dt>Tandon air</dt><dd>{show(data.sensors.water_tank_pct,'%')}</dd></div>
               <div><dt>Tandon pupuk</dt><dd>{show(data.sensors.stock_tank_pct,'%')}</dd></div>
               <div><dt>Mode selector</dt><dd>{data.sensors.device_mode??'Tidak diketahui'}</dd></div>
@@ -168,7 +170,7 @@ export function UnifiedAiNeedsPage(){
               <div><dt>Pompa pupuk</dt><dd>{current&&(feedback?.fert_pump===true||feedback?.fert_pump===false)?(feedback?.fert_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
               <div><dt>Sensor tercatat</dt><dd>{when(data.sensors.recorded_at)}</dd></div>
             </dl>
-            <p className="ain-footnote">Status pompa berasal dari laporan output ESP32, bukan sensor kontak relay independen.</p>
+            <p className="ain-footnote">Sensor valid berarti lolos diagnostik sumber pada snapshot keputusan, bukan jaminan data masih segar sekarang. Sensor 2 tidak otomatis menggantikan Sensor 1 untuk kontrol. Status pompa berasal dari laporan output ESP32, bukan sensor kontak relay independen.</p>
           </article>
           <article className="ain-panel">
             <div className="ain-panel-heading"><h3>Dasar perhitungan</h3></div>
