@@ -77,6 +77,36 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(client.get("/dashboard/summary").json()["status"], "NO_DECISION")
                 self.assertFalse(client.get("/dashboard/summary").json()["can_dispatch"])
 
+    def test_dashboard_read_only_inspection_does_not_create_decision(self):
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        observation = {
+            "schema_compatible": True,
+            "telemetry": {"recorded_at": now, "received_at": now,
+                          "soil_2_moisture": 25.2,
+                          "sensor_health": {"soil_2_moisture": {
+                              "valid": True, "controlValid": True,
+                              "raw": 252, "rawAgeMs": 1000, "rawFresh": True,
+                              "lastPollOk": True, "pollBootId": "boot-1",
+                          }}},
+            "automatic_control": {"water_sensor_key": "soil_2_moisture",
+                                  "revision": 1, "acknowledged_revision": 1,
+                                  "acknowledgement_status": "applied"},
+            "guide_programs": {"programs": []},
+        }
+        with patch("app.api.SPFFSource") as source:
+            source.return_value.inspect.return_value = observation
+            before = self.store.read()
+            with TestClient(create_app(Settings(source_dsn="read-only-test"), Config(), self.store)) as client:
+                result = client.get("/dashboard/summary")
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()["planning_status"], "CURRENT")
+            self.assertEqual(result.json()["status"], "NO_DECISION")
+            self.assertIsNotNone(result.json()["fuzzy_preview"])
+            self.assertFalse(result.json()["can_dispatch"])
+            self.assertEqual(before, self.store.read())
+            source.return_value.record_shadow.assert_not_called()
+
     def test_arbitrary_feedback_not_exposed(self):
         self.assertEqual(self.client.post("/feedback", json={}).status_code, 404)
 
