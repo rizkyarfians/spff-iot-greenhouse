@@ -80,6 +80,23 @@ class PlanningPreviewTests(unittest.TestCase):
         self.assertAlmostEqual(with_input["water_duration_minutes"], 100 / 194.39)
         self.assertAlmostEqual(with_input["stock_duration_minutes"], 500 / 8.79)
 
+    def test_multiple_products_are_calculated_individually(self):
+        activity = {"reference_water_l": None, "products": [
+            {"source_row": 11, "product": "Pupuk A", "is_fertilizer": True,
+             "product_mass_g": 5000, "review_reasons": []},
+            {"source_row": 12, "product": "Pupuk B", "is_fertilizer": True,
+             "product_mass_g": 3000, "review_reasons": []},
+        ]}
+        result = activity_planning_preview(activity, {"water_lpm": 194, "stock_lpm": 8}, 100)
+        self.assertEqual(len(result["product_options"]), 2)
+        self.assertEqual(result["product_options"][0]["mass_g"], 5000)
+        self.assertEqual(result["product_options"][0]["stock_l"], 50)
+        self.assertEqual(result["product_options"][1]["mass_g"], 3000)
+        self.assertEqual(result["product_options"][1]["stock_l"], 30)
+        self.assertIsNone(result["fertilizer_mass_g"])
+        self.assertIsNone(result["water_duration_minutes"])
+        self.assertFalse(result["can_dispatch"])
+
     def test_multi_fertilizer_is_not_summed_or_assumed_safe(self):
         activity = {"reference_water_l": 100, "products": [
             {"is_fertilizer": True, "product_mass_g": 5000},
