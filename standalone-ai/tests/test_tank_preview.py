@@ -1,9 +1,11 @@
 """Tank volume previews must never turn unverified level into liters or pump commands."""
 import unittest
 from decimal import Decimal
+from datetime import timedelta
 
 from app.tank_preview import estimate_water_tank
 from app.dashboard_summary import present_shadow_dashboard
+from app.models import Config
 from test_dashboard_summary import NOW, decision
 
 
@@ -77,6 +79,47 @@ class TankPreviewTests(unittest.TestCase):
         self.assertEqual(result["estimated_available_l"], 0)
         self.assertEqual(result["level_status"], "ESTIMATED")
         self.assertEqual(result["comparison_status"], "BELOW_ESTIMATE")
+
+    def test_dashboard_compares_real_fuzzy_simulation_to_validated_tank(self):
+        row = decision()
+        obs = {
+            **row["input_snapshot"],
+            "schema_compatible": True,
+            "telemetry": {
+                "recorded_at": NOW.isoformat(),
+                "received_at": NOW.isoformat(),
+                "tank_water_level_pct": 20,
+                "soil_2_moisture": 25.2,
+                "sensor_health": {
+                    "tank_water_level_pct": {"valid": True},
+                    "soil_2_moisture": {
+                        "valid": True, "controlValid": True, "raw": 252,
+                        "rawAgeMs": 1000, "rawFresh": True,
+                        "lastPollOk": True, "pollBootId": "boot-1",
+                    },
+                },
+            },
+            "automatic_control": {
+                "water_sensor_key": "soil_2_moisture",
+                "revision": 108, "acknowledged_revision": 108,
+                "acknowledgement_status": "applied",
+            },
+        }
+        result = present_shadow_dashboard(
+            [row], NOW, Config(), planning_observation=obs)
+        tank = result["tank_preview"]
+        self.assertIsNotNone(result["fuzzy_preview"])
+        self.assertEqual(tank["estimated_available_l"], 360)
+        self.assertEqual(tank["fuzzy_demand_l"], result["fuzzy_preview"]["illustrative_water_l"])
+        self.assertEqual(tank["comparison_status"], "BELOW_ESTIMATE")
+        self.assertFalse(result["can_dispatch"])
+
+        obs["telemetry"]["received_at"] = (NOW-timedelta(minutes=5)).isoformat()
+        stale = present_shadow_dashboard(
+            [row], NOW, Config(), planning_observation=obs)
+        self.assertEqual(stale["tank_preview"]["level_status"], "STALE")
+        self.assertIsNone(stale["tank_preview"]["estimated_available_l"])
+        self.assertIsNone(stale["fuzzy_preview"])
 
     def test_invalid_dimensions_rejected(self):
         for bad in (0, -2, float("nan"), float("inf")):
