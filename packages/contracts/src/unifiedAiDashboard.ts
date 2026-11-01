@@ -66,6 +66,7 @@ export const unifiedAiDashboardSchema = z.object({
     model_max_irrigation_l: num,
     recorded_at: nullableStr,
   }).strict().nullable(),
+  fuzzy_preview_blockers: z.array(z.enum(['no_source_decision','simulation_profile_unavailable','control_source_not_selected','selected_sensor_value_missing','selected_sensor_health_invalid','sensor_control_diagnostic_rejected','sensor_raw_poll_not_verified','sensor_poll_boot_missing','sensor_raw_value_unverified','sensor_raw_age_unverified','control_config_not_acknowledged','sensor_timestamp_missing','simulation_rules_invalid'])).max(20),
   programs: z.array(program).max(30),
   note: z.string().max(500),
 }).strict();
