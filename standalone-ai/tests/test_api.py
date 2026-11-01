@@ -103,6 +103,8 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(result.json()["planning_status"], "CURRENT")
             self.assertEqual(result.json()["status"], "NO_DECISION")
             self.assertIsNotNone(result.json()["fuzzy_preview"])
+            self.assertEqual(result.json()["water_carryover"]["status"], "NO_PLAN")
+            self.assertFalse(result.json()["water_carryover"]["can_dispatch"])
             self.assertFalse(result.json()["can_dispatch"])
             self.assertEqual(before, self.store.read())
             source.return_value.record_shadow.assert_not_called()
