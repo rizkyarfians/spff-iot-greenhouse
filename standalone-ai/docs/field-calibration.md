@@ -325,55 +325,98 @@ print("Can dispatch:",d.get("can_dispatch"))
 ```
 
 
-## Penjadwalan ulang penyiraman: ilustrasi hari ini / besok
 
-Operator mengonfirmasi sensor jarak tandon air dipasang di **atas, menghadap
-ke bawah**. Telemetry 2026-11-01 sempat melaporkan `distance=159.1 cm` dan
-`level=88.4%`. Dengan tinggi nominal 180 cm, angka persentase mendekati
-`159.1 / 180 × 100` (jarak, bukan tinggi air). Kedua nilai tidak dapat
-dipakai bersamaan sebagai tingkat isi tandon. Jika keduanya tersedia dan valid
-namun selisih model top-down >10 poin persen, endpoint mengeluarkan
-`tank_preview.level_status=ORIENTATION_CONFLICT`, **tanpa estimasi volume
-berdasarkan persentase mentah**.
+## Penjadwalan ulang penyiraman: tinggi cairan, bukan jarak ultrasonik
 
-`irrigation_schedule_preview` adalah ilustrasi matematis terpisah, dihitung
-langsung dari *distance* yang valid + Fuzzy segar + source PostgreSQL read-only:
+**Koreksi penting atas asumsi lama:** pemasangan sensor fisik memang di atas
+menghadap ke bawah, tetapi jalur firmware → MQTT Worker → PostgreSQL memakai
+`tank_water_distance_cm` sebagai **tinggi cairan dari dasar**, bukan
+jarak mentah dari transduser ke permukaan air. Ini dibuktikan oleh
+`mqtt-worker/src/tankLevels.ts` dan
+`mqtt-worker/test/tankLevels.test.mjs`. Worker mengisi
+`tank_water_level_pct = liquid_height_cm / 180 × 100`.
+Nilai `159.8 cm` karena itu berarti perkiraan level ~88.8%,
+**bukan ~11.2%**. Jangan membalik kembali nilai ini di Python.
+
+Python akan menolak jika level persen dan tinggi cairan yang sama-sama
+ditandai valid berbeda >1 poin persen (status
+`ORIENTATION_CONFLICT`/`LEVEL_CONFLICT`). Pembacaan masuk tetap
+`ESTIMATED`, karena belum ada validasi kalibrasi fisik/volume.
+
+`irrigation_schedule_preview` menghitung simulasi matematika, memakai
+tinggi cairan dari sumber read-only yang segar:
 
 ```text
-illustrative_available_l = capacity × (height - distance) / height
+illustrative_available_l = capacity_l × liquid_height_cm / tank_height_cm
 today_absolute_max_l = min(fuzzy_water_l, illustrative_available_l)
 tomorrow_at_least_l = max(0, fuzzy_water_l - today_absolute_max_l)
 ```
 
-Contoh **bukan realisasi irigasi**:
-`1800 L`, `180 cm`, jarak `159.1 cm`, kebutuhan `374.15 L`
-menghasilkan batas geometris maksimum hari ini sekitar `209 L` dan
-minimal sisa besok `165.15 L`. **Cadangan minimum belum ditentukan**.
-Jadi 209 L bukan volume aman, dan 165.15 L bukan dosis besok yang telah
-disahkan. Ketinggian sensor terhadap dasar tandon, volume dead zone, bentuk
-tandon, dan kurva kalibrasi fisik belum diverifikasi.
+Contoh data yang pernah terlihat di lapangan:
+`1800 L`, `180 cm`, tinggi cairan `159.8 cm`, kebutuhan
+`374.15 L` → persediaan geometris `1598 L`, sehingga
+**tidak ada kekurangan matematis** untuk dipindahkan ke besok pada
+snapshot tersebut. Batas cadangan minimum/volume mati belum diketahui,
+jadi ini bukan keputusan boleh menyiram dan tidak menetapkan pompa ON.
 
-Tanggal `today_date` dan `tomorrow_date` memakai timezone Asia/Jakarta.
-Besok seluruh kebutuhan harus dievaluasi ulang berdasarkan sensor tanah,
-tandon, level aman, kapasitas yang telah diisi ulang, interlock, dan dosis
-fisik yang benar-benar tersalurkan. Proses read-only GET tidak membuat
-job/schedule, tidak mem-publish MQTT, tidak menulis ke PostgreSQL operasional
-atau AI ledger. `is_firm_schedule=false` dan `can_dispatch=false`.
+Jika tinggi cairan yang sah misalnya hanya `20.2 cm` (`11.2%`),
+hasil geometris menjadi `202 L` dan kekurangan untuk evaluasi besok
+sekitar `172.15 L`. Itu contoh hipotetis, bukan kondisi tandon saat ini.
+Waktu tanggal memakai `Asia/Jakarta`.
 
-Rencana pengiriman jadwal fisik ke ESP32 **belum diimplementasikan**;
-jangan menganggap panel ini mengaktifkan pompa. Implementasi tahap itu
-membutuhkan kalibrasi air dan level, target cadangan yang disepakati,
-pengukuran volume nyata, pembuktian ACK/actual state, penerimaan jadwal
-ESP32, dan pengujian hardware.
+### Ledger sisa kebutuhan berbasis bukti sesi
 
-Sesudah git pull, build, lint dan unittest, cek preview:
+`water_carryover` adalah **ledger terpisah dari simulasi kebutuhan**.
+Secara default `NO_PLAN`, tidak ada rencana tersimpan dan tidak ada
+volume dianggap sudah tersalurkan. Operator staging boleh membekukan
+satu hasil Fuzzy segar sebagai rencana SHADOW lewat CLI
+`python -m app.water_carryover plan`; satu tanggal/site/device tidak
+akan dibuat dua kali. Rencana disimpan di AI state (PostgreSQL spff_ai atau
+SQLite staging sesuai konfigurasi service), **bukan** di tabel SPFF.
+
+Kredit volume hanya diterima bila operator secara eksplisit menautkan
+satu sesi dengan CLI
+`python -m app.water_carryover credit --plan-id <uuid> --session-id <uuid>`.
+Sesi sumber harus:
+
+- berasal dari site/device yang sama, berstatus `completed`, ada
+  terminal event di `spff.fertigation_session_events` dengan
+  `message_id`, `sequence`, timestamp dan actual volume cocok;
+- `pumps_off=true`, `target_stock_l=0`, `actual_stock_l=0` (air
+  saja), `actual_water_l>0`;
+- dimulai sesudah rencana disimpan, pada tanggal Asia/Jakarta yang sama;
+- belum dikreditkan ke rencana lain (idempotent per session UUID).
+
+Sesi dilakukan di ESP32 tanpa dependensi pada AI. Jumlah yang disimpan
+disebut **`device_reported_delivered_l`**; hingga flowmeter dan posisi
+pipa dikalibrasi, ini belum merupakan pembuktian volumetrik independen.
+Jangan otomatis mengkredit perubahan counter umum, sesi pemupukan, atau
+status pompa. Sisa `max(target - linked_device_sessions, 0)` adalah
+kewajiban untuk **evaluasi ulang**, bukan instruksi eksekusi besok.
+
+CLI hanya tersedia saat environment staging memiliki `AI_SOURCE_DSN`
+dan store AI yang **dinyatakan eksplisit** (`AI_STATE_DSN` atau
+`AI_STATE_PATH`). Jangan membuat SQLite baru yang tidak dipakai service.
+Cek backend yang benar melalui `GET /status` dan pastikan identitas
+config service sebelum operator menjalankan CLI. Jangan menampilkan DSN
+atau kredensial di output/log.
+
+API `GET /dashboard/summary` tetap read-only. Tidak ada endpoint
+mutasi tanpa autentikasi, tidak ada request MQTT, tidak ada perubahan
+ESP32 atau tabel operasional. `can_dispatch=false`,
+`is_firm_schedule=false`. Eksekusi otomatis di hari berikutnya
+**belum** diimplementasikan dan memerlukan kalibrasi, ambang cadangan,
+bukti actual state/ACK, serta tes hardware.
+
+Verifikasi setelah pull/build/lint/tests/restart:
 
 ```bash
 curl -fsS http://127.0.0.1:5011/dashboard/summary | python3 -c '
 import json,sys
 d=json.load(sys.stdin)
-print("Tank:",d.get("tank_preview",{}).get("level_status"))
-print("Deferral:",d.get("irrigation_schedule_preview"))
-print("Dispatch:",d.get("can_dispatch"))
+print("Tank:", d["tank_preview"]["level_status"])
+print("Geometric preview:", d["irrigation_schedule_preview"])
+print("Water carryover:", d["water_carryover"])
+print("Can dispatch:", d["can_dispatch"])
 '
 ```
