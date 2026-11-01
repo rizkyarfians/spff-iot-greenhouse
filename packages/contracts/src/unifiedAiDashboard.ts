@@ -41,7 +41,7 @@ const planningProductOption = z.object({
 const planningPreview = z.object({
   basis: z.literal('GUIDE_WITH_UNVERIFIED_HISTORICAL_FLOW'),
   water_l: num,
-  water_source: z.enum(['GUIDE', 'OPERATOR_INPUT']).nullable(),
+  water_source: z.enum(['GUIDE', 'OPERATOR_INPUT', 'FUZZY_SIMULATION']).nullable(),
   fertilizer_mass_g: num,
   stock_l: num,
   water_duration_minutes: num,
@@ -73,6 +73,9 @@ export const unifiedAiDashboardSchema = z.object({
   can_dispatch: z.literal(false),
   status: z.enum(['CURRENT', 'STALE', 'NO_DECISION']),
   evaluated_at: nullableStr,
+  planning_source: z.enum(['POSTGRES_READ_ONLY','DECISION_SNAPSHOT']),
+  planning_status: z.enum(['CURRENT','STALE','UNAVAILABLE']),
+  planning_recorded_at: nullableStr,
   decision: z.object({
     type: nullableStr, proposed_action: nullableStr,
     hold_reasons: reasons, configuration_version: nullableStr,
