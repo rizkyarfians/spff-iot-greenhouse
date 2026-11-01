@@ -323,3 +323,57 @@ print("Fuzzy:",d.get("fuzzy_preview"))
 print("Can dispatch:",d.get("can_dispatch"))
 '
 ```
+
+
+## Penjadwalan ulang penyiraman: ilustrasi hari ini / besok
+
+Operator mengonfirmasi sensor jarak tandon air dipasang di **atas, menghadap
+ke bawah**. Telemetry 2026-11-01 sempat melaporkan `distance=159.1 cm` dan
+`level=88.4%`. Dengan tinggi nominal 180 cm, angka persentase mendekati
+`159.1 / 180 × 100` (jarak, bukan tinggi air). Kedua nilai tidak dapat
+dipakai bersamaan sebagai tingkat isi tandon. Jika keduanya tersedia dan valid
+namun selisih model top-down >10 poin persen, endpoint mengeluarkan
+`tank_preview.level_status=ORIENTATION_CONFLICT`, **tanpa estimasi volume
+berdasarkan persentase mentah**.
+
+`irrigation_schedule_preview` adalah ilustrasi matematis terpisah, dihitung
+langsung dari *distance* yang valid + Fuzzy segar + source PostgreSQL read-only:
+
+```text
+illustrative_available_l = capacity × (height - distance) / height
+today_absolute_max_l = min(fuzzy_water_l, illustrative_available_l)
+tomorrow_at_least_l = max(0, fuzzy_water_l - today_absolute_max_l)
+```
+
+Contoh **bukan realisasi irigasi**:
+`1800 L`, `180 cm`, jarak `159.1 cm`, kebutuhan `374.15 L`
+menghasilkan batas geometris maksimum hari ini sekitar `209 L` dan
+minimal sisa besok `165.15 L`. **Cadangan minimum belum ditentukan**.
+Jadi 209 L bukan volume aman, dan 165.15 L bukan dosis besok yang telah
+disahkan. Ketinggian sensor terhadap dasar tandon, volume dead zone, bentuk
+tandon, dan kurva kalibrasi fisik belum diverifikasi.
+
+Tanggal `today_date` dan `tomorrow_date` memakai timezone Asia/Jakarta.
+Besok seluruh kebutuhan harus dievaluasi ulang berdasarkan sensor tanah,
+tandon, level aman, kapasitas yang telah diisi ulang, interlock, dan dosis
+fisik yang benar-benar tersalurkan. Proses read-only GET tidak membuat
+job/schedule, tidak mem-publish MQTT, tidak menulis ke PostgreSQL operasional
+atau AI ledger. `is_firm_schedule=false` dan `can_dispatch=false`.
+
+Rencana pengiriman jadwal fisik ke ESP32 **belum diimplementasikan**;
+jangan menganggap panel ini mengaktifkan pompa. Implementasi tahap itu
+membutuhkan kalibrasi air dan level, target cadangan yang disepakati,
+pengukuran volume nyata, pembuktian ACK/actual state, penerimaan jadwal
+ESP32, dan pengujian hardware.
+
+Sesudah git pull, build, lint dan unittest, cek preview:
+
+```bash
+curl -fsS http://127.0.0.1:5011/dashboard/summary | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+print("Tank:",d.get("tank_preview",{}).get("level_status"))
+print("Deferral:",d.get("irrigation_schedule_preview"))
+print("Dispatch:",d.get("can_dispatch"))
+'
+```
