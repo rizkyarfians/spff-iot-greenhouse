@@ -11,6 +11,7 @@ from .calculations import fuzzy_volume
 from .planning_preview import activity_planning_preview
 from .stock_bindings import resolve_binding
 from .tank_preview import estimate_water_tank
+from .irrigation_schedule_preview import illustrate_two_day_irrigation
 
 
 def _iso(value):
@@ -364,6 +365,14 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         ),
     )
 
+    irrigation_schedule = illustrate_two_day_irrigation(
+        telemetry, now=now, capacity_l=tank_capacity_l, height_cm=tank_height_cm,
+        source_current=planning_fresh, source_read_only=live_source,
+        fuzzy_water_l=(
+            fuzzy_preview.get("illustrative_water_l") if fuzzy_preview else None
+        ),
+    )
+
     # Expose ONLY bounded reason codes, never raw Modbus/DB payload or credentials.
     return {
         "schemaVersion": 1,
@@ -376,6 +385,7 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         "planning_recorded_at": _iso(telemetry.get("recorded_at")),
         "flow_reference": flow_reference,
         "tank_preview": tank,
+        "irrigation_schedule_preview": irrigation_schedule,
         "decision": {
             "type": _text(decision.get("type")) if selected else None,
             "proposed_action": _text(decision.get("proposed_action")) if selected else None,
