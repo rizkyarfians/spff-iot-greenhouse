@@ -34,17 +34,18 @@ def estimate_water_tank(telemetry, *, capacity_l=1800.0, height_cm=180.0,
     diagnostics = health.get("tank_water_level_pct") if isinstance(health, dict) else None
     sensor_valid = diagnostics.get("valid") if isinstance(diagnostics, dict) else None
     sensor_valid = sensor_valid if type(sensor_valid) is bool else None
-    # The operator confirmed a TOP-DOWN range finder. When both channels
-    # report healthy but percent follows distance/height (instead of
-    # remaining water height), reject the misleading "full tank" estimate.
-    distance = _value(telemetry.get("tank_water_distance_cm"))
-    distance_health = health.get("tank_water_distance_cm") if isinstance(health, dict) else None
-    distance_valid = (isinstance(distance_health, dict)
-                      and distance_health.get("valid") is True)
+    # IMPORTANT: MQTT Worker tankLevels.ts defines this legacy "distance"
+    # channel as LIQUID HEIGHT from the bottom after firmware processing.
+    # The physical ultrasonic transducer faces down, but the persisted value
+    # is NOT raw sensor-to-surface distance. Never invert it here.
+    liquid_height = _value(telemetry.get("tank_water_distance_cm"))
+    height_health = health.get("tank_water_distance_cm") if isinstance(health, dict) else None
+    height_valid = (isinstance(height_health, dict)
+                    and height_health.get("valid") is True)
     orientation_conflict = (
-        distance_valid and distance is not None and 0 <= distance <= height
+        height_valid and liquid_height is not None and 0 <= liquid_height <= height
         and level is not None and sensor_valid is True
-        and abs(level - (height - distance) / height * 100) > 10.0
+        and abs(level - liquid_height / height * 100) > 1.0
     )
 
     if not source_read_only or not telemetry:
