@@ -59,6 +59,21 @@ const irrigationSchedulePreview = z.object({
   can_dispatch: z.literal(false),
 }).strict();
 
+const waterCarryover = z.object({
+  status: z.enum(['NO_PLAN','ACTIVE','COMPLETE_REPORTED','CARRY_OVER_REVIEW','REVIEW_REQUIRED']),
+  plan_id: nullableStr,
+  planning_date: nullableStr,
+  next_review_date: nullableStr,
+  frozen_fuzzy_target_l: num,
+  device_reported_delivered_l: num,
+  remaining_for_reassessment_l: num,
+  credited_session_count: z.number().int().nonnegative(),
+  last_device_session_at: nullableStr,
+  evidence_basis: z.literal('DEVICE_SESSION_UNCALIBRATED'),
+  requires_fresh_reassessment: z.literal(true),
+  can_dispatch: z.literal(false),
+}).strict();
+
 const planningProductOption = z.object({
   source_row: z.number().int().positive().nullable(),
   product: str,
@@ -112,6 +127,7 @@ export const unifiedAiDashboardSchema = z.object({
   flow_reference: flowReference.nullable(),
   tank_preview: tankPreview,
   irrigation_schedule_preview: irrigationSchedulePreview,
+  water_carryover: waterCarryover,
   decision: z.object({
     type: nullableStr, proposed_action: nullableStr,
     hold_reasons: reasons, configuration_version: nullableStr,
