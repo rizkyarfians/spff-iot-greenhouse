@@ -31,7 +31,7 @@ def fixture():
         "guide_programs": {"programs": [program]},
         "approved_programs": [{
             "recipe_id": "fertiphos-stock-1", "revision": 3,
-            "approval_status": "approved",
+            "approval_status": "approved", "hst_from": 8, "hst_to": 15,
             "fertilizer_name": "Fertiphos",
             "stock_concentration_g_per_l": 100,
         }],
@@ -77,6 +77,12 @@ class StockBindingsTests(unittest.TestCase):
             bad = copy.deepcopy(self.observation)
             bad["approved_programs"][0].update(change)
             self.assertEqual(self.resolve(bad)[1], "STALE")
+
+    def test_recipe_hst_must_cover_guide_activity(self):
+        bad = copy.deepcopy(self.observation)
+        bad["approved_programs"][0]["hst_from"] = 11
+        with self.assertRaisesRegex(ValueError, "HST"):
+            validate_binding_candidate(bad, "prog-1", "row-11", 11, "fertiphos-stock-1")
 
     def test_guide_revision_hash_and_review_fail_closed(self):
         self.bind()
