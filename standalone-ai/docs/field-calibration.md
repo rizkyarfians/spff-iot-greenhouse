@@ -257,3 +257,15 @@ dan larangan penggunaan hasil lama. Atribut status `BOUND`, `UNBOUND`,
 **Catatan akurasi:** produk yang historinya `Tabur` hanya dihitung secara
 matematis setelah diikat; itu bukan instruksi mengencerkan dan meneteskan pupuk.
 Debit historis dari kedua flowmeter belum menggantikan kalibrasi fisik.
+
+
+## Jalur API khusus development
+
+Branch `feature/unified-ai-plant-dashboard-20261101` mengarahkan
+`functions/src/controllers/unifiedAiDashboardController.ts` secara eksplisit
+ke `127.0.0.1:5011/dashboard/summary` (service `spff-ai-dev-python`).
+Node development di `5002`, dan Vite development di `5174`.
+Tidak ada fallback ke port `5010` milik layanan AI lain/produksi.
+Cek `/dashboard/summary` pada `5011` dan UI `#/ai-needs` setelah
+build serta restart service development. Jangan deploy branch staging
+ke `/opt/spff` atau `/opt/spff-ai`.
