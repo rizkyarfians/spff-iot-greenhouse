@@ -89,11 +89,11 @@ class TankPreviewTests(unittest.TestCase):
                 "recorded_at": NOW.isoformat(),
                 "received_at": NOW.isoformat(),
                 "tank_water_level_pct": 20,
-                "soil_2_moisture": 25.2,
+                "soil_2_moisture": 27.6,
                 "sensor_health": {
                     "tank_water_level_pct": {"valid": True},
                     "soil_2_moisture": {
-                        "valid": True, "controlValid": True, "raw": 252,
+                        "valid": True, "controlValid": True, "raw": 276,
                         "rawAgeMs": 1000, "rawFresh": True,
                         "lastPollOk": True, "pollBootId": "boot-1",
                     },
