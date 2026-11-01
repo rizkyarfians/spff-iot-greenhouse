@@ -11,8 +11,13 @@ def _nonnegative(value):
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value < 1e12 else None
 
 
-def activity_planning_preview(activity, flow, stock_concentration_g_l=None):
-    water = _nonnegative(activity.get("reference_water_l"))
+def activity_planning_preview(activity, flow, stock_concentration_g_l=None, planned_water_l=None):
+    # Explicit operator volume is a TEMPORARY planning input, never a
+    # Guide value and never a pump command. Guide values take precedence.
+    guide_water = _nonnegative(activity.get("reference_water_l"))
+    entered_water = _nonnegative(planned_water_l)
+    water = guide_water if guide_water is not None else entered_water
+    water_source = "GUIDE" if guide_water is not None else "OPERATOR_INPUT" if entered_water is not None else None
     products = activity.get("products")
     fertilizers = [p for p in products if isinstance(p, dict) and p.get("is_fertilizer") is True] if isinstance(products, list) else []
     reasons = []
@@ -78,6 +83,7 @@ def activity_planning_preview(activity, flow, stock_concentration_g_l=None):
     return {
         "basis": "GUIDE_WITH_UNVERIFIED_HISTORICAL_FLOW",
         "water_l": water,
+        "water_source": water_source,
         "fertilizer_mass_g": mass,
         "stock_l": stock,
         "water_duration_minutes": water_minutes,
