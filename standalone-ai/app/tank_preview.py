@@ -34,6 +34,18 @@ def estimate_water_tank(telemetry, *, capacity_l=1800.0, height_cm=180.0,
     diagnostics = health.get("tank_water_level_pct") if isinstance(health, dict) else None
     sensor_valid = diagnostics.get("valid") if isinstance(diagnostics, dict) else None
     sensor_valid = sensor_valid if type(sensor_valid) is bool else None
+    # The operator confirmed a TOP-DOWN range finder. When both channels
+    # report healthy but percent follows distance/height (instead of
+    # remaining water height), reject the misleading "full tank" estimate.
+    distance = _value(telemetry.get("tank_water_distance_cm"))
+    distance_health = health.get("tank_water_distance_cm") if isinstance(health, dict) else None
+    distance_valid = (isinstance(distance_health, dict)
+                      and distance_health.get("valid") is True)
+    orientation_conflict = (
+        distance_valid and distance is not None and 0 <= distance <= height
+        and level is not None and sensor_valid is True
+        and abs(level - (height - distance) / height * 100) > 10.0
+    )
 
     if not source_read_only or not telemetry:
         status = "NO_DATA"
@@ -45,6 +57,8 @@ def estimate_water_tank(telemetry, *, capacity_l=1800.0, height_cm=180.0,
         status = "OUT_OF_RANGE"
     elif sensor_valid is not True:
         status = "UNVERIFIED"
+    elif orientation_conflict:
+        status = "ORIENTATION_CONFLICT"
     else:
         status = "ESTIMATED"
 
