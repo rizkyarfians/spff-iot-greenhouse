@@ -68,3 +68,11 @@
 .ain-calculation-intro{display:flex;align-items:center;gap:8px;margin-bottom:9px}
 .ain-calculation-explanation .ain-reasons{margin:0;padding-left:22px;color:#624f31}
 .ain-calculation-explanation p{margin:10px 0 0;font-size:12px;line-height:1.6;color:#786348}
+
+.ain-fuzzy-preview{border-color:#bbd9c8;background:#f7fcf9}
+.ain-fuzzy-preview .ain-panel-heading>span{font-size:11px;font-weight:750;color:#32694b;text-align:right}
+.ain-fuzzy-preview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ain-fuzzy-preview-grid>div{display:flex;flex-direction:column;gap:6px;border:1px solid #dce9e0;border-radius:10px;background:#fff;padding:14px}
+.ain-fuzzy-preview-grid strong{font-size:clamp(21px,2vw,27px);font-variant-numeric:tabular-nums}
+.ain-fuzzy-preview-grid small{font-size:11px;color:#697a6f}
+@media(max-width:620px){.ain-fuzzy-preview-grid{grid-template-columns:1fr}.ain-fuzzy-preview .ain-panel-heading{align-items:flex-start;flex-direction:column}}
