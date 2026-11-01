@@ -75,10 +75,10 @@ def present_shadow_dashboard(decisions, now=None):
     report = report if isinstance(report, dict) else {}
     feedback_fresh = (current and _fresh(report.get("reported_at"), now, 25)
                       and _fresh(report.get("received_at"), now, 25))
-    ledger = decision.get("obligations")
+    ledger = decision.get("obligation_progress")
+    ledger = ledger if isinstance(ledger, list) else decision.get("obligations")
     ledger = ledger if isinstance(ledger, list) else []
-    # In the current LiveEngine the current obligation list covers all known
-    # pending/reviewed obligations, but completed ones are deliberately omitted.
+    # Use the presentation ledger for completed and active obligations.
     indexed = {
         (o.get("program_id"), o.get("activity_id"), o.get("source_row")): o
         for o in ledger if isinstance(o, dict)
