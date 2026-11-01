@@ -6,12 +6,28 @@ import {unifiedAiDashboardSchema} from '@spff/contracts';
 const LOCAL_AI = 'http://127.0.0.1:5010/dashboard/summary';
 
 export async function getUnifiedAiDashboard(
-  _req: Request, res: Response,
+  req: Request, res: Response,
 ): Promise<void> {
+  // Query-only arithmetic input; never forwarded to control endpoints.
+  const supplied = req.query.stock_concentration_g_l;
+  let concentration: number | null = null;
+  if (supplied !== undefined) {
+    if (typeof supplied !== 'string' || !/^(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)$/.test(supplied)) {
+      res.status(400).json({success:false, data:null, message:'Konsentrasi stok tidak valid.'});
+      return;
+    }
+    concentration = Number(supplied);
+    if (!Number.isFinite(concentration) || concentration <= 0 || concentration > 1_000_000) {
+      res.status(400).json({success:false, data:null, message:'Konsentrasi stok di luar batas.'});
+      return;
+    }
+  }
+  const url = concentration === null ? LOCAL_AI
+    : LOCAL_AI + '?stock_concentration_g_l=' + encodeURIComponent(String(concentration));
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 2500);
   try {
-    const response = await fetch(LOCAL_AI, {
+    const response = await fetch(url, {
       method: 'GET', signal: abort.signal,
       headers: {Accept: 'application/json'},
       redirect: 'error', cache: 'no-store',
