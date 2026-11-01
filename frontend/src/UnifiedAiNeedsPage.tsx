@@ -104,7 +104,7 @@ export function UnifiedAiNeedsPage(){
     tank?.level_status==='STALE'?'Telemetry tandon sudah lama':
     tank?.level_status==='OUT_OF_RANGE'?'Persentase level di luar batas':
     tank?.level_status==='UNVERIFIED'?'Sensor level belum tervalidasi':
-    tank?.level_status==='ORIENTATION_CONFLICT'?'Level persen bertentangan dengan jarak sensor atas-ke-bawah':
+    tank?.level_status==='ORIENTATION_CONFLICT'?'Persentase level tidak cocok dengan tinggi cairan yang dikirim MQTT Worker':
     'Data tandon belum tersedia';
   const irrigationSchedule=data?.irrigation_schedule_preview;
   const dateLabel=(date:string|undefined)=>date?new Intl.DateTimeFormat('id-ID',{
@@ -188,7 +188,7 @@ export function UnifiedAiNeedsPage(){
         {tank?.comparison_status==='BELOW_ESTIMATE'&&
           <p className="ain-note"><AlertTriangle size={16}/> Estimasi air tandon kurang dari ilustrasi kebutuhan Fuzzy. Perlu mempertimbangkan pengisian ulang atau rencana bertahap; tidak ada perintah otomatis ke pompa.</p>}
         {!tankReady&&<p className="ain-note">Perhitungan liter tidak ditampilkan karena {tankStatusText.toLowerCase()}. Persentase yang dilaporkan tidak diperlakukan sebagai volume aktual.</p>}
-        <p className="ain-footnote">Tandon nominal 1.800 liter, tinggi 180 cm. Konversi ketinggian ke liter menggunakan asumsi penampang seragam (≈10 L/cm) dan persen sensor yang valid. Bentuk tandon, volume tak terpakai, batas minimum air, dan kalibrasi level belum diverifikasi. Tidak mengubah interlock ESP32 maupun mengendalikan pompa.</p>
+        <p className="ain-footnote">Tandon nominal 1.800 liter, tinggi 180 cm. Field legacy *_distance_cm dalam MQTT Worker berarti tinggi cairan dari dasar, bukan jarak mentah ultrasonik. Konversi ke liter mengasumsikan penampang seragam (≈10 L/cm). Bentuk tandon, volume tak terpakai, batas minimum air, dan kalibrasi level belum diverifikasi. Tidak mengubah interlock ESP32 maupun mengendalikan pompa.</p>
       </article>
       <article className="ain-panel ain-irrigation-schedule" aria-label="Usulan penyiraman hari ini dan besok">
         <div className="ain-panel-heading">
@@ -208,8 +208,8 @@ export function UnifiedAiNeedsPage(){
             <span>Minimal sisa matematis untuk dievaluasi ulang, bukan jadwal tetap.</span>
           </div>
         </div>
-        {irrigationSchedule?.status==='GEOMETRY_ONLY'?<p className="ain-note">Perkiraan geometri sensor atas-ke-bawah: jarak {show(irrigationSchedule.distance_cm,'cm')}, setara maksimum {show(irrigationSchedule.illustrative_available_l,'L')} dengan asumsi sensor tepat di tinggi 180 cm. Belum dikalibrasi; belum ada batas cadangan aman yang disetujui.</p>:
-          <p className="ain-note">Belum bisa mengusulkan pembagian volume: {irrigationSchedule?.status==='DISTANCE_UNVERIFIED'?'sensor jarak air belum valid':irrigationSchedule?.status==='DISTANCE_OUT_OF_RANGE'?'jarak sensor di luar tinggi tandon':irrigationSchedule?.status==='FUZZY_UNAVAILABLE'?'kebutuhan Fuzzy belum tersedia':'sumber telemetry tidak segar atau tidak tersedia'}.</p>}
+        {irrigationSchedule?.status==='GEOMETRY_ONLY'?<p className="ain-note">Perkiraan dari tinggi cairan telemetry: {show(irrigationSchedule.reported_liquid_height_cm,'cm')}, setara batas geometris {show(irrigationSchedule.illustrative_available_l,'L')} dengan asumsi tinggi cairan maksimum 180 cm dan tandon berpenampang seragam. Belum dikalibrasi; belum ada batas cadangan aman yang disetujui.</p>:
+          <p className="ain-note">Belum bisa mengusulkan pembagian volume: {irrigationSchedule?.status==='HEIGHT_UNVERIFIED'?'tinggi cairan belum valid':irrigationSchedule?.status==='HEIGHT_OUT_OF_RANGE'?'tinggi cairan di luar kapasitas tandon':irrigationSchedule?.status==='LEVEL_CONFLICT'?'tinggi cairan dan persentase level tidak konsisten':irrigationSchedule?.status==='FUZZY_UNAVAILABLE'?'kebutuhan Fuzzy belum tersedia':'sumber telemetry tidak segar atau tidak tersedia'}.</p>}
         <p className="ain-footnote">Rencana SHADOW ini tidak menyimpan jadwal nyata, tidak mem-publish MQTT, dan tidak mengubah interlock ESP32. Jika tandon tidak terisi besok atau tanah sudah basah, kebutuhan harus dihitung ulang; jangan menjalankan angka sisa secara otomatis.</p>
       </article>
       <article className="ain-panel ain-planning-controls" aria-label="Kalkulator kebutuhan dari Panduan">
