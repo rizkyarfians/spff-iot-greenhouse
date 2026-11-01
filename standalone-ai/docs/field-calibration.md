@@ -100,13 +100,13 @@ Tanpa mengubah firmware/hardware maupun profil kontrol, kalkulator:
 - memilih jendela **minimal 3 delta positif berturut-turut** (minimal 60 detik, selisih timestamp per sampel 1–45 detik) dari histori counter air dan pupuk valid dalam 7 hari terakhir yang tersedia (maksimal 3000 sampel dibaca);
 - menghitung debit historis masing-masing jalur dari `delta_liter * 60 / detik`, memutus urutan saat counter reset, tidak valid, stagnan atau jeda;
 - menghitung **estimasi waktu aliran air** sebagai volume larutan akhir referensi / debit air historis. Ini bukan durasi aktuatir terkalibrasi;
-- menghitung volume stok sebagai `massa_pupuk_gram / konsentrasi_stok_g_per_liter` **hanya** bila operator mengisi konsentrasi stok eksplisit pada halaman. Input bersifat sementara, tidak dipersist atau mengubah batch;
+- menghitung volume stok sebagai `massa_pupuk_gram / konsentrasi_stok_g_per_liter` hanya setelah ikatan resep stok ke produk Panduan terverifikasi. Tanpa ikatan itu, volume stok tidak ditampilkan;
 - menampilkan estimasi waktu hisap stok terpisah, bukan menjumlahkan dua durasi karena alur Venturi tidak terverifikasi;
 - memisahkan data kalkulator dari `calculation` operasional, Fuzzy simulasi, ledger, dan hasil dispatch.
 
 **Jangan menyamakan angka historis dengan debit terkalibrasi.**
-Jika air referensi Panduan tidak tersedia, UI menampilkan `—` untuk volume larutan akhir dan durasi.
-Jika konsentrasi stok belum diberikan, UI menampilkan `—` untuk volume stok. Semua nilai diberi label perencanaan sementara.
+Jika Panduan tidak berisi volume, Fuzzy simulasi dari telemetry terkini bisa menampilkan volume irigasi ilustratif secara terpisah. Untuk metode irigasi yang sesuai, hasil ini dapat menjadi preview kegiatan berlabel simulasi. Untuk `Tabur`/`Semprot`, angka Fuzzy tidak diubah menjadi volume campuran.
+Jika konsentrasi stok belum terikat ke produk Panduan, UI menampilkan `—` untuk volume stok. Semua nilai diberi label perencanaan sementara.
 Tetap `SHADOW_MODE`, `can_dispatch=false`, dan `HOLD`. Tidak ada kontrol pompa otomatis.
 
 ### Verifikasi development (tanpa menyentuh produksi)
