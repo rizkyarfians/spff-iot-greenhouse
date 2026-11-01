@@ -177,10 +177,12 @@ def main():
                     for product in activity.get("products", []):
                         if product.get("is_fertilizer"):
                             print("GUIDE", program["program_id"], "rev", program["revision"],
-                                  activity["activity_id"], product["source_row"], product["product"])
+                                  activity["activity_id"], "HST", activity.get("hst"),
+                                  product["source_row"], product["product"])
             for recipe in observation.get("approved_programs", []):
                 print("RECIPE", recipe.get("recipe_id"), "rev", recipe.get("revision"),
                       recipe.get("fertilizer_name"),
+                      "HST", recipe.get("hst_from"), "-", recipe.get("hst_to"),
                       "concentration g/L", _concentration(recipe.get("stock_concentration_g_per_l")))
             return
         record = save_binding(store, observation, args.program_id,
