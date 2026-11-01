@@ -25,7 +25,7 @@ def _concentration(value):
         converted = float(value)
     except (TypeError, ValueError, OverflowError):
         return None
-    return converted if isfinite(converted) and 0 < converted <= 1_000_000 else None
+    return converted if isfinite(converted) and 0.000001 <= converted <= 1_000_000 else None
 
 
 def _name(value):
