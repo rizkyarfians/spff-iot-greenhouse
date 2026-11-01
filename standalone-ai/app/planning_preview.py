@@ -43,6 +43,33 @@ def activity_planning_preview(activity, flow, stock_concentration_g_l=None):
     if concentration is None or concentration <= 0:
         concentration = None
         reasons.append("stock_concentration_not_provided")
+    # The physical device uses one fertilizer formulation per operation. Keep
+    # EACH Guide product distinct, especially for activities with multiple rows.
+    # No implicit first-product selection or combining across source rows.
+    product_options = []
+    for product in fertilizers:
+        product_mass = _nonnegative(product.get("product_mass_g"))
+        product_reasons = []
+        if product.get("review_reasons") or product_mass is None:
+            product_mass = None
+            product_reasons.append("fertilizer_mass_needs_review")
+        product_stock = (
+            product_mass / concentration
+            if product_mass is not None and concentration is not None
+            else None
+        )
+        if concentration is None:
+            product_reasons.append("stock_concentration_not_provided")
+        product_options.append({
+            "source_row": product.get("source_row") if type(product.get("source_row")) is int and product["source_row"] > 0 else None,
+            "product": str(product.get("product") or "Produk tidak diketahui")[:200],
+            "mass_g": product_mass,
+            "stock_l": product_stock,
+            "stock_duration_minutes": (
+                product_stock / stock_rate if product_stock is not None and stock_rate else None
+            ),
+            "reasons": product_reasons,
+        })
     stock = mass / concentration if mass is not None and concentration is not None else None
     # Never claim an operational duration, and never add parallel water/stock
     # durations as if Venturi or pump sequence were independently certified.
@@ -57,6 +84,7 @@ def activity_planning_preview(activity, flow, stock_concentration_g_l=None):
         "stock_duration_minutes": stock_minutes,
         "stock_concentration_g_l": concentration,
         "flow_reference": flow if isinstance(flow, dict) else None,
+        "product_options": product_options,
         "reasons": reasons,
         "can_dispatch": False,
     }
