@@ -17,7 +17,7 @@ export async function getUnifiedAiDashboard(
       return;
     }
     concentration = Number(supplied);
-    if (!Number.isFinite(concentration) || concentration <= 0 || concentration > 1_000_000) {
+    if (!Number.isFinite(concentration) || concentration < 0.000001 || concentration > 1_000_000) {
       res.status(400).json({success:false, data:null, message:'Konsentrasi stok di luar batas.'});
       return;
     }
