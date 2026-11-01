@@ -56,6 +56,16 @@ export const unifiedAiDashboardSchema = z.object({
     water_l: num, stock_l: num, fertilizer_mass_g: num,
     duration_seconds: num, fuzzy_score: num,
   }).strict(),
+  fuzzy_preview: z.object({
+    basis: z.literal('SIMULATION_PROFILE'),
+    config_version: str,
+    input_key: z.enum(['soil_1_moisture','soil_2_moisture']),
+    moisture_pct: z.number().min(0).max(100),
+    score: num,
+    illustrative_water_l: num,
+    model_max_irrigation_l: num,
+    recorded_at: nullableStr,
+  }).strict().nullable(),
   programs: z.array(program).max(30),
   note: z.string().max(500),
 }).strict();
