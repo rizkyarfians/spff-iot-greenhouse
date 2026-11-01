@@ -195,3 +195,65 @@ for p in d["programs"]:
 **Catatan:** Pipeline kalkulator ini menggunakan data aktual yang dibaca, tetapi
 profil Fuzzy masih simulasi, debit historis belum kalibrasi, dan ikatan stok
 belum ada. Produksi tidak boleh didorong ke kontrol otomatis oleh output ini.
+
+
+## Binding produk pupuk ke resep stok (hanya SHADOW staging)
+
+Kalkulator memisahkan dua panel:
+- **Penyiraman**: Sensor Tanah 2 → Mamdani (`simulation-1`) → ilustrasi air dan estimasi durasi dari histori debit air. Tidak dihubungkan ke pemupukan `Tabur` atau `Semprot`.
+- **Pemupukan**: satu baris produk Panduan → massa gram → **binding eksplisit** ke satu resep stok `approved` → konsentrasi `g/L` tersimpan → volume stok matematis → estimasi waktu stok dari debit historis.
+
+**Tidak ada auto-match nama atau HST.** Binding harus menyebut `program_id`,
+`activity_id`, `source_row`, dan `recipe_id` secara eksplisit. Sebelum binding tersimpan,
+volume stok tetap kosong. Nama produk dari kedua sumber harus sama setelah normalisasi
+spasi/huruf besar-kecil, resep harus approved dan memiliki konsentrasi positif, dan
+program Panduan tidak boleh berubah/bermasalah dalam identitas sumber.
+
+**Penyimpanan:** binding saat ini adalah *konfigurasi preview SHADOW* dalam SQLite lokal
+yang sudah terisolasi untuk AI development (`AI_STATE_PATH`), scope site/device/zone;
+**bukan migrasi atau update PostgreSQL produksi**. Staging dengan `AI_STATE_DSN`
+PostgreSQL secara sengaja menolak operasi binding CLI. Untuk production release,
+binding perlu dimigrasikan secara terencana menjadi data konfigurasi di
+PostgreSQL source-of-truth setelah disetujui; jangan menyalin state SQLite staging
+menjadi konfigurasi operasional.
+
+Setelah menjalankan `git pull` di repository staging dan memastikan Python virtualenv:
+
+```bash
+cd ~/spff-ai-dashboard-test/standalone-ai
+source .venv/bin/activate
+
+# Baca pasangan ID yang memang tercatat (read-only PostgreSQL)
+python -m app.stock_bindings candidates
+python -m app.stock_bindings list
+```
+
+Setelah **melihat daftar dan menentukan pasangan** yang benar (contohnya Fertiphos
+dari Panduan dan sebuah resep Fertiphos yang benar-benar approved), lakukan
+pengikatan satu kali dengan ID hasil `candidates` — **jangan gunakan ID contoh**:
+
+```bash
+python -m app.stock_bindings bind \
+  --program-id '<PROGRAM_ID_DARI_CANDIDATES>' \
+  --activity-id 'row-11' \
+  --source-row 11 \
+  --recipe-id '<RECIPE_ID_DARI_CANDIDATES>'
+```
+
+CLI akan menolak binding jika resep belum approved, nama pupuk tidak cocok,
+konsentrasi tidak ada, program Panduan perlu review, atau source/revisi tak valid.
+Tidak diperlukan restart service untuk pembacaan mapping dari SQLite pada
+permintaan dashboard berikutnya; refresh browser. CLI tidak pernah mengirim
+perintah MQTT, mengubah kontrol aktuator, atau menulis PostgreSQL sumber.
+
+Pada GET dashboard, binding dibaca bersamaan dengan snapshot telemetry.
+Setiap request mengecek ulang `program_revision`, `source_sha256`,
+`recipe_revision`, nama pupuk, status approved, dan konsentrasi saat ini.
+Perubahan salah satu unsur menghasilkan status `STALE`, `stock_l=null`,
+dan larangan penggunaan hasil lama. Atribut status `BOUND`, `UNBOUND`,
+`STALE` hanya untuk penjelasan kalkulator; semua output tetap
+`SHADOW_MODE`, `can_dispatch=false`.
+
+**Catatan akurasi:** produk yang historinya `Tabur` hanya dihitung secara
+matematis setelah diikat; itu bukan instruksi mengencerkan dan meneteskan pupuk.
+Debit historis dari kedua flowmeter belum menggantikan kalibrasi fisik.
