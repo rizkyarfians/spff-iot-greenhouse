@@ -1,10 +1,10 @@
 """SHADOW-only illustrated two-day irrigation deferral, never an ESP32 schedule.
 
-The SPFF water tank is reported as 1800 L / 180 cm, with the ranging sensor
-mounted at the TOP facing DOWN. Empty/full offset, dead volume and reserve
-remain UNCALIBRATED. This models an absolute geometric upper bound for today,
-not an authorized pump volume. Tomorrow's remainder is a LOWER bound, not a
-promise to irrigate or evidence that tomorrow's refill will exist.
+The SPFF water tank is reported as 1800 L / 180 cm. MQTT Worker converts
+the legacy tank_water_distance_cm channel as LIQUID HEIGHT from the bottom,
+not the raw top-down transducer distance. Empty/full offset, dead volume,
+tank cross-section and reserve remain UNCALIBRATED. This is an illustrative
+geometric split only, not an authorized pump volume or a firm schedule.
 """
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -32,10 +32,13 @@ def illustrate_two_day_irrigation(
     jakarta_today = now.astimezone(ZoneInfo("Asia/Jakarta")).date()
     telemetry = telemetry if isinstance(telemetry, dict) else {}
     health = telemetry.get("sensor_health")
-    distance_health = health.get("tank_water_distance_cm") if isinstance(health, dict) else None
-    distance_valid = (isinstance(distance_health, dict)
-                      and distance_health.get("valid") is True)
-    distance = _finite(telemetry.get("tank_water_distance_cm"))
+    height_health = health.get("tank_water_distance_cm") if isinstance(health, dict) else None
+    height_valid = (isinstance(height_health, dict)
+                    and height_health.get("valid") is True)
+    liquid_height = _finite(telemetry.get("tank_water_distance_cm"))
+    reported_percent = _finite(telemetry.get("tank_water_level_pct"))
+    percent_health = health.get("tank_water_level_pct") if isinstance(health, dict) else None
+    percent_valid = isinstance(percent_health, dict) and percent_health.get("valid") is True
     target = _finite(fuzzy_water_l)
     capacity = _finite(capacity_l)
     height = _finite(height_cm)
@@ -46,25 +49,29 @@ def illustrate_two_day_irrigation(
         status = "SOURCE_UNAVAILABLE"
     elif target is None or target < 0:
         status = "FUZZY_UNAVAILABLE"
-    elif not distance_valid or distance is None:
-        status = "DISTANCE_UNVERIFIED"
-    elif not 0 <= distance <= height:
-        status = "DISTANCE_OUT_OF_RANGE"
+    elif not height_valid or liquid_height is None:
+        status = "HEIGHT_UNVERIFIED"
+    elif not 0 <= liquid_height <= height:
+        status = "HEIGHT_OUT_OF_RANGE"
+    elif (not percent_valid or reported_percent is None
+          or not 0 <= reported_percent <= 100
+          or abs(reported_percent - liquid_height / height * 100) > 1.0):
+        status = "LEVEL_CONFLICT"
     else:
         status = "GEOMETRY_ONLY"
 
-    # Top-down range: 0cm means full, 180cm means empty ONLY IF the
-    # sensor-to-tank-bottom calibration really is 180cm.
-    illustrative_l = (capacity * (height - distance) / height
+    # The historical *_distance_cm field is a normalized liquid HEIGHT.
+    # This is not the physical clearance between the transducer and water.
+    illustrative_l = (capacity * liquid_height / height
                       if status == "GEOMETRY_ONLY" else None)
     today_max = min(target, illustrative_l) if illustrative_l is not None else None
     tomorrow_min = max(0.0, target - today_max) if today_max is not None else None
     return {
         "status": status,
-        "basis": "TOP_DOWN_UNCALIBRATED_GEOMETRY",
+        "basis": "REPORTED_LIQUID_HEIGHT_UNCALIBRATED",
         "today_date": jakarta_today.isoformat(),
         "tomorrow_date": (jakarta_today + timedelta(days=1)).isoformat(),
-        "distance_cm": distance if status == "GEOMETRY_ONLY" else None,
+        "reported_liquid_height_cm": liquid_height if status == "GEOMETRY_ONLY" else None,
         "illustrative_available_l": illustrative_l,
         "fuzzy_demand_l": target if target is not None and target >= 0 and source_current else None,
         "today_absolute_max_l": today_max,
