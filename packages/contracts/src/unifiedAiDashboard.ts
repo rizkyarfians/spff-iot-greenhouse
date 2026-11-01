@@ -79,6 +79,7 @@ export const unifiedAiDashboardSchema = z.object({
   planning_source: z.enum(['POSTGRES_READ_ONLY','DECISION_SNAPSHOT']),
   planning_status: z.enum(['CURRENT','STALE','UNAVAILABLE']),
   planning_recorded_at: nullableStr,
+  flow_reference: flowReference.nullable(),
   decision: z.object({
     type: nullableStr, proposed_action: nullableStr,
     hold_reasons: reasons, configuration_version: nullableStr,
