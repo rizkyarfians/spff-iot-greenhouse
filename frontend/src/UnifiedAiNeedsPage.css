@@ -76,3 +76,13 @@
 .ain-fuzzy-preview-grid strong{font-size:clamp(21px,2vw,27px);font-variant-numeric:tabular-nums}
 .ain-fuzzy-preview-grid small{font-size:11px;color:#697a6f}
 @media(max-width:620px){.ain-fuzzy-preview-grid{grid-template-columns:1fr}.ain-fuzzy-preview .ain-panel-heading{align-items:flex-start;flex-direction:column}}
+
+
+.ain-planning-controls .ain-panel-heading>span,.ain-planning-evidence .ain-panel-heading>span{font-size:11px;font-weight:750;color:#52745c;text-align:right}
+.ain-planning-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ain-planning-fields label{display:flex;flex-direction:column;gap:7px;color:#526c5e;font-size:12px;font-weight:650}
+.ain-planning-fields input,.ain-planning-fields select{width:100%;min-width:0;border:1px solid #d3e0d8;border-radius:9px;padding:10px;font-size:13px;background:white;color:#1d3028}
+.ain-planning-evidence .ain-fuzzy-preview-grid>div{display:flex;flex-direction:column;gap:7px;background:#f7faf8;padding:13px;border:1px solid #e0e9e3;border-radius:10px}
+.ain-planning-evidence .ain-fuzzy-preview-grid strong{font-size:clamp(19px,1.8vw,25px)}
+@media(max-width:780px){.ain-planning-fields{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:620px){.ain-planning-controls .ain-panel-heading,.ain-planning-evidence .ain-panel-heading{flex-direction:column;align-items:flex-start}}
