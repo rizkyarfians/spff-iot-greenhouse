@@ -138,3 +138,60 @@ for p in d["programs"]:
 
 UI staging: `http://127.0.0.1:5174/#/ai-needs` via tunnel SSH.
 `;
+
+
+## Integrasi kalkulasi otomatis, pengamatan real, dan batas penggunaan (staging)
+
+Pada halaman `#/ai-needs`, **operator tidak perlu mengisi volume air dan
+konsentrasi stok setiap kunjungan**. Endpoint dashboard Python sekarang melakukan
+`SPFFSource.inspect()` melalui transaksi PostgreSQL **READ ONLY** dan menyajikan
+`planning_source`, `planning_status`, serta timestamp sampel secara terpisah
+dari status **keputusan kontrol** historis (`CURRENT/STALE/NO_DECISION`).
+
+- Kebutuhan satu produk dan HST berasal dari Panduan tersimpan, tanpa penggabungan beberapa pupuk.
+- Jika Panduan tidak menyediakan volume, Fuzzy Mamdani pada konfigurasi `simulation_only`
+  boleh menghasilkan **ilustrasi volume irigasi** hanya bila telemetry, receive timestamp,
+  nilai raw, umur raw, health/control eligibility, konfigurasi sensor dan ACK valid serta segar.
+  Tidak boleh mengisi volume campuran `Tabur` atau `Semprot` secara otomatis.
+- Dashboard menampilkan volume Fuzzy terpisah ketika kegiatan Panduan bukan
+  kegiatan irigasi yang sesuai. Hasil ini **bukan nilai terkalibrasi** dan **bukan perintah pompa**.
+- Konfigurasi `spff.fertigation_recipes.stock_concentration_g_per_l` memang tersedia,
+  tetapi saat ini **tidak ada ikatan terverifikasi `guide_programs.program_id +
+  activity_id + source_row` ke resep stok**. Nama pupuk, HST, atau tanaman yang sama
+  bukan bukti batch stok yang sama. Volume stok karena itu tetap `null` dan diberikan
+  kode `saved_stock_recipe_not_bound_to_guide_product` bila resep tersimpan ada,
+  atau `stock_concentration_not_provided` jika tidak ada referensi.
+- Laju air/stok historis hanya contoh hitung matematis dan tetap memuat sumber interval.
+- Seluruh hasil tetap `can_dispatch=false`, tidak membuat keputusan SHADOW baru,
+  tidak menyentuh ledger, tidak memanggil MQTT, tidak mengubah produksi.
+
+Untuk memverifikasi setelah update branch staging:
+
+```bash
+cd ~/spff-ai-dashboard-test
+git pull --ff-only
+npm run build
+npm run lint
+cd standalone-ai
+source .venv/bin/activate
+pg_virtualenv -v 14 bash <<'BASH'
+export AI_TEST_DATABASE_DSN="dbname=postgres"
+python -m unittest discover -s tests -q
+BASH
+sudo systemctl restart spff-ai-dev-python spff-ai-dev-api spff-ai-dev-web
+curl -fsS --max-time 20 http://127.0.0.1:5011/dashboard/summary | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+print("planning:",d["planning_status"],d["planning_source"],d["planning_recorded_at"])
+print("decision:",d["status"],d["decision"]["type"],"can_dispatch:",d["can_dispatch"])
+print("fuzzy:",d["fuzzy_preview"],"blockers:",d["fuzzy_preview_blockers"])
+for p in d["programs"]:
+    for a in p["activities"][:3]:
+        print(p["crop_name"],a["title"],a["planning_preview"]["water_source"],
+              a["planning_preview"]["water_l"],a["planning_preview"]["reasons"])
+'
+```
+
+**Catatan:** Pipeline kalkulator ini menggunakan data aktual yang dibaca, tetapi
+profil Fuzzy masih simulasi, debit historis belum kalibrasi, dan ikatan stok
+belum ada. Produksi tidak boleh didorong ke kontrol otomatis oleh output ini.
