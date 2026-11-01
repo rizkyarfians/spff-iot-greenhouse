@@ -29,6 +29,21 @@ const flowReference = z.object({
   ended_at: str,
 }).strict();
 
+const tankPreview = z.object({
+  basis: z.literal('LINEAR_LEVEL_APPROXIMATION'),
+  capacity_l: z.number().finite().positive(),
+  tank_height_cm: z.number().finite().positive(),
+  reported_level_pct: z.number().finite().min(0).max(100).nullable(),
+  sensor_valid: booleanNull,
+  estimated_water_height_cm: num,
+  estimated_available_l: num,
+  fuzzy_demand_l: num,
+  theoretical_balance_l: z.number().finite().nullable(),
+  level_status: z.enum(['NO_DATA', 'STALE', 'OUT_OF_RANGE', 'UNVERIFIED', 'ESTIMATED']),
+  comparison_status: z.enum(['NOT_COMPARABLE', 'ENOUGH_ESTIMATE', 'BELOW_ESTIMATE']),
+  can_dispatch: z.literal(false),
+}).strict();
+
 const planningProductOption = z.object({
   source_row: z.number().int().positive().nullable(),
   product: str,
@@ -80,6 +95,7 @@ export const unifiedAiDashboardSchema = z.object({
   planning_status: z.enum(['CURRENT','STALE','UNAVAILABLE']),
   planning_recorded_at: nullableStr,
   flow_reference: flowReference.nullable(),
+  tank_preview: tankPreview,
   decision: z.object({
     type: nullableStr, proposed_action: nullableStr,
     hold_reasons: reasons, configuration_version: nullableStr,
