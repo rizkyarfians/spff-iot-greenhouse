@@ -5,6 +5,7 @@ promoted to a plant recommendation. A missing or stale decision stays explicit.
 """
 from datetime import datetime, timezone
 from math import isfinite
+from decimal import Decimal
 
 from .calculations import fuzzy_volume
 from .planning_preview import activity_planning_preview
@@ -24,7 +25,7 @@ def _iso(value):
 
 
 def _number(value):
-    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and isfinite(value) and value >= 0 else None
+    return float(value) if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool) and isfinite(value) and 0 <= value <= 1e12 else None
 
 
 def _fresh(value, now, maximum_age):
