@@ -57,6 +57,13 @@ def validate_binding_candidate(observation, program_id, activity_id, source_row,
         raise ValueError("Guide fertilizer product not found")
     if product.get("review_reasons"):
         raise ValueError("Guide fertilizer product needs review")
+    if any(reason in (program.get("hold_reasons") or []) for reason in (
+        "device_binding_not_verified", "crop_binding_not_verified",
+        "saved_population_mismatch", "saved_area_mismatch",
+        "guide_edits_changed_since_program_was_saved",
+        "invalid_saved_program_snapshot",
+    )):
+        raise ValueError("Guide program changed or requires review")
     recipes = observation.get("approved_programs")
     matches = [
         r for r in recipes if isinstance(r, dict) and str(r.get("recipe_id")) == recipe_id
@@ -88,6 +95,7 @@ def validate_binding_candidate(observation, program_id, activity_id, source_row,
         "program_revision": program_revision,
         "source_sha256": source_sha,
         "recipe_revision": recipe_revision,
+        "stock_concentration_g_l": _concentration(recipe.get("stock_concentration_g_per_l")),
     }
 
 
@@ -104,11 +112,13 @@ def resolve_binding(observation, mappings, program, activity, product):
     except ValueError:
         return None, "STALE", None
     if any(entry.get(f) != candidate.get(f) for f in (
-        "program_revision", "source_sha256", "recipe_revision", "product"
+        "program_revision", "source_sha256", "recipe_revision", "product",
+        "stock_concentration_g_l"
     )):
         return None, "STALE", None
     recipes = observation.get("approved_programs", [])
-    recipe = next((r for r in recipes if str(r.get("recipe_id")) == entry["recipe_id"]), None)
+    recipe = next((r for r in recipes if isinstance(r, dict)
+                   and str(r.get("recipe_id")) == entry["recipe_id"]), None)
     if not isinstance(recipe, dict):
         return None, "STALE", None
     concentration = _concentration(recipe.get("stock_concentration_g_per_l"))
