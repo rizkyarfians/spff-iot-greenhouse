@@ -72,6 +72,20 @@ class WaterCarryoverTests(unittest.TestCase):
         credit_device_session(self.store, self.plan["plan_id"], proof, now=NOW+timedelta(minutes=5))
         self.assertEqual(present_carryover(self.store.read(), now=NOW)["credited_session_count"], 1)
 
+    def test_same_session_with_changed_evidence_is_not_idempotent(self):
+        proof = completed_water_session()
+        credit_device_session(self.store, self.plan["plan_id"], proof, now=NOW+timedelta(minutes=4))
+        for changed in ({"actual_water_l": 250.0},
+                        {"message_id": str(uuid4())},
+                        {"sequence": 9}):
+            with self.subTest(changed=changed):
+                with self.assertRaises(ValueError):
+                    credit_device_session(self.store, self.plan["plan_id"],
+                                          {**proof, **changed}, now=NOW+timedelta(minutes=5))
+        summary = present_carryover(self.store.read(), now=NOW)
+        self.assertEqual(summary["credited_session_count"], 1)
+        self.assertEqual(summary["device_reported_delivered_l"], 200)
+
     def test_tomorrow_requires_new_reassessment_no_pump_schedule(self):
         credit_device_session(self.store, self.plan["plan_id"], completed_water_session(),
                               now=NOW+timedelta(minutes=4))
