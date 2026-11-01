@@ -67,7 +67,7 @@ export function UnifiedAiNeedsPage(){
       pending=true;
       try{
         const concentration=Number(concentrationText);
-        const validConcentration=concentrationText.trim()!==''&&Number.isFinite(concentration)&&concentration>0&&concentration<=1000000;
+        const validConcentration=concentrationText.trim()!==''&&Number.isFinite(concentration)&&concentration>=0.000001&&concentration<=1000000;
         const response=await fetchUnifiedAiDashboard(abort.signal, validConcentration?concentration:undefined);
         if(abort.signal.aborted)return;
         setData(response);
@@ -93,7 +93,7 @@ export function UnifiedAiNeedsPage(){
   const selectedActivity=selected?.activities.find(a=>a.activity_id===activityId)??selected?.activities[0];
   const guideCalc=selectedActivity?.planning_preview;
   const hasGuide=!!selectedActivity;
-  const concentrationInvalid=concentrationText.trim()!==''&&(!Number.isFinite(Number(concentrationText))||Number(concentrationText)<=0||Number(concentrationText)>1000000);
+  const concentrationInvalid=concentrationText.trim()!==''&&(!Number.isFinite(Number(concentrationText))||Number(concentrationText)<0.000001||Number(concentrationText)>1000000);
   const feedback=data?.feedback;
   return <section className="secondary-page ai-needs-page" aria-label="AI dan kebutuhan tanaman">
     <div className="ain-hero">
