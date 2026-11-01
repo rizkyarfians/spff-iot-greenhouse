@@ -34,6 +34,9 @@ const planningProductOption = z.object({
   product: str,
   mass_g: num,
   stock_l: num,
+  stock_concentration_g_l: num,
+  binding_status: z.enum(['UNBOUND','BOUND','STALE']),
+  stock_recipe_id: nullableStr,
   stock_duration_minutes: num,
   reasons: reasons,
 }).strict();
