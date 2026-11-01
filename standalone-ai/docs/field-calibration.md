@@ -89,3 +89,52 @@ Status: **worksheet pengukuran, BELUM profil operasional**. Dokumen ini tidak me
 6. Review bahwa `simulation_only=false` hanya berlaku untuk profil terkalibrasi yang terversi; perubahan harus diuji di staging, tidak otomatis dipasang pada produksi. Dispatch tetap dilarang.
 
 **Catatan integrasi:** `LiveEngine` saat ini hanya menghasilkan `plan_fertigation` bila ada kewajiban pupuk aktif dengan binding stok terverifikasi; jalur `fuzzy_volume` untuk irigasi dipakai hanya ketika tidak ada kewajiban pupuk. Kalibrasi sendiri tidak menjamin empat kartu rencana langsung terisi. Pengubahan arsitektur pengambilan keputusan perlu desain dan review terpisah.
+
+
+## Tahap implementasi software — kalkulator Panduan + histori flowmeter
+
+Branch development menyediakan kalkulator **read-only** pada `#/ai-needs`.
+Tanpa mengubah firmware/hardware maupun profil kontrol, kalkulator:
+- membaca volume **larutan akhir per kegiatan** dari `spff.guide_programs.plan` yang tersimpan, bukan dari profil simulasi;
+- membaca target massa **satu pupuk** per kegiatan dari data Panduan;
+- memilih jendela **minimal 3 delta positif berturut-turut** (minimal 60 detik, selisih timestamp per sampel 1–45 detik) dari histori counter air dan pupuk valid dalam 7 hari terakhir yang tersedia (maksimal 3000 sampel dibaca);
+- menghitung debit historis masing-masing jalur dari `delta_liter * 60 / detik`, memutus urutan saat counter reset, tidak valid, stagnan atau jeda;
+- menghitung **estimasi waktu aliran air** sebagai volume larutan akhir referensi / debit air historis. Ini bukan durasi aktuatir terkalibrasi;
+- menghitung volume stok sebagai `massa_pupuk_gram / konsentrasi_stok_g_per_liter` **hanya** bila operator mengisi konsentrasi stok eksplisit pada halaman. Input bersifat sementara, tidak dipersist atau mengubah batch;
+- menampilkan estimasi waktu hisap stok terpisah, bukan menjumlahkan dua durasi karena alur Venturi tidak terverifikasi;
+- memisahkan data kalkulator dari `calculation` operasional, Fuzzy simulasi, ledger, dan hasil dispatch.
+
+**Jangan menyamakan angka historis dengan debit terkalibrasi.**
+Jika air referensi Panduan tidak tersedia, UI menampilkan `—` untuk volume larutan akhir dan durasi.
+Jika konsentrasi stok belum diberikan, UI menampilkan `—` untuk volume stok. Semua nilai diberi label perencanaan sementara.
+Tetap `SHADOW_MODE`, `can_dispatch=false`, dan `HOLD`. Tidak ada kontrol pompa otomatis.
+
+### Verifikasi development (tanpa menyentuh produksi)
+
+```bash
+cd ~/spff-ai-dashboard-test
+git pull --ff-only
+npm run build
+npm run lint
+cd standalone-ai
+source .venv/bin/activate
+pg_virtualenv -v 14 bash <<'BASH'
+export AI_TEST_DATABASE_DSN="dbname=postgres"
+python -m unittest discover -s tests -q
+BASH
+```
+
+Setelah tes lulus dan service staging aktif:
+```bash
+sudo systemctl restart spff-ai-dev-python spff-ai-dev-api spff-ai-dev-web
+curl -fsS 'http://127.0.0.1:5002/api/unified-ai/dashboard' | python3 -c '
+import json,sys
+d=json.load(sys.stdin)["data"]
+for p in d["programs"]:
+    for a in p["activities"]:
+        print(p["crop_name"],a["title"],a["planning_preview"])
+'
+```
+
+UI staging: `http://127.0.0.1:5174/#/ai-needs` via tunnel SSH.
+`;
