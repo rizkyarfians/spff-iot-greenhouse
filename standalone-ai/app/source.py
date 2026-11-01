@@ -151,6 +151,80 @@ class SPFFSource:
                     "execution_evidence": {"status": adaptive_access, "latest_adaptive": adaptive},
                     "can_dispatch": False, "blocking_reason": "volume_session_and_safety_contract_not_verified"}
 
+    def inspect_water_session_evidence(self, session_id):
+        """Read one terminal water-only device session and matching completion event.
+
+        Evidence is SELECT-only, scoped to this source's site/device. Counter
+        deltas, unrelated sessions and pump ON status are never proof.
+        """
+        from uuid import UUID
+        import psycopg
+        from psycopg.rows import dict_row
+        try:
+            key = str(UUID(str(session_id)))
+        except (TypeError, ValueError, AttributeError):
+            raise ValueError("invalid water session UUID") from None
+        with psycopg.connect(self.dsn, connect_timeout=5, row_factory=dict_row) as connection:
+            connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            connection.execute("SET LOCAL statement_timeout='5s'")
+            for relation in ("spff.fertigation_sessions", "spff.fertigation_session_events"):
+                ready = connection.execute(
+                    "SELECT to_regclass(%s) IS NOT NULL AND has_table_privilege(current_user,%s,'SELECT') AS ready",
+                    (relation, relation)
+                ).fetchone()
+                if not ready["ready"]:
+                    raise ValueError("source evidence tables not readable")
+            rows = connection.execute(
+                """SELECT s.session_id::text AS session_id,s.site_id,s.device_id,
+                         s.status,s.pumps_off,s.target_stock_l,s.actual_stock_l,
+                         s.actual_water_l,s.started_at,s.finished_at,
+                         e.message_id,e.sequence,e.recorded_at AS event_recorded_at,
+                         e.received_at AS event_received_at,e.payload
+                   FROM spff.fertigation_sessions s
+                   JOIN spff.fertigation_session_events e
+                     ON e.session_id=s.session_id AND e.site_id=s.site_id
+                     AND e.device_id=s.device_id AND e.status='completed'
+                     AND e.recorded_at=s.finished_at
+                   WHERE s.site_id=%s AND s.device_id=%s AND s.session_id=%s::uuid
+                   ORDER BY e.event_id DESC LIMIT 2""",
+                (self.site_id, self.device_id, key)
+            ).fetchall()
+            if len(rows) != 1:
+                raise ValueError("unique terminal session event proof not found")
+            row = rows[0]
+            payload = row.get("payload")
+            if not isinstance(payload, dict):
+                raise ValueError("terminal session event payload missing")
+            if (row.get("status") != "completed" or row.get("pumps_off") is not True
+                    or row.get("target_stock_l") != 0
+                    or row.get("actual_stock_l") != 0
+                    or row.get("actual_water_l") is None or row["actual_water_l"] <= 0
+                    or payload.get("kind") != "fertigation_session_event"
+                    or payload.get("status") != "completed"
+                    or payload.get("pumpsOff") is not True
+                    or payload.get("targetStockL") != 0
+                    or payload.get("actualStockL") != 0
+                    or payload.get("actualWaterL") != row.get("actual_water_l")
+                    or payload.get("sessionId") != key
+                    or payload.get("siteId") != self.site_id
+                    or payload.get("deviceId") != self.device_id
+                    or payload.get("messageId") != row.get("message_id")
+                    or payload.get("sequence") != row.get("sequence")):
+                raise ValueError("completed event did not confirm measured water-only session")
+            # Whitelist narrow, non-secret fields. No arbitrary raw payload.
+            return {
+                "source": "SPFF_COMPLETED_SESSION_EVENT",
+                "session_id": key, "site_id": self.site_id,
+                "device_id": self.device_id, "status": "completed",
+                "pumps_off": True, "target_stock_l": 0,
+                "actual_stock_l": 0, "actual_water_l": float(row["actual_water_l"]),
+                "started_at": row["started_at"],
+                "finished_at": row["finished_at"],
+                "event_recorded_at": row["event_recorded_at"],
+                "event_received_at": row["event_received_at"],
+                "message_id": row["message_id"], "sequence": row["sequence"],
+            }
+
     def record_shadow(self, store):
         from .live_engine import LiveEngine, LiveProfile
         import json
