@@ -13,6 +13,7 @@ from .models import Config, Model, Program, Snapshot
 from .scenarios import SCENARIOS, run_scenario
 from .settings import ROOT, Settings, load_config
 from .source import SPFFSource
+from .dashboard_summary import present_shadow_dashboard
 from .store import PostgresStore, SQLiteStore
 
 log = logging.getLogger("spff_ai")
@@ -112,6 +113,19 @@ def create_app(settings=None, config=None, store=None):
             return (observed, str(decision.get("decision_id") or ""))
 
         return sorted(store.read()["decisions"].values(), key=order_key, reverse=True)[:limit]
+
+    @app.get("/dashboard/summary")
+    def dashboard_summary():
+        # Read stored REAL source-shadow decisions; do not trigger evaluation,
+        # synthesize input, or return arbitrary raw source / credential payloads.
+        if not source:
+            raise HTTPException(503, "real SPFF source is not configured")
+        try:
+            saved = store.read()["decisions"]
+            return present_shadow_dashboard(saved.values())
+        except Exception:
+            log.warning("shadow_dashboard_read_failed")
+            raise HTTPException(503, "shadow dashboard unavailable")
 
     @app.get("/obligations")
     def obligations():
