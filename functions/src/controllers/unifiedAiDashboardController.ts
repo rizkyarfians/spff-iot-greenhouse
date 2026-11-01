@@ -50,7 +50,7 @@ export async function getUnifiedAiDashboard(
   }
   const url = LOCAL_AI + (extra.size ? '?' + extra.toString() : '');
   const abort = new AbortController();
-  const timeout = setTimeout(() => abort.abort(), 2500);
+  const timeout = setTimeout(() => abort.abort(), 12000);
   try {
     const response = await fetch(url, {
       method: 'GET', signal: abort.signal,
