@@ -40,7 +40,8 @@ def _str_list(values, cap=40):
     return [_text(v) for v in values[:cap] if isinstance(v, str)] if isinstance(values, list) else []
 
 
-def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_concentration_g_l=None):
+def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_concentration_g_l=None,
+                             planned_water_l=None, selected_program_id=None, selected_activity_id=None):
     """Return one schema for Node validation and mobile-first React presentation.
 
     A shadow ledger 'delivered_g' means credited by AI only, not external/manual
@@ -155,7 +156,11 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
                 "manually_completed": manually_completed,
                 "products": products,
                 "planning_preview": activity_planning_preview(
-                    activity, flow_reference, stock_concentration_g_l
+                    activity, flow_reference, stock_concentration_g_l,
+                    planned_water_l if (
+                        selected_program_id == program.get("program_id")
+                        and selected_activity_id == activity.get("activity_id")
+                    ) else None,
                 ),
             })
         config = program.get("config")
