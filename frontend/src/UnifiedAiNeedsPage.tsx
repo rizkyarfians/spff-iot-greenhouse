@@ -164,8 +164,8 @@ export function UnifiedAiNeedsPage(){
               <div><dt>Mode selector</dt><dd>{data.sensors.device_mode??'Tidak diketahui'}</dd></div>
               <div><dt>Feedback</dt><dd>{current?feedback?.status??'Tidak tersedia':'Stale / tidak ada'}</dd></div>
               <div><dt>Boot cocok</dt><dd>{current&&feedback?.boot_matches?'Ya':'Belum terverifikasi'}</dd></div>
-              <div><dt>Pompa air</dt><dd>{current&&(feedback?.water_pump===true||feedback?.water_pump===false)?(feedback.water_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
-              <div><dt>Pompa pupuk</dt><dd>{current&&(feedback?.fert_pump===true||feedback?.fert_pump===false)?(feedback.fert_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
+              <div><dt>Pompa air</dt><dd>{current&&(feedback?.water_pump===true||feedback?.water_pump===false)?(feedback?.water_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
+              <div><dt>Pompa pupuk</dt><dd>{current&&(feedback?.fert_pump===true||feedback?.fert_pump===false)?(feedback?.fert_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
               <div><dt>Sensor tercatat</dt><dd>{when(data.sensors.recorded_at)}</dd></div>
             </dl>
             <p className="ain-footnote">Status pompa berasal dari laporan output ESP32, bukan sensor kontak relay independen.</p>
