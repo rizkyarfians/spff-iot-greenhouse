@@ -132,6 +132,11 @@ export function UnifiedAiNeedsPage(){
                     <div><small>Kebutuhan panduan</small><strong>{show(product.amount,product.unit??'')}</strong></div>
                     <div><small>Kredit AI terverifikasi*</small><strong>{product.credited_mass_g==null?'Belum ada bukti':show(product.credited_mass_g,'g')}</strong></div>
                     <div><small>Sisa terukur</small><strong>{product.remaining_mass_g==null?'Belum pasti':show(product.remaining_mass_g,'g')}</strong></div>
+                    {product.credited_mass_g!=null&&product.target_mass_g!=null&&product.target_mass_g>0&&!product.requires_review&&
+                      <div className="ain-progress" aria-label={`Progres kredit sesi AI untuk ${product.product}`}>
+                        <progress max={product.target_mass_g} value={Math.min(product.target_mass_g,product.credited_mass_g)}/>
+                        <small>{show(product.credited_mass_g/product.target_mass_g*100,'%')} dari target terkredit di ledger AI, bukan bukti pompa fisik</small>
+                      </div>}
                     {product.requires_review&&<p className="ain-note">Perlu rekonsiliasi; jangan menganggap program sudah terpenuhi.</p>}
                   </div>)}
                 </div>)}
