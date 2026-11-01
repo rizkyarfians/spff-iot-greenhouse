@@ -196,6 +196,57 @@ class DashboardSummaryTests(unittest.TestCase):
         self.assertIn("sensor_snapshot_stale", stale["fuzzy_preview_blockers"])
         self.assertIsNone(stale["programs"][0]["activities"][0]["planning_preview"]["water_l"])
 
+    def test_fuzzy_preview_without_saved_decision_does_not_invent_execution(self):
+        row = decision()
+        observation = {
+            **row["input_snapshot"],
+            "schema_compatible": True,
+            "telemetry": {
+                "recorded_at": NOW.isoformat(),
+                "received_at": NOW.isoformat(),
+                "soil_2_moisture": 25.2,
+                "sensor_health": {"soil_2_moisture": {
+                    "valid": True, "controlValid": True, "raw": 252,
+                    "rawAgeMs": 1000, "rawFresh": True,
+                    "lastPollOk": True, "pollBootId": "boot-1",
+                }},
+            },
+            "automatic_control": {
+                "water_sensor_key": "soil_2_moisture",
+                "revision": 108, "acknowledged_revision": 108,
+                "acknowledgement_status": "applied",
+            },
+        }
+        result = present_shadow_dashboard([], NOW, Config(), planning_observation=observation)
+        self.assertEqual(result["status"], "NO_DECISION")
+        self.assertEqual(result["planning_status"], "CURRENT")
+        self.assertIsNotNone(result["fuzzy_preview"])
+        self.assertFalse(result["can_dispatch"])
+        self.assertIsNone(result["decision"]["type"])
+        self.assertIsNone(result["calculation"]["water_l"])
+
+    def test_dry_guide_activity_is_never_assigned_fuzzy_irrigation_volume(self):
+        row = decision()
+        row["input_snapshot"]["guide_programs"]["programs"][0]["activities"][0][
+            "reference_water_l"] = None
+        row["input_snapshot"]["guide_programs"]["programs"][0]["activities"][0][
+            "method"] = "Tabur"
+        row["input_snapshot"]["automatic_control"] = {
+            "water_sensor_key": "soil_2_moisture", "revision": 108,
+            "acknowledged_revision": 108, "acknowledgement_status": "applied",
+        }
+        row["input_snapshot"]["telemetry"].update({
+            "soil_2_moisture": 25.2,
+            "sensor_health": {"soil_2_moisture": {
+                "valid": True, "controlValid": True, "raw": 252,
+                "rawAgeMs": 1000, "rawFresh": True,
+                "lastPollOk": True, "pollBootId": "boot-1",
+            }},
+        })
+        result = present_shadow_dashboard([row], NOW, Config())
+        self.assertIsNotNone(result["fuzzy_preview"])
+        self.assertIsNone(result["programs"][0]["activities"][0]["planning_preview"]["water_l"])
+
     def test_generic_approved_recipe_never_assumed_bound_to_guide_product(self):
         row = decision()
         observation = {**row["input_snapshot"], "schema_compatible": True}
