@@ -115,14 +115,7 @@ def create_app(settings=None, config=None, store=None):
         return sorted(store.read()["decisions"].values(), key=order_key, reverse=True)[:limit]
 
     @app.get("/dashboard/summary")
-    def dashboard_summary(
-        stock_concentration_g_l: float | None = Query(default=None, ge=0.000001, le=1000000),
-        planned_water_l: float | None = Query(default=None, gt=0, le=1000000),
-        selected_program_id: str | None = Query(default=None, min_length=1, max_length=200),
-        selected_activity_id: str | None = Query(default=None, pattern=r"^row-\d+$", max_length=50),
-    ):
-        if planned_water_l is not None and not (selected_program_id and selected_activity_id):
-            raise HTTPException(422, "Water estimate must identify a specific program and activity")
+    def dashboard_summary():
         # Read stored REAL source-shadow decisions; do not trigger evaluation,
         # synthesize input, or return arbitrary raw source / credential payloads.
         if not source:
@@ -134,10 +127,6 @@ def create_app(settings=None, config=None, store=None):
             planning_observation = source.inspect()
             return present_shadow_dashboard(
                 saved.values(), simulation_config=config,
-                stock_concentration_g_l=stock_concentration_g_l,
-                planned_water_l=planned_water_l,
-                selected_program_id=selected_program_id,
-                selected_activity_id=selected_activity_id,
                 planning_observation=planning_observation,
             )
         except Exception:
