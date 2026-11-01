@@ -97,3 +97,22 @@
   .ain-irrigation-summary .ain-panel-heading,.ain-fertilizer-summary .ain-panel-heading{flex-direction:column;align-items:flex-start}
   .ain-irrigation-summary .ain-stat-grid,.ain-fertilizer-summary .ain-stat-grid{grid-template-columns:minmax(0,1fr)}
 }
+
+
+/* Tank preview: sensor-gated linear estimate, never an actuator controller. */
+.ain-tank-preview{border-color:#d0e3e8}
+.ain-tank-preview .ain-panel-heading>span{font-size:11px;font-weight:700;color:#54747e;text-align:right}
+.ain-tank-layout{display:grid;grid-template-columns:minmax(140px,.6fr) minmax(0,2fr);gap:18px;align-items:stretch}
+.ain-tank-gauge{display:flex;flex-direction:column;align-items:center;gap:8px;border:1px solid #dce9e8;border-radius:12px;background:#f5fafb;padding:15px}
+.ain-tank-gauge-head{display:flex;flex-direction:column;align-items:center;gap:3px}
+.ain-tank-gauge-head strong{font-size:23px;font-variant-numeric:tabular-nums}
+.ain-tank-gauge-head small,.ain-tank-gauge-caption{font-size:11px;color:#647974;text-align:center}
+.ain-tank-track{width:100%;max-width:94px;height:116px;border:1px solid #bdd6dd;background:#e6f0f1;border-radius:12px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.ain-tank-fill{background:linear-gradient(180deg,#49c8df,#2394bc);width:100%;border-radius:8px 8px 10px 10px}
+.ain-tank-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ain-tank-metrics>div{display:flex;flex-direction:column;gap:8px;justify-content:center;background:#f6faf9;border:1px solid #e1ebe6;border-radius:10px;padding:12px}
+.ain-tank-metrics small{color:#6c7972;font-size:11px}
+.ain-tank-metrics strong{font-size:clamp(18px,1.8vw,24px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ain-tank-result{display:flex;align-items:center;gap:8px;border-radius:8px;background:#eef8f2;color:#286345;padding:10px;font-size:12px;line-height:1.5}
+@media(max-width:780px){.ain-tank-layout{grid-template-columns:minmax(0,1fr)}.ain-tank-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ain-tank-gauge{flex-direction:row;justify-content:space-around;flex-wrap:wrap}.ain-tank-track{height:92px;max-width:70px}}
+@media(max-width:420px){.ain-tank-metrics{grid-template-columns:minmax(0,1fr)}.ain-tank-preview .ain-panel-heading{align-items:flex-start;flex-direction:column}}
