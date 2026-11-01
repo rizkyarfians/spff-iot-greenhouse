@@ -85,8 +85,6 @@ def credit_device_session(store, plan_id, proof, *, now=None):
         session_id = str(UUID(str(proof.get("session_id"))))
     except (ValueError, AttributeError, TypeError):
         raise ValueError("invalid plan or session UUID") from None
-    if proof.get("source") != "SPFF_COMPLETED_SESSION_EVENT":
-        raise ValueError("source-backed terminal device session required")
     volume = measured(proof.get("actual_water_l"))
     event = utc(proof.get("event_recorded_at"))
     started = utc(proof.get("started_at"))
