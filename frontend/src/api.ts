@@ -946,5 +946,9 @@ export const fetchAdaptiveProgress=(id:string)=>request<AdaptiveProgressReport>(
 export const saveGuideEcProfile=(id:string,input:import('@spff/contracts').GuideEcProfileInput)=>request<{revision:number}>(`/guide-programs/${encodeURIComponent(id)}/ec-profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})
  
 // Unified AI is read-only; values are computed in the Python SHADOW engine.
-export const fetchUnifiedAiDashboard = (signal?: AbortSignal) =>
-  request<import('@spff/contracts').UnifiedAiDashboard>('/unified-ai/dashboard', {signal});
+export const fetchUnifiedAiDashboard = (signal?: AbortSignal, stockConcentrationGL?: number) =>
+  request<import('@spff/contracts').UnifiedAiDashboard>(
+    '/unified-ai/dashboard' + (stockConcentrationGL === undefined ? '' :
+      '?stock_concentration_g_l=' + encodeURIComponent(String(stockConcentrationGL))),
+    {signal},
+  );
