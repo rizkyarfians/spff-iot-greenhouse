@@ -165,7 +165,8 @@ def present_shadow_dashboard(decisions, now=None):
             "configuration_version": _text(decision.get("configuration_version")),
         },
         "feedback": {
-            "status": _text(report.get("status")) or "UNAVAILABLE",
+            "status": (_text(report.get("status")) or "UNAVAILABLE") if feedback_fresh
+                      else "STALE" if report else "UNAVAILABLE",
             "reported_off": report.get("reported_off") is True and feedback_fresh,
             "boot_matches": report.get("boot_matches") is True and feedback_fresh,
             "water_pump": report.get("water_pump") if type(report.get("water_pump")) is bool and feedback_fresh else None,
