@@ -45,11 +45,11 @@ const tankPreview = z.object({
 }).strict();
 
 const irrigationSchedulePreview = z.object({
-  status: z.enum(['SOURCE_UNAVAILABLE', 'FUZZY_UNAVAILABLE', 'DISTANCE_UNVERIFIED', 'DISTANCE_OUT_OF_RANGE', 'GEOMETRY_ONLY']),
-  basis: z.literal('TOP_DOWN_UNCALIBRATED_GEOMETRY'),
+  status: z.enum(['SOURCE_UNAVAILABLE', 'FUZZY_UNAVAILABLE', 'HEIGHT_UNVERIFIED', 'HEIGHT_OUT_OF_RANGE', 'LEVEL_CONFLICT', 'GEOMETRY_ONLY']),
+  basis: z.literal('REPORTED_LIQUID_HEIGHT_UNCALIBRATED'),
   today_date: str,
   tomorrow_date: str,
-  distance_cm: num,
+  reported_liquid_height_cm: num,
   illustrative_available_l: num,
   fuzzy_demand_l: num,
   today_absolute_max_l: num,
