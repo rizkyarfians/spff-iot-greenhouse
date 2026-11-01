@@ -1,5 +1,6 @@
 import json
 import os
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,6 +37,8 @@ class Settings:
     poll_seconds: float = 10
     poll_enabled: bool = False
     fertilizer_delivery_route: str = "reference"
+    tank_capacity_l: float = 1800.0
+    tank_height_cm: float = 180.0
 
     @classmethod
     def load(cls):
@@ -46,7 +49,9 @@ class Settings:
                      site_id=os.getenv("AI_SITE_ID", "greenhouse-01"), device_id=os.getenv("AI_DEVICE_ID", "esp32-s3-01"),
                      zone_id=os.getenv("AI_ZONE_ID", "soil-1"), poll_seconds=float(os.getenv("AI_POLL_SECONDS", "10")),
                      poll_enabled=os.getenv("AI_POLL_ENABLED", "false").lower() == "true",
-                     fertilizer_delivery_route=os.getenv("AI_FERTILIZER_DELIVERY_ROUTE", "reference"))
+                     fertilizer_delivery_route=os.getenv("AI_FERTILIZER_DELIVERY_ROUTE", "reference"),
+                     tank_capacity_l=float(os.getenv("AI_TANK_CAPACITY_L", "1800")),
+                     tank_height_cm=float(os.getenv("AI_TANK_HEIGHT_CM", "180")))
         if result.host != "127.0.0.1":
             raise ValueError("local prototype API must bind to 127.0.0.1")
         if not 1 <= result.port <= 65535 or result.poll_seconds < 1:
@@ -55,6 +60,9 @@ class Settings:
             raise ValueError("ACTIVE is unavailable until the session firmware contract is verified")
         if result.fertilizer_delivery_route not in ("reference", "drip"):
             raise ValueError("AI_FERTILIZER_DELIVERY_ROUTE must be reference or drip")
+        if (not math.isfinite(result.tank_capacity_l) or not 0 < result.tank_capacity_l <= 1e7
+                or not math.isfinite(result.tank_height_cm) or not 0 < result.tank_height_cm <= 10000):
+            raise ValueError("invalid preview-only tank capacity or height")
         if result.poll_enabled and (not result.source_dsn or not result.state_dsn or result.mode != "SHADOW_MODE"):
             raise ValueError("background shadow polling requires source + PostgreSQL state DSNs and SHADOW_MODE")
         return result
