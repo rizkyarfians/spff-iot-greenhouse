@@ -39,8 +39,23 @@ const tankPreview = z.object({
   estimated_available_l: num,
   fuzzy_demand_l: num,
   theoretical_balance_l: z.number().finite().nullable(),
-  level_status: z.enum(['NO_DATA', 'STALE', 'OUT_OF_RANGE', 'UNVERIFIED', 'ESTIMATED']),
+  level_status: z.enum(['NO_DATA', 'STALE', 'OUT_OF_RANGE', 'UNVERIFIED', 'ESTIMATED', 'ORIENTATION_CONFLICT']),
   comparison_status: z.enum(['NOT_COMPARABLE', 'ENOUGH_ESTIMATE', 'BELOW_ESTIMATE']),
+  can_dispatch: z.literal(false),
+}).strict();
+
+const irrigationSchedulePreview = z.object({
+  status: z.enum(['SOURCE_UNAVAILABLE', 'FUZZY_UNAVAILABLE', 'DISTANCE_UNVERIFIED', 'DISTANCE_OUT_OF_RANGE', 'GEOMETRY_ONLY']),
+  basis: z.literal('TOP_DOWN_UNCALIBRATED_GEOMETRY'),
+  today_date: str,
+  tomorrow_date: str,
+  distance_cm: num,
+  illustrative_available_l: num,
+  fuzzy_demand_l: num,
+  today_absolute_max_l: num,
+  tomorrow_at_least_l: num,
+  reserve_l: num,
+  is_firm_schedule: z.literal(false),
   can_dispatch: z.literal(false),
 }).strict();
 
@@ -96,6 +111,7 @@ export const unifiedAiDashboardSchema = z.object({
   planning_recorded_at: nullableStr,
   flow_reference: flowReference.nullable(),
   tank_preview: tankPreview,
+  irrigation_schedule_preview: irrigationSchedulePreview,
   decision: z.object({
     type: nullableStr, proposed_action: nullableStr,
     hold_reasons: reasons, configuration_version: nullableStr,
