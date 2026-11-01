@@ -33,6 +33,31 @@ class PostgresTests(unittest.TestCase):
                 raise RuntimeError("rollback")
         self.assertEqual(store.read()["test"], 1)
 
+    def test_postgres_audit_is_compact_and_read_is_not_writer_locked(self):
+        import psycopg
+        scope = "test/" + str(uuid4())
+        store = PostgresStore(self.dsn, scope)
+        with store.transaction() as state:
+            state["large_snapshot"] = "x" * 200_000
+        with psycopg.connect(self.dsn) as connection:
+            payload, length = connection.execute(
+                "SELECT payload, octet_length(payload::text) "
+                "FROM spff_ai.audit_events WHERE scope=%s ORDER BY id DESC LIMIT 1",
+                (scope,),
+            ).fetchone()
+        self.assertEqual(payload["kind"], "state_checkpoint_v1")
+        self.assertEqual(len(payload["state_sha256"]), 64)
+        self.assertIn("large_snapshot", payload["changed_sections"])
+        self.assertLess(length, 2000)
+        # A transaction holding the scope's writer lock must not prevent
+        # a committed-state read (e.g. /ready, /status, dashboard).
+        with psycopg.connect(self.dsn) as writer:
+            writer.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                ("spff_ai:" + scope,),
+            )
+            self.assertEqual(store.read()["large_snapshot"], "x" * 200_000)
+
     def test_engine_recovers_and_deduplicates_feedback(self):
         from datetime import datetime, timedelta, timezone
         from app.engine import Engine
