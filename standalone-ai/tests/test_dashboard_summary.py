@@ -118,18 +118,22 @@ class DashboardSummaryTests(unittest.TestCase):
 
         # Missing raw freshness must not produce a credible-looking preview.
         sample["sensor_health"]["soil_2_moisture"].pop("rawFresh")
-        self.assertIsNone(present_shadow_dashboard(
-            [row], NOW, simulation_config=config)["fuzzy_preview"])
+        missing_freshness = present_shadow_dashboard([row], NOW, simulation_config=config)
+        self.assertIsNone(missing_freshness["fuzzy_preview"])
+        self.assertIn("sensor_raw_poll_not_verified", missing_freshness["fuzzy_preview_blockers"])
         sample["sensor_health"]["soil_2_moisture"]["rawFresh"] = True
         sample["sensor_health"]["soil_2_moisture"]["raw"] = 800
         self.assertIsNone(present_shadow_dashboard(
             [row], NOW, simulation_config=config)["fuzzy_preview"])
+        invalid_raw = present_shadow_dashboard([row], NOW, simulation_config=config)
+        self.assertIn("sensor_raw_value_unverified", invalid_raw["fuzzy_preview_blockers"])
         sample["sensor_health"]["soil_2_moisture"]["raw"] = 252
 
         # An unacknowledged control revision cannot be used for a preview.
         row["input_snapshot"]["automatic_control"]["acknowledged_revision"] = 107
-        self.assertIsNone(present_shadow_dashboard(
-            [row], NOW, simulation_config=config)["fuzzy_preview"])
+        unacknowledged = present_shadow_dashboard([row], NOW, simulation_config=config)
+        self.assertIsNone(unacknowledged["fuzzy_preview"])
+        self.assertIn("control_config_not_acknowledged", unacknowledged["fuzzy_preview_blockers"])
 
     def test_fuzzy_simulation_does_not_run_with_non_simulation_profile(self):
         row = decision()
