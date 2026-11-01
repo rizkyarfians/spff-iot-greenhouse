@@ -135,6 +135,80 @@ class DashboardSummaryTests(unittest.TestCase):
         self.assertIsNone(unacknowledged["fuzzy_preview"])
         self.assertIn("control_config_not_acknowledged", unacknowledged["fuzzy_preview_blockers"])
 
+    def test_current_postgres_planning_is_independent_of_stale_decision(self):
+        row = decision(NOW-timedelta(minutes=15))
+        observation = {
+            **row["input_snapshot"],
+            "schema_compatible": True,
+            "telemetry": {
+                "recorded_at": NOW.isoformat(),
+                "received_at": NOW.isoformat(),
+                "soil_2_moisture": 25.2,
+                "sensor_health": {"soil_2_moisture": {
+                    "valid": True, "controlValid": True, "raw": 252,
+                    "rawAgeMs": 1000, "rawFresh": True,
+                    "lastPollOk": True, "pollBootId": "boot-1",
+                }},
+            },
+            "automatic_control": {
+                "water_sensor_key": "soil_2_moisture",
+                "revision": 108, "acknowledged_revision": 108,
+                "acknowledgement_status": "applied",
+            },
+        }
+        observation["guide_programs"] = {
+            "programs": [{
+                **row["input_snapshot"]["guide_programs"]["programs"][0],
+                "activities": [{
+                    **row["input_snapshot"]["guide_programs"]["programs"][0]["activities"][0],
+                    "reference_water_l": None,
+                }],
+            }],
+        }
+        observation["historical_flow_reference"] = {
+            "basis": "UNVERIFIED_HISTORICAL_COUNTER_DELTAS",
+            "water_lpm": 194.39, "stock_lpm": 8.79,
+            "water_delta_l": 508.667, "stock_delta_l": 23.009,
+            "duration_seconds": 157, "interval_count": 5,
+            "started_at": "2026-11-01T06:14:41+00:00",
+            "ended_at": "2026-11-01T06:17:18+00:00",
+        }
+        result = present_shadow_dashboard(
+            [row], NOW, Config(), planning_observation=observation,
+        )
+        self.assertEqual(result["status"], "STALE")
+        self.assertEqual(result["planning_status"], "CURRENT")
+        self.assertEqual(result["planning_source"], "POSTGRES_READ_ONLY")
+        self.assertIsNotNone(result["fuzzy_preview"])
+        planned = result["programs"][0]["activities"][0]["planning_preview"]
+        self.assertEqual(planned["water_source"], "FUZZY_SIMULATION")
+        self.assertGreater(planned["water_l"], 0)
+        self.assertAlmostEqual(planned["water_duration_minutes"], planned["water_l"] / 194.39)
+        self.assertIsNone(planned["product_options"][0]["stock_l"])
+        self.assertFalse(result["can_dispatch"])
+        self.assertEqual(result["decision"]["type"], "HOLD")
+
+        observation["telemetry"]["recorded_at"] = (NOW-timedelta(minutes=10)).isoformat()
+        observation["telemetry"]["received_at"] = (NOW-timedelta(minutes=10)).isoformat()
+        stale = present_shadow_dashboard([row], NOW, Config(), planning_observation=observation)
+        self.assertEqual(stale["planning_status"], "STALE")
+        self.assertIsNone(stale["fuzzy_preview"])
+        self.assertIn("sensor_snapshot_stale", stale["fuzzy_preview_blockers"])
+        self.assertIsNone(stale["programs"][0]["activities"][0]["planning_preview"]["water_l"])
+
+    def test_generic_approved_recipe_never_assumed_bound_to_guide_product(self):
+        row = decision()
+        observation = {**row["input_snapshot"], "schema_compatible": True}
+        observation["approved_programs"] = [{
+            "fertilizer_name": "Pupuk A",
+            "stock_concentration_g_per_l": 100,
+        }]
+        result = present_shadow_dashboard([row], NOW, planning_observation=observation)
+        planned = result["programs"][0]["activities"][0]["planning_preview"]
+        self.assertIsNone(planned["product_options"][0]["stock_l"])
+        self.assertIn("saved_stock_recipe_not_bound_to_guide_product", planned["reasons"])
+        self.assertFalse(planned["can_dispatch"])
+
     def test_fuzzy_simulation_does_not_run_with_non_simulation_profile(self):
         row = decision()
         row["input_snapshot"]["automatic_control"] = {
