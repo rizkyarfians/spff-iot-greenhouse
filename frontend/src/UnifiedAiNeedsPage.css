@@ -63,3 +63,8 @@
 .ain-product .ain-progress{grid-column:1/-1;display:flex;flex-direction:column;gap:6px}
 .ain-progress progress{width:100%;height:10px;accent-color:#27ad78;border-radius:99px}
 .ain-progress small{font-size:11px;color:#68786e}
+
+.ain-calculation-explanation{display:block;background:#fffaf3;border-color:#f1dec3;color:#584424}
+.ain-calculation-intro{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.ain-calculation-explanation .ain-reasons{margin:0;padding-left:22px;color:#624f31}
+.ain-calculation-explanation p{margin:10px 0 0;font-size:12px;line-height:1.6;color:#786348}
