@@ -257,7 +257,7 @@ class DashboardSummaryTests(unittest.TestCase):
         result = present_shadow_dashboard([row], NOW, planning_observation=observation)
         planned = result["programs"][0]["activities"][0]["planning_preview"]
         self.assertIsNone(planned["product_options"][0]["stock_l"])
-        self.assertIn("saved_stock_recipe_not_bound_to_guide_product", planned["reasons"])
+        self.assertIn("stock_binding_required", planned["reasons"])
         self.assertFalse(planned["can_dispatch"])
 
     def test_fuzzy_simulation_does_not_run_with_non_simulation_profile(self):
