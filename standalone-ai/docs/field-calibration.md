@@ -269,3 +269,57 @@ Tidak ada fallback ke port `5010` milik layanan AI lain/produksi.
 Cek `/dashboard/summary` pada `5011` dan UI `#/ai-needs` setelah
 build serta restart service development. Jangan deploy branch staging
 ke `/opt/spff` atau `/opt/spff-ai`.
+
+
+## Estimasi tandon air di Unified AI (staging)
+
+Data fisik yang dikonfirmasi operator: kapasitas nominal **1.800 L** dan tinggi
+tandon **180 cm**. Dashboard SHADOW menampilkan:
+
+- persentase level yang dilaporkan telemetry PostgreSQL;
+- status `ESTIMATED`, `UNVERIFIED`, `STALE`, `OUT_OF_RANGE`, atau `NO_DATA`;
+- kapasitas dan tinggi tandon;
+- perkiraan liter dan tinggi air **hanya jika** health sensor
+  `tank_water_level_pct.valid=true` dan telemetry benar-benar segar
+  (recorded + received, <=120 detik), diambil dari source PostgreSQL read-only;
+- kebutuhan air ilustratif Fuzzy dan selisih teoretis jika **kedua** input valid.
+
+Rumus yang *hanya berlaku untuk model linear*:
+
+```text
+estimated_available_l = 1800 × (tank_water_level_pct / 100)
+estimated_water_height_cm = 180 × (tank_water_level_pct / 100)
+theoretical_balance_l = estimated_available_l - fuzzy_illustrative_water_l
+```
+
+Persentase sensor yang tercatat tidak otomatis bukti level/volume terkalibrasi.
+Tidak diketahui apakah bentuk tandon memiliki penampang seragam, tinggi efektif
+pembacaan sensor benar 180 cm, ada volume tak terpakai, atau batas minimum operasi.
+Karena itu hasil diberi label *estimasi*, bukan volume terukur atau izin menyiram
+sekali jalan. Angka selisih negatif adalah keterbatasan teoritis, **bukan**
+perintah pompa, penjadwalan ulang, atau rekomendasi volume tahap berikutnya.
+
+Jika flag sensor tidak ada, status `UNVERIFIED` dan semua angka hasil konversi
+liter, tinggi air, serta selisih ditampilkan kosong. Jika telemetry stale, status
+`STALE` dan angka lama tidak dianggap persediaan air sekarang. Tidak ada
+backfill / interpolasi / sensor fake.
+
+Staging Python memiliki variabel opsional
+`AI_TANK_CAPACITY_L=1800` dan `AI_TANK_HEIGHT_CM=180` untuk preview.
+Tidak dipakai untuk interlock, timeout pompa, penjadwalan, atau perintah MQTT.
+Jangan mengubah ESP32, konfigurasi kontrol produksi, atau membuat batch
+penyiraman otomatis berdasarkan model ini sebelum kurva kalibrasi dan ambang
+cadangan minimum tervalidasi.
+
+Verifikasi API setelah pull, build, lint, unit test, dan restart service dev:
+
+```bash
+curl -fsS --max-time 20 http://127.0.0.1:5011/dashboard/summary \
+  | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+print("Tank:",d.get("tank_preview"))
+print("Fuzzy:",d.get("fuzzy_preview"))
+print("Can dispatch:",d.get("can_dispatch"))
+'
+```
