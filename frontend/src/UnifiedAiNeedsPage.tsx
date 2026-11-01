@@ -48,6 +48,7 @@ const fuzzyPreviewReasons:Record<string,string>={
   sensor_raw_age_unverified:'Umur pembacaan register mentah tidak tersedia atau lebih dari 60 detik.',
   control_config_not_acknowledged:'Revisi konfigurasi sumber sensor belum dikonfirmasi perangkat.',
   sensor_timestamp_missing:'Timestamp sensor tidak tersedia atau tidak valid.',
+  sensor_snapshot_stale:'Telemetry sensor yang tersimpan sudah lama; tidak digunakan untuk menghasilkan angka Fuzzy baru.',
   simulation_rules_invalid:'Aturan atau fungsi Fuzzy simulasi gagal dihitung.'
 };
 
@@ -94,6 +95,9 @@ export function UnifiedAiNeedsPage(){
   const productOptions=guideCalc?.product_options??[];
   const chosenProduct=productOptions.find(p=>String(p.source_row)===productRow)??(productOptions.length===1?productOptions[0]:undefined);
   const isFoliar=selectedActivity?.method?.toLowerCase().includes('semprot')||selectedActivity?.title?.toLowerCase().includes('foliar');
+  const standaloneFuzzyWater=guideCalc?.water_l==null?data?.fuzzy_preview?.illustrative_water_l:null;
+  const shownWater=hasGuide?(guideCalc?.water_l??standaloneFuzzyWater):plan?.water_l;
+  const standaloneFuzzy=hasGuide&&guideCalc?.water_l==null&&standaloneFuzzyWater!=null;
   const feedback=data?.feedback;
   return <section className="secondary-page ai-needs-page" aria-label="AI dan kebutuhan tanaman">
     <div className="ain-hero">
@@ -112,7 +116,7 @@ export function UnifiedAiNeedsPage(){
     {error?<div className="ain-notice ain-error" role="alert"><AlertTriangle size={17}/> {error} <span>Pastikan API dan service AI lokal berjalan.</span></div>:null}
     {!error&&data&&data.status!=='CURRENT'?<div className="ain-notice ain-warning" role="status">
       <AlertTriangle size={17}/>
-      {data?.status==='STALE'?'Keputusan AI terakhir sudah stale. Nilai di bawah adalah histori, bukan kondisi saat ini.':'Belum ada keputusan SHADOW dari data SPFF asli. Aktifkan polling sumber hanya setelah konfigurasi diuji.'}
+      {data?.status==='STALE'?'Keputusan kontrol AI terakhir sudah lama. Perencanaan hanya memakai telemetry PostgreSQL terbaru yang lolos pemeriksaan terpisah.':'Belum ada keputusan SHADOW tersimpan. Perhitungan simulasi yang tersedia tetap terpisah dari keputusan kontrol.'}
     </div>:null}
       {data&&data.planning_status!=='CURRENT'&&<div className="ain-notice ain-warning" role="status"><AlertTriangle size={16}/> Telemetry untuk perencanaan {data.planning_status==='STALE'?'sudah lama':'belum tersedia'}. Hasil Fuzzy tidak akan diganti dengan data sensor lama.</div>}
     {data&&<>
@@ -127,7 +131,7 @@ export function UnifiedAiNeedsPage(){
       </div>
       <article className="ain-panel ain-planning-controls" aria-label="Kalkulator kebutuhan dari Panduan">
         <div className="ain-panel-heading">
-          <h3><CalendarDays size={18}/> Kalkulator kebutuhan dari Panduan SPFF</h3>
+          <h3><CalendarDays size={18}/> Kebutuhan otomatis dari Panduan &amp; sensor</h3>
           <span>PERENCANAAN · Tidak mengendalikan pompa</span>
         </div>
         <div className="ain-planning-fields">
@@ -153,7 +157,7 @@ export function UnifiedAiNeedsPage(){
         <p className="ain-footnote">Kebutuhan pupuk dibaca otomatis dari Panduan. Jika volume air belum tersedia, Python menghitung ilustrasi menggunakan Fuzzy dan telemetry sensor yang lolos pemeriksaan. Volume stok hanya dihitung jika konsentrasi tersimpan terikat jelas ke produk Panduan. Debit historis digunakan sebagai referensi matematis belum terkalibrasi. Tidak mengontrol pompa atau mengubah ledger.</p>
       </article>
       <div className="ain-stat-grid">
-        <article className="ain-stat"><span><Droplets size={17}/> {guideCalc?.water_source==='FUZZY_SIMULATION'?'Volume air Fuzzy (simulasi)':guideCalc?.water_source==='GUIDE'?'Larutan akhir Panduan':'Kebutuhan air'}</span><strong>{show(hasGuide?guideCalc?.water_l:plan?.water_l,'L')}</strong><small>{guideCalc?.water_source==='FUZZY_SIMULATION'?'Berdasarkan sensor nyata dan profil simulasi; bukan rekomendasi pemberian air':guideCalc?.water_source==='GUIDE'?'Referensi tersimpan dalam Panduan, bukan realisasi':'Belum tersedia dari Panduan maupun Fuzzy valid'}</small></article>
+        <article className="ain-stat"><span><Droplets size={17}/> {standaloneFuzzy?'Air irigasi Fuzzy (simulasi)':guideCalc?.water_source==='FUZZY_SIMULATION'?'Air kegiatan Fuzzy (simulasi)':guideCalc?.water_source==='GUIDE'?'Larutan akhir Panduan':'Kebutuhan air'}</span><strong>{show(shownWater,'L')}</strong><small>{standaloneFuzzy?'Preview irigasi terpisah; BUKAN volume campuran untuk kegiatan Panduan ini':guideCalc?.water_source==='FUZZY_SIMULATION'?'Sensor nyata dan profil simulasi; bukan rekomendasi operasional':guideCalc?.water_source==='GUIDE'?'Referensi Panduan; bukan realisasi':'Belum ada hasil valid'}</small></article>
         <article className="ain-stat"><span><FlaskConical size={17}/> Volume stok terhitung</span><strong>{show(hasGuide?chosenProduct?.stock_l:plan?.stock_l,'L')}</strong><small>{hasGuide?'Hanya dari konsentrasi stok yang terikat pada produk; belum tentu tersedia':'Belum tersedia / HOLD'}</small></article>
         <article className="ain-stat"><span><Leaf size={17}/> Massa pupuk Panduan</span><strong>{show(hasGuide?chosenProduct?.mass_g:plan?.fertilizer_mass_g,'g')}</strong><small>{hasGuide?'Target satu pupuk pada kegiatan, bukan sisa atau realisasi':'Rencana AI, bukan realisasi'}</small></article>
         <article className="ain-stat"><span><Clock3 size={17}/> Estimasi waktu aliran air</span><strong>{show(hasGuide?guideCalc?.water_duration_minutes:plan?.duration_seconds==null?null:plan.duration_seconds/60,'menit')}</strong><small>{hasGuide?'Hanya estimasi dari debit historis, bukan waktu pompa tervalidasi':'Memerlukan debit terkalibrasi'}</small></article>
@@ -196,7 +200,7 @@ export function UnifiedAiNeedsPage(){
           <h3><Activity size={18}/> Hasil hitung Fuzzy — simulasi</h3>
           <span>SIMULASI · Tidak untuk kontrol pompa</span>
         </div>
-        <p className="ain-muted">Angka belum bisa dihitung dari snapshot keputusan ini. Berikut pemeriksaan input dan alasan yang tercatat:</p>
+        <p className="ain-muted">Angka Fuzzy belum tersedia dari telemetry terkini. Berikut pemeriksaan input dan alasan yang tercatat:</p>
         <ul className="ain-reasons">
           {data.fuzzy_preview_blockers.length>0?
             data.fuzzy_preview_blockers.map(reason=><li key={reason}>{fuzzyPreviewReasons[reason]??reason}</li>):
