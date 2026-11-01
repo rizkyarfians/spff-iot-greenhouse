@@ -78,12 +78,14 @@ def credit_device_session(store, plan_id, proof, *, now=None):
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
         raise ValueError("time must include timezone")
+    if not isinstance(proof, dict) or proof.get("source") != "SPFF_COMPLETED_SESSION_EVENT":
+        raise ValueError("source-backed terminal device session required")
     try:
         UUID(str(plan_id))
         session_id = str(UUID(str(proof.get("session_id"))))
     except (ValueError, AttributeError, TypeError):
         raise ValueError("invalid plan or session UUID") from None
-    if not isinstance(proof, dict) or proof.get("source") != "SPFF_COMPLETED_SESSION_EVENT":
+    if proof.get("source") != "SPFF_COMPLETED_SESSION_EVENT":
         raise ValueError("source-backed terminal device session required")
     volume = measured(proof.get("actual_water_l"))
     event = utc(proof.get("event_recorded_at"))
@@ -115,10 +117,15 @@ def credit_device_session(store, plan_id, proof, *, now=None):
             raise ValueError("session must begin after plan creation on its local planning day")
         used = state.setdefault("shadow_water_session_credits", {})
         if session_id in used:
-            if used[session_id] == plan_id and session_id in plan.get("credits", {}):
-                # Repeat of an idempotent operator link; never debit again.
+            existing = plan.get("credits", {}).get(session_id)
+            if (used[session_id] == plan_id and isinstance(existing, dict)
+                    and existing.get("device_reported_l") == volume
+                    and existing.get("message_id") == proof["message_id"]
+                    and existing.get("sequence") == proof["sequence"]
+                    and existing.get("finished_at") == finished.isoformat()):
+                # Exact idempotent replay: do not mutate the ledger.
                 return plan
-            raise ValueError("session already linked to another plan or inconsistent ledger")
+            raise ValueError("session already linked or evidence differs from pinned proof")
         plan.setdefault("credits", {})[session_id] = {
             "session_id": session_id, "device_reported_l": volume,
             "message_id": proof["message_id"],
