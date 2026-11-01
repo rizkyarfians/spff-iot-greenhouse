@@ -2,6 +2,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 from app.dashboard_summary import present_shadow_dashboard
+from app.models import Config
 
 NOW = datetime(2026, 11, 1, 3, 0, tzinfo=timezone.utc)
 
@@ -87,6 +88,64 @@ class DashboardSummaryTests(unittest.TestCase):
         self.assertIsNone(result["soil_2_moisture_pct"])
         self.assertIsNone(result["soil_1_valid"])
         self.assertIsNone(result["soil_2_valid"])
+
+    def test_fuzzy_simulation_preview_never_promotes_operational_plan(self):
+        row = decision()
+        row["input_snapshot"]["automatic_control"] = {
+            "water_sensor_key": "soil_2_moisture",
+            "revision": 108, "acknowledged_revision": 108,
+            "acknowledgement_status": "applied",
+        }
+        sample = row["input_snapshot"]["telemetry"]
+        sample["soil_2_moisture"] = 25.2
+        sample["sensor_health"] = {"soil_2_moisture": {
+            "valid": True, "raw": 252, "rawAgeMs": 1000,
+            "rawFresh": True, "lastPollOk": True, "pollBootId": "boot-1",
+            "controlValid": True,
+        }}
+        config = Config()
+        dashboard = present_shadow_dashboard([row], NOW, simulation_config=config)
+        preview = dashboard["fuzzy_preview"]
+        self.assertEqual(preview["input_key"], "soil_2_moisture")
+        self.assertEqual(preview["moisture_pct"], 25.2)
+        self.assertGreater(preview["score"], 0)
+        self.assertGreater(preview["illustrative_water_l"], 0)
+        self.assertEqual(preview["basis"], "SIMULATION_PROFILE")
+        self.assertEqual(dashboard["decision"]["type"], "HOLD")
+        self.assertIsNone(dashboard["calculation"]["fuzzy_score"])
+        self.assertIsNone(dashboard["calculation"]["water_l"])
+        self.assertFalse(dashboard["can_dispatch"])
+
+        # Missing raw freshness must not produce a credible-looking preview.
+        sample["sensor_health"]["soil_2_moisture"].pop("rawFresh")
+        self.assertIsNone(present_shadow_dashboard(
+            [row], NOW, simulation_config=config)["fuzzy_preview"])
+        sample["sensor_health"]["soil_2_moisture"]["rawFresh"] = True
+        sample["sensor_health"]["soil_2_moisture"]["raw"] = 800
+        self.assertIsNone(present_shadow_dashboard(
+            [row], NOW, simulation_config=config)["fuzzy_preview"])
+        sample["sensor_health"]["soil_2_moisture"]["raw"] = 252
+
+        # An unacknowledged control revision cannot be used for a preview.
+        row["input_snapshot"]["automatic_control"]["acknowledged_revision"] = 107
+        self.assertIsNone(present_shadow_dashboard(
+            [row], NOW, simulation_config=config)["fuzzy_preview"])
+
+    def test_fuzzy_simulation_does_not_run_with_non_simulation_profile(self):
+        row = decision()
+        row["input_snapshot"]["automatic_control"] = {
+            "water_sensor_key": "soil_1_moisture",
+            "revision": 1, "acknowledged_revision": 1,
+            "acknowledgement_status": "applied",
+        }
+        sample = row["input_snapshot"]["telemetry"]
+        sample["sensor_health"] = {"soil_1_moisture": {
+            "valid": True, "raw": 590, "rawAgeMs": 3000,
+            "rawFresh": True, "lastPollOk": True, "pollBootId": "boot-1",
+        }}
+        self.assertIsNone(present_shadow_dashboard(
+            [row], NOW, simulation_config=Config(simulation_only=False))["fuzzy_preview"])
+        self.assertIsNone(present_shadow_dashboard([row], NOW)["fuzzy_preview"])
 
     def test_manual_completion_cannot_be_shown_as_measured_delivery(self):
         row = decision()
