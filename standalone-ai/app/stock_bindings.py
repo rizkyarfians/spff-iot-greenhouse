@@ -52,7 +52,7 @@ def validate_binding_candidate(observation, program_id, activity_id, source_row,
     mapping_key(program_id, activity_id, source_row)
     if not isinstance(recipe_id, str) or not recipe_id or len(recipe_id) > 200:
         raise ValueError("invalid recipe_id")
-    program, _, product = _find_product(observation, program_id, activity_id, source_row)
+    program, activity, product = _find_product(observation, program_id, activity_id, source_row)
     if not program or not product or product.get("is_fertilizer") is not True:
         raise ValueError("Guide fertilizer product not found")
     if product.get("review_reasons"):
@@ -75,6 +75,12 @@ def validate_binding_candidate(observation, program_id, activity_id, source_row,
         raise ValueError("Stock recipe is not approved")
     if _name(recipe.get("fertilizer_name")) != _name(product.get("product")):
         raise ValueError("Stock recipe fertilizer name differs from selected Guide product")
+    hst = activity.get("hst")
+    hst_from = recipe.get("hst_from")
+    hst_to = recipe.get("hst_to")
+    if (type(hst) is not int or type(hst_from) is not int or type(hst_to) is not int
+            or not hst_from <= hst <= hst_to):
+        raise ValueError("Stock recipe HST range does not cover selected Guide activity")
     if _concentration(recipe.get("stock_concentration_g_per_l")) is None:
         raise ValueError("Stock recipe concentration is missing or invalid")
     program_revision = program.get("revision")
