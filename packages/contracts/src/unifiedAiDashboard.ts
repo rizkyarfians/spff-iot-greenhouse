@@ -41,6 +41,7 @@ const planningProductOption = z.object({
 const planningPreview = z.object({
   basis: z.literal('GUIDE_WITH_UNVERIFIED_HISTORICAL_FLOW'),
   water_l: num,
+  water_source: z.enum(['GUIDE', 'OPERATOR_INPUT']).nullable(),
   fertilizer_mass_g: num,
   stock_l: num,
   water_duration_minutes: num,
