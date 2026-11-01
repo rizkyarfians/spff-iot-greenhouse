@@ -86,7 +86,7 @@ export function UnifiedAiNeedsPage(){
 
     {loading&&!data&&!error?<div className="ain-notice" role="status">Memuat data dan perhitungan AI…</div>:null}
     {error?<div className="ain-notice ain-error" role="alert"><AlertTriangle size={17}/> {error} <span>Pastikan API dan service AI lokal berjalan.</span></div>:null}
-    {!error&&data?.status!=='CURRENT'?<div className="ain-notice ain-warning" role="status">
+    {!error&&data&&data.status!=='CURRENT'?<div className="ain-notice ain-warning" role="status">
       <AlertTriangle size={17}/>
       {data?.status==='STALE'?'Keputusan AI terakhir sudah stale. Nilai di bawah adalah histori, bukan kondisi saat ini.':'Belum ada keputusan SHADOW dari data SPFF asli. Aktifkan polling sumber hanya setelah konfigurasi diuji.'}
     </div>:null}
@@ -159,8 +159,8 @@ export function UnifiedAiNeedsPage(){
               <div><dt>Mode selector</dt><dd>{data.sensors.device_mode??'Tidak diketahui'}</dd></div>
               <div><dt>Feedback</dt><dd>{current?feedback?.status??'Tidak tersedia':'Stale / tidak ada'}</dd></div>
               <div><dt>Boot cocok</dt><dd>{current&&feedback?.boot_matches?'Ya':'Belum terverifikasi'}</dd></div>
-              <div><dt>Pompa air</dt><dd>{current&&feedback?.water_pump!==null?(feedback?.water_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
-              <div><dt>Pompa pupuk</dt><dd>{current&&feedback?.fert_pump!==null?(feedback?.fert_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
+              <div><dt>Pompa air</dt><dd>{current&&(feedback?.water_pump===true||feedback?.water_pump===false)?(feedback.water_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
+              <div><dt>Pompa pupuk</dt><dd>{current&&(feedback?.fert_pump===true||feedback?.fert_pump===false)?(feedback.fert_pump?'Reported ON':'Reported OFF'):'Tidak diketahui'}</dd></div>
               <div><dt>Sensor tercatat</dt><dd>{when(data.sensors.recorded_at)}</dd></div>
             </dl>
             <p className="ain-footnote">Status pompa berasal dari laporan output ESP32, bukan sensor kontak relay independen.</p>
