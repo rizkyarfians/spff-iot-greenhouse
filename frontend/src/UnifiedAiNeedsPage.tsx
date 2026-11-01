@@ -35,6 +35,21 @@ const labels:Record<string,string>={
   invalid_water_level_sensor:'Sensor tandon air belum valid',
 };
 const reasonLabel=(value:string)=>labels[value]??value.replaceAll('_',' ');
+const fuzzyPreviewReasons:Record<string,string>={
+  no_source_decision:'Belum ada keputusan sumber asli yang tersimpan.',
+  simulation_profile_unavailable:'Profil simulasi Fuzzy belum tersedia atau bukan profil simulasi.',
+  control_source_not_selected:'Konfigurasi sensor pengendali air belum dapat ditentukan.',
+  selected_sensor_value_missing:'Nilai sensor terpilih kosong atau tidak berada dalam rentang 0–100%.',
+  selected_sensor_health_invalid:'Diagnostik sensor terpilih belum menandainya valid.',
+  sensor_control_diagnostic_rejected:'Sensor tidak lulus diagnostik untuk kontrol.',
+  sensor_raw_poll_not_verified:'Bukti pembacaan Modbus terbaru belum lengkap: rawFresh/lastPollOk.',
+  sensor_poll_boot_missing:'Identitas boot pembacaan sensor belum tersedia.',
+  sensor_raw_value_unverified:'Nilai register mentah tidak tersedia atau tidak cocok dengan nilai kelembapan.',
+  sensor_raw_age_unverified:'Umur pembacaan register mentah tidak tersedia atau lebih dari 60 detik.',
+  control_config_not_acknowledged:'Revisi konfigurasi sumber sensor belum dikonfirmasi perangkat.',
+  sensor_timestamp_missing:'Timestamp sensor tidak tersedia atau tidak valid.',
+  simulation_rules_invalid:'Aturan atau fungsi Fuzzy simulasi gagal dihitung.'
+};
 
 export function UnifiedAiNeedsPage(){
   const [data,setData]=useState<UnifiedAiDashboard|null>(null);
@@ -115,6 +130,19 @@ export function UnifiedAiNeedsPage(){
           <div><small>Volume ilustratif model</small><strong>{show(data.fuzzy_preview.illustrative_water_l,'L')}</strong><small>Bukan volume siram yang disetujui</small></div>
         </div>
         <p className="ain-footnote">Dihitung memakai profil {data.fuzzy_preview.config_version}, dengan batas model {show(data.fuzzy_preview.model_max_irrigation_l,'L')}; input sensor tercatat {when(data.fuzzy_preview.recorded_at)}. Hanya untuk memeriksa fungsi matematis Fuzzy. Tidak memperhitungkan kesiapan pompa, debit aktual, kebutuhan agronomis terkalibrasi, atau kewajiban pemupukan. Status keputusan tetap {data.status}; tidak mengubah HOLD dan tidak mengirim perintah.</p>
+      </article>}
+      {!data.fuzzy_preview&&<article className="ain-panel ain-fuzzy-preview" aria-label="Status pratinjau Fuzzy">
+        <div className="ain-panel-heading">
+          <h3><Activity size={18}/> Hasil hitung Fuzzy — simulasi</h3>
+          <span>SIMULASI · Tidak untuk kontrol pompa</span>
+        </div>
+        <p className="ain-muted">Angka belum bisa dihitung dari snapshot keputusan ini. Berikut pemeriksaan input dan alasan yang tercatat:</p>
+        <ul className="ain-reasons">
+          {data.fuzzy_preview_blockers.length>0?
+            data.fuzzy_preview_blockers.map(reason=><li key={reason}>{fuzzyPreviewReasons[reason]??reason}</li>):
+            <li>Belum ada alasan terperinci; periksa versi Python AI staging dan shared contract.</li>}
+        </ul>
+        <p className="ain-footnote">Status {data.status}. Pemeriksaan ini hanya membaca data tersimpan; tidak mengaktifkan Fuzzy operasional, mengubah mode Manual, atau menjalankan pompa.</p>
       </article>}
       {aiCalculationReadiness(data).length>0&&<article className="ain-notice ain-calculation-explanation" aria-label="Mengapa perhitungan belum tersedia">
         <div className="ain-calculation-intro"><AlertTriangle size={17}/><strong>Mengapa nilai AI belum muncul?</strong></div>
