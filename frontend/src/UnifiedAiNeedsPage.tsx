@@ -96,7 +96,7 @@ export function UnifiedAiNeedsPage(){
   const chosenProduct=productOptions.find(p=>String(p.source_row)===productRow)??(productOptions.length===1?productOptions[0]:undefined);
   const isFoliar=selectedActivity?.method?.toLowerCase().includes('semprot')||selectedActivity?.title?.toLowerCase().includes('foliar');
   const fuzzyWater=data?.fuzzy_preview?.illustrative_water_l;
-  const waterRate=guideCalc?.flow_reference?.water_lpm;
+  const waterRate=data?.flow_reference?.water_lpm;
   const fuzzyDuration=fuzzyWater!=null&&waterRate!=null&&waterRate>0?fuzzyWater/waterRate:null;
   const feedback=data?.feedback;
   return <section className="secondary-page ai-needs-page" aria-label="AI dan kebutuhan tanaman">
@@ -148,7 +148,7 @@ export function UnifiedAiNeedsPage(){
       </article>
       <article className="ain-panel ain-planning-controls" aria-label="Kalkulator kebutuhan dari Panduan">
         <div className="ain-panel-heading">
-          <h3><CalendarDays size={18}/> Kebutuhan otomatis dari Panduan &amp; sensor</h3>
+          <h3><CalendarDays size={18}/> Pilih kegiatan dan produk dari Panduan</h3>
           <span>PERENCANAAN · Tidak mengendalikan pompa</span>
         </div>
         <div className="ain-planning-fields">
@@ -171,7 +171,7 @@ export function UnifiedAiNeedsPage(){
         </div>
         {productOptions.length>1&&<p className="ain-note">Kegiatan ini berisi beberapa jenis pupuk. Pilih satu produk untuk menghitung dosis; tidak digabung sebagai campuran.</p>}
         {isFoliar&&<p className="ain-note">Kegiatan ini menggunakan metode foliar/semprot di Panduan. Nilai hanya referensi matematika, bukan perintah mengalihkan aplikasi semprot menjadi fertigasi Venturi.</p>}
-        <p className="ain-footnote">Kebutuhan pupuk dibaca otomatis dari Panduan. Jika volume air belum tersedia, Python menghitung ilustrasi menggunakan Fuzzy dan telemetry sensor yang lolos pemeriksaan. Volume stok hanya dihitung jika konsentrasi tersimpan terikat jelas ke produk Panduan. Debit historis digunakan sebagai referensi matematis belum terkalibrasi. Tidak mengontrol pompa atau mengubah ledger.</p>
+        <p className="ain-footnote">Penyiraman Fuzzy dan kebutuhan pupuk dihitung terpisah. Massa pupuk dari Panduan; konsentrasi stok diambil dari resep yang secara eksplisit sudah diikat ke produk. Kedua estimasi durasi memakai histori flowmeter belum terkalibrasi. Tidak ada kontrol pompa atau perubahan ledger.</p>
       </article>
       <article className="ain-panel ain-fertilizer-summary" aria-label="Kebutuhan pupuk terpisah">
         <div className="ain-panel-heading">
@@ -196,7 +196,7 @@ export function UnifiedAiNeedsPage(){
           <div><small>Referensi debit stok</small><strong>{show(guideCalc?.flow_reference?.stock_lpm,'L/menit')}</strong><small>Bukan nilai hisap Venturi terkalibrasi</small></div>
           <div><small>Estimasi waktu hisap stok</small><strong>{show(chosenProduct?.stock_duration_minutes,'menit')}</strong><small>Dihitung terpisah, bukan dijumlahkan dengan waktu air</small></div>
         </div>
-        {chosenProduct?.reasons.includes('stock_duration_exceeds_water_duration')&&<p className="ain-note">Estimasi waktu menghabiskan stok lebih panjang daripada waktu aliran air. Kedua target belum konsisten untuk aliran bersamaan; ini bukan durasi kendali pompa.</p>}
+        {chosenProduct?.reasons.includes('stock_duration_exceeds_water_duration')&&<p className="ain-note">Estimasi stok lebih lama daripada jendela air kegiatan menurut referensi. Ini hanya evaluasi matematis, bukan jadwal ON/OFF pompa.</p>}
         {guideCalc?.flow_reference&&<p className="ain-footnote">Referensi dari {when(guideCalc.flow_reference.started_at)} sampai {when(guideCalc.flow_reference.ended_at)}, {guideCalc.flow_reference.interval_count} interval. Volume air dan stok belum dibuktikan lewat pengukuran fisik.</p>}
         {!!guideCalc?.reasons.length&&<ul className="ain-reasons">{guideCalc.reasons.map(reason=><li key={reason}>{({
           fertilizer_mass_needs_review:'Kebutuhan massa pupuk perlu ditinjau.',
