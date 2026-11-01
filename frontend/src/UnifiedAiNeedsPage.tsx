@@ -212,6 +212,25 @@ export function UnifiedAiNeedsPage(){
           <p className="ain-note">Belum bisa mengusulkan pembagian volume: {irrigationSchedule?.status==='HEIGHT_UNVERIFIED'?'tinggi cairan belum valid':irrigationSchedule?.status==='HEIGHT_OUT_OF_RANGE'?'tinggi cairan di luar kapasitas tandon':irrigationSchedule?.status==='LEVEL_CONFLICT'?'tinggi cairan dan persentase level tidak konsisten':irrigationSchedule?.status==='FUZZY_UNAVAILABLE'?'kebutuhan Fuzzy belum tersedia':'sumber telemetry tidak segar atau tidak tersedia'}.</p>}
         <p className="ain-footnote">Rencana SHADOW ini tidak menyimpan jadwal nyata, tidak mem-publish MQTT, dan tidak mengubah interlock ESP32. Jika tandon tidak terisi besok atau tanah sudah basah, kebutuhan harus dihitung ulang; jangan menjalankan angka sisa secara otomatis.</p>
       </article>
+      <article className="ain-panel ain-carryover" aria-label="Catatan sisa penyiraman dari sesi perangkat">
+        <div className="ain-panel-heading">
+          <h3><CalendarDays size={18}/> Catatan Sisa Penyiraman · Bukti Perangkat</h3>
+          <span>LEDGER SHADOW · TANPA EKSEKUSI</span>
+        </div>
+        {data.water_carryover.status==='NO_PLAN'?
+          <p className="ain-muted">Belum ada rencana Fuzzy yang disimpan ke ledger SHADOW. Angka estimasi pembagian hari ini dan besok di atas <strong>belum dianggap terlaksana</strong>, jadi belum ada volume yang dikreditkan. Pencatatan hanya bisa dilakukan setelah ada sesi perangkat air-saja yang selesai dan ditautkan secara eksplisit.</p>:
+          <>
+            <p className="ain-muted">Rencana dibuat {dateLabel(data.water_carryover.planning_date??undefined)}. {data.water_carryover.status==='CARRY_OVER_REVIEW'||data.water_carryover.status==='REVIEW_REQUIRED'?'Sisa perlu dievaluasi ulang hari ini berdasarkan sensor dan tandon terbaru.':'Tidak otomatis menjadi perintah penyiraman.'}</p>
+            <div className="ain-irrigation-days">
+              <div className="ain-irrigation-day"><small>Target Fuzzy saat rencana disimpan</small><strong>{show(data.water_carryover.frozen_fuzzy_target_l,'L')}</strong><span>Snapshot SHADOW, bukan target aktuator</span></div>
+              <div className="ain-irrigation-day"><small>Volume sesi air dilaporkan perangkat</small><strong>{show(data.water_carryover.device_reported_delivered_l,'L')}</strong><span>{data.water_carryover.credited_session_count} sesi selesai dengan bukti, tetapi debit belum terkalibrasi</span></div>
+              <div className="ain-irrigation-day"><small>Sisa untuk dievaluasi ulang</small><strong>{show(data.water_carryover.remaining_for_reassessment_l,'L')}</strong><span>Bukan dosis besok yang disetujui</span></div>
+              <div className="ain-irrigation-day"><small>Tinjau ulang paling awal</small><strong>{dateLabel(data.water_carryover.next_review_date??undefined)}</strong><span>Sensor tanah dan tandon wajib diperiksa kembali</span></div>
+            </div>
+            <p className="ain-footnote">Bukti sesi terakhir: {when(data.water_carryover.last_device_session_at)} · Status ledger: {data.water_carryover.status}. Sesi yang tidak ditautkan tidak mengurangi kebutuhan.</p>
+          </>}
+        <p className="ain-footnote">Catatan ini hanya untuk perencanaan. Angka berasal dari sesi selesai yang dilaporkan ESP32, bukan hasil kalibrasi volumetrik independen. Tidak ada tombol kontrol pompa, pengiriman MQTT, atau jadwal otomatis.</p>
+      </article>
       <article className="ain-panel ain-planning-controls" aria-label="Kalkulator kebutuhan dari Panduan">
         <div className="ain-panel-heading">
           <h3><CalendarDays size={18}/> Pilih kegiatan dan produk dari Panduan</h3>
