@@ -206,7 +206,7 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
     # Only intentionally simulation-only profiles are eligible.
     fuzzy_preview = None
     fuzzy_preview_blockers = []
-    if not selected:
+    if not selected and not live_source:
         fuzzy_preview_blockers.append("no_source_decision")
     if simulation_config is None or getattr(simulation_config, "simulation_only", False) is not True:
         fuzzy_preview_blockers.append("simulation_profile_unavailable")
@@ -284,7 +284,12 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
             for program in programs:
                 for activity in program["activities"]:
                     preview = activity["planning_preview"]
-                    if preview["water_l"] is not None:
+                    # Fuzzy irrigation demand is NOT a spray mixture volume
+                    # or a water budget for dry/tabur application.
+                    method = str(activity.get("method") or "").strip().lower()
+                    if preview["water_l"] is not None or method not in (
+                        "kocor", "fertigasi", "irigasi", "tetes", "drip"
+                    ):
                         continue
                     preview["water_l"] = water
                     preview["water_source"] = "FUZZY_SIMULATION"
