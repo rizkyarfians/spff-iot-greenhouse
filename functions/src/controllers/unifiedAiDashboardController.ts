@@ -12,7 +12,7 @@ export async function getUnifiedAiDashboard(
   const supplied = req.query.stock_concentration_g_l;
   let concentration: number | null = null;
   if (supplied !== undefined) {
-    if (typeof supplied !== 'string' || !/^(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)$/.test(supplied)) {
+    if (typeof supplied !== 'string' || !/^(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(supplied)) {
       res.status(400).json({success:false, data:null, message:'Konsentrasi stok tidak valid.'});
       return;
     }
