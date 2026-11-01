@@ -41,7 +41,8 @@ def _str_list(values, cap=40):
 
 
 def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_concentration_g_l=None,
-                             planned_water_l=None, selected_program_id=None, selected_activity_id=None):
+                             planned_water_l=None, selected_program_id=None, selected_activity_id=None,
+                             planning_observation=None):
     """Return one schema for Node validation and mobile-first React presentation.
 
     A shadow ledger 'delivered_g' means credited by AI only, not external/manual
@@ -67,8 +68,12 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
     selected = eligible[0] if eligible else None
     current = bool(selected and selected[0] <= 30)
     decision = selected[1] if selected else {}
-    snapshot = decision.get("input_snapshot")
-    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    # A fresh *read-only* SPFF snapshot may update ONLY the planning preview.
+    # Historical decision, HOLD, feedback, and ledger retain their own identity.
+    stored_snapshot = decision.get("input_snapshot")
+    stored_snapshot = stored_snapshot if isinstance(stored_snapshot, dict) else {}
+    live_source = isinstance(planning_observation, dict) and planning_observation.get("schema_compatible") is True
+    snapshot = planning_observation if live_source else stored_snapshot
     telemetry = snapshot.get("telemetry")
     telemetry = telemetry if isinstance(telemetry, dict) else {}
     device = snapshot.get("device_status")
@@ -81,6 +86,11 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
     flow_reference = flow_reference if isinstance(flow_reference, dict) else None
     health = telemetry.get("sensor_health")
     health = health if isinstance(health, dict) else {}
+    planning_fresh = (
+        _fresh(telemetry.get("recorded_at"), now, 120)
+        and (not live_source or _fresh(telemetry.get("received_at"), now, 120))
+    )
+    planning_status = "CURRENT" if planning_fresh else "STALE" if telemetry else "UNAVAILABLE"
 
     def sensor_valid(key):
         diagnostic = health.get(key)
@@ -228,6 +238,8 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         fuzzy_preview_blockers.append("control_config_not_acknowledged")
     if _iso(telemetry.get("recorded_at")) is None:
         fuzzy_preview_blockers.append("sensor_timestamp_missing")
+    elif not planning_fresh:
+        fuzzy_preview_blockers.append("sensor_snapshot_stale")
 
     if not fuzzy_preview_blockers:
         try:
@@ -244,6 +256,31 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
             }
         except (ValueError, ArithmeticError, KeyError, TypeError):
             fuzzy_preview_blockers.append("simulation_rules_invalid")
+    # Only a freshly validated Fuzzy SIMULATION may illustrate water volume
+    # where the Guide has no water reference. This is deliberately NOT an
+    # operational irrigation/fertigation plan, nor a guaranteed mix volume.
+    if fuzzy_preview and planning_fresh:
+        water = _number(fuzzy_preview.get("illustrative_water_l"))
+        if water is not None:
+            for program in programs:
+                for activity in program["activities"]:
+                    preview = activity["planning_preview"]
+                    if preview["water_l"] is not None:
+                        continue
+                    preview["water_l"] = water
+                    preview["water_source"] = "FUZZY_SIMULATION"
+                    preview["reasons"] = [x for x in preview["reasons"] if x != "guide_reference_water_missing"]
+                    preview["reasons"].append("fuzzy_water_is_simulation_only")
+                    flow = preview.get("flow_reference")
+                    rate = _number(flow.get("water_lpm")) if isinstance(flow, dict) else None
+                    preview["water_duration_minutes"] = water / rate if rate and rate > 0 else None
+                    for option in preview["product_options"]:
+                        if (preview["water_duration_minutes"] is not None
+                                and option["stock_duration_minutes"] is not None
+                                and option["stock_duration_minutes"] > preview["water_duration_minutes"]
+                                and "stock_duration_exceeds_water_duration" not in option["reasons"]):
+                            option["reasons"].append("stock_duration_exceeds_water_duration")
+
     # Expose ONLY bounded reason codes, never raw Modbus/DB payload or credentials.
     return {
         "schemaVersion": 1,
@@ -251,6 +288,9 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         "can_dispatch": False,
         "status": "CURRENT" if current else "STALE" if selected else "NO_DECISION",
         "evaluated_at": selected[2] if selected else None,
+        "planning_source": "POSTGRES_READ_ONLY" if live_source else "DECISION_SNAPSHOT",
+        "planning_status": planning_status,
+        "planning_recorded_at": _iso(telemetry.get("recorded_at")),
         "decision": {
             "type": _text(decision.get("type")) if selected else None,
             "proposed_action": _text(decision.get("proposed_action")) if selected else None,
