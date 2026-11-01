@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from .calculations import fuzzy_volume
 from .planning_preview import activity_planning_preview
+from .stock_bindings import resolve_binding
 
 
 def _iso(value):
@@ -43,7 +44,7 @@ def _str_list(values, cap=40):
 
 def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_concentration_g_l=None,
                              planned_water_l=None, selected_program_id=None, selected_activity_id=None,
-                             planning_observation=None):
+                             planning_observation=None, stock_bindings=None):
     """Return one schema for Node validation and mobile-first React presentation.
 
     A shadow ledger 'delivered_g' means credited by AI only, not external/manual
@@ -87,12 +88,6 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
     flow_reference = flow_reference if isinstance(flow_reference, dict) else None
     # Saved generic recipes are NOT explicitly bound to Guide source_row.
     # Never infer fertilizer concentration from matching names or crop/HST.
-    approved_recipes = snapshot.get("approved_programs")
-    has_unbound_stock_recipes = isinstance(approved_recipes, list) and any(
-        isinstance(recipe, dict)
-        and _number(recipe.get("stock_concentration_g_per_l")) is not None
-        for recipe in approved_recipes
-    )
     health = telemetry.get("sensor_health")
     health = health if isinstance(health, dict) else {}
     planning_fresh = (
@@ -265,15 +260,62 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
             }
         except (ValueError, ArithmeticError, KeyError, TypeError):
             fuzzy_preview_blockers.append("simulation_rules_invalid")
-    for program in programs:
-        for activity in program["activities"]:
+    # Bind each Guide fertilizer row independently to an explicitly selected
+    # approved stock recipe. Bindings live ONLY in isolated SHADOW staging
+    # storage; source recipe concentration always comes from current PostgreSQL.
+    raw_programs = guide.get("programs") if isinstance(guide.get("programs"), list) else []
+    for program, raw_program in zip(programs, raw_programs):
+        for activity, raw_activity in zip(program["activities"], raw_program.get("activities", [])):
             preview = activity["planning_preview"]
-            if has_unbound_stock_recipes and preview["product_options"] and not stock_concentration_g_l:
-                preview["reasons"] = [reason for reason in preview["reasons"] if reason != "stock_concentration_not_provided"]
-                preview["reasons"].append("saved_stock_recipe_not_bound_to_guide_product")
-                for option in preview["product_options"]:
-                    option["reasons"] = [reason for reason in option["reasons"] if reason != "stock_concentration_not_provided"]
-                    option["reasons"].append("saved_stock_recipe_not_bound_to_guide_product")
+            if not preview["product_options"] or not live_source:
+                continue
+            for option in preview["product_options"]:
+                row = option["source_row"]
+                if row is None:
+                    option["reasons"].append("stock_binding_required")
+                    continue
+                try:
+                    concentration, status, recipe_id = resolve_binding(
+                        snapshot, stock_bindings or {}, raw_program, raw_activity,
+                        {"source_row": row}
+                    )
+                except (KeyError, ValueError, TypeError):
+                    concentration, status, recipe_id = None, "STALE", None
+                option["binding_status"] = status
+                option["stock_recipe_id"] = recipe_id
+                option["stock_concentration_g_l"] = concentration
+                option["reasons"] = [reason for reason in option["reasons"]
+                                     if reason != "stock_concentration_not_provided"]
+                if status != "BOUND":
+                    option["stock_l"] = None
+                    option["stock_duration_minutes"] = None
+                    option["reasons"].append(
+                        "stock_binding_stale" if status == "STALE" else "stock_binding_required"
+                    )
+                    continue
+                if option["mass_g"] is not None:
+                    option["stock_l"] = option["mass_g"] / concentration
+                    flow = preview.get("flow_reference")
+                    rate = _number(flow.get("stock_lpm")) if isinstance(flow, dict) else None
+                    option["stock_duration_minutes"] = (
+                        option["stock_l"] / rate if rate and rate > 0 else None
+                    )
+                    if (preview["water_duration_minutes"] is not None
+                            and option["stock_duration_minutes"] is not None
+                            and option["stock_duration_minutes"] > preview["water_duration_minutes"]):
+                        option["reasons"].append("stock_duration_exceeds_water_duration")
+            if preview["product_options"]:
+                preview["reasons"] = [reason for reason in preview["reasons"]
+                                      if reason != "stock_concentration_not_provided"]
+                if len(preview["product_options"]) == 1:
+                    option = preview["product_options"][0]
+                    preview["stock_l"] = option["stock_l"]
+                    preview["stock_duration_minutes"] = option["stock_duration_minutes"]
+                    preview["stock_concentration_g_l"] = option["stock_concentration_g_l"]
+                if any(o["binding_status"] == "STALE" for o in preview["product_options"]):
+                    preview["reasons"].append("stock_binding_stale")
+                elif any(o["binding_status"] == "UNBOUND" for o in preview["product_options"]):
+                    preview["reasons"].append("stock_binding_required")
 
     # Only a freshly validated Fuzzy SIMULATION may illustrate water volume
     # where the Guide has no water reference. This is deliberately NOT an
