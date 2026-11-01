@@ -47,6 +47,9 @@ export const unifiedAiDashboardSchema = z.object({
   }).strict(),
   sensors: z.object({
     recorded_at: nullableStr, soil_moisture_pct: num,
+    soil_2_moisture_pct: num,
+    soil_1_valid: booleanNull, soil_2_valid: booleanNull,
+    control_moisture_source: z.enum(['soil_1_moisture', 'soil_2_moisture']).nullable(),
     water_tank_pct: num, stock_tank_pct: num, device_mode: nullableStr,
   }).strict(),
   calculation: z.object({
