@@ -80,6 +80,41 @@ class PlanningPreviewTests(unittest.TestCase):
         self.assertAlmostEqual(with_input["water_duration_minutes"], 100 / 194.39)
         self.assertAlmostEqual(with_input["stock_duration_minutes"], 500 / 8.79)
 
+    def test_manual_water_override_does_not_replace_guide_value(self):
+        activity = {"reference_water_l": 100, "products": []}
+        result = activity_planning_preview(activity, {"water_lpm": 200, "stock_lpm": 8}, planned_water_l=500)
+        self.assertEqual(result["water_l"], 100)
+        self.assertEqual(result["water_source"], "GUIDE")
+        self.assertEqual(result["water_duration_minutes"], 0.5)
+        no_guide = activity_planning_preview(
+            {"reference_water_l": None, "products": []},
+            {"water_lpm": 200, "stock_lpm": 8}, planned_water_l=500)
+        self.assertEqual(no_guide["water_source"], "OPERATOR_INPUT")
+        self.assertEqual(no_guide["water_l"], 500)
+        self.assertEqual(no_guide["water_duration_minutes"], 2.5)
+        self.assertFalse(no_guide["can_dispatch"])
+
+    def test_water_override_only_applies_to_selected_program_and_activity(self):
+        row = decision()
+        row["input_snapshot"]["guide_programs"]["programs"][0]["activities"].append({
+            "activity_id": "row-12", "title": "Lainnya", "hst": 11,
+            "application_date": "2026-10-29", "calendar_status": "PAST_DUE",
+            "method": "Kocor", "reference_water_l": None,
+            "manual_completion_records": [], "products": [],
+        })
+        result = present_shadow_dashboard(
+            [row], NOW, planned_water_l=150,
+            selected_program_id="prog-1", selected_activity_id="row-12")
+        activities = result["programs"][0]["activities"]
+        self.assertEqual(activities[0]["planning_preview"]["water_l"], 100)
+        self.assertEqual(activities[0]["planning_preview"]["water_source"], "GUIDE")
+        self.assertEqual(activities[1]["planning_preview"]["water_l"], 150)
+        self.assertEqual(activities[1]["planning_preview"]["water_source"], "OPERATOR_INPUT")
+        missing = present_shadow_dashboard(
+            [row], NOW, planned_water_l=150,
+            selected_program_id="not-this-program", selected_activity_id="row-12")
+        self.assertIsNone(missing["programs"][0]["activities"][1]["planning_preview"]["water_l"])
+
     def test_multiple_products_are_calculated_individually(self):
         activity = {"reference_water_l": None, "products": [
             {"source_row": 11, "product": "Pupuk A", "is_fertilizer": True,
