@@ -79,6 +79,18 @@ class DashboardSummaryTests(unittest.TestCase):
         self.assertEqual(product["credited_mass_g"], 200)
         self.assertEqual(product["remaining_mass_g"], 49800)
 
+    def test_completed_obligation_stays_visible_in_progress(self):
+        row = decision()
+        row["obligations"] = []
+        row["obligation_progress"] = [{
+            "program_id": "prog-1", "activity_id": "row-11", "source_row": 11,
+            "delivered_g": 50000, "remaining_g": 0, "status": "COMPLETED",
+            "verified_session_count": 1,
+        }]
+        product = present_shadow_dashboard([row], NOW)["programs"][0]["activities"][0]["products"][0]
+        self.assertEqual(product["credited_mass_g"], 50000)
+        self.assertEqual(product["remaining_mass_g"], 0)
+
     def test_zero_initialized_obligation_is_not_delivery_proof(self):
         row = decision()
         row["obligations"] = [{
