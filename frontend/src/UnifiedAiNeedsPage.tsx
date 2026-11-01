@@ -180,11 +180,11 @@ export function UnifiedAiNeedsPage(){
         </div>
         <div className="ain-stat-grid">
           <article className="ain-stat"><span><Leaf size={17}/> Massa pupuk Panduan</span><strong>{show(chosenProduct?.mass_g,'g')}</strong><small>Target produk pada kegiatan, bukan dosis tersalurkan</small></article>
-          <article className="ain-stat"><span><FlaskConical size={17}/> Konsentrasi stok terikat</span><strong>{show(chosenProduct?.stock_concentration_g_l,'g/L')}</strong><small>{chosenProduct?.binding_status==='BOUND'?'Resep terverifikasi di SHADOW staging':chosenProduct?.binding_status==='STALE'?'Binding perlu diperbarui':'Belum ada binding eksplisit ke resep'}</small></article>
+          <article className="ain-stat"><span><FlaskConical size={17}/> Konsentrasi stok terikat</span><strong>{show(chosenProduct?.stock_concentration_g_l,'g/L')}</strong><small>{chosenProduct?.binding_status==='BOUND'?'Identitas resep cocok (SHADOW)':chosenProduct?.binding_status==='STALE'?'Binding perlu diperbarui':'Belum ada binding eksplisit ke resep'}</small></article>
           <article className="ain-stat"><span><Droplets size={17}/> Volume larutan stok</span><strong>{show(chosenProduct?.stock_l,'L')}</strong><small>Massa ÷ konsentrasi; hanya hitungan bukan aktual</small></article>
           <article className="ain-stat"><span><Clock3 size={17}/> Estimasi waktu stok</span><strong>{show(chosenProduct?.stock_duration_minutes,'menit')}</strong><small>Debit hisap historis belum terkalibrasi</small></article>
         </div>
-        {chosenProduct?.binding_status==='BOUND'&&<p className="ain-footnote">Binding SHADOW terverifikasi untuk resep {chosenProduct.stock_recipe_id}. Jika revisi Panduan atau resep berubah, binding otomatis diblokir.</p>}
+        {chosenProduct?.binding_status==='BOUND'&&<p className="ain-footnote">Binding SHADOW cocok dengan revisi tersimpan untuk resep {chosenProduct.stock_recipe_id}. Jika revisi Panduan atau resep berubah, binding otomatis diblokir. Konsentrasi fisik belum dikalibrasi.</p>}
         {chosenProduct?.binding_status==='STALE'&&<p className="ain-note">Binding pupuk sudah tidak cocok dengan revisi atau status resep. Ulangi pengikatan melalui CLI staging.</p>}
         {chosenProduct?.binding_status==='UNBOUND'&&<p className="ain-note">Volume stok belum dapat dihitung karena produk belum diikat ke resep stok yang disetujui. Gunakan perintah binding staging satu kali; tidak perlu mengisi volume/konsentrasi berulang.</p>}
         {selectedActivity?.reference_water_l!=null&&<p className="ain-footnote">Air referensi kegiatan dari Panduan: {show(selectedActivity.reference_water_l,'L')}. Tidak disamakan dengan volume irigasi Fuzzy.</p>}
