@@ -186,6 +186,7 @@ export function UnifiedAiNeedsPage(){
           <div><small>Referensi debit stok</small><strong>{show(guideCalc?.flow_reference?.stock_lpm,'L/menit')}</strong><small>Bukan nilai hisap Venturi terkalibrasi</small></div>
           <div><small>Estimasi waktu hisap stok</small><strong>{show(chosenProduct?.stock_duration_minutes,'menit')}</strong><small>Dihitung terpisah, bukan dijumlahkan dengan waktu air</small></div>
         </div>
+        {chosenProduct?.reasons.includes('stock_duration_exceeds_water_duration')&&<p className="ain-note">Estimasi waktu menghabiskan stok lebih panjang daripada waktu aliran air. Kedua target belum konsisten untuk aliran bersamaan; ini bukan durasi kendali pompa.</p>}
         {guideCalc?.flow_reference&&<p className="ain-footnote">Referensi dari {when(guideCalc.flow_reference.started_at)} sampai {when(guideCalc.flow_reference.ended_at)}, {guideCalc.flow_reference.interval_count} interval. Volume air dan stok belum dibuktikan lewat pengukuran fisik.</p>}
         {!!guideCalc?.reasons.length&&<ul className="ain-reasons">{guideCalc.reasons.map(reason=><li key={reason}>{({
           fertilizer_mass_needs_review:'Kebutuhan massa pupuk perlu ditinjau.',
