@@ -130,6 +130,8 @@ def create_app(settings=None, config=None, store=None):
                 saved.values(), simulation_config=config,
                 planning_observation=planning_observation,
                 stock_bindings=state.get('guide_stock_bindings', {}),
+                tank_capacity_l=settings.tank_capacity_l,
+                tank_height_cm=settings.tank_height_cm,
             )
         except Exception:
             log.warning("shadow_dashboard_read_failed")
