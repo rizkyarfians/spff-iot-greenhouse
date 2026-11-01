@@ -1,3 +1,4 @@
+import {getUnifiedAiDashboard} from '../controllers/unifiedAiDashboardController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
 import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
 import {getProtocolGuide,getProtocolGuideHistory,putProtocolGuide} from '../controllers/protocolGuideController.js';
@@ -163,6 +164,9 @@ apiRouter.post(
 /*
  * DASHBOARD READ
  */
+
+// Read-only AI observation, protected by the login middleware above.
+apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);
 
 apiRouter.get(
   '/bootstrap',
