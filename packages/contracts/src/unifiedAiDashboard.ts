@@ -17,11 +17,37 @@ const product = z.object({
   review_reasons: reasons,
 }).strict();
 
+const flowReference = z.object({
+  basis: z.literal('UNVERIFIED_HISTORICAL_COUNTER_DELTAS'),
+  water_lpm: z.number().finite().positive(),
+  stock_lpm: z.number().finite().positive(),
+  water_delta_l: z.number().finite().positive(),
+  stock_delta_l: z.number().finite().positive(),
+  duration_seconds: z.number().finite().positive(),
+  interval_count: z.number().int().min(3),
+  started_at: str,
+  ended_at: str,
+}).strict();
+
+const planningPreview = z.object({
+  basis: z.literal('GUIDE_WITH_UNVERIFIED_HISTORICAL_FLOW'),
+  water_l: num,
+  fertilizer_mass_g: num,
+  stock_l: num,
+  water_duration_minutes: num,
+  stock_duration_minutes: num,
+  stock_concentration_g_l: num,
+  flow_reference: flowReference.nullable(),
+  reasons: reasons,
+  can_dispatch: z.literal(false),
+}).strict();
+
 const activity = z.object({
   activity_id: str, title: str, hst: z.number().int().nullable(),
   application_date: nullableStr, calendar_status: str,
   method: nullableStr, reference_water_l: num,
   manually_completed: z.boolean(), products: z.array(product).max(30),
+  planning_preview: planningPreview,
 }).strict();
 
 const program = z.object({
