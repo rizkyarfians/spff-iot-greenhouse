@@ -29,6 +29,7 @@ import {
   Cpu,
   Droplets,
   FlaskConical,
+  BrainCircuit,
   Gauge,
   LayoutDashboard,
   Leaf,
@@ -467,6 +468,7 @@ Array<{
     icon: FlaskConical,
     label: 'Program Fertigasi',
   },
+  {key:'ai-needs',icon:BrainCircuit,label:'AI & Kebutuhan Tanaman'},
   {key:'guide',icon:BookOpen,label:'Panduan'},
   {
     key: 'controls',
