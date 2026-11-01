@@ -263,9 +263,16 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
     # Bind each Guide fertilizer row independently to an explicitly selected
     # approved stock recipe. Bindings live ONLY in isolated SHADOW staging
     # storage; source recipe concentration always comes from current PostgreSQL.
-    raw_programs = guide.get("programs") if isinstance(guide.get("programs"), list) else []
-    for program, raw_program in zip(programs, raw_programs):
-        for activity, raw_activity in zip(program["activities"], raw_program.get("activities", [])):
+    raw_programs = [p for p in guide.get("programs", []) if isinstance(p, dict)]
+    for program in programs:
+        raw_program = next((p for p in raw_programs if p.get("program_id") == program["program_id"]), None)
+        if raw_program is None:
+            continue
+        raw_activities = [a for a in raw_program.get("activities", []) if isinstance(a, dict)]
+        for activity in program["activities"]:
+            raw_activity = next((a for a in raw_activities if a.get("activity_id") == activity["activity_id"]), None)
+            if raw_activity is None:
+                continue
             preview = activity["planning_preview"]
             if not preview["product_options"] or not live_source:
                 continue
@@ -357,6 +364,7 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         "planning_source": "POSTGRES_READ_ONLY" if live_source else "DECISION_SNAPSHOT",
         "planning_status": planning_status,
         "planning_recorded_at": _iso(telemetry.get("recorded_at")),
+        "flow_reference": flow_reference,
         "decision": {
             "type": _text(decision.get("type")) if selected else None,
             "proposed_action": _text(decision.get("proposed_action")) if selected else None,
