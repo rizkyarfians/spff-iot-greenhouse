@@ -84,6 +84,14 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
     control = control if isinstance(control, dict) else {}
     flow_reference = snapshot.get("historical_flow_reference")
     flow_reference = flow_reference if isinstance(flow_reference, dict) else None
+    # Saved generic recipes are NOT explicitly bound to Guide source_row.
+    # Never infer fertilizer concentration from matching names or crop/HST.
+    approved_recipes = snapshot.get("approved_programs")
+    has_unbound_stock_recipes = isinstance(approved_recipes, list) and any(
+        isinstance(recipe, dict)
+        and _number(recipe.get("stock_concentration_g_per_l")) is not None
+        for recipe in approved_recipes
+    )
     health = telemetry.get("sensor_health")
     health = health if isinstance(health, dict) else {}
     planning_fresh = (
@@ -256,6 +264,16 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
             }
         except (ValueError, ArithmeticError, KeyError, TypeError):
             fuzzy_preview_blockers.append("simulation_rules_invalid")
+    for program in programs:
+        for activity in program["activities"]:
+            preview = activity["planning_preview"]
+            if has_unbound_stock_recipes and preview["product_options"] and not stock_concentration_g_l:
+                preview["reasons"] = [reason for reason in preview["reasons"] if reason != "stock_concentration_not_provided"]
+                preview["reasons"].append("saved_stock_recipe_not_bound_to_guide_product")
+                for option in preview["product_options"]:
+                    option["reasons"] = [reason for reason in option["reasons"] if reason != "stock_concentration_not_provided"]
+                    option["reasons"].append("saved_stock_recipe_not_bound_to_guide_product")
+
     # Only a freshly validated Fuzzy SIMULATION may illustrate water volume
     # where the Guide has no water reference. This is deliberately NOT an
     # operational irrigation/fertigation plan, nor a guaranteed mix volume.
