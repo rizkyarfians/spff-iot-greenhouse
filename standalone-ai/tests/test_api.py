@@ -70,6 +70,13 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertIn("/simulations/evaluate", self.client.get("/openapi.json").json()["paths"])
 
+    def test_dashboard_summary_requires_real_source_and_never_returns_simulated_data(self):
+        self.assertEqual(self.client.get("/dashboard/summary").status_code, 503)
+        with patch("app.api.SPFFSource"):
+            with TestClient(create_app(Settings(source_dsn="unused"), Config(), self.store)) as client:
+                self.assertEqual(client.get("/dashboard/summary").json()["status"], "NO_DECISION")
+                self.assertFalse(client.get("/dashboard/summary").json()["can_dispatch"])
+
     def test_arbitrary_feedback_not_exposed(self):
         self.assertEqual(self.client.post("/feedback", json={}).status_code, 404)
 
