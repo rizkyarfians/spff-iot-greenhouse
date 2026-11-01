@@ -24,6 +24,11 @@ def _number(value):
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and isfinite(value) and value >= 0 else None
 
 
+def _fresh(value, now, maximum_age):
+    normalized = _iso(value)
+    return normalized is not None and -5 <= (now - datetime.fromisoformat(normalized)).total_seconds() <= maximum_age
+
+
 def _text(value):
     return value[:200] if isinstance(value, str) else None
 
@@ -56,7 +61,7 @@ def present_shadow_dashboard(decisions, now=None):
         eligible.append((age, value, at))
     eligible.sort(key=lambda v: v[0])
     selected = eligible[0] if eligible else None
-    current = bool(selected and selected[0] <= 90)
+    current = bool(selected and selected[0] <= 30)
     decision = selected[1] if selected else {}
     snapshot = decision.get("input_snapshot")
     snapshot = snapshot if isinstance(snapshot, dict) else {}
@@ -68,6 +73,8 @@ def present_shadow_dashboard(decisions, now=None):
     guide = guide if isinstance(guide, dict) else {}
     report = decision.get("pump_feedback")
     report = report if isinstance(report, dict) else {}
+    feedback_fresh = (current and _fresh(report.get("reported_at"), now, 25)
+                      and _fresh(report.get("received_at"), now, 25))
     ledger = decision.get("obligations")
     ledger = ledger if isinstance(ledger, list) else []
     # In the current LiveEngine the current obligation list covers all known
@@ -156,10 +163,10 @@ def present_shadow_dashboard(decisions, now=None):
         },
         "feedback": {
             "status": _text(report.get("status")) or "UNAVAILABLE",
-            "reported_off": report.get("reported_off") is True and current,
-            "boot_matches": report.get("boot_matches") is True and current,
-            "water_pump": report.get("water_pump") if type(report.get("water_pump")) is bool and current else None,
-            "fert_pump": report.get("fert_pump") if type(report.get("fert_pump")) is bool and current else None,
+            "reported_off": report.get("reported_off") is True and feedback_fresh,
+            "boot_matches": report.get("boot_matches") is True and feedback_fresh,
+            "water_pump": report.get("water_pump") if type(report.get("water_pump")) is bool and feedback_fresh else None,
+            "fert_pump": report.get("fert_pump") if type(report.get("fert_pump")) is bool and feedback_fresh else None,
             "reported_at": _iso(report.get("reported_at")),
         },
         "sensors": {
