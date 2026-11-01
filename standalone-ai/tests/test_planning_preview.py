@@ -115,6 +115,17 @@ class PlanningPreviewTests(unittest.TestCase):
             selected_program_id="not-this-program", selected_activity_id="row-12")
         self.assertIsNone(missing["programs"][0]["activities"][1]["planning_preview"]["water_l"])
 
+    def test_stock_duration_mismatch_is_visible_not_hidden(self):
+        activity = {"reference_water_l": 100, "products": [{
+            "source_row": 11, "product": "Fertiphos", "is_fertilizer": True,
+            "product_mass_g": 50000, "review_reasons": [],
+        }]}
+        flow = {"water_lpm": 194.39, "stock_lpm": 8.79}
+        result = activity_planning_preview(activity, flow, 100)
+        self.assertIn("stock_duration_exceeds_water_duration", result["reasons"])
+        self.assertIn("stock_duration_exceeds_water_duration", result["product_options"][0]["reasons"])
+        self.assertFalse(result["can_dispatch"])
+
     def test_multiple_products_are_calculated_individually(self):
         activity = {"reference_water_l": None, "products": [
             {"source_row": 11, "product": "Pupuk A", "is_fertilizer": True,
