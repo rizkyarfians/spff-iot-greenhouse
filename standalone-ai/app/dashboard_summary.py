@@ -175,39 +175,50 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None):
     # may not be used to dispatch or claim agronomic/hydraulic accuracy.
     # Only intentionally simulation-only profiles are eligible.
     fuzzy_preview = None
+    fuzzy_preview_blockers = []
+    if not selected:
+        fuzzy_preview_blockers.append("no_source_decision")
+    if simulation_config is None or getattr(simulation_config, "simulation_only", False) is not True:
+        fuzzy_preview_blockers.append("simulation_profile_unavailable")
+
     selected_value = _number(telemetry.get(selected_soil)) if selected_soil else None
     selected_health = health.get(selected_soil) if selected_soil else None
-    sensor_reported_valid = (
-        isinstance(selected_health, dict)
-        and selected_health.get("valid") is True
-        and selected_health.get("controlValid") is not False
-        and selected_health.get("rawFresh") is True
-        and selected_health.get("lastPollOk") is True
-        and isinstance(selected_health.get("pollBootId"), str)
-        and bool(selected_health.get("pollBootId"))
-    )
-    raw_value = selected_health.get("raw") if sensor_reported_valid else None
-    raw_age = selected_health.get("rawAgeMs") if sensor_reported_valid else None
-    raw_consistent = (
-        type(raw_value) is int and 0 <= raw_value <= 1000
-        and selected_value is not None and abs(raw_value / 10 - selected_value) <= 0.11
-    )
-    raw_age_acceptable = (
-        type(raw_age) is int and 0 <= raw_age <= 60000
-    )
-    config_acknowledged = (
+    if selected_soil is None:
+        fuzzy_preview_blockers.append("control_source_not_selected")
+    elif selected_value is None or selected_value > 100:
+        fuzzy_preview_blockers.append("selected_sensor_value_missing")
+
+    if not isinstance(selected_health, dict) or selected_health.get("valid") is not True:
+        fuzzy_preview_blockers.append("selected_sensor_health_invalid")
+    else:
+        if selected_health.get("controlValid") is False:
+            fuzzy_preview_blockers.append("sensor_control_diagnostic_rejected")
+        if selected_health.get("rawFresh") is not True or selected_health.get("lastPollOk") is not True:
+            fuzzy_preview_blockers.append("sensor_raw_poll_not_verified")
+        boot_id = selected_health.get("pollBootId")
+        if not isinstance(boot_id, str) or not boot_id:
+            fuzzy_preview_blockers.append("sensor_poll_boot_missing")
+        raw_value = selected_health.get("raw")
+        if not (
+            type(raw_value) is int and 0 <= raw_value <= 1000
+            and selected_value is not None
+            and abs(raw_value / 10 - selected_value) <= 0.11
+        ):
+            fuzzy_preview_blockers.append("sensor_raw_value_unverified")
+        raw_age = selected_health.get("rawAgeMs")
+        if not (type(raw_age) is int and 0 <= raw_age <= 60000):
+            fuzzy_preview_blockers.append("sensor_raw_age_unverified")
+
+    if not (
         control.get("acknowledgement_status") == "applied"
         and type(control.get("revision")) is int
         and control.get("revision") == control.get("acknowledged_revision")
-    )
-    if (
-        selected and simulation_config is not None
-        and getattr(simulation_config, "simulation_only", False) is True
-        and selected_soil is not None
-        and selected_value is not None and 0 <= selected_value <= 100
-        and sensor_reported_valid and raw_consistent and raw_age_acceptable
-        and config_acknowledged and _iso(telemetry.get("recorded_at"))
     ):
+        fuzzy_preview_blockers.append("control_config_not_acknowledged")
+    if _iso(telemetry.get("recorded_at")) is None:
+        fuzzy_preview_blockers.append("sensor_timestamp_missing")
+
+    if not fuzzy_preview_blockers:
         try:
             projected = fuzzy_volume(selected_value, simulation_config)
             fuzzy_preview = {
@@ -221,8 +232,8 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None):
                 "recorded_at": _iso(telemetry.get("recorded_at")),
             }
         except (ValueError, ArithmeticError, KeyError, TypeError):
-            # Missing/invalid simulator rules are not silently replaced.
-            fuzzy_preview = None
+            fuzzy_preview_blockers.append("simulation_rules_invalid")
+    # Expose ONLY bounded reason codes, never raw Modbus/DB payload or credentials.
     return {
         "schemaVersion": 1,
         "mode": "SHADOW_MODE",
@@ -265,6 +276,7 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None):
             "fuzzy_score": _number(fuzzy.get("score")),
         },
         "fuzzy_preview": fuzzy_preview,
+        "fuzzy_preview_blockers": fuzzy_preview_blockers,
         "programs": programs,
         "note": "Rencana SHADOW; kebutuhan panduan bukan bukti aplikasi fisik.",
     }
