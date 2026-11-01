@@ -1,6 +1,8 @@
 """Explicit stock binding checks: never infer fertilizer concentration from text alone."""
 import copy
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from datetime import datetime, timezone
 
 from app.stock_bindings import (
@@ -65,6 +67,25 @@ class StockBindingsTests(unittest.TestCase):
         self.assertAlmostEqual(record["stock_concentration_g_l"], 100)
         self.assertEqual(self.resolve(), (100, "BOUND", "fertiphos-stock-1"))
         self.assertEqual(len(self.store.read()["guide_stock_bindings"]), 1)
+
+    def test_one_time_binding_survives_shadow_sqlite_restart(self):
+        with TemporaryDirectory() as folder:
+            path = str(Path(folder) / "isolated-shadow.sqlite3")
+            first = SQLiteStore(path, scope="site/dev/zone/source-shadow")
+            save_binding(first, self.observation, "prog-1", "row-11", 11, "fertiphos-stock-1")
+            first.close()
+            second = SQLiteStore(path, scope="site/dev/zone/source-shadow")
+            try:
+                bindings = second.read().get("guide_stock_bindings", {})
+                program = self.observation["guide_programs"]["programs"][0]
+                activity = program["activities"][0]
+                self.assertEqual(
+                    resolve_binding(self.observation, bindings, program, activity,
+                                    {"source_row": 11}),
+                    (100, "BOUND", "fertiphos-stock-1")
+                )
+            finally:
+                second.close()
 
     def test_recipe_revision_concentration_name_and_approval_fail_closed(self):
         self.bind()
