@@ -15,7 +15,20 @@ OWNER_GROUP="$(id -gn "$OWNER")"
 REPO="$HOME_DIR/spff-ai-dashboard-test"
 PYTHON_BIN="$REPO/standalone-ai/.venv/bin/python"
 API_ENTRY="$REPO/functions/lib/aiPreviewLocal.js"
-VITE_ENTRY="$REPO/node_modules/vite/bin/vite.js"
+# npm workspaces may install Vite inside frontend/node_modules or hoist it
+# to the repo root. Check both without installing packages or changing state.
+VITE_ENTRY=""
+for candidate in \
+  "$REPO/frontend/node_modules/vite/bin/vite.js" \
+  "$REPO/node_modules/vite/bin/vite.js" \
+  "$REPO/frontend/node_modules/.bin/vite" \
+  "$REPO/node_modules/.bin/vite"; do
+  if [[ -f "$candidate" ]]; then
+    VITE_ENTRY="$candidate"
+    break
+  fi
+done
+[[ -n "$VITE_ENTRY" ]] || die "Vite tidak ditemukan di node_modules frontend/root; periksa npm ci."
 SOURCE_ENV="/etc/spff-ai/engine.env"
 STAGE_DIR="$HOME_DIR/.config/spff-ai-staging"
 STAGE_ENV="$STAGE_DIR/source.env"
