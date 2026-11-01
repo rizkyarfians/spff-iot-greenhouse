@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from math import isfinite
 
 from .calculations import fuzzy_volume
+from .planning_preview import activity_planning_preview
 
 
 def _iso(value):
@@ -39,7 +40,7 @@ def _str_list(values, cap=40):
     return [_text(v) for v in values[:cap] if isinstance(v, str)] if isinstance(values, list) else []
 
 
-def present_shadow_dashboard(decisions, now=None, simulation_config=None):
+def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_concentration_g_l=None):
     """Return one schema for Node validation and mobile-first React presentation.
 
     A shadow ledger 'delivered_g' means credited by AI only, not external/manual
@@ -75,6 +76,8 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None):
     guide = guide if isinstance(guide, dict) else {}
     control = snapshot.get("automatic_control")
     control = control if isinstance(control, dict) else {}
+    flow_reference = snapshot.get("historical_flow_reference")
+    flow_reference = flow_reference if isinstance(flow_reference, dict) else None
     health = telemetry.get("sensor_health")
     health = health if isinstance(health, dict) else {}
 
@@ -151,6 +154,9 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None):
                 "reference_water_l": _number(activity.get("reference_water_l")),
                 "manually_completed": manually_completed,
                 "products": products,
+                "planning_preview": activity_planning_preview(
+                    activity, flow_reference, stock_concentration_g_l
+                ),
             })
         config = program.get("config")
         config = config if isinstance(config, dict) else {}
