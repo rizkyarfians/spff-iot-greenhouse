@@ -86,3 +86,14 @@
 .ain-planning-evidence .ain-fuzzy-preview-grid strong{font-size:clamp(19px,1.8vw,25px)}
 @media(max-width:780px){.ain-planning-fields{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:620px){.ain-planning-controls .ain-panel-heading,.ain-planning-evidence .ain-panel-heading{flex-direction:column;align-items:flex-start}}
+
+
+/* Independent planning tracks: Fuzzy irrigation is not a fertilizer mix. */
+.ain-irrigation-summary{border-color:#c8e3d3;background:#f7fbf8}
+.ain-irrigation-summary .ain-panel-heading>span{font-size:11px;font-weight:750;color:#416d50;text-align:right}
+.ain-fertilizer-summary .ain-panel-heading>span{font-size:11px;font-weight:750;color:#516f5b;text-align:right}
+.ain-irrigation-summary .ain-stat,.ain-fertilizer-summary .ain-stat{box-shadow:none}
+@media(max-width:620px){
+  .ain-irrigation-summary .ain-panel-heading,.ain-fertilizer-summary .ain-panel-heading{flex-direction:column;align-items:flex-start}
+  .ain-irrigation-summary .ain-stat-grid,.ain-fertilizer-summary .ain-stat-grid{grid-template-columns:minmax(0,1fr)}
+}
