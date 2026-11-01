@@ -22,8 +22,33 @@ export async function getUnifiedAiDashboard(
       return;
     }
   }
-  const url = concentration === null ? LOCAL_AI
-    : LOCAL_AI + '?stock_concentration_g_l=' + encodeURIComponent(String(concentration));
+  const extra = new URLSearchParams();
+  if (concentration !== null) extra.set('stock_concentration_g_l', String(concentration));
+  const rawWater = req.query.planned_water_l;
+  if (rawWater !== undefined) {
+    if (typeof rawWater !== 'string' ||
+        !/^(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/.test(rawWater)) {
+      res.status(400).json({success: false, data: null, message: 'Volume air tidak valid.'});
+      return;
+    }
+    const water = Number(rawWater);
+    if (!Number.isFinite(water) || water <= 0 || water > 1_000_000) {
+      res.status(400).json({success: false, data: null, message: 'Volume air di luar batas.'});
+      return;
+    }
+    const programId = req.query.selected_program_id;
+    const activityId = req.query.selected_activity_id;
+    if (typeof programId !== 'string' || programId.length < 1 || programId.length > 200 ||
+        typeof activityId !== 'string' || activityId.length > 50 ||
+        !/^row-[0-9]+$/.test(activityId)) {
+      res.status(400).json({success: false, data: null, message: 'Kegiatan untuk volume air tidak valid.'});
+      return;
+    }
+    extra.set('planned_water_l', String(water));
+    extra.set('selected_program_id', programId);
+    extra.set('selected_activity_id', activityId);
+  }
+  const url = LOCAL_AI + (extra.size ? '?' + extra.toString() : '');
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 2500);
   try {
