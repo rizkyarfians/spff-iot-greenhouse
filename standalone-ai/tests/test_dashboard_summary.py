@@ -15,7 +15,7 @@ def decision(at=NOW):
         "pump_feedback": {
             "status": "REPORTED_OFF_FRESH", "reported_off": True,
             "boot_matches": True, "water_pump": False, "fert_pump": False,
-            "reported_at": at.isoformat()
+            "reported_at": at.isoformat(), "received_at": at.isoformat()
         },
         "telemetry": {},
         "plan": None,
@@ -86,6 +86,13 @@ class DashboardSummaryTests(unittest.TestCase):
         self.assertIsNone(value["feedback"]["water_pump"])
         self.assertFalse(value["feedback"]["reported_off"])
         self.assertFalse(value["feedback"]["boot_matches"])
+
+    def test_feedback_expires_even_when_decision_is_recent(self):
+        row = decision(NOW-timedelta(seconds=27))
+        value = present_shadow_dashboard([row], NOW)
+        self.assertEqual(value["status"], "CURRENT")
+        self.assertIsNone(value["feedback"]["water_pump"])
+        self.assertFalse(value["feedback"]["reported_off"])
 
     def test_simulated_or_dry_run_decisions_are_excluded(self):
         row = decision()
