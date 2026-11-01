@@ -70,6 +70,9 @@ def activity_planning_preview(activity, flow, stock_concentration_g_l=None, plan
             "product": str(product.get("product") or "Produk tidak diketahui")[:200],
             "mass_g": product_mass,
             "stock_l": product_stock,
+            "stock_concentration_g_l": concentration,
+            "binding_status": "UNBOUND",
+            "stock_recipe_id": None,
             "stock_duration_minutes": (
                 product_stock / stock_rate if product_stock is not None and stock_rate else None
             ),
