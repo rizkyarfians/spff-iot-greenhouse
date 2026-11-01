@@ -129,12 +129,16 @@ def create_app(settings=None, config=None, store=None):
             raise HTTPException(503, "real SPFF source is not configured")
         try:
             saved = store.read()["decisions"]
+            # GET performs a read-only source inspection. It must not create
+            # SHADOW decisions, credit doses, or write operational databases.
+            planning_observation = source.inspect()
             return present_shadow_dashboard(
                 saved.values(), simulation_config=config,
                 stock_concentration_g_l=stock_concentration_g_l,
                 planned_water_l=planned_water_l,
                 selected_program_id=selected_program_id,
                 selected_activity_id=selected_activity_id,
+                planning_observation=planning_observation,
             )
         except Exception:
             log.warning("shadow_dashboard_read_failed")
