@@ -267,12 +267,23 @@ class LiveEngine:
                     "product": o["snapshot"]["product"], "due_date": o["snapshot"]["due_date"], "target_g": o["snapshot"]["target_g"],
                     "delivered_g": o["delivered_g"], "remaining_g": max(0, (o["snapshot"]["target_g"] or 0)-o["delivered_g"]),
                     "status": o["status"], "review_reasons": o["review_reasons"]} for o in active]
+        # Presentation-only ledger for both active and completed obligations.
+        # A completed obligation must remain visible in the plant progress page;
+        # it is never reopened by the existence of this snapshot.
+        progress = [{
+            "program_id": o["program_id"], "activity_id": o["activity_id"],
+            "source_row": o["snapshot"]["source_row"],
+            "delivered_g": o["delivered_g"],
+            "remaining_g": max(0, (o["snapshot"]["target_g"] or 0) - o["delivered_g"]),
+            "status": o["status"],
+            "verified_session_count": len(state.get("mass_balance_evidence", {}).get(o["obligation_id"], {})),
+        } for o in state["obligations"].values()]
         core = {"site_id": self.site_id, "device_id": self.device_id, "zone_id": self.zone_id,
                 "type": "HOLD" if reasons else proposal, "proposed_action": proposal,
                 "mode": mode, "simulation": False, "can_dispatch": False, "dispatch_status": "NOT_DISPATCHED",
                 "hold_reasons": reasons, "conflict_policy": "oldest_due_first_products_separate_no_merge",
                 "priority_obligation_id": active[0]["obligation_id"] if active else None,
-                "obligations": summary, "plan": plan, "fuzzy": fuzzy,
+                "obligations": summary, "obligation_progress": progress, "plan": plan, "fuzzy": fuzzy,
                 "configuration_version": profile.version if profile else None,
                 "input_snapshot": observation, "ec_target_required_for_scheduling": False,
                 "pump_feedback": feedback}
