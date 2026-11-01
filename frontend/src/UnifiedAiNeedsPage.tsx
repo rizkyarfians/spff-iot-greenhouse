@@ -95,9 +95,9 @@ export function UnifiedAiNeedsPage(){
   const productOptions=guideCalc?.product_options??[];
   const chosenProduct=productOptions.find(p=>String(p.source_row)===productRow)??(productOptions.length===1?productOptions[0]:undefined);
   const isFoliar=selectedActivity?.method?.toLowerCase().includes('semprot')||selectedActivity?.title?.toLowerCase().includes('foliar');
-  const standaloneFuzzyWater=guideCalc?.water_l==null?data?.fuzzy_preview?.illustrative_water_l:null;
-  const shownWater=hasGuide?(guideCalc?.water_l??standaloneFuzzyWater):plan?.water_l;
-  const standaloneFuzzy=hasGuide&&guideCalc?.water_l==null&&standaloneFuzzyWater!=null;
+  const fuzzyWater=data?.fuzzy_preview?.illustrative_water_l;
+  const waterRate=guideCalc?.flow_reference?.water_lpm;
+  const fuzzyDuration=fuzzyWater!=null&&waterRate!=null&&waterRate>0?fuzzyWater/waterRate:null;
   const feedback=data?.feedback;
   return <section className="secondary-page ai-needs-page" aria-label="AI dan kebutuhan tanaman">
     <div className="ain-hero">
@@ -129,6 +129,23 @@ export function UnifiedAiNeedsPage(){
           {current?'Data keputusan segar':data.status==='STALE'?'Data keputusan lama':'Belum ada keputusan'}
         </span>
       </div>
+      <article className="ain-panel ain-irrigation-summary" aria-label="Kebutuhan penyiraman Fuzzy terpisah">
+        <div className="ain-panel-heading">
+          <h3><Droplets size={18}/> Penyiraman · Fuzzy Mamdani</h3>
+          <span>SIMULASI · Bukan perintah pompa</span>
+        </div>
+        {data.fuzzy_preview?
+          <>
+            <div className="ain-stat-grid">
+              <article className="ain-stat"><span><Droplets size={17}/> Volume ilustratif air</span><strong>{show(fuzzyWater,'L')}</strong><small>Tidak otomatis menjadi volume campuran pupuk</small></article>
+              <article className="ain-stat"><span><Leaf size={17}/> Kelembapan sumber</span><strong>{show(data.fuzzy_preview.moisture_pct,'%')}</strong><small>{data.fuzzy_preview.input_key==='soil_2_moisture'?'Sensor Tanah 2':'Sensor Tanah 1'}</small></article>
+              <article className="ain-stat"><span><Activity size={17}/> Skor Fuzzy</span><strong>{show(data.fuzzy_preview.score)}</strong><small>Centroid Mamdani · Skala 0–1</small></article>
+              <article className="ain-stat"><span><Clock3 size={17}/> Estimasi durasi air</span><strong>{show(fuzzyDuration,'menit')}</strong><small>Debit historis belum terkalibrasi, bukan waktu kontrol</small></article>
+            </div>
+            <p className="ain-footnote">Profil {data.fuzzy_preview.config_version} · data {when(data.fuzzy_preview.recorded_at)}. Ini perkiraan penyiraman mandiri, bukan volume pengencer pupuk. Batas model {show(data.fuzzy_preview.model_max_irrigation_l,'L')}.</p>
+          </>:
+          <p className="ain-muted">Hasil Fuzzy tidak tersedia dari telemetry yang memenuhi syarat. Alasan ditampilkan pada pemeriksaan input di bawah.</p>}
+      </article>
       <article className="ain-panel ain-planning-controls" aria-label="Kalkulator kebutuhan dari Panduan">
         <div className="ain-panel-heading">
           <h3><CalendarDays size={18}/> Kebutuhan otomatis dari Panduan &amp; sensor</h3>
@@ -156,12 +173,22 @@ export function UnifiedAiNeedsPage(){
         {isFoliar&&<p className="ain-note">Kegiatan ini menggunakan metode foliar/semprot di Panduan. Nilai hanya referensi matematika, bukan perintah mengalihkan aplikasi semprot menjadi fertigasi Venturi.</p>}
         <p className="ain-footnote">Kebutuhan pupuk dibaca otomatis dari Panduan. Jika volume air belum tersedia, Python menghitung ilustrasi menggunakan Fuzzy dan telemetry sensor yang lolos pemeriksaan. Volume stok hanya dihitung jika konsentrasi tersimpan terikat jelas ke produk Panduan. Debit historis digunakan sebagai referensi matematis belum terkalibrasi. Tidak mengontrol pompa atau mengubah ledger.</p>
       </article>
-      <div className="ain-stat-grid">
-        <article className="ain-stat"><span><Droplets size={17}/> {standaloneFuzzy?'Air irigasi Fuzzy (simulasi)':guideCalc?.water_source==='FUZZY_SIMULATION'?'Air kegiatan Fuzzy (simulasi)':guideCalc?.water_source==='GUIDE'?'Larutan akhir Panduan':'Kebutuhan air'}</span><strong>{show(shownWater,'L')}</strong><small>{standaloneFuzzy?'Preview irigasi terpisah; BUKAN volume campuran untuk kegiatan Panduan ini':guideCalc?.water_source==='FUZZY_SIMULATION'?'Sensor nyata dan profil simulasi; bukan rekomendasi operasional':guideCalc?.water_source==='GUIDE'?'Referensi Panduan; bukan realisasi':'Belum ada hasil valid'}</small></article>
-        <article className="ain-stat"><span><FlaskConical size={17}/> Volume stok terhitung</span><strong>{show(hasGuide?chosenProduct?.stock_l:plan?.stock_l,'L')}</strong><small>{hasGuide?'Hanya dari konsentrasi stok yang terikat pada produk; belum tentu tersedia':'Belum tersedia / HOLD'}</small></article>
-        <article className="ain-stat"><span><Leaf size={17}/> Massa pupuk Panduan</span><strong>{show(hasGuide?chosenProduct?.mass_g:plan?.fertilizer_mass_g,'g')}</strong><small>{hasGuide?'Target satu pupuk pada kegiatan, bukan sisa atau realisasi':'Rencana AI, bukan realisasi'}</small></article>
-        <article className="ain-stat"><span><Clock3 size={17}/> Estimasi waktu aliran air</span><strong>{show(hasGuide?guideCalc?.water_duration_minutes:plan?.duration_seconds==null?null:plan.duration_seconds/60,'menit')}</strong><small>{hasGuide?'Hanya estimasi dari debit historis, bukan waktu pompa tervalidasi':'Memerlukan debit terkalibrasi'}</small></article>
-      </div>
+      <article className="ain-panel ain-fertilizer-summary" aria-label="Kebutuhan pupuk terpisah">
+        <div className="ain-panel-heading">
+          <h3><FlaskConical size={18}/> Pemupukan · Panduan dan Resep Stok</h3>
+          <span>PERENCANAAN · Satu produk per perhitungan</span>
+        </div>
+        <div className="ain-stat-grid">
+          <article className="ain-stat"><span><Leaf size={17}/> Massa pupuk Panduan</span><strong>{show(chosenProduct?.mass_g,'g')}</strong><small>Target produk pada kegiatan, bukan dosis tersalurkan</small></article>
+          <article className="ain-stat"><span><FlaskConical size={17}/> Konsentrasi stok terikat</span><strong>{show(chosenProduct?.stock_concentration_g_l,'g/L')}</strong><small>{chosenProduct?.binding_status==='BOUND'?'Resep terverifikasi di SHADOW staging':chosenProduct?.binding_status==='STALE'?'Binding perlu diperbarui':'Belum ada binding eksplisit ke resep'}</small></article>
+          <article className="ain-stat"><span><Droplets size={17}/> Volume larutan stok</span><strong>{show(chosenProduct?.stock_l,'L')}</strong><small>Massa ÷ konsentrasi; hanya hitungan bukan aktual</small></article>
+          <article className="ain-stat"><span><Clock3 size={17}/> Estimasi waktu stok</span><strong>{show(chosenProduct?.stock_duration_minutes,'menit')}</strong><small>Debit hisap historis belum terkalibrasi</small></article>
+        </div>
+        {chosenProduct?.binding_status==='BOUND'&&<p className="ain-footnote">Binding SHADOW terverifikasi untuk resep {chosenProduct.stock_recipe_id}. Jika revisi Panduan atau resep berubah, binding otomatis diblokir.</p>}
+        {chosenProduct?.binding_status==='STALE'&&<p className="ain-note">Binding pupuk sudah tidak cocok dengan revisi atau status resep. Ulangi pengikatan melalui CLI staging.</p>}
+        {chosenProduct?.binding_status==='UNBOUND'&&<p className="ain-note">Volume stok belum dapat dihitung karena produk belum diikat ke resep stok yang disetujui. Gunakan perintah binding staging satu kali; tidak perlu mengisi volume/konsentrasi berulang.</p>}
+        {selectedActivity?.reference_water_l!=null&&<p className="ain-footnote">Air referensi kegiatan dari Panduan: {show(selectedActivity.reference_water_l,'L')}. Tidak disamakan dengan volume irigasi Fuzzy.</p>}
+      </article>
       {hasGuide&&<article className="ain-panel ain-planning-evidence" aria-label="Bukti perhitungan referensi">
         <div className="ain-panel-heading"><h3><Activity size={18}/> Dasar hitungan</h3><span>HISTORI · BELUM KALIBRASI</span></div>
         <div className="ain-fuzzy-preview-grid">
@@ -178,22 +205,12 @@ export function UnifiedAiNeedsPage(){
           guide_reference_water_missing:'Panduan tidak memuat volume air dan belum ada hasil Fuzzy valid yang segar.',
           fuzzy_water_is_simulation_only:'Volume air menggunakan simulasi Fuzzy, bukan profil kebutuhan operasional.',
           saved_stock_recipe_not_bound_to_guide_product:'Resep stok tersimpan, tetapi belum terikat ke produk/kegiatan Panduan.',
+          stock_binding_required:'Produk pupuk belum diikat secara eksplisit ke resep stok yang disetujui.',
+          stock_binding_stale:'Binding stok kadaluwarsa karena perubahan revisi, nama pupuk atau status persetujuan.',
           historical_water_rate_unavailable:'Belum ada referensi debit air historis yang memenuhi syarat.',
           historical_stock_rate_unavailable:'Belum ada referensi debit stok historis yang memenuhi syarat.',
           stock_concentration_not_provided:'Konsentrasi stok belum tersedia dari konfigurasi yang terikat pada produk Panduan.'
         } as Record<string,string>)[reason]??reason}</li>)}</ul>}
-      </article>}
-      {data.fuzzy_preview&&<article className="ain-panel ain-fuzzy-preview" aria-label="Pratinjau Fuzzy simulasi">
-        <div className="ain-panel-heading">
-          <h3><Activity size={18}/> Hasil hitung Fuzzy — simulasi</h3>
-          <span>SIMULASI · Bukan rekomendasi operasional</span>
-        </div>
-        <div className="ain-fuzzy-preview-grid">
-          <div><small>Kelembapan sumber</small><strong>{show(data.fuzzy_preview.moisture_pct,'%')}</strong><small>{data.fuzzy_preview.input_key==='soil_2_moisture'?'Sensor Tanah 2':'Sensor Tanah 1'}</small></div>
-          <div><small>Skor centroid Mamdani</small><strong>{show(data.fuzzy_preview.score)}</strong><small>Skala 0–1</small></div>
-          <div><small>Volume ilustratif model</small><strong>{show(data.fuzzy_preview.illustrative_water_l,'L')}</strong><small>Bukan volume siram yang disetujui</small></div>
-        </div>
-        <p className="ain-footnote">Dihitung memakai profil {data.fuzzy_preview.config_version}, dengan batas model {show(data.fuzzy_preview.model_max_irrigation_l,'L')}; input sensor tercatat {when(data.fuzzy_preview.recorded_at)}. Hanya untuk memeriksa fungsi matematis Fuzzy. Tidak memperhitungkan kesiapan pompa, debit aktual, kebutuhan agronomis terkalibrasi, atau kewajiban pemupukan. Status keputusan tetap {data.status}; tidak mengubah HOLD dan tidak mengirim perintah.</p>
       </article>}
       {!data.fuzzy_preview&&<article className="ain-panel ain-fuzzy-preview" aria-label="Status pratinjau Fuzzy">
         <div className="ain-panel-heading">
