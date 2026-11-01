@@ -115,7 +115,7 @@ def create_app(settings=None, config=None, store=None):
         return sorted(store.read()["decisions"].values(), key=order_key, reverse=True)[:limit]
 
     @app.get("/dashboard/summary")
-    def dashboard_summary(stock_concentration_g_l: float | None = Query(default=None, gt=0, le=1000000)):
+    def dashboard_summary(stock_concentration_g_l: float | None = Query(default=None, ge=0.000001, le=1000000)):
         # Read stored REAL source-shadow decisions; do not trigger evaluation,
         # synthesize input, or return arbitrary raw source / credential payloads.
         if not source:
