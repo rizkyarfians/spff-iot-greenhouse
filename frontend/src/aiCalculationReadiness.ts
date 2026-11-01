@@ -11,10 +11,10 @@ export function aiCalculationReadiness(data: UnifiedAiDashboard): string[] {
     || data.calculation.duration_seconds !== null
 
   if (data.status === 'STALE') {
-    messages.push('Keputusan sudah lama; nilai yang ada hanya histori, bukan perhitungan kondisi saat ini.')
+    messages.push('Keputusan kontrol AI sudah lama; kalkulasi kebutuhan hanya memakai sumber perencanaan terpisah yang memenuhi pemeriksaan kesegaran.')
   }
   if (data.status === 'NO_DECISION') {
-    messages.push('Belum ada evaluasi SHADOW dari sumber SPFF asli.')
+    messages.push('Belum ada keputusan kontrol SHADOW tersimpan; simulasi kebutuhan tetap tidak mengendalikan pompa.')
     return messages
   }
   if (!hasPlan && reasons.includes('validated_planning_configuration_missing')) {
