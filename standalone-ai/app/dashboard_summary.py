@@ -12,6 +12,7 @@ from .planning_preview import activity_planning_preview
 from .stock_bindings import resolve_binding
 from .tank_preview import estimate_water_tank
 from .irrigation_schedule_preview import illustrate_two_day_irrigation
+from .water_carryover import present_carryover
 
 
 def _iso(value):
@@ -47,7 +48,8 @@ def _str_list(values, cap=40):
 def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_concentration_g_l=None,
                              planned_water_l=None, selected_program_id=None, selected_activity_id=None,
                              planning_observation=None, stock_bindings=None,
-                             tank_capacity_l=1800.0, tank_height_cm=180.0):
+                             tank_capacity_l=1800.0, tank_height_cm=180.0,
+                             water_carryover_state=None):
     """Return one schema for Node validation and mobile-first React presentation.
 
     A shadow ledger 'delivered_g' means credited by AI only, not external/manual
@@ -386,6 +388,7 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         "flow_reference": flow_reference,
         "tank_preview": tank,
         "irrigation_schedule_preview": irrigation_schedule,
+        "water_carryover": present_carryover(water_carryover_state or {}, now=now),
         "decision": {
             "type": _text(decision.get("type")) if selected else None,
             "proposed_action": _text(decision.get("proposed_action")) if selected else None,
