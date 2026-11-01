@@ -181,19 +181,19 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None):
         isinstance(selected_health, dict)
         and selected_health.get("valid") is True
         and selected_health.get("controlValid") is not False
-        and selected_health.get("rawFresh") is not False
-        and selected_health.get("lastPollOk") is not False
+        and selected_health.get("rawFresh") is True
+        and selected_health.get("lastPollOk") is True
+        and isinstance(selected_health.get("pollBootId"), str)
+        and bool(selected_health.get("pollBootId"))
     )
     raw_value = selected_health.get("raw") if sensor_reported_valid else None
     raw_age = selected_health.get("rawAgeMs") if sensor_reported_valid else None
     raw_consistent = (
-        raw_value is None
-        or (type(raw_value) is int and 0 <= raw_value <= 1000
-            and selected_value is not None and abs(raw_value / 10 - selected_value) <= 0.11)
+        type(raw_value) is int and 0 <= raw_value <= 1000
+        and selected_value is not None and abs(raw_value / 10 - selected_value) <= 0.11
     )
     raw_age_acceptable = (
-        raw_age is None
-        or (type(raw_age) is int and 0 <= raw_age <= 60000)
+        type(raw_age) is int and 0 <= raw_age <= 60000
     )
     config_acknowledged = (
         control.get("acknowledgement_status") == "applied"
