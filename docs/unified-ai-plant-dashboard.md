@@ -72,7 +72,8 @@ or deployed to `/opt/spff` or `/opt/spff-ai`.
 On a staged environment with a known SHADOW source-poll configuration, check:
 - API `/api/unified-ai/dashboard` requires an authenticated SPFF session;
 - AI unavailable → error state; no program → empty state;
-- old decision >90 s → STALE and pump state UNKNOWN;
+- old decision >30 s → STALE and pump state UNKNOWN;
+- independently old adaptive feedback >25 s → reported output state UNKNOWN even if decision is fresh;
 - fresh matching-boot IDLE known OFF → reported state, not physical proof;
 - program with manual completion → no automatic "dose delivered" label;
 - both desktop and mobile navigation/cards reflow without horizontal overflow.
