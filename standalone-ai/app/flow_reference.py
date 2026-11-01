@@ -6,6 +6,7 @@ samples break the series; never sum counters across resets/reboots.
 """
 from datetime import datetime, timezone
 from math import isfinite
+from decimal import Decimal
 
 
 def _utc(value):
@@ -22,7 +23,7 @@ def _utc(value):
 
 
 def _value(value):
-    if (isinstance(value, (int, float)) and not isinstance(value, bool)
+    if (isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
             and isfinite(value) and value >= 0):
         return float(value)
     return None
