@@ -263,6 +263,7 @@ class LiveEngine:
         reasons = sorted(set(reasons))
         summary = [{"obligation_id": o["obligation_id"], "program_id": o["program_id"], "activity_id": o["activity_id"],
                     "source_row": o["snapshot"]["source_row"],
+                    "verified_session_count": len(state.get("mass_balance_evidence", {}).get(o["obligation_id"], {})),
                     "product": o["snapshot"]["product"], "due_date": o["snapshot"]["due_date"], "target_g": o["snapshot"]["target_g"],
                     "delivered_g": o["delivered_g"], "remaining_g": max(0, (o["snapshot"]["target_g"] or 0)-o["delivered_g"]),
                     "status": o["status"], "review_reasons": o["review_reasons"]} for o in active]
