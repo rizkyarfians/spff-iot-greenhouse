@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 import {Activity, AlertTriangle, CalendarDays, CheckCircle2, Clock3, Droplets, FlaskConical, Leaf, RefreshCw, ShieldAlert} from 'lucide-react';
 import type {UnifiedAiDashboard} from '@spff/contracts';
 import {fetchUnifiedAiDashboard} from './api';
+import {aiCalculationReadiness} from './aiCalculationReadiness';
 import './UnifiedAiNeedsPage.css';
 
 const nf = new Intl.NumberFormat('id-ID',{maximumFractionDigits:2});
@@ -103,6 +104,11 @@ export function UnifiedAiNeedsPage(){
         <article className="ain-stat"><span><Leaf size={17}/> Massa pupuk terencana</span><strong>{show(plan?.fertilizer_mass_g,'g')}</strong><small>Perhitungan dosis rencana, bukan realisasi</small></article>
         <article className="ain-stat"><span><Clock3 size={17}/> Estimasi durasi</span><strong>{plan?.duration_seconds==null?'—':show(plan.duration_seconds/60,'menit')}</strong><small>Memerlukan debit pompa terkalibrasi</small></article>
       </div>
+      {aiCalculationReadiness(data).length>0&&<article className="ain-notice ain-calculation-explanation" aria-label="Mengapa perhitungan belum tersedia">
+        <div className="ain-calculation-intro"><AlertTriangle size={17}/><strong>Mengapa nilai AI belum muncul?</strong></div>
+        <ul className="ain-reasons">{aiCalculationReadiness(data).map(reason=><li key={reason}>{reason}</li>)}</ul>
+        <p>Data sensor yang valid dan kebutuhan dalam Panduan bukan otomatis bukti adanya hasil Fuzzy atau rencana dosis. Angka akan ditampilkan hanya setelah dihitung dan tersimpan dengan sumber yang jelas.</p>
+      </article>}
 
       <div className="ain-columns">
         <div className="ain-main-column">
