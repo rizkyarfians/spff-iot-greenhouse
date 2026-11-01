@@ -180,7 +180,7 @@ Wants=spff-ai-dev-api.service
 Type=simple
 User=$OWNER
 Group=$OWNER_GROUP
-WorkingDirectory=$REPO
+WorkingDirectory=$REPO/frontend
 Environment=VITE_SPFF_AI_PREVIEW=true
 ExecStart=$NODE_BIN $VITE_ENTRY --host 127.0.0.1 --port 5174 --strictPort
 Restart=on-failure
