@@ -327,8 +327,8 @@ export function UnifiedAiNeedsPage(){
               <div><dt>Kelembapan tanah 1</dt><dd>{data.sensors.soil_1_valid===true?show(data.sensors.soil_moisture_pct,'%'):data.sensors.soil_1_valid===false?'Tidak valid / stale':'Belum terverifikasi'}</dd></div>
               <div><dt>Kelembapan tanah 2</dt><dd>{data.sensors.soil_2_valid===true?show(data.sensors.soil_2_moisture_pct,'%'):data.sensors.soil_2_valid===false?'Tidak valid / stale':'Belum terverifikasi'}</dd></div>
               <div><dt>Sumber kontrol air</dt><dd>{data.sensors.control_moisture_source==='soil_1_moisture'?'Sensor tanah 1':data.sensors.control_moisture_source==='soil_2_moisture'?'Sensor tanah 2':'Belum terkonfirmasi'}</dd></div>
-              <div><dt>Tandon air</dt><dd>{show(data.sensors.water_tank_pct,'%')}</dd></div>
-              <div><dt>Tandon pupuk</dt><dd>{show(data.sensors.stock_tank_pct,'%')}</dd></div>
+              <div><dt>Tandon air (level sensor)</dt><dd>{tankReady?show(tank?.reported_level_pct,'%'):`${show(tank?.reported_level_pct,'%')} · ${tankStatusText}`}</dd></div>
+              <div><dt>Tandon pupuk (dilaporkan)</dt><dd>{show(data.sensors.stock_tank_pct,'%')}</dd></div>
               <div><dt>Mode selector</dt><dd>{data.sensors.device_mode??'Tidak diketahui'}</dd></div>
               <div><dt>Feedback</dt><dd>{current?feedback?.status??'Tidak tersedia':'Stale / tidak ada'}</dd></div>
               <div><dt>Boot cocok</dt><dd>{current&&feedback?.boot_matches?'Ya':'Belum terverifikasi'}</dd></div>
