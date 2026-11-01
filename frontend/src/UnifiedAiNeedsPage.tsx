@@ -104,7 +104,12 @@ export function UnifiedAiNeedsPage(){
     tank?.level_status==='STALE'?'Telemetry tandon sudah lama':
     tank?.level_status==='OUT_OF_RANGE'?'Persentase level di luar batas':
     tank?.level_status==='UNVERIFIED'?'Sensor level belum tervalidasi':
+    tank?.level_status==='ORIENTATION_CONFLICT'?'Level persen bertentangan dengan jarak sensor atas-ke-bawah':
     'Data tandon belum tersedia';
+  const irrigationSchedule=data?.irrigation_schedule_preview;
+  const dateLabel=(date:string|undefined)=>date?new Intl.DateTimeFormat('id-ID',{
+    day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Jakarta'
+  }).format(new Date(`${date}T12:00:00+07:00`)):'—';
   const feedback=data?.feedback;
   return <section className="secondary-page ai-needs-page" aria-label="AI dan kebutuhan tanaman">
     <div className="ain-hero">
@@ -184,6 +189,28 @@ export function UnifiedAiNeedsPage(){
           <p className="ain-note"><AlertTriangle size={16}/> Estimasi air tandon kurang dari ilustrasi kebutuhan Fuzzy. Perlu mempertimbangkan pengisian ulang atau rencana bertahap; tidak ada perintah otomatis ke pompa.</p>}
         {!tankReady&&<p className="ain-note">Perhitungan liter tidak ditampilkan karena {tankStatusText.toLowerCase()}. Persentase yang dilaporkan tidak diperlakukan sebagai volume aktual.</p>}
         <p className="ain-footnote">Tandon nominal 1.800 liter, tinggi 180 cm. Konversi ketinggian ke liter menggunakan asumsi penampang seragam (≈10 L/cm) dan persen sensor yang valid. Bentuk tandon, volume tak terpakai, batas minimum air, dan kalibrasi level belum diverifikasi. Tidak mengubah interlock ESP32 maupun mengendalikan pompa.</p>
+      </article>
+      <article className="ain-panel ain-irrigation-schedule" aria-label="Usulan penyiraman hari ini dan besok">
+        <div className="ain-panel-heading">
+          <h3><CalendarDays size={18}/> Penyiraman Bertahap · Hari Ini &amp; Besok</h3>
+          <span>ILUSTRASI · Belum menjadi jadwal ESP32</span>
+        </div>
+        <p className="ain-muted">Jika kebutuhan Fuzzy lebih besar daripada volume air yang mungkin tersedia, kekurangannya menjadi <strong>calon kebutuhan besok</strong>, bukan perintah otomatis menyiram. Besok AI harus membaca ulang kelembapan tanah, level tandon, dan status pompa.</p>
+        <div className="ain-irrigation-days">
+          <div className="ain-irrigation-day">
+            <small>Hari ini · {dateLabel(irrigationSchedule?.today_date)}</small>
+            <strong>{show(irrigationSchedule?.today_absolute_max_l,'L')}</strong>
+            <span>Maksimum teoretis tanpa memperhitungkan cadangan minimum; belum boleh dieksekusi.</span>
+          </div>
+          <div className="ain-irrigation-day">
+            <small>Besok · {dateLabel(irrigationSchedule?.tomorrow_date)}</small>
+            <strong>{show(irrigationSchedule?.tomorrow_at_least_l,'L')}</strong>
+            <span>Minimal sisa matematis untuk dievaluasi ulang, bukan jadwal tetap.</span>
+          </div>
+        </div>
+        {irrigationSchedule?.status==='GEOMETRY_ONLY'?<p className="ain-note">Perkiraan geometri sensor atas-ke-bawah: jarak {show(irrigationSchedule.distance_cm,'cm')}, setara maksimum {show(irrigationSchedule.illustrative_available_l,'L')} dengan asumsi sensor tepat di tinggi 180 cm. Belum dikalibrasi; belum ada batas cadangan aman yang disetujui.</p>:
+          <p className="ain-note">Belum bisa mengusulkan pembagian volume: {irrigationSchedule?.status==='DISTANCE_UNVERIFIED'?'sensor jarak air belum valid':irrigationSchedule?.status==='DISTANCE_OUT_OF_RANGE'?'jarak sensor di luar tinggi tandon':irrigationSchedule?.status==='FUZZY_UNAVAILABLE'?'kebutuhan Fuzzy belum tersedia':'sumber telemetry tidak segar atau tidak tersedia'}.</p>}
+        <p className="ain-footnote">Rencana SHADOW ini tidak menyimpan jadwal nyata, tidak mem-publish MQTT, dan tidak mengubah interlock ESP32. Jika tandon tidak terisi besok atau tanah sudah basah, kebutuhan harus dihitung ulang; jangan menjalankan angka sisa secara otomatis.</p>
       </article>
       <article className="ain-panel ain-planning-controls" aria-label="Kalkulator kebutuhan dari Panduan">
         <div className="ain-panel-heading">
