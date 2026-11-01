@@ -98,6 +98,13 @@ export function UnifiedAiNeedsPage(){
   const fuzzyWater=data?.fuzzy_preview?.illustrative_water_l;
   const waterRate=data?.flow_reference?.water_lpm;
   const fuzzyDuration=fuzzyWater!=null&&waterRate!=null&&waterRate>0?fuzzyWater/waterRate:null;
+  const tank=data?.tank_preview;
+  const tankReady=tank?.level_status==='ESTIMATED';
+  const tankStatusText=tank?.level_status==='ESTIMATED'?'Estimasi volume tersedia':
+    tank?.level_status==='STALE'?'Telemetry tandon sudah lama':
+    tank?.level_status==='OUT_OF_RANGE'?'Persentase level di luar batas':
+    tank?.level_status==='UNVERIFIED'?'Sensor level belum tervalidasi':
+    'Data tandon belum tersedia';
   const feedback=data?.feedback;
   return <section className="secondary-page ai-needs-page" aria-label="AI dan kebutuhan tanaman">
     <div className="ain-hero">
@@ -145,6 +152,38 @@ export function UnifiedAiNeedsPage(){
             <p className="ain-footnote">Profil {data.fuzzy_preview.config_version} · data {when(data.fuzzy_preview.recorded_at)}. Ini perkiraan penyiraman mandiri, bukan volume pengencer pupuk. Batas model {show(data.fuzzy_preview.model_max_irrigation_l,'L')}.</p>
           </>:
           <p className="ain-muted">Hasil Fuzzy tidak tersedia dari telemetry yang memenuhi syarat. Alasan ditampilkan pada pemeriksaan input di bawah.</p>}
+      </article>
+      <article className="ain-panel ain-tank-preview" aria-label="Ketersediaan air tandon 1800 liter">
+        <div className="ain-panel-heading">
+          <h3><Droplets size={18}/> Tandon Air · Estimasi Ketersediaan</h3>
+          <span>DATA SENSOR · ESTIMASI LINEAR</span>
+        </div>
+        <div className="ain-tank-layout">
+          <div className="ain-tank-gauge">
+            <div className="ain-tank-gauge-head">
+              <strong>{show(tank?.reported_level_pct,'%')}</strong>
+              <small>Level air dilaporkan</small>
+            </div>
+            <div className="ain-tank-track" role="img" aria-label={tankReady?`Estimasi level tandon ${show(tank?.reported_level_pct,'%')}`:'Level tandon belum tervalidasi'}>
+              {tankReady&&<div className="ain-tank-fill" style={{height:`${tank?.reported_level_pct??0}%`}}/>}
+            </div>
+            <small className="ain-tank-gauge-caption">{tankStatusText}</small>
+          </div>
+          <div className="ain-tank-metrics">
+            <div><small>Kapasitas nominal</small><strong>{show(tank?.capacity_l,'L')}</strong></div>
+            <div><small>Tinggi tandon</small><strong>{show(tank?.tank_height_cm,'cm')}</strong></div>
+            <div><small>Estimasi tinggi air</small><strong>{show(tank?.estimated_water_height_cm,'cm')}</strong></div>
+            <div><small>Estimasi air tersedia</small><strong>{show(tank?.estimated_available_l,'L')}</strong></div>
+            <div><small>Kebutuhan air Fuzzy</small><strong>{show(tank?.fuzzy_demand_l,'L')}</strong></div>
+            <div><small>Selisih teoretis setelah Fuzzy</small><strong>{show(tank?.theoretical_balance_l,'L')}</strong></div>
+          </div>
+        </div>
+        {tank?.comparison_status==='ENOUGH_ESTIMATE'&&
+          <p className="ain-tank-result"><CheckCircle2 size={17}/> Estimasi air tandon lebih besar atau sama dengan volume Fuzzy. Ini belum berarti aman untuk satu kali siram.</p>}
+        {tank?.comparison_status==='BELOW_ESTIMATE'&&
+          <p className="ain-note"><AlertTriangle size={16}/> Estimasi air tandon kurang dari ilustrasi kebutuhan Fuzzy. Perlu mempertimbangkan pengisian ulang atau rencana bertahap; tidak ada perintah otomatis ke pompa.</p>}
+        {!tankReady&&<p className="ain-note">Perhitungan liter tidak ditampilkan karena {tankStatusText.toLowerCase()}. Persentase yang dilaporkan tidak diperlakukan sebagai volume aktual.</p>}
+        <p className="ain-footnote">Tandon nominal 1.800 liter, tinggi 180 cm. Konversi ketinggian ke liter menggunakan asumsi penampang seragam (≈10 L/cm) dan persen sensor yang valid. Bentuk tandon, volume tak terpakai, batas minimum air, dan kalibrasi level belum diverifikasi. Tidak mengubah interlock ESP32 maupun mengendalikan pompa.</p>
       </article>
       <article className="ain-panel ain-planning-controls" aria-label="Kalkulator kebutuhan dari Panduan">
         <div className="ain-panel-heading">
