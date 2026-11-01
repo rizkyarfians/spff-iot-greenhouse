@@ -58,6 +58,36 @@ class DashboardSummaryTests(unittest.TestCase):
         self.assertIsNone(product["remaining_mass_g"])
         self.assertNotIn("secret", str(value))
 
+    def test_soil_sensor_quality_and_control_source_are_explicit(self):
+        row = decision()
+        sample = row["input_snapshot"]["telemetry"]
+        sample["soil_1_moisture"] = None
+        sample["soil_2_moisture"] = 48.9
+        sample["sensor_health"] = {
+            "soil_1_moisture": {"valid": False, "reason": "stale_or_missing"},
+            "soil_2_moisture": {"valid": True},
+        }
+        row["input_snapshot"]["automatic_control"] = {"water_sensor_key": "soil_1_moisture"}
+        result = present_shadow_dashboard([row], NOW)["sensors"]
+        self.assertIsNone(result["soil_moisture_pct"])
+        self.assertFalse(result["soil_1_valid"])
+        self.assertEqual(result["soil_2_moisture_pct"], 48.9)
+        self.assertTrue(result["soil_2_valid"])
+        self.assertEqual(result["control_moisture_source"], "soil_1_moisture")
+        # Never promote sensor 2 to sensor 1, or consider a numeric sensor
+        # reading trusted if the health flag explicitly rejects it.
+        sample["soil_1_moisture"] = 59
+        self.assertIsNone(present_shadow_dashboard([row], NOW)["sensors"]["soil_moisture_pct"])
+        row["input_snapshot"]["automatic_control"]["water_sensor_key"] = "unknown_sensor"
+        self.assertIsNone(present_shadow_dashboard([row], NOW)["sensors"]["control_moisture_source"])
+
+    def test_sensor_without_health_is_not_assumed_valid(self):
+        result = present_shadow_dashboard([decision()], NOW)["sensors"]
+        self.assertIsNone(result["soil_moisture_pct"])
+        self.assertIsNone(result["soil_2_moisture_pct"])
+        self.assertIsNone(result["soil_1_valid"])
+        self.assertIsNone(result["soil_2_valid"])
+
     def test_manual_completion_cannot_be_shown_as_measured_delivery(self):
         row = decision()
         row["input_snapshot"]["guide_programs"]["programs"][0]["activities"][0][
