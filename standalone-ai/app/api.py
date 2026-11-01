@@ -122,7 +122,7 @@ def create_app(settings=None, config=None, store=None):
             raise HTTPException(503, "real SPFF source is not configured")
         try:
             saved = store.read()["decisions"]
-            return present_shadow_dashboard(saved.values())
+            return present_shadow_dashboard(saved.values(), simulation_config=config)
         except Exception:
             log.warning("shadow_dashboard_read_failed")
             raise HTTPException(503, "shadow dashboard unavailable")
