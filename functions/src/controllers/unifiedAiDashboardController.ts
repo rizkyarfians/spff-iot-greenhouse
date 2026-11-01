@@ -1,4 +1,4 @@
-import type {NextFunction, Request, Response} from 'express';
+import type {Request, Response} from 'express';
 import {unifiedAiDashboardSchema} from '@spff/contracts';
 
 // Only the machine-local, separately sandboxed SHADOW engine is contacted.
@@ -6,7 +6,7 @@ import {unifiedAiDashboardSchema} from '@spff/contracts';
 const LOCAL_AI = 'http://127.0.0.1:5010/dashboard/summary';
 
 export async function getUnifiedAiDashboard(
-  _req: Request, res: Response, _next: NextFunction,
+  _req: Request, res: Response,
 ): Promise<void> {
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 2500);
