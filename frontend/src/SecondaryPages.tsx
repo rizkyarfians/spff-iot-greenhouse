@@ -5,6 +5,7 @@ import {isAutomaticControlConfig} from '@spff/contracts'
 import { WaterInterlockSettings } from './WaterInterlockSettings'
 import { SoilEcExecutionSettings } from './SoilEcExecutionSettings'
 import { FertigationPage } from './FertigationPage'
+import { UnifiedAiNeedsPage } from './UnifiedAiNeedsPage'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
 import { ParameterPicker } from './ParameterPicker'
@@ -4716,6 +4717,7 @@ export function SecondaryPage({
   onRefresh,
 }: SecondaryPageProps) {
   if (page === 'fertigation') return <FertigationPage devices={data?.devices ?? []} />
+  if (page === 'ai-needs') return <UnifiedAiNeedsPage />
   if (page === 'guide') return <Suspense fallback={<section className="guide-page" role="status">Memuat panduan…</section>}><GuidePage/></Suspense>
 
   const connectedProps = {
