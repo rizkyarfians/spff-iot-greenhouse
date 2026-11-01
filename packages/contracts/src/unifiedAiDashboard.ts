@@ -29,6 +29,15 @@ const flowReference = z.object({
   ended_at: str,
 }).strict();
 
+const planningProductOption = z.object({
+  source_row: z.number().int().positive().nullable(),
+  product: str,
+  mass_g: num,
+  stock_l: num,
+  stock_duration_minutes: num,
+  reasons: reasons,
+}).strict();
+
 const planningPreview = z.object({
   basis: z.literal('GUIDE_WITH_UNVERIFIED_HISTORICAL_FLOW'),
   water_l: num,
@@ -38,6 +47,7 @@ const planningPreview = z.object({
   stock_duration_minutes: num,
   stock_concentration_g_l: num,
   flow_reference: flowReference.nullable(),
+  product_options: z.array(planningProductOption).max(30),
   reasons: reasons,
   can_dispatch: z.literal(false),
 }).strict();
