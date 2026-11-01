@@ -6,6 +6,7 @@ device contract is proven, this adapter records an explicit integration HOLD.
 from datetime import datetime, timezone
 from uuid import uuid4
 from .guide_programs import read_guide_programs
+from .flow_reference import observed_flow_reference
 
 REQUIRED = {
     "telemetry_samples": {"telemetry_id", "site_id", "device_id", "message_id", "recorded_at", "received_at", "sensor_health",
@@ -129,8 +130,22 @@ class SPFFSource:
                         "AND received_at <= NOW() + INTERVAL '5 seconds' "
                         "ORDER BY received_at DESC,stored_at DESC LIMIT 1", args
                     ).fetchone()
+            # Read-only, bounded history used ONLY to calculate a provisional
+            # planning-time reference. This never changes the operational flow EMA.
+            flow_rows = connection.execute(
+                "SELECT recorded_at,flow_water_total_l,flow_fert_total_l,sensor_health "
+                "FROM spff.telemetry_samples "
+                "WHERE site_id=%s AND device_id=%s "
+                "AND recorded_at >= NOW() - INTERVAL '7 days' "
+                "AND recorded_at <= NOW() + INTERVAL '5 seconds' "
+                "AND recorded_at <= received_at + INTERVAL '5 seconds' "
+                "ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 3000",
+                args
+            ).fetchall()
+            flow_reference = observed_flow_reference(flow_rows)
             return {"schema_compatible": True, "telemetry": telemetry, "device_status": status,
                     "automatic_control": control, "approved_programs": programs, "recent_sessions": sessions,
+                    "historical_flow_reference": flow_reference,
                     "guide_programs": read_guide_programs(connection, self.site_id, self.device_id, self.zone_id,
                                                          fertilizer_delivery_route=self.fertilizer_delivery_route),
                     "execution_evidence": {"status": adaptive_access, "latest_adaptive": adaptive},
