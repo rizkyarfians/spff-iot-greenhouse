@@ -1223,7 +1223,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         actualIsActive,
         reason,
       );
-      await client.query(
+      const commandUpdated = await client.query(
         `
           UPDATE spff.control_commands
           SET
@@ -1235,11 +1235,19 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
             reason = COALESCE($4, reason),
             updated_at = now()
           WHERE command_id = $1
+            AND site_id = $5 AND device_id = $6 AND actuator_key = $7
+            -- QoS1 delayed/duplicated ACK must not resurrect terminal commands.
+            AND (status NOT IN ('completed','rejected','timed_out') OR status = $2)
+            -- A timed trial can never complete while relay is reported ON.
+            AND (NOT (request_payload ? 'waterTrial') OR $2 <> 'completed' OR $8::boolean = false)
+          RETURNING command_id
         `,
-        [message.commandId, status, acknowledgedAt, reason],
+        [message.commandId, status, acknowledgedAt, reason,
+         message.siteId, message.deviceId, message.targetId, actualIsActive],
       );
 
-      if (acknowledgementInserted && actualIsActive !== null) {
+      if (acknowledgementInserted && (commandUpdated.rowCount ?? 0) > 0
+          && actualIsActive !== null) {
         await client.query(
           `
             INSERT INTO spff.actuator_state_events (
