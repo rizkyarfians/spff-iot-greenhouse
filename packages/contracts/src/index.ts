@@ -1049,3 +1049,5 @@ export * from './guidePrograms.js';
 export * from './guideEcConversion.js';
 export * from './adaptiveFertigation.js';
 export * from './unifiedAiDashboard.js';
+
+export * from './waterTrial.js';
