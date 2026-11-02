@@ -44,6 +44,19 @@ const tankPreview = z.object({
   can_dispatch: z.literal(false),
 }).strict();
 
+/** Tank-liquid inventory preview only; never a pump dose or recipe concentration. */
+const fertilizerTankPreview = z.object({
+  basis: z.literal('LINEAR_LEVEL_APPROXIMATION'),
+  capacity_l: z.number().finite().positive(),
+  tank_height_cm: z.number().finite().positive(),
+  reported_level_pct: z.number().finite().min(0).max(100).nullable(),
+  sensor_valid: z.boolean(),
+  estimated_liquid_height_cm: num,
+  estimated_liquid_volume_l: num,
+  level_status: z.enum(['NO_DATA','STALE','OUT_OF_RANGE','UNVERIFIED','ESTIMATED','ORIENTATION_CONFLICT']),
+  can_dispatch: z.literal(false),
+}).strict();
+
 const irrigationSchedulePreview = z.object({
   status: z.enum(['SOURCE_UNAVAILABLE', 'FUZZY_UNAVAILABLE', 'HEIGHT_UNVERIFIED', 'HEIGHT_OUT_OF_RANGE', 'LEVEL_CONFLICT', 'GEOMETRY_ONLY']),
   basis: z.literal('REPORTED_LIQUID_HEIGHT_UNCALIBRATED'),
@@ -126,6 +139,7 @@ export const unifiedAiDashboardSchema = z.object({
   planning_recorded_at: nullableStr,
   flow_reference: flowReference.nullable(),
   tank_preview: tankPreview,
+  fertilizer_tank_preview: fertilizerTankPreview,
   irrigation_schedule_preview: irrigationSchedulePreview,
   water_carryover: waterCarryover,
   decision: z.object({
