@@ -31,7 +31,7 @@ class TwoDayDeferralTests(unittest.TestCase):
         result = self.preview()
         self.assertEqual(result["status"], "GEOMETRY_ONLY")
         self.assertEqual(result["basis"], "REPORTED_LIQUID_HEIGHT_UNCALIBRATED")
-        self.assertAlmostEqual(result["illustrative_available_l"], 1598)
+        self.assertAlmostEqual(result["illustrative_available_l"], 5000 * 159.8 / 180)
         self.assertAlmostEqual(result["today_absolute_max_l"], 374.15)
         self.assertEqual(result["tomorrow_at_least_l"], 0)
         self.assertEqual(result["reported_liquid_height_cm"], 159.8)
@@ -40,14 +40,14 @@ class TwoDayDeferralTests(unittest.TestCase):
         self.assertFalse(result["can_dispatch"])
 
     def test_low_liquid_height_has_carryover_not_a_firm_schedule(self):
-        sample = {**self.sample, "tank_water_distance_cm": 20.2,
-                  "tank_water_level_pct": 11.2}
+        sample = {**self.sample, "tank_water_distance_cm": 10.0,
+                  "tank_water_level_pct": 5.6}
         result = illustrate_two_day_irrigation(
             sample, now=NOW, source_current=True,
             source_read_only=True, fuzzy_water_l=374.15)
-        self.assertAlmostEqual(result["illustrative_available_l"], 202)
-        self.assertAlmostEqual(result["today_absolute_max_l"], 202)
-        self.assertAlmostEqual(result["tomorrow_at_least_l"], 172.15)
+        self.assertAlmostEqual(result["illustrative_available_l"], 5000 * 10 / 180)
+        self.assertAlmostEqual(result["today_absolute_max_l"], 5000 * 10 / 180)
+        self.assertAlmostEqual(result["tomorrow_at_least_l"], 374.15 - 5000 * 10 / 180)
         self.assertFalse(result["is_firm_schedule"])
 
     def test_height_percent_conflict_blocks_volume(self):
@@ -68,7 +68,7 @@ class TwoDayDeferralTests(unittest.TestCase):
         self.assertEqual(tank["level_status"], "ESTIMATED")
         # Tank preview uses rounded reported percent (88.8%), not the
         # unrounded liquid-height ratio (159.8 / 180).
-        self.assertAlmostEqual(tank["estimated_available_l"], 1598.4)
+        self.assertAlmostEqual(tank["estimated_available_l"], 4440)
         self.assertGreater(tank["theoretical_balance_l"], 0)
 
     def test_stale_missing_invalid_prevent_any_plan(self):
