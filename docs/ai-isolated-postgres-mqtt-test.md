@@ -1,6 +1,6 @@
 # Stage 3 — Isolated local PostgreSQL + Mosquitto transport test
 
-This test uses the **real** `PostgresIngestionRepository`, `CommandDispatchService`, `IngestionService`, PostgreSQL schema and Mosquitto QoS1. The device side is an **ESP32 simulator**, not a firmware/hardware test. No physical relay or pump is connected.
+This test uses the **real** `PostgresIngestionRepository`, `CommandDispatchService`, `MqttWorker` (publish/subscribe), `IngestionService`, PostgreSQL schema and Mosquitto QoS1. The device side is an **ESP32 simulator**, not a firmware/hardware test. No physical relay or pump is connected.
 
 Hard separation:
 - Broker: standalone temporary Mosquitto listener **only** on `127.0.0.1:18884`; refuse to run if the port is occupied. Does not touch 1883 or the running broker's config.
