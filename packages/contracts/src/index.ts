@@ -1058,3 +1058,4 @@ export * from './waterTrial.js';
 export * from './aiDispatchReadiness.js';
 export * from './aiVolumeTrial.js';
 export * from './aiVolumeApproval.js';
+export * from './aiAutomaticPumpReadiness.js';
