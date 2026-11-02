@@ -17,7 +17,7 @@ function source(now = new Date()) {
     mode:'SHADOW_MODE',can_dispatch:false,status:'STALE',
     planning_source:'POSTGRES_READ_ONLY',planning_status:'CURRENT',
     planning_recorded_at:timestamp,
-    sensors:{recorded_at:timestamp,control_moisture_source:'soil_2_moisture'},
+    sensors:{recorded_at:timestamp,control_moisture_source:'soil_2_moisture',device_mode:'automatic'},
     fuzzy_preview_blockers:[],
     fuzzy_preview:{
       basis:'SIMULATION_PROFILE',config_version:'simulation-1',
@@ -70,6 +70,7 @@ test('cannot approve a changed, stale, or missing SHADOW Fuzzy snapshot',()=>{
   assert.throws(()=>planAiVolumeApproval({...summary,planning_status:'STALE'},input,'admin-review',now));
   assert.throws(()=>planAiVolumeApproval({...summary,fuzzy_preview_blockers:['sensor_raw_poll_not_verified']},input,'admin-review',now));
   assert.throws(()=>planAiVolumeApproval(summary,input,'',now));
+  assert.throws(()=>planAiVolumeApproval({...summary,sensors:{...summary.sensors,device_mode:'manual'}},input,'admin-review',now));
 });
 
 test('fingerprint binds actor, exact AI values and confirmation',()=>{
