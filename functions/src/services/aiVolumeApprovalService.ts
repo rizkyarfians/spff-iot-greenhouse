@@ -5,7 +5,6 @@ import {
   aiVolumeApprovalQueueRequestSchema,
   waterTrialRequestSchema,
   type AiVolumeApprovalRequest,
-  type AiVolumeApprovalSnapshot,
   type UnifiedAiDashboard,
 } from '@spff/contracts';
 import type { Pool } from 'pg';
