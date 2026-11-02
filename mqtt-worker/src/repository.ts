@@ -39,7 +39,7 @@ function isWaterTrialPayload(value: unknown): value is {
   const trial = v.waterTrial;
   if (!trial || typeof trial !== 'object') return false;
   const t = trial as Record<string, unknown>;
-  return Number.isSafeInteger(t.durationSec) && typeof t.durationSec === 'number'
+  return typeof t.durationSec === 'number' && Number.isSafeInteger(t.durationSec)
     && t.durationSec >= 5 && t.durationSec <= 60
     && typeof t.targetWaterL === 'number' && Number.isFinite(t.targetWaterL)
     && t.targetWaterL >= 1 && t.targetWaterL <= 100;
@@ -295,8 +295,11 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           reason = COALESCE(reason, 'command_expired'),
           updated_at = now()
         WHERE (status IN ('pending', 'published') AND expires_at <= now())
-           OR (status='accepted' AND request_payload ? 'waterTrial'
-              AND issued_at + ((request_payload->'waterTrial'->>'durationSec')::integer + 60) * interval '1 second' <= now())
+           OR (status='accepted' AND (
+              (request_payload ? 'waterTrial' AND
+                issued_at + ((request_payload->'waterTrial'->>'durationSec')::integer + 60) * interval '1 second' <= now())
+              OR (NOT (request_payload ? 'waterTrial') AND expires_at <= now())
+           ))
       `,
     );
     return result.rowCount ?? 0;
