@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import {
   aiVolumeApprovalRequestSchema,
-  aiVolumeApprovalQueueRequestSchema,
   unifiedAiDashboardSchema,
   type UnifiedAiDashboard,
 } from '@spff/contracts';
@@ -9,7 +8,6 @@ import { requestActor } from '../middleware/operatorAuth.js';
 import {
   approveAiVolumeTrial,
   getAiVolumeApproval,
-  queueApprovedAiVolumeTrial,
 } from '../services/aiVolumeApprovalService.js';
 import { AiVolumeApprovalBlocked } from '../services/aiVolumeApprovalPlanning.js';
 import { WaterTrialBlockedError } from '../services/waterTrialService.js';
@@ -94,33 +92,15 @@ export async function readAiVolumeApproval(req: Request, res: Response, next: Ne
   } catch(error) { next(error); }
 }
 
-export async function queueAiVolumeApproval(req: Request, res: Response, next: NextFunction): Promise<void> {
+/** Retained endpoint returns 409; it never creates or publishes a command. */
+export async function queueAiVolumeApproval(req: Request, res: Response): Promise<void> {
   res.set('Cache-Control','no-store');
   if (!approvalIdValid(req.params.approvalId)) {
     res.status(400).json({success:false,data:null,message:'approvalId tidak valid.'});
     return;
   }
-  const body = aiVolumeApprovalQueueRequestSchema.safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({success:false,data:null,message:'Konfirmasi pengantrean tidak valid.'});
-    return;
-  }
-  // Fail closed BEFORE touching AI or the command DB.
-  if (process.env.SPFF_AI_FUZZY_TRIAL_DISPATCH_ENABLED !== 'true' ||
-      process.env.SPFF_WATER_TRIAL_DISPATCH_ENABLED !== 'true') {
-    res.status(409).json({
-      success:false,data:null,
-      message:'Dispatch AI trial nonaktif; tidak ada command dibuat.',
-    });
-    return;
-  }
-  try {
-    const result = await queueApprovedAiVolumeTrial(
-      req.params.approvalId, body.data, requestActor(req), await currentAiSummary(),
-    );
-    res.status(result.idempotent ? 200 : 202).json({
-      success:true,data:result,
-      message:'Command pending di DB. Tunggu ACK aktual ESP32 sebelum menganggap berhasil.',
-    });
-  } catch (error) { handleError(error,res,next); }
+  res.status(409).json({
+    success:false,data:null,
+    message:'AI hanya untuk Automatic. Legacy Water Trial queue dinonaktifkan; set_pump ON AI ditolak firmware 1.5.03.',
+  });
 }
