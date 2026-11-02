@@ -19,11 +19,14 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
   const { default: pgModule } = await import('pg');
   const { Pool } = pgModule;
   const { connect } = await import('mqtt');
+  process.env.MQTT_URL = 'mqtt://127.0.0.1:18884';
+  process.env.MQTT_CLIENT_ID = 'ai-isolated-worker-' + randomUUID();
   const { unifiedAiDashboardSchema, isPumpCommandMessage, mqttTopics } = await import('@spff/contracts');
   const { convertAiFuzzyToSoftwareTrial } = await import('../lib/services/aiVolumeTrialConversion.js');
   const { CommandDispatchService } = await import('../../mqtt-worker/dist/commandDispatchService.js');
   const { PostgresIngestionRepository } = await import('../../mqtt-worker/dist/repository.js');
   const { IngestionService } = await import('../../mqtt-worker/dist/ingestionService.js');
+  const { MqttWorker } = await import('../../mqtt-worker/dist/mqttWorker.js');
 
   const pg = new Pool({
     host: process.env.PGHOST,
@@ -71,7 +74,7 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
   }
 
   let sim;
-  let worker;
+  let mqttWorker;
   try {
     // This fetch is read-only; the conversion rejects stale/mismatched inputs.
     const sourceResponse = await fetch('http://127.0.0.1:5011/dashboard/summary', {
@@ -120,7 +123,6 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
     );
 
     sim = await connectTestClient('esp-simulator');
-    worker = await connectTestClient('ack-worker');
     const queuedCommand = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('MQTT command was not delivered')), 5000);
       sim.on('message',(topic,payload) => {
@@ -133,26 +135,28 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
 
     const repository = new PostgresIngestionRepository(pg);
     const ingester = new IngestionService(repository);
-    worker.on('message',(topic,payload)=>{
-      if(topic !== ackTopic)return;
-      void ingester.process(topic,payload)
-        .then(() => { processedAcks += 1; })
-        .catch(error=>messageErrors.push(error));
-    });
-    await worker.subscribeAsync(ackTopic,{qos:1});
-
-    const dispatcher = new CommandDispatchService(repository,{
-      publishCommand: async(message)=>{
-        assert.equal(isPumpCommandMessage(message),true);
-        await worker.publishAsync(cmdTopic,JSON.stringify(message),{qos:1,retain:false});
+    mqttWorker = new MqttWorker({
+      async process(topic, payload) {
+        try {
+          const result = await ingester.process(topic, payload);
+          if (topic === ackTopic) processedAcks += 1;
+          return result;
+        } catch (error) {
+          messageErrors.push(error);
+          throw error;
+        }
       },
     });
+    await mqttWorker.start();
+
+    const dispatcher = new CommandDispatchService(repository, mqttWorker);
     await dispatcher.runOnce();
     const wire = await queuedCommand;
     assert.equal(wire.commandId,commandId);
     assert.equal(wire.params.waterTrial.targetWaterL,candidate.conversion.targetWaterL);
     assert.equal(wire.params.waterTrial.durationSec,30);
     assert.equal(wire.targetId,'pump_water');
+    assert.equal(isPumpCommandMessage(wire),true);
     assert.equal((await pg.query('SELECT status FROM spff.control_commands WHERE command_id=$1',[commandId])).rows[0].status,'published');
 
     const deviceAck = (status,isActive,stamp) => ({
@@ -220,6 +224,7 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
       pumpPhysicallyActuated:false,
     }));
   } finally {
+    if (mqttWorker) await mqttWorker.stop();
     for(const client of clients) {
       await new Promise(resolve=>client.end(true,{},()=>resolve()));
     }
