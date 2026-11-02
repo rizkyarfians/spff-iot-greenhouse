@@ -106,6 +106,8 @@ export function UnifiedAiNeedsPage(){
     tank?.level_status==='UNVERIFIED'?'Sensor level belum tervalidasi':
     tank?.level_status==='ORIENTATION_CONFLICT'?'Persentase level tidak cocok dengan tinggi cairan yang dikirim MQTT Worker':
     'Data tandon belum tersedia';
+  const fertilizerTank=data?.fertilizer_tank_preview;
+  const fertilizerTankReady=fertilizerTank?.level_status==='ESTIMATED';
   const irrigationSchedule=data?.irrigation_schedule_preview;
   const dateLabel=(date:string|undefined)=>date?new Intl.DateTimeFormat('id-ID',{
     day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Jakarta'
@@ -158,7 +160,7 @@ export function UnifiedAiNeedsPage(){
           </>:
           <p className="ain-muted">Hasil Fuzzy tidak tersedia dari telemetry yang memenuhi syarat. Alasan ditampilkan pada pemeriksaan input di bawah.</p>}
       </article>
-      <article className="ain-panel ain-tank-preview" aria-label="Ketersediaan air tandon 1800 liter">
+      <article className="ain-panel ain-tank-preview" aria-label="Ketersediaan air baku tandon 5000 liter">
         <div className="ain-panel-heading">
           <h3><Droplets size={18}/> Tandon Air · Estimasi Ketersediaan</h3>
           <span>DATA SENSOR · ESTIMASI LINEAR</span>
@@ -188,7 +190,34 @@ export function UnifiedAiNeedsPage(){
         {tank?.comparison_status==='BELOW_ESTIMATE'&&
           <p className="ain-note"><AlertTriangle size={16}/> Estimasi air tandon kurang dari ilustrasi kebutuhan Fuzzy. Perlu mempertimbangkan pengisian ulang atau rencana bertahap; tidak ada perintah otomatis ke pompa.</p>}
         {!tankReady&&<p className="ain-note">Perhitungan liter tidak ditampilkan karena {tankStatusText.toLowerCase()}. Persentase yang dilaporkan tidak diperlakukan sebagai volume aktual.</p>}
-        <p className="ain-footnote">Tandon nominal 1.800 liter, tinggi 180 cm. Field legacy *_distance_cm dalam MQTT Worker berarti tinggi cairan dari dasar, bukan jarak mentah ultrasonik. Konversi ke liter mengasumsikan penampang seragam (≈10 L/cm). Bentuk tandon, volume tak terpakai, batas minimum air, dan kalibrasi level belum diverifikasi. Tidak mengubah interlock ESP32 maupun mengendalikan pompa.</p>
+        <p className="ain-footnote">Kapasitas nominal tandon air baku 5.000 L. Tinggi referensi 180 cm masih mengikuti MQTT Worker dan harus dikonfirmasi di lokasi. Field legacy *_distance_cm berarti tinggi cairan dari dasar, bukan jarak mentah sensor ultrasonik. Konversi ke liter mengasumsikan penampang seragam (≈27,78 L/cm jika tinggi benar). Bentuk tandon, volume mati, batas cadangan, serta kalibrasi belum diverifikasi. Bukan bukti volume aman untuk pompa.</p>
+      </article>
+      <article className="ain-panel ain-tank-preview" aria-label="Isi cairan tandon pupuk 500 liter">
+        <div className="ain-panel-heading">
+          <h3><FlaskConical size={18}/> Tandon Pupuk · Estimasi Isi Cairan</h3>
+          <span>DATA SENSOR · BUKAN VOLUME DOSIS PUPUK</span>
+        </div>
+        <div className="ain-tank-layout">
+          <div className="ain-tank-gauge">
+            <div className="ain-tank-gauge-head">
+              <strong>{show(fertilizerTank?.reported_level_pct,'%')}</strong>
+              <small>Level tandon pupuk dilaporkan</small>
+            </div>
+            <div className="ain-tank-track" role="img" aria-label={fertilizerTankReady?`Estimasi isi tandon pupuk ${show(fertilizerTank?.reported_level_pct,'%')}`:'Level tandon pupuk belum tervalidasi'}>
+              {fertilizerTankReady&&<div className="ain-tank-fill" style={{height:`${fertilizerTank?.reported_level_pct??0}%`}}/>}
+            </div>
+            <small className="ain-tank-gauge-caption">{fertilizerTankReady?'Estimasi isi cairan':'Data tidak tersedia atau belum konsisten'}</small>
+          </div>
+          <div className="ain-tank-metrics">
+            <div><small>Kapasitas nominal</small><strong>{show(fertilizerTank?.capacity_l,'L')}</strong></div>
+            <div><small>Tinggi referensi sensor</small><strong>{show(fertilizerTank?.tank_height_cm,'cm')}</strong></div>
+            <div><small>Estimasi tinggi cairan</small><strong>{show(fertilizerTank?.estimated_liquid_height_cm,'cm')}</strong></div>
+            <div><small>Estimasi isi cairan</small><strong>{show(fertilizerTank?.estimated_liquid_volume_l,'L')}</strong></div>
+            <div><small>Validitas data</small><strong>{fertilizerTank?.level_status??'NO_DATA'}</strong></div>
+          </div>
+        </div>
+        {!fertilizerTankReady&&<p className="ain-note">Volume tandon pupuk tidak dihitung jika telemetry terlambat, sensor tidak valid, atau tinggi cairan bertentangan dengan persentase.</p>}
+        <p className="ain-footnote">Kapasitas nominal tandon pupuk 500 L. Tinggi referensi 90 cm berasal dari MQTT Worker, belum dikonfirmasi ulang terhadap fisik tandon. Ini hanya perkiraan jumlah cairan di tandon, <strong>bukan</strong> volume larutan stok yang harus didosis, bukan massa pupuk, dan tidak membuktikan konsentrasi g/L. Rumus linear memerlukan kalibrasi. Tidak mengontrol pompa.</p>
       </article>
       <article className="ain-panel ain-irrigation-schedule" aria-label="Usulan penyiraman hari ini dan besok">
         <div className="ain-panel-heading">
@@ -208,7 +237,7 @@ export function UnifiedAiNeedsPage(){
             <span>Minimal sisa matematis untuk dievaluasi ulang, bukan jadwal tetap.</span>
           </div>
         </div>
-        {irrigationSchedule?.status==='GEOMETRY_ONLY'?<p className="ain-note">Perkiraan dari tinggi cairan telemetry: {show(irrigationSchedule.reported_liquid_height_cm,'cm')}, setara batas geometris {show(irrigationSchedule.illustrative_available_l,'L')} dengan asumsi tinggi cairan maksimum 180 cm dan tandon berpenampang seragam. Belum dikalibrasi; belum ada batas cadangan aman yang disetujui.</p>:
+        {irrigationSchedule?.status==='GEOMETRY_ONLY'?<p className="ain-note">Perkiraan dari tinggi cairan telemetry: {show(irrigationSchedule.reported_liquid_height_cm,'cm')}, setara batas geometris {show(irrigationSchedule.illustrative_available_l,'L')} dengan asumsi tinggi referensi 180 cm dari MQTT Worker dan tandon berpenampang seragam. Belum dikalibrasi; belum ada batas cadangan aman yang disetujui.</p>:
           <p className="ain-note">Belum bisa mengusulkan pembagian volume: {irrigationSchedule?.status==='HEIGHT_UNVERIFIED'?'tinggi cairan belum valid':irrigationSchedule?.status==='HEIGHT_OUT_OF_RANGE'?'tinggi cairan di luar kapasitas tandon':irrigationSchedule?.status==='LEVEL_CONFLICT'?'tinggi cairan dan persentase level tidak konsisten':irrigationSchedule?.status==='FUZZY_UNAVAILABLE'?'kebutuhan Fuzzy belum tersedia':'sumber telemetry tidak segar atau tidak tersedia'}.</p>}
         <p className="ain-footnote">Rencana SHADOW ini tidak menyimpan jadwal nyata, tidak mem-publish MQTT, dan tidak mengubah interlock ESP32. Jika tandon tidak terisi besok atau tanah sudah basah, kebutuhan harus dihitung ulang; jangan menjalankan angka sisa secara otomatis.</p>
       </article>
