@@ -74,6 +74,7 @@ export class CommandDispatchService {
       targetId: command.actuatorKey,
       params: {
         isActive: command.requestedIsActive,
+        ...(command.waterTrial ? { waterTrial: command.waterTrial } : {}),
       },
     };
 
