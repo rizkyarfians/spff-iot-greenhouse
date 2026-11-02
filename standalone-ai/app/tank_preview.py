@@ -1,8 +1,9 @@
 """Read-only water and fertilizer-tank estimates for SPFF staging.
 
-A 1,800 L tank with an effective water height of 180 cm was provided by
-the operator. The proportional (linear) model is a visual approximation only:
-tank cross-section, dead volume, and level calibration are NOT verified.
+Operator confirmed nominal capacities of 5,000 L raw water and 500 L for
+the fertilizer tank. Reference heights 180 cm and 90 cm are inherited from
+MQTT Worker and have not been physically re-verified. These proportional
+(linear) previews are NOT calibrated tank volume measurements.
 No value from this module is a pump command or an interlock decision.
 """
 from decimal import Decimal
