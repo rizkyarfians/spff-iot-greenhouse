@@ -92,3 +92,8 @@ test('ephemeral PostgreSQL preflight reads actual Manual/Automatic and ACK evide
     assert.equal((await pg.query('SELECT COUNT(*)::int AS n FROM spff.control_commands WHERE site_id=$1',[site])).rows[0].n,0);
   }finally{await pg.end();}
 });
+
+test('retired Manual AI Water Trial queue refuses all direct calls',async()=>{
+  const {queueApprovedAiVolumeTrial}=await import('../lib/services/aiVolumeApprovalService.js');
+  await assert.rejects(()=>queueApprovedAiVolumeTrial(),/dinonaktifkan/);
+});
