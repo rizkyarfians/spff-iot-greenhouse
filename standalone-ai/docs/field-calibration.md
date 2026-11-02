@@ -273,8 +273,10 @@ ke `/opt/spff` atau `/opt/spff-ai`.
 
 ## Estimasi tandon air di Unified AI (staging)
 
-Data fisik yang dikonfirmasi operator: kapasitas nominal **1.800 L** dan tinggi
-tandon **180 cm**. Dashboard SHADOW menampilkan:
+Koreksi operator: **kapasitas nominal air baku 5.000 L** dan **tandon pupuk 500 L**.
+Tinggi referensi **180 cm untuk air** dan **90 cm untuk pupuk** adalah nilai
+lama dari `mqtt-worker/src/tankLevels.ts`; tinggi fisik dua tandon setelah
+koreksi kapasitas **belum dikonfirmasi**. Dashboard SHADOW menampilkan:
 
 - persentase level yang dilaporkan telemetry PostgreSQL;
 - status `ESTIMATED`, `UNVERIFIED`, `STALE`, `OUT_OF_RANGE`, atau `NO_DATA`;
@@ -287,7 +289,7 @@ tandon **180 cm**. Dashboard SHADOW menampilkan:
 Rumus yang *hanya berlaku untuk model linear*:
 
 ```text
-estimated_available_l = 1800 × (tank_water_level_pct / 100)
+estimated_available_l = 5000 × (tank_water_level_pct / 100)
 estimated_water_height_cm = 180 × (tank_water_level_pct / 100)
 theoretical_balance_l = estimated_available_l - fuzzy_illustrative_water_l
 ```
@@ -305,7 +307,11 @@ liter, tinggi air, serta selisih ditampilkan kosong. Jika telemetry stale, statu
 backfill / interpolasi / sensor fake.
 
 Staging Python memiliki variabel opsional
-`AI_TANK_CAPACITY_L=1800` dan `AI_TANK_HEIGHT_CM=180` untuk preview.
+`AI_TANK_CAPACITY_L=5000`, `AI_TANK_HEIGHT_CM=180`,
+`AI_FERT_TANK_CAPACITY_L=500` dan `AI_FERT_TANK_HEIGHT_CM=90`
+untuk preview. Jika variabel lama tersimpan di file `.env` atau environment
+systemd, nilai itu **akan mengalahkan default kode** dan perlu diperiksa
+oleh operator tanpa menampilkan DSN/kredensial.
 Tidak dipakai untuk interlock, timeout pompa, penjadwalan, atau perintah MQTT.
 Jangan mengubah ESP32, konfigurasi kontrol produksi, atau membuat batch
 penyiraman otomatis berdasarkan model ini sebelum kurva kalibrasi dan ambang
@@ -353,16 +359,36 @@ tomorrow_at_least_l = max(0, fuzzy_water_l - today_absolute_max_l)
 ```
 
 Contoh data yang pernah terlihat di lapangan:
-`1800 L`, `180 cm`, tinggi cairan `159.8 cm`, kebutuhan
-`374.15 L` → persediaan geometris `1598 L`, sehingga
+`5000 L`, tinggi referensi `180 cm`, tinggi cairan `159.8 cm`, kebutuhan
+`374.15 L` → persediaan geometris sekitar `4438.89 L` (dari tinggi,
+berbeda sedikit dari `4440 L` jika dihitung menggunakan persen dibulatkan
+88.8%), sehingga
 **tidak ada kekurangan matematis** untuk dipindahkan ke besok pada
 snapshot tersebut. Batas cadangan minimum/volume mati belum diketahui,
 jadi ini bukan keputusan boleh menyiram dan tidak menetapkan pompa ON.
 
-Jika tinggi cairan yang sah misalnya hanya `20.2 cm` (`11.2%`),
-hasil geometris menjadi `202 L` dan kekurangan untuk evaluasi besok
-sekitar `172.15 L`. Itu contoh hipotetis, bukan kondisi tandon saat ini.
+Jika tinggi cairan yang sah misalnya hanya `10.0 cm` (sekitar `5.6%`),
+hasil geometris menjadi sekitar `277.78 L` dan kekurangan untuk evaluasi besok
+sekitar `96.37 L`. Itu contoh hipotetis, bukan kondisi tandon saat ini.
 Waktu tanggal memakai `Asia/Jakarta`.
+
+### Estimasi tandon pupuk 500 L (bukan dosis)
+
+Endpoint `fertilizer_tank_preview` menghitung jumlah cairan di tandon
+pupuk menggunakan level `tank_fert_level_pct`, tinggi cairan legacy
+`tank_fert_distance_cm`, dan kedua flag `sensor_health` yang valid.
+Sesuai worker, tinggi referensinya **90 cm**; belum menjadi bukti tinggi
+fisik tandon. Rumus linear:
+
+```text
+estimated_liquid_volume_l = 500 × (tank_fert_level_pct / 100)
+```
+
+Contoh lama 26% menyiratkan ~130 L cairan, **hanya jika persentase masih
+benar setelah pengukuran fisik dan kurva bentuk tandon diperiksa**.
+Ini sama sekali bukan konsentrasi pupuk, kebutuhan gram, atau dosis volume
+stok melalui Venturi. Bila data stale/invalid/tidak cocok, volume kosong.
+Interlock ESP32 tidak berubah.
 
 ### Ledger sisa kebutuhan berbasis bukti sesi
 
