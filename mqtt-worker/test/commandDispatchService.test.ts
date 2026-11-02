@@ -98,3 +98,20 @@ test("dispatcher leaves command pending when MQTT publish fails", async () => {
 
   assert.equal(marked, false);
 });
+
+test("dispatcher retains explicit trial volume and duration for MCU", async () => {
+  const sent: PumpCommandMessage[]=[];
+  const repository: CommandDispatchRepository={
+    async expireCommands(){return 0;},
+    async pendingCommands(){return [{
+      ...pending,requestedBy:"trial:water:admin",
+      waterTrial:{durationSec:30,targetWaterL:10},
+    }];},
+    async markCommandPublished(){},
+  };
+  const publisher: CommandPublisher={
+    async publishCommand(message){sent.push(message);},
+  };
+  await new CommandDispatchService(repository,publisher).runOnce();
+  assert.deepEqual(sent[0]?.params,{isActive:true,waterTrial:{durationSec:30,targetWaterL:10}});
+});
