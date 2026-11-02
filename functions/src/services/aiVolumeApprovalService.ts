@@ -120,6 +120,9 @@ export async function queueApprovedAiVolumeTrial(
       process.env.SPFF_WATER_TRIAL_DISPATCH_ENABLED !== 'true') {
     throw new AiVolumeApprovalBlocked('Dispatch AI trial tetap nonaktif; tidak ada command dibuat.');
   }
+  if (siteId !== configuredSiteId) {
+    throw new AiVolumeApprovalBlocked('Identitas site approval tidak cocok dengan command writer.');
+  }
   const row = requireRow((await db.query<ApprovalRow>(
     'SELECT approval_snapshot,request_fingerprint,approved_by,status,command_id,expires_at FROM spff.ai_volume_trial_approvals WHERE site_id=$1 AND approval_id=$2',
     [siteId,approvalId],
@@ -173,7 +176,25 @@ export async function queueApprovedAiVolumeTrial(
   );
   // Hardware safety checks run in the existing server authorizer. The
   // existing 1.5.03 firmware fails the 1.5.04 capability check here.
-  const issued = await createWaterTrial(cmd,actor,provenance);
+  let issued: Awaited<ReturnType<typeof createWaterTrial>>;
+  try {
+    issued = await createWaterTrial(cmd,actor,provenance);
+  } catch (error) {
+    // Failures in the existing safety gate must not leave a phantom in-flight
+    // approval when no durable command exists. Never undo a real queued row.
+    const exists = await db.query(
+      'SELECT 1 FROM spff.control_commands WHERE site_id=$1 AND command_id=$2',
+      [siteId,row.command_id],
+    );
+    if (exists.rowCount === 0) {
+      await db.query(
+        `UPDATE spff.ai_volume_trial_approvals SET status='approved'
+         WHERE site_id=$1 AND approval_id=$2 AND status='queueing'`,
+        [siteId,approvalId],
+      );
+    }
+    throw error;
+  }
   await db.query(
     `UPDATE spff.ai_volume_trial_approvals
      SET status='queued',queued_at=COALESCE(queued_at,now())
