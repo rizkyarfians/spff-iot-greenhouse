@@ -10,7 +10,7 @@ from decimal import Decimal
 from .calculations import fuzzy_volume
 from .planning_preview import activity_planning_preview
 from .stock_bindings import resolve_binding
-from .tank_preview import estimate_water_tank
+from .tank_preview import estimate_water_tank, estimate_fertilizer_tank
 from .irrigation_schedule_preview import illustrate_two_day_irrigation
 from .water_carryover import present_carryover
 
@@ -48,8 +48,9 @@ def _str_list(values, cap=40):
 def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_concentration_g_l=None,
                              planned_water_l=None, selected_program_id=None, selected_activity_id=None,
                              planning_observation=None, stock_bindings=None,
-                             tank_capacity_l=1800.0, tank_height_cm=180.0,
-                             water_carryover_state=None):
+                             tank_capacity_l=5000.0, tank_height_cm=180.0,
+                             water_carryover_state=None,
+                             fert_tank_capacity_l=500.0, fert_tank_height_cm=90.0):
     """Return one schema for Node validation and mobile-first React presentation.
 
     A shadow ledger 'delivered_g' means credited by AI only, not external/manual
@@ -367,6 +368,12 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         ),
     )
 
+    fert_tank = estimate_fertilizer_tank(
+        telemetry, capacity_l=fert_tank_capacity_l,
+        height_cm=fert_tank_height_cm,
+        source_current=planning_fresh, source_read_only=live_source,
+    )
+
     irrigation_schedule = illustrate_two_day_irrigation(
         telemetry, now=now, capacity_l=tank_capacity_l, height_cm=tank_height_cm,
         source_current=planning_fresh, source_read_only=live_source,
@@ -387,6 +394,7 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         "planning_recorded_at": _iso(telemetry.get("recorded_at")),
         "flow_reference": flow_reference,
         "tank_preview": tank,
+        "fertilizer_tank_preview": fert_tank,
         "irrigation_schedule_preview": irrigation_schedule,
         "water_carryover": present_carryover(water_carryover_state or {}, now=now),
         "decision": {
