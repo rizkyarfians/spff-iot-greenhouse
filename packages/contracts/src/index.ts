@@ -97,6 +97,8 @@ export interface PumpCommandMessage extends MessageIdentity {
   targetId: string;
   params: {
     isActive: boolean;
+    /** Explicit, operator-approved bounded water calibration trial. */
+    waterTrial?: { targetWaterL: number; durationSec: number };
   };
 }
 
@@ -112,6 +114,9 @@ export interface CommandAckMessage extends MessageIdentity {
     isActive: boolean;
   };
   reason?: string;
+  /** Raw meter delta, not independently calibrated volume. */
+  actualWaterL?: number;
+  elapsedSec?: number;
 }
 
 export type ActuatorReportedState = 'active' | 'inactive' | 'offline' | 'fault';
@@ -373,7 +378,21 @@ export function isPumpCommandMessage(value: unknown): value is PumpCommandMessag
     Date.parse(value.expiresAt as string) > Date.parse(value.issuedAt as string) &&
     typeof value.requestedBy === 'string' &&
     typeof value.targetId === 'string' &&
-    typeof value.params.isActive === 'boolean'
+    typeof value.params.isActive === 'boolean' &&
+    (value.params.waterTrial === undefined ||
+      (value.targetId === 'pump_water' &&
+       value.params.isActive === true &&
+       typeof value.requestedBy === 'string' &&
+       value.requestedBy.startsWith('trial:water:') &&
+       isRecord(value.params.waterTrial) &&
+       typeof value.params.waterTrial.durationSec === 'number' &&
+       Number.isSafeInteger(value.params.waterTrial.durationSec) &&
+       value.params.waterTrial.durationSec >= 5 &&
+       value.params.waterTrial.durationSec <= 60 &&
+       typeof value.params.waterTrial.targetWaterL === 'number' &&
+       Number.isFinite(value.params.waterTrial.targetWaterL) &&
+       value.params.waterTrial.targetWaterL >= 1 &&
+       value.params.waterTrial.targetWaterL <= 100))
   );
 }
 
