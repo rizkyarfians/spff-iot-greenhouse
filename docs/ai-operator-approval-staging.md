@@ -1,5 +1,13 @@
 # SPFF Stage 4 — SHADOW AI operator draft approval and gated Water Trial writer
 
+> **SUPERSEDED (Automatic-only decision, 2026-11-02):** The legacy AI
+> `/volume-trial-approvals/:approvalId/queue` endpoint has been RETIRED and
+> always returns HTTP 409. Enabling old dispatch flags does NOT re-enable it.
+> See `docs/ai-automatic-only-pump-command.md`.
+> The existing operator-only `/water-trials` calibration endpoint is separate
+> from AI. AI is restricted to Automatic; firmware 1.5.03 rejects direct
+> AI ON in that mode.
+
 This is **source-only staging**, not deployment. PostgreSQL 038 is **not** applied to the running Orange Pi database.
 
 ## Routes
