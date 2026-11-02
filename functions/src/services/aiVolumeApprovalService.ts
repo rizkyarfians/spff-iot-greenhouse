@@ -132,6 +132,13 @@ export async function queueApprovedAiVolumeTrial(
   if (isApprovalExpired(approval)) {
     throw new AiVolumeApprovalBlocked('Approval sudah kedaluwarsa; buat preview dan approval baru.');
   }
+  // An AI HOLD/STALE decision is never an execution authorization, even if
+  // its fresh Fuzzy preview may be stored as an advisory approval draft.
+  if (freshSummary.status !== 'CURRENT' ||
+      freshSummary.decision.type === 'HOLD' ||
+      freshSummary.decision.hold_reasons.length > 0) {
+    throw new AiVolumeApprovalBlocked('Keputusan AI belum CURRENT tanpa HOLD; tidak boleh antre command.');
+  }
   // Recalculate from fresh PostgreSQL snapshot before any DB command write.
   const expected = approval.candidate;
   const fresh = convertAiFuzzyToSoftwareTrial(freshSummary, {
@@ -180,6 +187,7 @@ export async function queueApprovedAiVolumeTrial(
     idempotent: issued.idempotent,
     // A pending DB command is NOT an ACK or physical actuation proof.
     commandStatus: issued.status,
-    canDispatch: false as const,
+    commandCreated: true as const,
+    awaitingDeviceAck: true as const,
   };
 }
