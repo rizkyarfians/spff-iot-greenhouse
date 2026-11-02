@@ -37,3 +37,23 @@ node --test functions/test/aiDispatchReadiness.test.mjs
 ```
 
 The Node endpoint is only available after intentionally building/running this branch's **staging** API. No production deployment, database migration or ESP32 firmware modification belongs to this stage.
+
+## Stage 2: AI Fuzzy volume -> water-trial protocol MOCK loopback
+
+- `GET /api/unified-ai/pump-simulation` (authenticated operator) fetches Python SHADOW summary from fixed loopback and returns a versioned, **NON-ACTUATING** mock candidate.
+- Only a CURRENT live planning source and sensor-verified Fuzzy preview with matching timestamp can produce a mock candidate. The historic AI decision can still be STALE or HOLD: that is explicitly reported as a real-world dispatch blocker, never bypassed.
+- Example for a Fuzzy preview of 372.68 L: the first **mock** segment is capped at 100 L by the existing water-trial contract; deferred 272.68 L is information only, never queued or split into automatic follow-ups. The 60s mock timebox is an arbitrary protocol test constant and **not** computed from unverified 194 L/min.
+- `node scripts/ai-pump-loopback-simulation.mjs` reads the actual local Python summary, uses the real `CommandDispatchService` to build `PumpCommandMessage` over an isolated fake repository and fake publisher, then validates a synthetic accepted/completed OFF ACK using the real `IngestionService`. Identifiers are intentionally `simulated-site` / `simulated-esp32`. **No real Mosquitto, PostgreSQL, Edge, ESP32 or physical ACK is touched.**
+- The synthetic ACK contains **no actualWaterL**; it is not a device completion, delivered volume, irrigation event or fertilizer obligation credit. The CLI output says `MOCK_COMPLETED_NOT_DEVICE_PROOF`, `physicalAckReceived=false`.
+- The server's API only returns the conversion preview, never a valid `PumpCommandMessage` or a fake ACK. There is no POST endpoint, no DB migration, no command insertion and no new dispatch feature flag.
+
+### Orange Pi verification in detached worktree
+
+```bash
+npm run build
+npm run lint
+node --test functions/test/aiPumpSimulation.test.mjs
+node scripts/ai-pump-loopback-simulation.mjs
+```
+
+This is a **software-loopback test**, not proof that the water pump can be operated by current firmware. A supervised, separately approved hardware test with volume-session-capable ESP32, independent water interlock, calibrated flow and final OFF evidence remains required.
