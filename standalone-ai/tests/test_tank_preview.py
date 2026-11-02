@@ -6,10 +6,19 @@ from datetime import timedelta
 from app.tank_preview import estimate_water_tank, estimate_fertilizer_tank
 from app.dashboard_summary import present_shadow_dashboard
 from app.models import Config
+from app.settings import Settings
 from test_dashboard_summary import NOW, decision
 
 
 class TankPreviewTests(unittest.TestCase):
+    def test_updated_nominal_capacity_defaults_do_not_change_worker_heights(self):
+        settings = Settings()
+        self.assertEqual(settings.tank_capacity_l, 5000)
+        self.assertEqual(settings.fert_tank_capacity_l, 500)
+        # These are existing MQTT Worker reference heights, not field calibration.
+        self.assertEqual(settings.tank_height_cm, 180)
+        self.assertEqual(settings.fert_tank_height_cm, 90)
+
     def test_verified_fresh_sensor_estimates_volume_and_compares_fuzzy(self):
         result = estimate_water_tank(
             {"tank_water_level_pct": 50,
