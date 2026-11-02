@@ -194,3 +194,68 @@ export async function stopWaterTrial(commandId: string, actor: string) {
     throw error;
   } finally {c.release();}
 }
+
+/** Saves an operator's independent measurement. Never applies the ratio to control. */
+export async function recordWaterTrialCalibration(
+  commandId: string, physicalMeasuredL: number, note: string, actor: string,
+) {
+  const c=await pool.connect();
+  try {
+    await c.query('BEGIN');
+    const r=await c.query(
+      `SELECT cmd.device_id, ack.raw_payload AS proof
+       FROM spff.control_commands cmd
+       JOIN LATERAL (
+         SELECT raw_payload FROM spff.command_ack_events
+         WHERE command_id=cmd.command_id AND status IN ('completed','rejected')
+         ORDER BY acknowledged_at DESC, ack_event_id DESC LIMIT 1
+       ) ack ON true
+       WHERE cmd.site_id=$1 AND cmd.command_id=$2
+         AND cmd.request_payload ? 'waterTrial'
+       FOR UPDATE OF cmd`,
+      [configuredSiteId,commandId],
+    );
+    const row=r.rows[0];
+    const proof=row?.proof;
+    const reported=proof?.actualWaterL;
+    if (!row || !proof || proof?.actualState?.isActive !== false ||
+        typeof reported !== 'number' || !Number.isFinite(reported) ||
+        reported <= 0 || reported > 10000 ||
+        !String(proof.reason ?? '').startsWith('trial_')) {
+      block('Belum ada ACK final dari ESP32 dengan output OFF dan delta flowmeter valid.');
+    }
+    const factor=physicalMeasuredL/reported;
+    if (!Number.isFinite(factor) || factor <= 0 || factor >= 100) {
+      block('Rasio kalibrasi di luar rentang; periksa pengukuran fisik.');
+    }
+    const existing=(await c.query(
+      `SELECT meter_reported_l,physical_measured_l,provisional_correction_factor,
+              recorded_by,recorded_at,operator_note
+       FROM spff.water_trial_calibrations
+       WHERE site_id=$1 AND command_id=$2 FOR UPDATE`,
+      [configuredSiteId,commandId])).rows[0];
+    if (existing) {
+      if (existing.physical_measured_l !== physicalMeasuredL ||
+          existing.operator_note !== note) {
+        block('Kalibrasi sesi sudah dicatat; nilai tidak boleh ditimpa.');
+      }
+      await c.query('COMMIT');
+      return { commandId, ...existing, status:'PROVISIONAL_ONLY', idempotent:true };
+    }
+    const saved=(await c.query(
+      `INSERT INTO spff.water_trial_calibrations
+       (site_id,command_id,device_id,meter_reported_l,physical_measured_l,
+        provisional_correction_factor,evidence_ack,operator_note,recorded_by)
+       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)
+       RETURNING meter_reported_l,physical_measured_l,provisional_correction_factor,
+                 recorded_by,recorded_at,operator_note`,
+      [configuredSiteId,commandId,row.device_id,reported,physicalMeasuredL,factor,
+       JSON.stringify(proof),note,actor],
+    )).rows[0];
+    await c.query('COMMIT');
+    return {commandId,...saved,status:'PROVISIONAL_ONLY',idempotent:false};
+  } catch (error) {
+    await c.query('ROLLBACK');
+    throw error;
+  } finally {c.release();}
+}
