@@ -1,4 +1,5 @@
 import {getUnifiedAiDashboard} from '../controllers/unifiedAiDashboardController.js';
+import { startCalibrationTrial, readCalibrationTrial, stopCalibrationTrial } from '../controllers/waterTrialController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
 import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
 import {getProtocolGuide,getProtocolGuideHistory,putProtocolGuide} from '../controllers/protocolGuideController.js';
@@ -167,6 +168,13 @@ apiRouter.post(
 
 // Read-only AI observation, protected by the login middleware above.
 apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);
+ 
+// OFF by default: SPFF_WATER_TRIAL_DISPATCH_ENABLED must be explicitly enabled
+// only after firmware capability, power isolation and bench checks.
+apiRouter.post('/water-trials', requireAdmin, requireCsrf, startCalibrationTrial);
+apiRouter.get('/water-trials/:commandId', requireOperator, readCalibrationTrial);
+apiRouter.post('/water-trials/:commandId/stop', requireOperator, requireCsrf, stopCalibrationTrial);
+
 
 apiRouter.get(
   '/bootstrap',
