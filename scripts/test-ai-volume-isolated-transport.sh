@@ -73,6 +73,6 @@ pg_virtualenv -v 14 bash -euo pipefail -c '
   export SPFF_TEST_LIVE_AI_SHADOW=true
   echo "[isolated-test] Running real PostgreSQL + MQTT transport test with live SHADOW AI..."
   cd "$SPFF_REPO_ROOT"
-  node --test functions/test/aiVolumeTrialIsolatedTransport.test.mjs
+  node --test functions/test/aiVolumeTrialIsolatedTransport.test.mjs functions/test/aiVolumeApproval.test.mjs
 '
 echo "[isolated-test] PASS: ephemeral broker and database will be cleaned up."
