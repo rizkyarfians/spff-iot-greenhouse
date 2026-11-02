@@ -31,6 +31,20 @@ export interface IngestionRepository {
   saveDeviceStatus(message: DeviceStatusMessage): Promise<void>;
 }
 
+function isWaterTrialPayload(value: unknown): value is {
+  waterTrial: { durationSec: number; targetWaterL: number };
+} {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  const trial = v.waterTrial;
+  if (!trial || typeof trial !== 'object') return false;
+  const t = trial as Record<string, unknown>;
+  return Number.isSafeInteger(t.durationSec) && typeof t.durationSec === 'number'
+    && t.durationSec >= 5 && t.durationSec <= 60
+    && typeof t.targetWaterL === 'number' && Number.isFinite(t.targetWaterL)
+    && t.targetWaterL >= 1 && t.targetWaterL <= 100;
+}
+
 export interface PendingControlCommand {
   commandId: string;
   siteId: string;
@@ -40,6 +54,7 @@ export interface PendingControlCommand {
   requestedBy: string;
   issuedAt: string;
   expiresAt: string;
+  waterTrial?: { targetWaterL: number; durationSec: number };
 }
 
 export interface CommandDispatchRepository {
@@ -279,8 +294,9 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           completed_at = COALESCE(completed_at, now()),
           reason = COALESCE(reason, 'command_expired'),
           updated_at = now()
-        WHERE status IN ('pending', 'published', 'accepted')
-          AND expires_at <= now()
+        WHERE (status IN ('pending', 'published') AND expires_at <= now())
+           OR (status='accepted' AND request_payload ? 'waterTrial'
+              AND issued_at + ((request_payload->'waterTrial'->>'durationSec')::integer + 60) * interval '1 second' <= now())
       `,
     );
     return result.rowCount ?? 0;
@@ -297,6 +313,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       requested_by: string;
       issued_at: Date | string;
       expires_at: Date | string;
+      request_payload: Record<string, unknown> | null;
     }>(
       `
         SELECT
@@ -307,7 +324,8 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           requested_is_active,
           requested_by,
           issued_at,
-          expires_at
+          expires_at,
+          request_payload
         FROM spff.control_commands
         WHERE status = 'pending'
           AND issued_at <= now()
@@ -339,6 +357,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       requestedBy: row.requested_by,
       issuedAt: iso(row.issued_at),
       expiresAt: iso(row.expires_at),
+      waterTrial: isWaterTrialPayload(row.request_payload) ? row.request_payload.waterTrial : undefined,
     }));
   }
 
