@@ -12,6 +12,7 @@ import {
   queueApprovedAiVolumeTrial,
 } from '../services/aiVolumeApprovalService.js';
 import { AiVolumeApprovalBlocked } from '../services/aiVolumeApprovalPlanning.js';
+import { WaterTrialBlockedError } from '../services/waterTrialService.js';
 import { AiVolumeTrialPreviewBlocked } from '../services/aiVolumeTrialConversion.js';
 
 // Fixed staging loopback; never accept an AI service URL from the browser.
@@ -51,7 +52,7 @@ function handleError(error: unknown, res: Response, next: NextFunction): void {
     res.status(503).json({success:false,data:null,message:error.message});
     return;
   }
-  if (error instanceof AiVolumeApprovalBlocked || error instanceof AiVolumeTrialPreviewBlocked) {
+  if (error instanceof AiVolumeApprovalBlocked || error instanceof AiVolumeTrialPreviewBlocked || error instanceof WaterTrialBlockedError) {
     res.status(409).json({success:false,data:null,message:error.message});
     return;
   }
