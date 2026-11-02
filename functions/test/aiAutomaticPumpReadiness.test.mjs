@@ -50,7 +50,7 @@ test('ephemeral PostgreSQL preflight reads actual Manual/Automatic and ACK evide
   skip:process.env.SPFF_TEST_ISOLATED_TRANSPORT!=='true',
   timeout:15000,
 },async()=>{
-  assert.match(process.env.SPFF_TEST_DB_DIRECTORY??'',/^\\/(?:var\\/)?tmp\\//);
+  assert.match(process.env.SPFF_TEST_DB_DIRECTORY??'',/^\/(?:var\/)?tmp\//);
   assert.equal(process.env.DATABASE_URL,'postgresql://invalid:invalid@127.0.0.1:1/never_used');
   assert.ok(process.env.PGPORT);
   const {default:pgModule}=await import('pg');
