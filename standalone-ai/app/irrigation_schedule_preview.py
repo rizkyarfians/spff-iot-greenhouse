@@ -1,6 +1,6 @@
 """SHADOW-only illustrated two-day irrigation deferral, never an ESP32 schedule.
 
-The SPFF water tank is reported as 1800 L / 180 cm. MQTT Worker converts
+The SPFF water tank nominal capacity is now 5000 L; 180 cm is a worker calibration assumption. MQTT Worker converts
 the legacy tank_water_distance_cm channel as LIQUID HEIGHT from the bottom,
 not the raw top-down transducer distance. Empty/full offset, dead volume,
 tank cross-section and reserve remain UNCALIBRATED. This is an illustrative
@@ -23,7 +23,7 @@ def _finite(value):
 
 
 def illustrate_two_day_irrigation(
-    telemetry, *, now=None, capacity_l=1800, height_cm=180,
+    telemetry, *, now=None, capacity_l=5000, height_cm=180,
     fuzzy_water_l=None, source_current=False, source_read_only=False,
 ):
     now = now or datetime.now(timezone.utc)
