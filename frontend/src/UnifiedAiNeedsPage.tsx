@@ -143,6 +143,9 @@ export function UnifiedAiNeedsPage(){
           {current?'Data keputusan segar':data.status==='STALE'?'Data keputusan lama':'Belum ada keputusan'}
         </span>
       </div>
+      {(tank?.capacity_l!==5000||fertilizerTank?.capacity_l!==500)&&<div className="ain-notice ain-warning" role="alert">
+        <AlertTriangle size={17}/> Kapasitas konfigurasi AI staging belum sesuai konfirmasi operator (air baku 5.000 L, pupuk 500 L). Periksa variabel AI_TANK_CAPACITY_L dan AI_FERT_TANK_CAPACITY_L pada environment service, tanpa mengubah konfigurasi pompa ESP32.
+      </div>}
       <article className="ain-panel ain-irrigation-summary" aria-label="Kebutuhan penyiraman Fuzzy terpisah">
         <div className="ain-panel-heading">
           <h3><Droplets size={18}/> Penyiraman · Fuzzy Mamdani</h3>
@@ -160,7 +163,7 @@ export function UnifiedAiNeedsPage(){
           </>:
           <p className="ain-muted">Hasil Fuzzy tidak tersedia dari telemetry yang memenuhi syarat. Alasan ditampilkan pada pemeriksaan input di bawah.</p>}
       </article>
-      <article className="ain-panel ain-tank-preview" aria-label="Ketersediaan air baku tandon 5000 liter">
+      <article className="ain-panel ain-tank-preview" aria-label="Ketersediaan air baku tandon">
         <div className="ain-panel-heading">
           <h3><Droplets size={18}/> Tandon Air · Estimasi Ketersediaan</h3>
           <span>DATA SENSOR · ESTIMASI LINEAR</span>
@@ -190,7 +193,7 @@ export function UnifiedAiNeedsPage(){
         {tank?.comparison_status==='BELOW_ESTIMATE'&&
           <p className="ain-note"><AlertTriangle size={16}/> Estimasi air tandon kurang dari ilustrasi kebutuhan Fuzzy. Perlu mempertimbangkan pengisian ulang atau rencana bertahap; tidak ada perintah otomatis ke pompa.</p>}
         {!tankReady&&<p className="ain-note">Perhitungan liter tidak ditampilkan karena {tankStatusText.toLowerCase()}. Persentase yang dilaporkan tidak diperlakukan sebagai volume aktual.</p>}
-        <p className="ain-footnote">Kapasitas nominal tandon air baku 5.000 L. Tinggi referensi 180 cm masih mengikuti MQTT Worker dan harus dikonfirmasi di lokasi. Field legacy *_distance_cm berarti tinggi cairan dari dasar, bukan jarak mentah sensor ultrasonik. Konversi ke liter mengasumsikan penampang seragam (≈27,78 L/cm jika tinggi benar). Bentuk tandon, volume mati, batas cadangan, serta kalibrasi belum diverifikasi. Bukan bukti volume aman untuk pompa.</p>
+        <p className="ain-footnote">Kapasitas nominal yang dipakai kalkulasi: {show(tank?.capacity_l,'L')}. Tinggi referensi {show(tank?.tank_height_cm,'cm')} masih mengikuti MQTT Worker dan harus dikonfirmasi di lokasi. Field legacy *_distance_cm berarti tinggi cairan dari dasar, bukan jarak mentah sensor ultrasonik. Konversi ke liter mengasumsikan penampang seragam; tinggi/kapasitas fisik dan dead volume belum dikalibrasi. Bentuk tandon, volume mati, batas cadangan, serta kalibrasi belum diverifikasi. Bukan bukti volume aman untuk pompa.</p>
       </article>
       <article className="ain-panel ain-tank-preview" aria-label="Isi cairan tandon pupuk 500 liter">
         <div className="ain-panel-heading">
@@ -217,7 +220,7 @@ export function UnifiedAiNeedsPage(){
           </div>
         </div>
         {!fertilizerTankReady&&<p className="ain-note">Volume tandon pupuk tidak dihitung jika telemetry terlambat, sensor tidak valid, atau tinggi cairan bertentangan dengan persentase.</p>}
-        <p className="ain-footnote">Kapasitas nominal tandon pupuk 500 L. Tinggi referensi 90 cm berasal dari MQTT Worker, belum dikonfirmasi ulang terhadap fisik tandon. Ini hanya perkiraan jumlah cairan di tandon, <strong>bukan</strong> volume larutan stok yang harus didosis, bukan massa pupuk, dan tidak membuktikan konsentrasi g/L. Rumus linear memerlukan kalibrasi. Tidak mengontrol pompa.</p>
+        <p className="ain-footnote">Kapasitas nominal pada perhitungan: {show(fertilizerTank?.capacity_l,'L')}. Tinggi referensi {show(fertilizerTank?.tank_height_cm,'cm')} mengikuti MQTT Worker, belum dikonfirmasi terhadap fisik tandon. Ini hanya perkiraan jumlah cairan di tandon, <strong>bukan</strong> volume larutan stok yang harus didosis, bukan massa pupuk, dan tidak membuktikan konsentrasi g/L. Rumus linear memerlukan kalibrasi. Tidak mengontrol pompa.</p>
       </article>
       <article className="ain-panel ain-irrigation-schedule" aria-label="Usulan penyiraman hari ini dan besok">
         <div className="ain-panel-heading">
