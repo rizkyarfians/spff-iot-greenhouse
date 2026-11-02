@@ -4,6 +4,13 @@ import { randomUUID } from 'node:crypto';
 
 export class WaterTrialBlockedError extends Error {}
 
+export interface AiWaterTrialProvenance {
+  source: 'ai-shadow-approved-water-trial';
+  approvalId: string;
+  approvalFingerprint: string;
+  fuzzyRecordedAt: string;
+}
+
 function block(reason: string): never {
   throw new WaterTrialBlockedError(reason);
 }
@@ -14,7 +21,7 @@ function fresh(at: unknown, maxAgeMs: number): boolean {
   return Number.isFinite(delta) && delta >= -5000 && delta <= maxAgeMs;
 }
 
-export async function createWaterTrial(input: WaterTrialRequest, actor: string) {
+export async function createWaterTrial(input: WaterTrialRequest, actor: string, provenance?: AiWaterTrialProvenance) {
   if (process.env.SPFF_WATER_TRIAL_DISPATCH_ENABLED !== 'true') {
     block('Trial pump belum diaktifkan di server staging.');
   }
@@ -30,8 +37,16 @@ export async function createWaterTrial(input: WaterTrialRequest, actor: string) 
     if (existing.rows[0]) {
       const old = existing.rows[0];
       const trial = old.request_payload?.waterTrial;
+      const expectedSource = provenance?.source ?? 'operator-calibration-trial';
+      const previousOrigin = old.request_payload?.aiApproval;
       if (old.requested_by !== `trial:water:${actor.slice(0,60)}` ||
           old.request_payload?.deviceId !== input.deviceId ||
+          old.request_payload?.source !== expectedSource ||
+          (provenance && (
+            previousOrigin?.approvalId !== provenance.approvalId ||
+            previousOrigin?.approvalFingerprint !== provenance.approvalFingerprint ||
+            previousOrigin?.fuzzyRecordedAt !== provenance.fuzzyRecordedAt
+          )) ||
           trial?.targetWaterL !== input.targetWaterL ||
           trial?.durationSec !== input.durationSec) {
         block('commandId telah digunakan untuk permintaan lain.');
@@ -129,8 +144,16 @@ export async function createWaterTrial(input: WaterTrialRequest, actor: string) 
        VALUES($1,$2,$3,'pump_water',true,$4,now(),now()+interval '15 seconds',$5::jsonb)`,
       [input.commandId,configuredSiteId,input.deviceId,
        `trial:water:${actor.slice(0,60)}`,
-       JSON.stringify({ source:'operator-calibration-trial', deviceId:input.deviceId,
-         waterTrial: { targetWaterL:input.targetWaterL, durationSec:input.durationSec } })],
+       JSON.stringify({
+         source: provenance?.source ?? 'operator-calibration-trial',
+         deviceId: input.deviceId,
+         ...(provenance ? { aiApproval: {
+           approvalId: provenance.approvalId,
+           approvalFingerprint: provenance.approvalFingerprint,
+           fuzzyRecordedAt: provenance.fuzzyRecordedAt,
+         }} : {}),
+         waterTrial: { targetWaterL:input.targetWaterL, durationSec:input.durationSec },
+       })],
     );
     await c.query('COMMIT');
     return { commandId: input.commandId, status:'pending', idempotent:false };
