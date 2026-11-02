@@ -1,4 +1,4 @@
-"""Read-only water tank estimate for the SPFF staging dashboard.
+"""Read-only water and fertilizer-tank estimates for SPFF staging.
 
 A 1,800 L tank with an effective water height of 180 cm was provided by
 the operator. The proportional (linear) model is a visual approximation only:
@@ -19,7 +19,7 @@ def _value(value):
     return number if isfinite(number) else None
 
 
-def estimate_water_tank(telemetry, *, capacity_l=1800.0, height_cm=180.0,
+def estimate_water_tank(telemetry, *, capacity_l=5000.0, height_cm=180.0,
                         source_current=False, source_read_only=False,
                         fuzzy_water_l=None):
     """Never estimate available liters from stale or unverified sensor data."""
@@ -84,5 +84,57 @@ def estimate_water_tank(telemetry, *, capacity_l=1800.0, height_cm=180.0,
             else "BELOW_ESTIMATE" if delta is not None
             else "NOT_COMPARABLE"
         ),
+        "can_dispatch": False,
+    }
+
+
+
+def estimate_fertilizer_tank(telemetry, *, capacity_l=500.0, height_cm=90.0,
+                             source_current=False, source_read_only=False):
+    """Approximate inventory volume only, NOT stock dose or nutrient concentration.
+
+    Worker tankLevels.ts defines tank_fert_distance_cm as *liquid height*
+    from bottom (not raw ultrasonic clearance). Reject any invalid/inconsistent
+    distance and percent; a transport-valid sample is not physical calibration.
+    """
+    capacity, height = _value(capacity_l), _value(height_cm)
+    if capacity is None or height is None or capacity <= 0 or height <= 0:
+        raise ValueError("fertilizer tank dimensions must be finite and positive")
+    telemetry = telemetry if isinstance(telemetry, dict) else {}
+    raw = _value(telemetry.get("tank_fert_level_pct"))
+    level = raw if raw is not None and 0 <= raw <= 100 else None
+    liquid_height = _value(telemetry.get("tank_fert_distance_cm"))
+    health = telemetry.get("sensor_health")
+    health = health if isinstance(health, dict) else {}
+    level_diag = health.get("tank_fert_level_pct")
+    height_diag = health.get("tank_fert_distance_cm")
+    valid = (isinstance(level_diag, dict)
+             and level_diag.get("valid") is True
+             and isinstance(height_diag, dict)
+             and height_diag.get("valid") is True)
+
+    if not source_read_only or not telemetry:
+        status = "NO_DATA"
+    elif not source_current:
+        status = "STALE"
+    elif raw is None or liquid_height is None:
+        status = "NO_DATA"
+    elif level is None or not 0 <= liquid_height <= height:
+        status = "OUT_OF_RANGE"
+    elif not valid:
+        status = "UNVERIFIED"
+    elif abs(level - liquid_height / height * 100) > 1.0:
+        status = "ORIENTATION_CONFLICT"
+    else:
+        status = "ESTIMATED"
+    return {
+        "basis": "LINEAR_LEVEL_APPROXIMATION",
+        "capacity_l": capacity,
+        "tank_height_cm": height,
+        "reported_level_pct": level,
+        "sensor_valid": valid,
+        "estimated_liquid_height_cm": height * level / 100 if status == "ESTIMATED" else None,
+        "estimated_liquid_volume_l": capacity * level / 100 if status == "ESTIMATED" else None,
+        "level_status": status,
         "can_dispatch": False,
     }
