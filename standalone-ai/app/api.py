@@ -132,6 +132,8 @@ def create_app(settings=None, config=None, store=None):
                 stock_bindings=state.get('guide_stock_bindings', {}),
                 tank_capacity_l=settings.tank_capacity_l,
                 tank_height_cm=settings.tank_height_cm,
+                fert_tank_capacity_l=settings.fert_tank_capacity_l,
+                fert_tank_height_cm=settings.fert_tank_height_cm,
                 water_carryover_state=state,
             )
         except Exception:
