@@ -28,6 +28,9 @@ export function planAiVolumeApproval(
   if (!actor.trim() || actor.length > 200) {
     throw new AiVolumeApprovalBlocked('Actor tidak valid.');
   }
+  if (summary.sensors.device_mode !== 'automatic') {
+    throw new AiVolumeApprovalBlocked('Approval AI hanya tersedia saat device Automatic.');
+  }
   // Approval request includes audit-only keys which are forbidden by the
   // strict software-trial input contract. Pass only conversion parameters.
   const candidate = convertAiFuzzyToSoftwareTrial(summary, {
