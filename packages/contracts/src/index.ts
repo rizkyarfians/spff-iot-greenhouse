@@ -427,7 +427,11 @@ export function isCommandAckMessage(value: unknown): value is CommandAckMessage 
     typeof value.targetId === 'string' &&
     ['accepted', 'completed', 'rejected', 'timed_out'].includes(String(value.status)) &&
     actualStateValid &&
-    (value.reason === undefined || typeof value.reason === 'string')
+    (value.reason === undefined || typeof value.reason === 'string') &&
+    (value.actualWaterL === undefined || (typeof value.actualWaterL === 'number'
+      && Number.isFinite(value.actualWaterL) && value.actualWaterL >= 0 && value.actualWaterL <= 10000)) &&
+    (value.elapsedSec === undefined || (typeof value.elapsedSec === 'number'
+      && Number.isSafeInteger(value.elapsedSec) && value.elapsedSec >= 0 && value.elapsedSec <= 3600))
   );
 }
 
