@@ -12,18 +12,57 @@ function sample(overrides={}) {
     evaluated_at: '2026-11-01T10:46:56.258014+00:00',
     planning_recorded_at: '2026-11-02T05:36:35+00:00',
     decision: { type: 'HOLD', proposed_action:'FERTIGATE', hold_reasons: ['manual_mode_blocks_automatic_start'], configuration_version: null },
-    sensors: { device_mode: 'manual' },
-    tank_preview: { level_status: 'NO_DATA' },
-    fertilizer_tank_preview: { level_status: 'NO_DATA' },
-    feedback: { status:'STALE', reported_off:false, boot_matches:false, water_pump:null, fert_pump:null },
-    calculation: { water_l:null, duration_seconds:null },
-    flow_reference: { basis: 'UNVERIFIED_HISTORICAL_COUNTER_DELTAS' },
+    sensors: {
+      recorded_at: '2026-11-02T05:36:35+00:00',
+      soil_moisture_pct: null, soil_2_moisture_pct: 29,
+      soil_1_valid: false, soil_2_valid: true,
+      control_moisture_source: 'soil_2_moisture',
+      water_tank_pct: null, stock_tank_pct: null, device_mode: 'manual',
+    },
+    tank_preview: {
+      basis: 'LINEAR_LEVEL_APPROXIMATION', capacity_l: 5000, tank_height_cm: 180,
+      reported_level_pct: null, sensor_valid: false, estimated_water_height_cm: null,
+      estimated_available_l: null, fuzzy_demand_l: 372.68072660731696,
+      theoretical_balance_l: null, level_status: 'NO_DATA',
+      comparison_status: 'NOT_COMPARABLE', can_dispatch: false,
+    },
+    fertilizer_tank_preview: {
+      basis: 'LINEAR_LEVEL_APPROXIMATION', capacity_l: 500, tank_height_cm: 90,
+      reported_level_pct: null, sensor_valid: false, estimated_liquid_height_cm: null,
+      estimated_liquid_volume_l: null, level_status: 'NO_DATA', can_dispatch: false,
+    },
+    irrigation_schedule_preview: {
+      status: 'SOURCE_UNAVAILABLE', basis: 'REPORTED_LIQUID_HEIGHT_UNCALIBRATED',
+      today_date: '2026-11-02', tomorrow_date: '2026-11-03',
+      reported_liquid_height_cm: null, illustrative_available_l: null,
+      fuzzy_demand_l: null, today_absolute_max_l: null, tomorrow_at_least_l: null,
+      reserve_l: null, is_firm_schedule: false, can_dispatch: false,
+    },
+    water_carryover: {
+      status: 'NO_PLAN', plan_id: null, planning_date: null, next_review_date: null,
+      frozen_fuzzy_target_l: null, device_reported_delivered_l: null,
+      remaining_for_reassessment_l: null, credited_session_count: 0,
+      last_device_session_at: null, evidence_basis: 'DEVICE_SESSION_UNCALIBRATED',
+      requires_fresh_reassessment: true, can_dispatch: false,
+    },
+    feedback: {
+      status:'STALE', reported_off:false, boot_matches:false,
+      water_pump:null, fert_pump:null, reported_at:null,
+    },
+    calculation: {
+      water_l:null, stock_l:null, fertilizer_mass_g:null,
+      duration_seconds:null, fuzzy_score:null,
+    },
+    flow_reference: null,
     fuzzy_preview_blockers: [],
     fuzzy_preview: {
-      basis: 'SIMULATION_PROFILE', input_key: 'soil_2_moisture',
-      illustrative_water_l: 372.68072660731696,
+      basis: 'SIMULATION_PROFILE', config_version: 'simulation-1',
+      input_key: 'soil_2_moisture', moisture_pct: 29, score: 0.745,
+      illustrative_water_l: 372.68072660731696, model_max_irrigation_l:500,
       recorded_at: '2026-11-02T05:36:35+00:00',
     },
+    programs: [],
+    note: 'SHADOW preview only',
     ...overrides,
   };
 }
@@ -47,7 +86,7 @@ test('stale sensor, snapshot mismatch and missing Fuzzy fail closed for mock can
     {fuzzy_preview_blockers:['sensor_raw_poll_not_verified']},
     {planning_recorded_at:'2026-11-02T05:30:00+00:00'},
     {fuzzy_preview:null},
-    {fuzzy_preview:{basis:'SIMULATION_PROFILE',input_key:'soil_2_moisture',illustrative_water_l:0.5,recorded_at:'2026-11-02T05:36:35+00:00'}},
+    {fuzzy_preview:{...sample().fuzzy_preview,illustrative_water_l:0.5}},
   ]){
     const result=prepareAiPumpSimulation(sample(changed));
     assert.equal(result.mockCandidate,null);
