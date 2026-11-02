@@ -28,7 +28,7 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
   const pg = new Pool({
     host: process.env.PGHOST,
     port: Number(process.env.PGPORT),
-    database: process.env.PGDATABASE ?? 'postgres',
+    database: 'postgres', // same disposable DB where the wrapper applies migrations
     user: process.env.PGUSER,
     max: 3,
     connectionTimeoutMillis: 4000,
