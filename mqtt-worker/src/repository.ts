@@ -296,9 +296,9 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           updated_at = now()
         WHERE (status IN ('pending', 'published') AND expires_at <= now())
            OR (status='accepted' AND (
-              (request_payload ? 'waterTrial' AND
+              (COALESCE(request_payload ? 'waterTrial', false) AND
                 issued_at + ((request_payload->'waterTrial'->>'durationSec')::integer + 60) * interval '1 second' <= now())
-              OR (NOT (request_payload ? 'waterTrial') AND expires_at <= now())
+              OR (NOT COALESCE(request_payload ? 'waterTrial', false) AND expires_at <= now())
            ))
       `,
     );
@@ -1239,7 +1239,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
             -- QoS1 delayed/duplicated ACK must not resurrect terminal commands.
             AND (status NOT IN ('completed','rejected','timed_out') OR status = $2)
             -- A timed trial can never complete while relay is reported ON.
-            AND (NOT (request_payload ? 'waterTrial') OR $2 <> 'completed' OR $8::boolean = false)
+            AND (NOT COALESCE(request_payload ? 'waterTrial', false) OR $2 <> 'completed' OR $8::boolean = false)
           RETURNING command_id
         `,
         [message.commandId, status, acknowledgedAt, reason,
