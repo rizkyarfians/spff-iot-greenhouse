@@ -53,7 +53,7 @@ test('source lower than operator cap retains actual Fuzzy result without exceedi
   source.fuzzy_preview.illustrative_water_l=2.345678;
   const result=convertAiFuzzyToSoftwareTrial(source,{deviceId:'esp32-s3-01',trialCapL:5,durationSec:15},now);
   assert.equal(result.conversion.targetWaterL,2.345);
-  assert.equal(result.conversion.capped,true);
+  assert.equal(result.conversion.capped,false);
 });
 
 test('fails closed for stale, mismatched, blocked, or insufficient SHADOW planning', () => {

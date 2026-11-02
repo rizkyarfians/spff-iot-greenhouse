@@ -4,7 +4,6 @@ import {
   isPumpCommandMessage, mqttTopics, aiVolumeTrialPreviewSchema,
 } from '@spff/contracts';
 import { convertAiFuzzyToSoftwareTrial } from '../lib/services/aiVolumeTrialConversion.js';
-import { CommandDispatchService } from '../../mqtt-worker/dist/commandDispatchService.js';
 import { IngestionService } from '../../mqtt-worker/dist/ingestionService.js';
 
 function shadowFixture(now) {
@@ -25,6 +24,10 @@ function shadowFixture(now) {
 }
 
 async function runSoftwarePipeline(summary, now=new Date()) {
+  // The dispatcher's config validates DATABASE_URL at import; this dummy value
+  // is never opened because the test injects an in-memory repository.
+  process.env.DATABASE_URL ??= 'postgresql://unused:unused@127.0.0.1:1/ai_test_only';
+  const { CommandDispatchService } = await import('../../mqtt-worker/dist/commandDispatchService.js');
   const draft=convertAiFuzzyToSoftwareTrial(summary,
     {deviceId:'esp32-s3-01',trialCapL:5,durationSec:30},now);
   assert.equal(aiVolumeTrialPreviewSchema.safeParse(draft).success,true);

@@ -83,7 +83,7 @@ export function convertAiFuzzyToSoftwareTrial(
       strategy: 'CAP_BY_OPERATOR_TEST_LIMIT',
       operatorCapL: input.trialCapL,
       targetWaterL: target,
-      capped: target < preview.illustrative_water_l,
+      capped: preview.illustrative_water_l > input.trialCapL,
       durationSec: input.durationSec,
       durationBasis: 'OPERATOR_MAX_TIMEOUT_NOT_ESTIMATED_FLOW',
     },
