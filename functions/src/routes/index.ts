@@ -1,4 +1,5 @@
 import {getUnifiedAiDashboard} from '../controllers/unifiedAiDashboardController.js';
+import {getAiDispatchReadiness} from '../controllers/aiDispatchReadinessController.js';
 import { startCalibrationTrial, readCalibrationTrial, stopCalibrationTrial, saveCalibrationMeasurement } from '../controllers/waterTrialController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
 import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
@@ -168,6 +169,8 @@ apiRouter.post(
 
 // Read-only AI observation, protected by the login middleware above.
 apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);
+// Read-only preparation; never creates an actuator command.
+apiRouter.get('/unified-ai/dispatch-readiness', requireOperator, getAiDispatchReadiness);
  
 // OFF by default: SPFF_WATER_TRIAL_DISPATCH_ENABLED must be explicitly enabled
 // only after firmware capability, power isolation and bench checks.

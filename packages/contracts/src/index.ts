@@ -1055,3 +1055,4 @@ export * from './adaptiveFertigation.js';
 export * from './unifiedAiDashboard.js';
 
 export * from './waterTrial.js';
+export * from './aiDispatchReadiness.js';
