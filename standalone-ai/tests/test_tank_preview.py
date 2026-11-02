@@ -3,7 +3,7 @@ import unittest
 from decimal import Decimal
 from datetime import timedelta
 
-from app.tank_preview import estimate_water_tank
+from app.tank_preview import estimate_water_tank, estimate_fertilizer_tank
 from app.dashboard_summary import present_shadow_dashboard
 from app.models import Config
 from test_dashboard_summary import NOW, decision
@@ -28,12 +28,12 @@ class TankPreviewTests(unittest.TestCase):
 
     def test_insufficient_is_only_a_theoretical_comparison(self):
         result = estimate_water_tank(
-            {"tank_water_level_pct": 10,
+            {"tank_water_level_pct": 5,
              "sensor_health": {"tank_water_level_pct": {"valid": True}}},
             source_current=True, source_read_only=True, fuzzy_water_l=378.61,
         )
-        self.assertEqual(result["estimated_available_l"], 180)
-        self.assertAlmostEqual(result["theoretical_balance_l"], -198.61)
+        self.assertEqual(result["estimated_available_l"], 250)
+        self.assertAlmostEqual(result["theoretical_balance_l"], -128.61)
         self.assertEqual(result["comparison_status"], "BELOW_ESTIMATE")
         self.assertFalse(result["can_dispatch"])
 
@@ -88,7 +88,7 @@ class TankPreviewTests(unittest.TestCase):
             "telemetry": {
                 "recorded_at": NOW.isoformat(),
                 "received_at": NOW.isoformat(),
-                "tank_water_level_pct": 20,
+                "tank_water_level_pct": 5,
                 "soil_2_moisture": 27.6,
                 "sensor_health": {
                     "tank_water_level_pct": {"valid": True},
@@ -109,7 +109,7 @@ class TankPreviewTests(unittest.TestCase):
             [row], NOW, Config(), planning_observation=obs)
         tank = result["tank_preview"]
         self.assertIsNotNone(result["fuzzy_preview"])
-        self.assertEqual(tank["estimated_available_l"], 360)
+        self.assertEqual(tank["estimated_available_l"], 250)
         self.assertEqual(tank["fuzzy_demand_l"], result["fuzzy_preview"]["illustrative_water_l"])
         self.assertEqual(tank["comparison_status"], "BELOW_ESTIMATE")
         self.assertFalse(result["can_dispatch"])
@@ -120,6 +120,76 @@ class TankPreviewTests(unittest.TestCase):
         self.assertEqual(stale["tank_preview"]["level_status"], "STALE")
         self.assertIsNone(stale["tank_preview"]["estimated_available_l"])
         self.assertIsNone(stale["fuzzy_preview"])
+
+    def test_fertilizer_tank_estimates_inventory_not_dose(self):
+        sample = {
+            "tank_fert_distance_cm": 23.4,
+            "tank_fert_level_pct": 26.0,
+            "sensor_health": {
+                "tank_fert_distance_cm": {"valid": True},
+                "tank_fert_level_pct": {"valid": True},
+            },
+        }
+        result = estimate_fertilizer_tank(
+            sample, source_current=True, source_read_only=True)
+        self.assertEqual(result["level_status"], "ESTIMATED")
+        self.assertEqual(result["capacity_l"], 500)
+        self.assertEqual(result["tank_height_cm"], 90)
+        self.assertAlmostEqual(result["estimated_liquid_volume_l"], 130)
+        self.assertAlmostEqual(result["estimated_liquid_height_cm"], 23.4)
+        self.assertNotIn("fuzzy_demand_l", result)
+        self.assertNotIn("fertilizer_mass_g", result)
+        self.assertFalse(result["can_dispatch"])
+
+    def test_fertilizer_tank_unverified_or_stale_is_not_inventory(self):
+        original = {
+            "tank_fert_distance_cm": 23.4,
+            "tank_fert_level_pct": 26.0,
+            "sensor_health": {
+                "tank_fert_distance_cm": {"valid": True},
+                "tank_fert_level_pct": {"valid": True},
+            },
+        }
+        for sample, fresh, source, expected in (
+            (original, False, True, "STALE"),
+            (original, True, False, "NO_DATA"),
+            ({**original, "tank_fert_level_pct": 90}, True, True, "ORIENTATION_CONFLICT"),
+            ({**original, "tank_fert_distance_cm": 100}, True, True, "OUT_OF_RANGE"),
+            ({**original, "sensor_health": {}}, True, True, "UNVERIFIED"),
+            ({**original, "tank_fert_level_pct": None}, True, True, "NO_DATA"),
+        ):
+            with self.subTest(expected=expected):
+                result = estimate_fertilizer_tank(
+                    sample, source_current=fresh, source_read_only=source)
+                self.assertEqual(result["level_status"], expected)
+                self.assertIsNone(result["estimated_liquid_volume_l"])
+
+    def test_dashboard_exposes_separate_nominal_tanks(self):
+        row = decision()
+        obs = {
+            **row["input_snapshot"],
+            "schema_compatible": True,
+            "telemetry": {
+                "recorded_at": NOW.isoformat(),
+                "received_at": NOW.isoformat(),
+                "tank_water_distance_cm": 90.0,
+                "tank_water_level_pct": 50.0,
+                "tank_fert_distance_cm": 23.4,
+                "tank_fert_level_pct": 26.0,
+                "sensor_health": {
+                    "tank_water_distance_cm": {"valid": True},
+                    "tank_water_level_pct": {"valid": True},
+                    "tank_fert_distance_cm": {"valid": True},
+                    "tank_fert_level_pct": {"valid": True},
+                },
+            },
+        }
+        result = present_shadow_dashboard([row], NOW, planning_observation=obs)
+        self.assertEqual(result["tank_preview"]["capacity_l"], 5000)
+        self.assertEqual(result["tank_preview"]["estimated_available_l"], 2500)
+        self.assertEqual(result["fertilizer_tank_preview"]["capacity_l"], 500)
+        self.assertEqual(result["fertilizer_tank_preview"]["estimated_liquid_volume_l"], 130)
+        self.assertFalse(result["can_dispatch"])
 
     def test_invalid_dimensions_rejected(self):
         for bad in (0, -2, float("nan"), float("inf")):
