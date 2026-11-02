@@ -66,7 +66,9 @@ class TwoDayDeferralTests(unittest.TestCase):
         tank = estimate_water_tank(self.sample, source_current=True,
                                    source_read_only=True, fuzzy_water_l=374.15)
         self.assertEqual(tank["level_status"], "ESTIMATED")
-        self.assertAlmostEqual(tank["estimated_available_l"], 1598)
+        # Tank preview uses rounded reported percent (88.8%), not the
+        # unrounded liquid-height ratio (159.8 / 180).
+        self.assertAlmostEqual(tank["estimated_available_l"], 1598.4)
         self.assertGreater(tank["theoretical_balance_l"], 0)
 
     def test_stale_missing_invalid_prevent_any_plan(self):
