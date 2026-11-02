@@ -9,3 +9,10 @@ export const waterTrialRequestSchema = z.object({
   confirmation: z.literal('RUN_CALIBRATION_TRIAL'),
 }).strict();
 export type WaterTrialRequest = z.infer<typeof waterTrialRequestSchema>;
+
+/** Operator measured volume independently using a physical reference vessel. */
+export const waterTrialCalibrationSchema = z.object({
+  physicalMeasuredL: z.number().finite().positive().max(10000),
+  note: z.string().max(500).default(''),
+}).strict();
+export type WaterTrialCalibration = z.infer<typeof waterTrialCalibrationSchema>;
