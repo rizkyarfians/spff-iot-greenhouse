@@ -28,7 +28,13 @@ export function planAiVolumeApproval(
   if (!actor.trim() || actor.length > 200) {
     throw new AiVolumeApprovalBlocked('Actor tidak valid.');
   }
-  const candidate = convertAiFuzzyToSoftwareTrial(summary, request, now);
+  // Approval request includes audit-only keys which are forbidden by the
+  // strict software-trial input contract. Pass only conversion parameters.
+  const candidate = convertAiFuzzyToSoftwareTrial(summary, {
+    deviceId: request.deviceId,
+    trialCapL: request.trialCapL,
+    durationSec: request.durationSec,
+  }, now);
   const { expected } = request;
   const exactSource = candidate.source.recordedAt === expected.sourceRecordedAt &&
     candidate.source.configVersion === expected.configVersion &&
