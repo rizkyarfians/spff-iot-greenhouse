@@ -1,6 +1,7 @@
 import {getUnifiedAiDashboard} from '../controllers/unifiedAiDashboardController.js';
 import {getAiDispatchReadiness} from '../controllers/aiDispatchReadinessController.js';
 import {postAiVolumeTrialPreview} from '../controllers/aiVolumeTrialController.js';
+import {postAiVolumeApproval,readAiVolumeApproval,queueAiVolumeApproval} from '../controllers/aiVolumeApprovalController.js';
 import { startCalibrationTrial, readCalibrationTrial, stopCalibrationTrial, saveCalibrationMeasurement } from '../controllers/waterTrialController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
 import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
@@ -174,6 +175,12 @@ apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);
 apiRouter.get('/unified-ai/dispatch-readiness', requireOperator, getAiDispatchReadiness);
 // Operator can request a SHADOW Fuzzy conversion preview. Never queues a pump command.
 apiRouter.post('/unified-ai/volume-trial-preview', requireOperator, requireCsrf, postAiVolumeTrialPreview);
+// Two-step admin + CSRF approval. Approval is a non-actuating audit record.
+apiRouter.post('/unified-ai/volume-trial-approvals', requireAdmin, requireCsrf, postAiVolumeApproval);
+apiRouter.get('/unified-ai/volume-trial-approvals/:approvalId', requireOperator, readAiVolumeApproval);
+// OFF by default: both SPFF_AI_FUZZY_TRIAL_DISPATCH_ENABLED and
+// SPFF_WATER_TRIAL_DISPATCH_ENABLED plus firmware/interlocks are required.
+apiRouter.post('/unified-ai/volume-trial-approvals/:approvalId/queue', requireAdmin, requireCsrf, queueAiVolumeApproval);
  
 // OFF by default: SPFF_WATER_TRIAL_DISPATCH_ENABLED must be explicitly enabled
 // only after firmware capability, power isolation and bench checks.
