@@ -41,6 +41,7 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
   const broker = 'mqtt://127.0.0.1:18884';
   const clients = [];
   const messageErrors = [];
+  let processedAcks = 0;
 
   async function connectTestClient(label) {
     const client = connect(broker, {
@@ -134,7 +135,9 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
     const ingester = new IngestionService(repository);
     worker.on('message',(topic,payload)=>{
       if(topic !== ackTopic)return;
-      void ingester.process(topic,payload).catch(error=>messageErrors.push(error));
+      void ingester.process(topic,payload)
+        .then(() => { processedAcks += 1; })
+        .catch(error=>messageErrors.push(error));
     });
     await worker.subscribeAsync(ackTopic,{qos:1});
 
@@ -183,7 +186,12 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
       result=>result.rows[0]?.status==='completed','OFF completion ACK',
     );
     await sendAck(completed); // Duplicate QoS1 delivery must not create a second ledger row.
-    await sleep(150);
+    await until(
+      'SELECT COUNT(*)::int AS n FROM spff.command_ack_events WHERE command_id=$1',
+      [commandId],
+      result => processedAcks >= 4 && result.rows[0]?.n === 3,
+      'all four ACK packets ingested and duplicate deduplicated',
+    );
     const records=await pg.query(
       'SELECT status,actual_is_active FROM spff.command_ack_events WHERE command_id=$1 ORDER BY acknowledged_at',
       [commandId],
