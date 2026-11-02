@@ -3,6 +3,7 @@ import {
   aiVolumeApprovalRequestSchema,
   aiVolumeApprovalSnapshotSchema,
   type AiVolumeApprovalRequest,
+  type UnifiedAiDashboard,
 } from '@spff/contracts';
 import type { Pool } from 'pg';
 import { pool, configuredSiteId } from './postgresRepository.js';
