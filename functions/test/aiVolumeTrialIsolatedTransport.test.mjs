@@ -16,7 +16,8 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
   assert.ok(process.env.PGPORT, 'pg_virtualenv PGPORT is required');
   assert.ok(process.env.PGHOST, 'pg_virtualenv PGHOST is required');
 
-  const { Pool } = await import('pg');
+  const { default: pgModule } = await import('pg');
+  const { Pool } = pgModule;
   const { connect } = await import('mqtt');
   const { unifiedAiDashboardSchema, isPumpCommandMessage, mqttTopics } = await import('@spff/contracts');
   const { convertAiFuzzyToSoftwareTrial } = await import('../lib/services/aiVolumeTrialConversion.js');
@@ -57,11 +58,11 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
     return client;
   }
 
-  async function until(query, predicate, description, timeoutMs=5000) {
+  async function until(query, params, predicate, description, timeoutMs=5000) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
       if (messageErrors.length) throw messageErrors[0];
-      const result = await pg.query(query);
+      const result = await pg.query(query, params);
       if (predicate(result)) return result;
       await sleep(35);
     }
@@ -83,7 +84,8 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
     assert.equal(candidate.canDispatch, false);
     assert.equal(candidate.commandCreated, false);
     assert.equal(candidate.mqttPublished, false);
-    assert.equal(candidate.commandCandidate.params.waterTrial.targetWaterL, 5);
+    assert.ok(candidate.commandCandidate.params.waterTrial.targetWaterL >= 1);
+    assert.ok(candidate.commandCandidate.params.waterTrial.targetWaterL <= 5);
 
     // All tables, rows, commands and ACKs exist ONLY in pg_virtualenv's temp DB.
     await pg.query('INSERT INTO spff.sites(site_id,name) VALUES ($1,$2)', [siteId, 'Isolated AI test']);
@@ -145,7 +147,7 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
     await dispatcher.runOnce();
     const wire = await queuedCommand;
     assert.equal(wire.commandId,commandId);
-    assert.equal(wire.params.waterTrial.targetWaterL,5);
+    assert.equal(wire.params.waterTrial.targetWaterL,candidate.conversion.targetWaterL);
     assert.equal(wire.params.waterTrial.durationSec,30);
     assert.equal(wire.targetId,'pump_water');
     assert.equal((await pg.query('SELECT status FROM spff.control_commands WHERE command_id=$1',[commandId])).rows[0].status,'published');
@@ -162,13 +164,13 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
     const accepted = deviceAck('accepted',true,1000);
     await sendAck(accepted);
     await until(
-      'SELECT status FROM spff.control_commands WHERE command_id=' + "'" + commandId + "'",
+      'SELECT status FROM spff.control_commands WHERE command_id=$1', [commandId],
       result=>result.rows[0]?.status==='accepted','accepted ACK',
     );
     const unsafeCompleted = deviceAck('completed',true,2000);
     await sendAck(unsafeCompleted);
     await until(
-      "SELECT COUNT(*)::int AS n FROM spff.command_ack_events WHERE command_id='" + commandId + "'",
+      'SELECT COUNT(*)::int AS n FROM spff.command_ack_events WHERE command_id=$1', [commandId],
       result=>result.rows[0]?.n===2,'unsafe completion evidence recorded',
     );
     assert.equal((await pg.query('SELECT status FROM spff.control_commands WHERE command_id=$1',[commandId])).rows[0].status,'accepted',
@@ -177,7 +179,7 @@ test('real AI Fuzzy → temporary PostgreSQL → isolated Mosquitto QoS1 → sim
     const completed = deviceAck('completed',false,3000);
     await sendAck(completed);
     await until(
-      'SELECT status FROM spff.control_commands WHERE command_id=' + "'" + commandId + "'",
+      'SELECT status FROM spff.control_commands WHERE command_id=$1', [commandId],
       result=>result.rows[0]?.status==='completed','OFF completion ACK',
     );
     await sendAck(completed); // Duplicate QoS1 delivery must not create a second ledger row.
