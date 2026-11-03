@@ -391,29 +391,36 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
                   AND st.online = true AND st.mode = 'automatic'
                   AND st.recorded_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
                   AND st.received_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
-                  -- 1.5.06 is NOT accepted until its actual firmware contract is verified.
-                  AND st.firmware_version LIKE '1.5.04-WATER-TRIAL-AI-ACC-%'
+                  -- Exactly the validated firmware contract, not a prefix downgrade.
+                  AND st.firmware_version = '1.5.07-AI-ACC-SESSION'
                   AND st.raw_payload->>'aiAccWaterTrialCapable' = 'true'
                   AND st.raw_payload->>'timedWaterTrialCapable' = 'true'
-                  AND st.raw_payload->>'waterInterlockEnabled' = 'true'
+                  -- Independent MCU tank guard remains mandatory even if the
+                  -- operator deliberately disabled the configurable interlock.
+                  AND st.raw_payload->>'aiAccTankGuardCapable' = 'true'
+                  AND st.raw_payload->>'aiAccTankGuardHealthy' = 'true'
+                  AND st.raw_payload->>'pumpReadbackValid' = 'true'
+                  AND st.raw_payload->>'pumpWaterActualActive' = 'false'
+                  AND st.raw_payload->>'pumpFertActualActive' = 'false'
+                  AND st.raw_payload->>'aiAccSessionActive' = 'false'
                   AND st.raw_payload->>'pulseBootId' = request_payload->'waterTrial'->>'bootId'
+                  AND EXISTS (
+                    SELECT 1 FROM spff.device_water_interlock_configs wi
+                    WHERE wi.site_id = st.site_id AND wi.device_id = st.device_id
+                      AND wi.acknowledgement_status = 'applied'
+                      AND wi.acknowledged_revision = wi.revision
+                      AND wi.enabled = wi.applied_enabled
+                      AND st.raw_payload->>'waterInterlockEnabled' = wi.applied_enabled::text
+                  )
               )
-              AND EXISTS (
-                SELECT 1 FROM spff.device_water_interlock_configs wi
-                WHERE wi.site_id = spff.control_commands.site_id
-                  AND wi.device_id = spff.control_commands.device_id
-                  AND wi.enabled = true AND wi.applied_enabled = true
-                  AND wi.acknowledgement_status = 'applied'
-                  AND wi.acknowledged_revision = wi.revision
-              )
-              -- Both actual OFF reports must be recent; stale OFF is not proof.
+              -- Historical state rows must agree, but their age is NOT live
+              -- proof. The fresh 1.5.07 register-level heartbeat above is.
               AND (
                 SELECT count(*) FROM spff.latest_actuator_states a
                 WHERE a.site_id = spff.control_commands.site_id
                   AND a.device_id = spff.control_commands.device_id
                   AND a.actuator_key IN ('pump_water','pump_fert')
                   AND a.state = 'inactive' AND a.is_active = false
-                  AND a.received_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
               ) = 2
               AND EXISTS (
                 SELECT 1 FROM (

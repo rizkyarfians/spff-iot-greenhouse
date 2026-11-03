@@ -2,6 +2,7 @@ import type { AiAccWaterTrialRequest, AiAccWaterTrialQueued, UnifiedAiDashboard 
 import { aiAccWaterTrialQueuedSchema } from '@spff/contracts';
 import { pool, configuredSiteId } from './postgresRepository.js';
 import { AiAccWaterTrialBlocked, freshTimestamp, planAiAccWaterTrial } from './aiAccWaterTrialPolicy.js';
+import { requireAiAccHardwareEvidence, requireAiAccInterlockAgreement, type AiAccDeviceEvidence, type AiAccInterlockEvidence } from './aiAccHardwareSafety.js';
 
 function block(message: string): never { throw new AiAccWaterTrialBlocked(message); }
 
@@ -62,38 +63,25 @@ export async function queueAiAccWaterTrial(
     );
     if (device.rows[0]?.enabled !== true) block('Device disabled atau tidak ditemukan.');
 
-    const status = await client.query<{
-      online: boolean;
-      mode: string | null;
-      recorded_at: Date | null;
-      firmware_version: string | null;
-      raw_payload: Record<string, unknown> | null;
-    }>(
-      ['SELECT online,mode,recorded_at,firmware_version,raw_payload',
+    // Latest MCU heartbeat must match the exact 1.5.07 protocol, current boot,
+    // independent healthy tank guard and fresh register-level OFF readback.
+    const status = await client.query<AiAccDeviceEvidence>(
+      ['SELECT online,mode,recorded_at,received_at,firmware_version,raw_payload',
        'FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2',
        'ORDER BY received_at DESC,device_status_id DESC LIMIT 1'].join(' '),
       [configuredSiteId, input.deviceId],
     );
-    const deviceStatus = status.rows[0];
-    if (!deviceStatus || deviceStatus.online !== true ||
-        deviceStatus.mode !== 'automatic' ||
-        !freshTimestamp(deviceStatus.recorded_at, new Date(), 45000)) {
-      block('ESP32 belum online, fresh dan Automatic.');
-    }
-    if (!deviceStatus.firmware_version?.startsWith('1.5.04-WATER-TRIAL-AI-ACC-') ||
-        deviceStatus.raw_payload?.aiAccWaterTrialCapable !== true ||
-        deviceStatus.raw_payload?.timedWaterTrialCapable !== true) {
-      block('Firmware ESP32 ACC session belum mengiklankan capability yang diharapkan.');
-    }
-    if (deviceStatus.raw_payload?.waterInterlockEnabled !== true) {
-      block('Firmware harus melaporkan interlock air aktif.');
-    }
-    // Firmware binds AI trial to this specific MCU boot. A later reboot
-    // invalidates an old command and prevents replay against new hardware state.
-    const bootId = deviceStatus.raw_payload?.pulseBootId;
-    if (typeof bootId !== 'string' || !/^[0-9a-f]{16}$/i.test(bootId)) {
-      block('Boot ID ESP32 tidak tersedia atau tidak valid.');
-    }
+    const { bootId, interlockEnabled } = requireAiAccHardwareEvidence(status.rows[0]);
+
+    // Dashboard interlock OFF can be intentional. Never bypass the independent
+    // firmware tank guard; require saved and applied configuration to agree.
+    const interlock = await client.query<AiAccInterlockEvidence>(
+      ['SELECT enabled,applied_enabled,acknowledgement_status,revision,acknowledged_revision',
+       'FROM spff.device_water_interlock_configs',
+       'WHERE site_id=$1 AND device_id=$2'].join(' '),
+      [configuredSiteId, input.deviceId],
+    );
+    requireAiAccInterlockAgreement(interlock.rows[0], interlockEnabled);
 
     const control = await client.query<{
       desired_mode: string;
@@ -115,6 +103,8 @@ export async function queueAiAccWaterTrial(
       block('Automatic belum ACK applied dari ESP32.');
     }
 
+    // Historical state rows alone may be old; the fresh MCU readback above
+    // independently confirms both outputs OFF at this heartbeat.
     const states = await client.query<{ actuator_key: string; is_active: boolean | null; state: string }>(
       ['SELECT actuator_key,is_active,state FROM spff.latest_actuator_states',
        'WHERE site_id=$1 AND device_id=$2 AND actuator_key IN (\'pump_water\',\'pump_fert\')'].join(' '),
