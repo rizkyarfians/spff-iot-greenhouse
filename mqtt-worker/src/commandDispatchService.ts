@@ -1,5 +1,6 @@
 import type { PumpCommandMessage } from "@spff/contracts";
 import { config } from "./config.js";
+import { aiAccDispatchBlocker } from "./aiAccDispatchGuard.js";
 import type {
   CommandDispatchRepository,
   PendingControlCommand,
@@ -61,6 +62,13 @@ export class CommandDispatchService {
   }
 
   private async dispatch(command: PendingControlCommand): Promise<void> {
+    const blocker = aiAccDispatchBlocker(command, config.aiAcc.workerDispatchEnabled);
+    if (blocker) {
+      console.warn("[command-dispatch] AI ACC refused before MQTT publish", {
+        commandId: command.commandId, blocker,
+      });
+      return;
+    }
     const message: PumpCommandMessage = {
       schemaVersion: 1,
       siteId: command.siteId,

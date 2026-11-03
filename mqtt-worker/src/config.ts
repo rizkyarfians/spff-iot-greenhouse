@@ -79,6 +79,13 @@ export const config = {
     pollIntervalMs: numberFromEnvironment("COMMAND_POLL_INTERVAL_MS", 1_000),
     batchSize: numberFromEnvironment("COMMAND_BATCH_SIZE", 20),
   },
+  // Separate, explicitly opt-in gate. The operational worker defaults to NO AI actuation.
+  aiAcc: {
+    workerDispatchEnabled: booleanFromEnvironment(
+      "SPFF_AI_ACC_WORKER_DISPATCH_ENABLED",
+      false,
+    ),
+  },
   schedule: {
     executionMode: scheduleExecutionMode(),
     pollIntervalMs: numberFromEnvironment("SCHEDULE_POLL_INTERVAL_MS", 1_000),

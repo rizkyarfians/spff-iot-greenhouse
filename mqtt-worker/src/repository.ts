@@ -32,7 +32,7 @@ export interface IngestionRepository {
 }
 
 function isWaterTrialPayload(value: unknown): value is {
-  waterTrial: { durationSec: number; targetWaterL: number };
+  waterTrial: { durationSec: number; targetWaterL: number; bootId?: string };
 } {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
@@ -42,7 +42,9 @@ function isWaterTrialPayload(value: unknown): value is {
   return typeof t.durationSec === 'number' && Number.isSafeInteger(t.durationSec)
     && t.durationSec >= 5 && t.durationSec <= 60
     && typeof t.targetWaterL === 'number' && Number.isFinite(t.targetWaterL)
-    && t.targetWaterL >= 1 && t.targetWaterL <= 100;
+    && t.targetWaterL >= 1 && t.targetWaterL <= 100
+    && (t.bootId === undefined ||
+      (typeof t.bootId === 'string' && /^[a-f0-9]{16}$/i.test(t.bootId)));
 }
 
 export interface PendingControlCommand {
@@ -54,7 +56,10 @@ export interface PendingControlCommand {
   requestedBy: string;
   issuedAt: string;
   expiresAt: string;
-  waterTrial?: { targetWaterL: number; durationSec: number };
+  source?: string;
+  aiAccConfirmation?: string;
+  aiAccExpectedEvaluatedAt?: string;
+  waterTrial?: { targetWaterL: number; durationSec: number; bootId?: string };
 }
 
 export interface CommandDispatchRepository {
@@ -333,19 +338,130 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         WHERE status = 'pending'
           AND issued_at <= now()
           AND expires_at > now()
-          AND (requested_is_active = false OR (requested_by NOT LIKE 'schedule:%' AND EXISTS (
-            SELECT 1 FROM spff.device_automatic_control_configs mode_config
-            WHERE mode_config.site_id = spff.control_commands.site_id
-              AND mode_config.device_id = spff.control_commands.device_id
-              AND mode_config.acknowledgement_status = 'applied'
-              AND mode_config.acknowledged_revision = mode_config.revision
-              AND mode_config.applied_mode = mode_config.desired_mode
-              AND mode_config.desired_mode = 'manual'
-          )))
+          AND (
+            -- Never mistake a queued AI ACC trial for a Manual dashboard command.
+            requested_is_active = false
+            OR (
+              requested_by NOT LIKE 'schedule:%'
+              AND requested_by NOT LIKE 'trial:water:ai:%'
+              AND COALESCE(request_payload->>'source', '') <> 'ai-operator-acc-water-only-trial'
+              AND EXISTS (
+                SELECT 1 FROM spff.device_automatic_control_configs mode_config
+                WHERE mode_config.site_id = spff.control_commands.site_id
+                  AND mode_config.device_id = spff.control_commands.device_id
+                  AND mode_config.acknowledgement_status = 'applied'
+                  AND mode_config.acknowledged_revision = mode_config.revision
+                  AND mode_config.applied_mode = 'manual'
+                  AND mode_config.desired_mode = 'manual'
+              )
+            )
+            OR (
+              -- Staging-only Automatic branch. The flag defaults FALSE.
+              $2::boolean = true
+              AND requested_is_active = true
+              AND actuator_key = 'pump_water'
+              AND requested_by LIKE 'trial:water:ai:%'
+              AND request_payload->>'source' = 'ai-operator-acc-water-only-trial'
+              AND request_payload->'aiAcc'->>'confirmation' = 'APPROVE_AI_WATER_ONLY_TRIAL'
+              AND request_payload->'waterTrial'->>'bootId' ~ '^[0-9a-fA-F]{16}$'
+              AND EXISTS (
+                SELECT 1 FROM spff.devices d
+                WHERE d.site_id = spff.control_commands.site_id
+                  AND d.device_id = spff.control_commands.device_id
+                  AND d.enabled = true
+              )
+              AND EXISTS (
+                SELECT 1 FROM spff.device_automatic_control_configs m
+                WHERE m.site_id = spff.control_commands.site_id
+                  AND m.device_id = spff.control_commands.device_id
+                  AND m.desired_mode = 'automatic'
+                  AND m.applied_mode = 'automatic'
+                  AND m.acknowledgement_status = 'applied'
+                  AND m.acknowledged_revision = m.revision
+              )
+              AND EXISTS (
+                SELECT 1 FROM spff.device_status_events st
+                WHERE st.site_id = spff.control_commands.site_id
+                  AND st.device_id = spff.control_commands.device_id
+                  AND st.device_status_id = (
+                    SELECT max(latest.device_status_id)
+                    FROM spff.device_status_events latest
+                    WHERE latest.site_id = st.site_id AND latest.device_id = st.device_id
+                  )
+                  AND st.online = true AND st.mode = 'automatic'
+                  AND st.recorded_at >= now() - interval '30 seconds'
+                  AND st.received_at >= now() - interval '30 seconds'
+                  -- 1.5.06 is NOT accepted until its actual firmware contract is verified.
+                  AND st.firmware_version LIKE '1.5.04-WATER-TRIAL-AI-ACC-%'
+                  AND st.raw_payload->>'aiAccWaterTrialCapable' = 'true'
+                  AND st.raw_payload->>'timedWaterTrialCapable' = 'true'
+                  AND st.raw_payload->>'waterInterlockEnabled' = 'true'
+                  AND st.raw_payload->>'pulseBootId' = request_payload->'waterTrial'->>'bootId'
+              )
+              AND EXISTS (
+                SELECT 1 FROM spff.device_water_interlock_configs wi
+                WHERE wi.site_id = spff.control_commands.site_id
+                  AND wi.device_id = spff.control_commands.device_id
+                  AND wi.enabled = true AND wi.applied_enabled = true
+                  AND wi.acknowledgement_status = 'applied'
+                  AND wi.acknowledged_revision = wi.revision
+              )
+              -- Both actual OFF reports must be recent; stale OFF is not proof.
+              AND (
+                SELECT count(*) FROM spff.latest_actuator_states a
+                WHERE a.site_id = spff.control_commands.site_id
+                  AND a.device_id = spff.control_commands.device_id
+                  AND a.actuator_key IN ('pump_water','pump_fert')
+                  AND a.state = 'inactive' AND a.is_active = false
+                  AND a.received_at >= now() - interval '30 seconds'
+              ) = 2
+              AND EXISTS (
+                SELECT 1 FROM (
+                  SELECT t.recorded_at,t.received_at,t.sensor_health,t.flow_water_total_l
+                  FROM spff.telemetry_samples t
+                  WHERE t.site_id = spff.control_commands.site_id
+                    AND t.device_id = spff.control_commands.device_id
+                  ORDER BY t.received_at DESC, t.telemetry_id DESC LIMIT 1
+                ) recent
+                WHERE recent.recorded_at >= now() - interval '30 seconds'
+                  AND recent.received_at >= now() - interval '30 seconds'
+                  AND recent.sensor_health->'tank_water_distance_cm'->>'valid' = 'true'
+                  AND recent.sensor_health->'flow_water_total_l'->>'valid' = 'true'
+                  AND recent.flow_water_total_l IS NOT NULL
+                  AND recent.flow_water_total_l >= 0
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM spff.control_commands other
+                WHERE other.site_id = spff.control_commands.site_id
+                  AND other.device_id = spff.control_commands.device_id
+                  AND other.command_id <> spff.control_commands.command_id
+                  AND other.status IN ('pending','published','accepted')
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM spff.actuator_schedules s
+                WHERE s.site_id = spff.control_commands.site_id
+                  AND s.device_id = spff.control_commands.device_id
+                  AND s.enabled = true
+                  AND s.actuator_key IN ('pump_water','pump_fert')
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM spff.soil_ec_pulse_sessions s
+                WHERE s.site_id = spff.control_commands.site_id
+                  AND s.device_id = spff.control_commands.device_id
+                  AND s.status IN ('waiting','in_flight','fault')
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM spff.adaptive_fert_sessions s
+                WHERE s.site_id = spff.control_commands.site_id
+                  AND s.device_id = spff.control_commands.device_id
+                  AND s.status NOT IN ('completed','fault')
+              )
+            )
+          )
         ORDER BY issued_at ASC, created_at ASC
         LIMIT $1
       `,
-      [safeLimit],
+      [safeLimit, config.aiAcc.workerDispatchEnabled],
     );
 
     const iso = (value: Date | string) =>
@@ -360,6 +476,12 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       requestedBy: row.requested_by,
       issuedAt: iso(row.issued_at),
       expiresAt: iso(row.expires_at),
+      source: typeof row.request_payload?.source === 'string'
+        ? row.request_payload.source : undefined,
+      aiAccConfirmation: typeof (row.request_payload?.aiAcc as Record<string, unknown> | undefined)?.confirmation === 'string'
+        ? (row.request_payload?.aiAcc as Record<string, string>).confirmation : undefined,
+      aiAccExpectedEvaluatedAt: typeof (row.request_payload?.aiAcc as Record<string, unknown> | undefined)?.expectedEvaluatedAt === 'string'
+        ? (row.request_payload?.aiAcc as Record<string, string>).expectedEvaluatedAt : undefined,
       waterTrial: isWaterTrialPayload(row.request_payload) ? row.request_payload.waterTrial : undefined,
     }));
   }
