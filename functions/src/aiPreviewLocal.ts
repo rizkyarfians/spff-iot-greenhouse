@@ -2,6 +2,7 @@ import express from 'express';
 import { unifiedAiDashboardSchema } from '@spff/contracts';
 import { createAiDispatchReadinessController } from './controllers/aiDispatchReadinessController.js';
 import { createAiCommandPreparationController } from './controllers/aiCommandPreparationController.js';
+import { getAiSafetyEvidence } from './controllers/aiSafetyEvidenceController.js';
 
 // Independent preview process. NEVER mount the operational SPFF router here:
 // that router exposes mutation, actuator and login endpoints.
@@ -66,6 +67,8 @@ app.get('/api/unified-ai/dashboard', async (_req, res) => {
 app.get('/api/unified-ai/dispatch-readiness', createAiDispatchReadinessController(pythonPort));
 // Blocked draft with no executable payload; localhost-only GET.
 app.get('/api/unified-ai/command-preparation', createAiCommandPreparationController(pythonPort));
+// Read-only PostgreSQL evidence; remains blocked even if individual checks pass.
+app.get('/api/unified-ai/safety-evidence', getAiSafetyEvidence);
 // No authentication, actuator, evaluation, MQTT, registration or write routes.
 // This process must remain localhost-only behind an SSH tunnel.
 app.use((_req, res) => {

@@ -1057,3 +1057,4 @@ export * from './unifiedAiDashboard.js';
 export * from './waterTrial.js';
 export * from './aiDispatchReadiness.js';
 export * from './aiCommandPreparation.js';
+export * from './aiSafetyEvidence.js';

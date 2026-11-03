@@ -34,7 +34,7 @@ test('isolated preview exposes read-only readiness but no actuator routes', { ti
   const port = await freeLoopbackPort();
   const child = spawn(process.execPath, ['functions/lib/aiPreviewLocal.js'], {
     cwd: process.cwd(),
-    env: { ...process.env, SPFF_AI_STAGING: 'true', AI_PREVIEW_API_PORT: String(port), AI_PREVIEW_PYTHON_PORT: '5011' },
+    env: { ...process.env, SPFF_AI_STAGING: 'true', AI_PREVIEW_API_PORT: String(port), AI_PREVIEW_PYTHON_PORT: '5011', SPFF_AI_SAFETY_DB_ENABLED: 'false' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let stderr = '';
@@ -73,6 +73,15 @@ test('isolated preview exposes read-only readiness but no actuator routes', { ti
       method: 'POST', signal: AbortSignal.timeout(1000),
     });
     assert.equal(writePreparation.status, 404, 'Preparation must not accept POST');
+    const safety = await fetch(base + '/api/unified-ai/safety-evidence', {
+      signal: AbortSignal.timeout(2000),
+    });
+    assert.equal(safety.status, 200);
+    const safetyBody = await safety.json();
+    assert.equal(safetyBody.data.source, 'NOT_CONFIGURED');
+    assert.equal(safetyBody.data.canDispatch, false);
+    assert.equal(safetyBody.data.commandCreated, false);
+    assert.equal(safetyBody.data.checks.bootIdentityVerified, 'UNKNOWN');
     const pumpRoute = await fetch(base + '/api/pumps', { signal: AbortSignal.timeout(1000) });
     assert.equal(pumpRoute.status, 404, 'Actuator routes must not exist in preview');
     const commandRoute = await fetch(base + '/api/pumps/water', {
