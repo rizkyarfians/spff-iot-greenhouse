@@ -42,3 +42,32 @@ test('SQL excludes AI ACC from Manual command branch and requires explicit gate 
   assert.match(sql, /other\.status IN \('pending','published','accepted'\)/);
   assert.match(sql, /NOT EXISTS \(\s*SELECT 1 FROM spff\.actuator_schedules/);
 });
+
+test('AI mode is checked again before MQTT publish; OFF/SHADOW are blocked', async () => {
+  const command = {
+    commandId: '735c5f48-6845-4a60-a770-1780c521e751',
+    siteId: 'greenhouse-01',
+    deviceId: 'esp32-s3-01',
+    actuatorKey: 'pump_water',
+    requestedIsActive: true,
+    requestedBy: 'trial:water:ai:admin',
+    issuedAt: '2026-11-03T09:00:00.000Z',
+    expiresAt: '2026-11-03T09:00:15.000Z',
+    source: 'ai-operator-acc-water-only-trial',
+  };
+  let sql = '';
+  const pool = {
+    async query(text: string, values: unknown[] = []) {
+      sql = text;
+      assert.deepEqual(values, [command.commandId, command.siteId, command.deviceId]);
+      return {rows:[{allowed:false}],rowCount:1};
+    },
+    async connect() { throw new Error('unexpected connection'); },
+    async end() {},
+  } as unknown as DatabasePool;
+  const repo = new PostgresIngestionRepository(pool);
+  assert.equal(await repo.recheckAiDispatch(command),false);
+  assert.match(sql,/mode\.mode='live'/);
+  assert.match(sql,/c\.status='pending'/);
+  assert.match(sql,/c\.expires_at > now\(\)/);
+});
