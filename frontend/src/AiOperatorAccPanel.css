@@ -14,3 +14,13 @@
 .ain-acc-error,.ain-acc-blocked strong,.ain-acc-blocked p{display:flex;align-items:center;gap:6px}
 .ain-acc-blocked ul{padding-left:20px;max-height:200px;overflow-y:auto;overflow-wrap:anywhere;line-height:1.6}
 @media(max-width:620px){.ain-operator-acc>.ain-panel-heading{align-items:flex-start;flex-direction:column}.ain-acc-summary{grid-template-columns:minmax(0,1fr)}.ain-acc-check{width:100%}}
+
+.ain-acc-live{margin-top:18px;padding-top:16px;border-top:1px solid #ccd9cf}
+.ain-acc-live h4{margin:0;font-size:14px;color:#1c4e36}
+.ain-acc-live p{font-size:12px;line-height:1.6}
+.ain-acc-live-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.ain-acc-live-fields label{display:flex;flex-direction:column;gap:7px;font-size:12px}
+.ain-acc-live-fields input{width:100%;min-width:0;border:1px solid #c4d2c8;border-radius:8px;padding:9px;background:white;color:#203f2d}
+.ain-acc-live-status{margin-top:14px;padding:12px;border:1px solid #c4d2c8;border-radius:8px;overflow-wrap:anywhere}
+.ain-acc-live-status button{padding:10px 14px;border-radius:8px;border:1px solid #a73932;background:#fff5f4;color:#8c2924;font-weight:700}
+@media(max-width:620px){.ain-acc-live-fields{grid-template-columns:1fr}}

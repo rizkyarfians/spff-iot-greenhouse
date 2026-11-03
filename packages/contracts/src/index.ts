@@ -1060,3 +1060,5 @@ export * from './aiCommandPreparation.js';
 export * from './aiSafetyEvidence.js';
 
 export * from './aiOperatorAcc.js';
+
+export * from './aiAccWaterTrial.js';

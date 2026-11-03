@@ -968,3 +968,26 @@ export function fetchAiAccPreparation(signal?: AbortSignal) {
     { signal },
   )
 }
+
+ 
+// Operational API only (port 3001); never mounted on unauthenticated preview.
+export function startAiAccWaterTrial(input: import('@spff/contracts').AiAccWaterTrialRequest) {
+  return request<import('@spff/contracts').AiAccWaterTrialQueued>('/unified-ai/operator-acc/water-trial', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+export function fetchAiAccWaterTrialStatus(commandId: string) {
+  return request<import('@spff/contracts').AiAccTrialStatus>(
+    '/water-trials/' + encodeURIComponent(commandId),
+  )
+}
+
+export function requestAiAccWaterTrialStop(commandId: string) {
+  return request<{commandId:string;status:string;idempotent:boolean}>(
+    '/water-trials/' + encodeURIComponent(commandId) + '/stop',
+    { method: 'POST' },
+  )
+}

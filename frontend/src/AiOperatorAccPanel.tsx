@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ClipboardCheck, ShieldAlert } from 'lucide-react';
-import type { AiOperatorAccResult, UnifiedAiDashboard } from '@spff/contracts';
-import { checkAiOperatorAccDryRun, fetchAiAccPreparation } from './api';
+import type { AiOperatorAccResult, AiAccTrialStatus, UnifiedAiDashboard } from '@spff/contracts';
+import { checkAiOperatorAccDryRun, fetchAiAccPreparation, startAiAccWaterTrial, fetchAiAccWaterTrialStatus, requestAiAccWaterTrialStop } from './api';
 import './AiOperatorAccPanel.css';
 
 const previewOnly = import.meta.env.DEV && import.meta.env.VITE_SPFF_AI_PREVIEW === 'true';
+
+// Local-browser UUID without Math.random; WebCrypto getRandomValues also works on LAN HTTP.
+function createCommandId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+  return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+}
 
 export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | null }) {
   const action = report?.decision.proposed_action;
@@ -14,9 +24,17 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
   const [error, setError] = useState('');
   const [result, setResult] = useState<AiOperatorAccResult | null>(null);
   const [previewReasons, setPreviewReasons] = useState<string[] | null>(null);
+  const [physicalConfirmed, setPhysicalConfirmed] = useState(false);
+  const [trialCapL, setTrialCapL] = useState(1);
+  const [durationSec, setDurationSec] = useState(10);
+  const [liveCommandId, setLiveCommandId] = useState<string | null>(null);
+  const [liveStatus, setLiveStatus] = useState<AiAccTrialStatus | null>(null);
+  const [livePending, setLivePending] = useState(false);
+  const [stopRequested, setStopRequested] = useState(false);
 
   useEffect(() => {
     setConfirmed(false);
+    setPhysicalConfirmed(false);
     setResult(null);
     setPreviewReasons(null);
     setError('');
@@ -51,6 +69,67 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
     }
   }
 
+  useEffect(() => {
+    if (!liveCommandId || previewOnly) return;
+    let active = true;
+    let busy = false;
+    const refresh = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const update = await fetchAiAccWaterTrialStatus(liveCommandId);
+        if (active) setLiveStatus(update);
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : 'Tidak bisa membaca ACK.');
+      } finally {
+        busy = false;
+      }
+    };
+    void refresh();
+    const timer = setInterval(() => { void refresh(); }, 2000);
+    return () => { active = false; clearInterval(timer); };
+  }, [liveCommandId]);
+
+  const aiWaterL = report?.calculation.water_l ?? null;
+  const canPhysicalTrial = !previewOnly && !!report && report.status === 'CURRENT' &&
+    canReview && report.sensors.device_mode === 'automatic' &&
+    aiWaterL !== null && aiWaterL >= 1 &&
+    report.decision.hold_reasons.length === 0;
+  const liveTerminal = ['completed','rejected','timed_out','expired','failed'].includes(liveStatus?.status ?? '');
+
+  async function startPhysicalTrial() {
+    if (!canPhysicalTrial || !confirmed || !physicalConfirmed ||
+        livePending || liveCommandId !== null || !report?.evaluated_at ||
+        (action !== 'IRRIGATE' && action !== 'FERTIGATE')) return;
+    setLivePending(true);
+    setError('');
+    try {
+      const queued = await startAiAccWaterTrial({
+        deviceId: 'esp32-s3-01',
+        commandId: createCommandId(),
+        expectedAction: action,
+        expectedEvaluatedAt: report.evaluated_at,
+        trialCapL, durationSec,
+        confirmation: 'APPROVE_AI_WATER_ONLY_TRIAL',
+      });
+      setLiveCommandId(queued.commandId);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'ACC gagal; tidak ada command yang diantrekan.');
+    } finally { setLivePending(false); }
+  }
+
+  async function stopPhysicalTrial() {
+    if (!liveCommandId || stopRequested || liveTerminal) return;
+    setStopRequested(true);
+    try {
+      await requestAiAccWaterTrialStop(liveCommandId);
+      // A queued STOP is NOT proof that the physical pump is OFF.
+    } catch (cause) {
+      setStopRequested(false);
+      setError(cause instanceof Error ? cause.message : 'STOP gagal diantrekan.');
+    }
+  }
+
   const reasons = result?.blockers ?? previewReasons ?? [];
   return (
     <article className="ain-panel ain-operator-acc" aria-label="Trial ACC operator">
@@ -81,6 +160,50 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
           {result?.decisionMatched && <p><CheckCircle2 size={15}/> Keputusan cocok, tetapi bukan izin dispatch.</p>}
           <ul>{reasons.map(reason => <li key={reason}>{reason.replaceAll('_', ' ').toLowerCase()}</li>)}</ul>
         </div>
+      )}
+      {!previewOnly && (
+        <section className="ain-acc-live" aria-label="ACC water-only supervised commissioning">
+          <h4>ACC & Jalankan Uji Pompa Air (Operator)</h4>
+          <p>Trial fisik ini hanya mengalirkan AIR ke wadah ukur. FERTIGATE dari AI tidak
+            berarti pompa pupuk dinyalakan. Semua safety gate backend dan firmware tetap berlaku.</p>
+          <div className="ain-acc-live-fields">
+            <label>Volume maksimum uji (liter)
+              <input type="number" min={1} max={5} step={0.5} value={trialCapL}
+                disabled={!!liveCommandId} onChange={event => setTrialCapL(Number(event.target.value))}/>
+            </label>
+            <label>Timeout lokal ESP32 (detik)
+              <input type="number" min={5} max={30} step={1} value={durationSec}
+                disabled={!!liveCommandId} onChange={event => setDurationSec(Number(event.target.value))}/>
+            </label>
+          </div>
+          <label className="ain-acc-confirm">
+            <input type="checkbox" checked={physicalConfirmed} disabled={!!liveCommandId}
+              onChange={event => setPhysicalConfirmed(event.target.checked)}/>
+            <span>Operator berada di site, sensor tandon/flow siap, arahkan air ke wadah ukur,
+              pompa pupuk OFF, STOP fisik tersedia dan tidak ada jadwal otomatis.</span>
+          </label>
+          <button type="button" className="ain-acc-check" onClick={() => { void startPhysicalTrial(); }}
+            disabled={!canPhysicalTrial || !confirmed || !physicalConfirmed || livePending ||
+              !!liveCommandId || !Number.isFinite(trialCapL) || trialCapL < 1 || trialCapL > 5 ||
+              !Number.isInteger(durationSec) || durationSec < 5 || durationSec > 30}>
+            {livePending ? 'Mengirim permintaan ACC…' : 'ACC Operator & Antrekan Trial Air'}
+          </button>
+          {!canPhysicalTrial && <p className="ain-acc-error">
+            <AlertTriangle size={15}/> Perintah fisik belum tersedia:
+            perlu AI CURRENT, rencana liter operasional, dan mode Automatic.
+          </p>}
+          {liveCommandId && (
+            <div className="ain-acc-live-status" role="status">
+              <strong>Command {liveCommandId}</strong>
+              <p>Status: {liveStatus?.status ?? 'pending / menunggu pembacaan ACK'}</p>
+              <p>Menunggu ACK ESP32 dan actual state. Pending bukan bukti pompa ON.</p>
+              <button type="button" onClick={() => { void stopPhysicalTrial(); }}
+                disabled={stopRequested || liveTerminal}>
+                {stopRequested ? 'STOP diantrekan; verifikasi OFF fisik' : 'STOP pompa air'}
+              </button>
+            </div>
+          )}
+        </section>
       )}
       <p className="ain-footnote">
         {previewOnly

@@ -86,6 +86,10 @@ test('isolated preview exposes read-only readiness but no actuator routes', { ti
       method: 'POST', signal: AbortSignal.timeout(1000),
     });
     assert.equal(accidentalAcc.status, 404, 'Unauthenticated preview must never expose operator ACC POST');
+    const liveAcc = await fetch(base + '/api/unified-ai/operator-acc/water-trial', {
+      method: 'POST', signal: AbortSignal.timeout(1000),
+    });
+    assert.equal(liveAcc.status, 404, 'Preview must not expose physical trial POST');
     const pumpRoute = await fetch(base + '/api/pumps', { signal: AbortSignal.timeout(1000) });
     assert.equal(pumpRoute.status, 404, 'Actuator routes must not exist in preview');
     const commandRoute = await fetch(base + '/api/pumps/water', {
