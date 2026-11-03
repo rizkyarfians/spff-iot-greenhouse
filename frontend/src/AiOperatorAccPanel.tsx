@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ClipboardCheck, ShieldAlert } from 'lucide-react';
-import type { AiOperatorAccResult, AiAccTrialStatus, UnifiedAiDashboard } from '@spff/contracts';
-import { checkAiOperatorAccDryRun, fetchAiAccPreparation, startAiAccWaterTrial, fetchAiAccWaterTrialStatus, requestAiAccWaterTrialStop } from './api';
+import type { AiOperatorAccResult, AiAccTrialStatus, UnifiedAiDashboard, AiExecutionMode, AiExecutionModeState } from '@spff/contracts';
+import { checkAiOperatorAccDryRun, fetchAiAccPreparation, startAiAccWaterTrial, fetchAiAccWaterTrialStatus, requestAiAccWaterTrialStop, fetchAiExecutionMode, updateAiExecutionMode } from './api';
 import './AiOperatorAccPanel.css';
 
 const previewOnly = import.meta.env.DEV && import.meta.env.VITE_SPFF_AI_PREVIEW === 'true';
@@ -31,6 +31,67 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
   const [liveStatus, setLiveStatus] = useState<AiAccTrialStatus | null>(null);
   const [livePending, setLivePending] = useState(false);
   const [stopRequested, setStopRequested] = useState(false);
+  // This setting is device-scoped and persisted in local PostgreSQL.
+  const deviceId = 'esp32-s3-01';
+  const [aiMode, setAiMode] = useState<AiExecutionModeState | null>(null);
+  const [chosenAiMode, setChosenAiMode] = useState<AiExecutionMode>('shadow');
+  const [aiModeError, setAiModeError] = useState('');
+  const [savingAiMode, setSavingAiMode] = useState(false);
+  const [confirmLive, setConfirmLive] = useState(false);
+
+  async function refreshAiMode() {
+    if (previewOnly) return;
+    try {
+      const response = await fetchAiExecutionMode(deviceId);
+      setAiMode(response);
+      setChosenAiMode(response.mode);
+      setAiModeError('');
+      setConfirmLive(false);
+    } catch (cause) {
+      setAiMode(null); // fail closed
+      setAiModeError(cause instanceof Error ? cause.message : 'Mode AI tidak dapat dibaca.');
+    }
+  }
+
+  useEffect(() => {
+    if (previewOnly) return;
+    let active = true;
+    void fetchAiExecutionMode(deviceId)
+      .then(response => {
+        if (!active) return;
+        setAiMode(response);
+        setChosenAiMode(response.mode);
+      })
+      .catch(cause => {
+        if (!active) return;
+        setAiModeError(cause instanceof Error ? cause.message : 'Mode AI tidak dapat dibaca.');
+      });
+    return () => { active = false; };
+  }, []);
+
+  async function saveAiMode() {
+    if (previewOnly || !aiMode || savingAiMode || chosenAiMode === aiMode.mode ||
+        (chosenAiMode === 'live' && (!aiMode.liveSelectable || !confirmLive))) return;
+    setSavingAiMode(true);
+    setAiModeError('');
+    try {
+      const saved = await updateAiExecutionMode({
+        deviceId,
+        mode: chosenAiMode,
+        expectedRevision: aiMode.revision,
+        confirmation: chosenAiMode === 'live' ? 'ENABLE_AI_LIVE_SUPERVISED' : 'CHANGE_AI_MODE',
+      });
+      setAiMode(saved);
+      setChosenAiMode(saved.mode);
+      setConfirmLive(false);
+    } catch(cause) {
+      setAiModeError(cause instanceof Error ? cause.message : 'Mode AI gagal disimpan.');
+      void refreshAiMode();
+    } finally {
+      setSavingAiMode(false);
+    }
+  }
+
 
   useEffect(() => {
     setConfirmed(false);
@@ -91,7 +152,7 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
   }, [liveCommandId]);
 
   const aiWaterL = report?.calculation.water_l ?? null;
-  const canPhysicalTrial = !previewOnly && !!report && report.status === 'CURRENT' &&
+  const canPhysicalTrial = !previewOnly && aiMode?.mode === 'live' && !!report && report.status === 'CURRENT' &&
     canReview && report.sensors.device_mode === 'automatic' &&
     aiWaterL !== null && aiWaterL >= 1 &&
     report.decision.hold_reasons.length === 0;
@@ -134,15 +195,64 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
   return (
     <article className="ain-panel ain-operator-acc" aria-label="Trial ACC operator">
       <div className="ain-panel-heading">
-        <h3><ClipboardCheck size={18} /> Trial AI · ACC Operator</h3>
-        <span>STAGING · DRY-RUN</span>
+        <h3><ClipboardCheck size={18} /> Mode AI &amp; ACC Operator</h3>
+        <span>{previewOnly ? 'PREVIEW · SHADOW' : aiMode?.mode === 'live' ? 'LIVE SUPERVISED' : 'AI · NON-AKTUASI'}</span>
       </div>
+      <section className="ain-mode-settings" aria-label="Pengaturan mode eksekusi AI">
+        <div className="ain-mode-heading">
+          <h4>Mode eksekusi AI</h4>
+          <button type="button" onClick={() => { void refreshAiMode(); }}
+            disabled={previewOnly || savingAiMode}>Refresh</button>
+        </div>
+        <p>Berbeda dari selector Manual / Automatic ESP32. Mengubah mode AI tidak
+          mengubah selector, tidak otomatis menjalankan pompa, dan bukan perintah STOP.</p>
+        <div className="ain-mode-current" role="status">
+          <strong>{previewOnly ? 'SHADOW · Preview read-only' :
+            aiMode ? aiMode.mode.toUpperCase() : 'Mode belum terverifikasi'}</strong>
+          <small>{previewOnly ? 'Tidak ada perintah pompa dari preview.' :
+            aiMode ? `Revisi ${aiMode.revision} · ${aiMode.updatedAt ? new Date(aiMode.updatedAt).toLocaleString('id-ID', {timeZone:'Asia/Jakarta'}) + ' WIB' : 'default SHADOW'}` :
+            'Gagal membaca PostgreSQL/API. Eksekusi diblokir.'}</small>
+        </div>
+        {!previewOnly && aiMode && (
+          <>
+            <label className="ain-mode-select">Pilih mode AI
+              <select value={chosenAiMode} disabled={savingAiMode}
+                onChange={event => { setChosenAiMode(event.target.value as AiExecutionMode); setConfirmLive(false); }}>
+                <option value="off">OFF — tidak boleh dispatch AI</option>
+                <option value="shadow">SHADOW — rekomendasi saja</option>
+                <option value="live" disabled={!aiMode.liveSelectable}>LIVE — ACC operator, air saja</option>
+              </select>
+            </label>
+            {chosenAiMode === 'live' && (
+              <label className="ain-acc-confirm">
+                <input type="checkbox" checked={confirmLive}
+                  onChange={event => setConfirmLive(event.target.checked)}/>
+                <span>Saya memahami LIVE hanya untuk water-only trial dengan ACC,
+                  pemeriksaan safety dan ACK aktual. Bukan kontrol otomatis tanpa pengawasan.</span>
+              </label>
+            )}
+            {!aiMode.liveSelectable && <p className="ain-mode-note">LIVE masih dikunci oleh backend
+              sampai flag commissioning disetujui dan perangkat 1.5.07 terverifikasi.</p>}
+            <button type="button" className="ain-acc-check"
+              disabled={savingAiMode || chosenAiMode === aiMode.mode ||
+                (chosenAiMode === 'live' && (!aiMode.liveSelectable || !confirmLive))}
+              onClick={() => { void saveAiMode(); }}>
+              {savingAiMode ? 'Menyimpan…' : 'Simpan mode AI (admin)'}
+            </button>
+          </>
+        )}
+        {aiModeError && <p className="ain-acc-error" role="alert"><AlertTriangle size={15}/>{aiModeError}</p>}
+        {aiMode?.mode === 'live' && <p className="ain-mode-note">
+          LIVE hanya mengizinkan antrean trial setelah ACC dan semua gate API/Worker;
+          bukan bukti pompa menyala. OFF/SHADOW tidak menghentikan command yang sudah terkirim.
+        </p>}
+      </section>
       <p>Operator meninjau usulan AI sebelum perangkat dapat menerima perintah.
         Tahap ini hanya menguji pemeriksaan ACC, <strong>tidak menjalankan pompa</strong>.</p>
       <div className="ain-acc-summary">
         <div><small>Aksi AI</small><strong>{canReview ? action : 'Tidak ada rekomendasi yang dapat direview'}</strong></div>
         <div><small>Keputusan</small><strong>{report?.status ?? 'Tidak tersedia'}</strong></div>
-        <div><small>Eksekusi</small><strong>BLOCKED</strong></div>
+        <div><small>Eksekusi</small><strong>{!previewOnly && aiMode?.mode === 'live' ? 'ACC wajib / gate safety' : 'BLOCKED'}</strong></div>
       </div>
       <label className="ain-acc-confirm">
         <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
@@ -190,7 +300,7 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
           </button>
           {!canPhysicalTrial && <p className="ain-acc-error">
             <AlertTriangle size={15}/> Perintah fisik belum tersedia:
-            perlu AI CURRENT, rencana liter operasional, dan mode Automatic.
+            perlu AI mode LIVE, AI CURRENT, rencana liter operasional, dan selector Automatic.
           </p>}
           {liveCommandId && (
             <div className="ain-acc-live-status" role="status">
@@ -209,7 +319,7 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
         {previewOnly
           ? 'Preview port 5002 hanya menerima GET. Tidak ada login, approval tersimpan, MQTT publish, atau command.'
           : 'Hanya operator/admin terautentikasi dengan CSRF valid yang bisa menjalankan preflight ini. Tidak ada approval tersimpan atau command.'}
-        {' '}Firmware 1.5.03 belum tervalidasi untuk sesi volume AI; interlock tandon tidak boleh dibypass.
+        {' '}Firmware 1.5.07 belum terverifikasi di hardware; tank guard MCU tetap wajib.
       </p>
     </article>
   );
