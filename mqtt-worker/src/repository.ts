@@ -66,6 +66,9 @@ export interface CommandDispatchRepository {
   expireCommands(): Promise<number>;
   pendingCommands(limit: number): Promise<PendingControlCommand[]>;
   markCommandPublished(commandId: string, publishedAt: string): Promise<void>;
+  // Recheck AI mode after polling and immediately before MQTT publish.
+  // Optional for legacy mock repos; missing implementation fails closed for AI.
+  recheckAiDispatch?(command: PendingControlCommand): Promise<boolean>;
 }
 
 export type ScheduleRepeatRule = "daily" | "weekdays" | "weekends" | "once";
@@ -489,6 +492,24 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         ? (row.request_payload?.aiAcc as Record<string, string>).expectedEvaluatedAt : undefined,
       waterTrial: isWaterTrialPayload(row.request_payload) ? row.request_payload.waterTrial : undefined,
     }));
+  }
+
+  async recheckAiDispatch(command: PendingControlCommand): Promise<boolean> {
+    const result = await this.pool.query<{ allowed: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM spff.control_commands c
+         JOIN spff.ai_execution_modes mode
+           ON mode.site_id=c.site_id AND mode.device_id=c.device_id
+         WHERE c.command_id=$1 AND c.site_id=$2 AND c.device_id=$3
+           AND c.status='pending' AND c.expires_at > now()
+           AND mode.mode='live'
+           AND c.requested_is_active=true
+           AND c.requested_by LIKE 'trial:water:ai:%'
+           AND c.request_payload->>'source'='ai-operator-acc-water-only-trial'
+       ) AS allowed`,
+      [command.commandId, command.siteId, command.deviceId],
+    );
+    return result.rows[0]?.allowed === true;
   }
 
   async markCommandPublished(
