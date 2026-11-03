@@ -991,3 +991,19 @@ export function requestAiAccWaterTrialStop(commandId: string) {
     { method: 'POST' },
   )
 }
+
+ 
+// AI execution permission lives in local PostgreSQL, not browser state.
+// API enforces admin+CSRF on updates; preview process exposes no mutation.
+export function fetchAiExecutionMode(deviceId: string) {
+  return request<import('@spff/contracts').AiExecutionModeState>(
+    '/unified-ai/execution-mode?deviceId=' + encodeURIComponent(deviceId),
+    { signal: AbortSignal.timeout(15000) },
+  )
+}
+export function updateAiExecutionMode(input: import('@spff/contracts').AiExecutionModeUpdate) {
+  return request<import('@spff/contracts').AiExecutionModeState>(
+    '/unified-ai/execution-mode',
+    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal: AbortSignal.timeout(15000) },
+  )
+}
