@@ -363,7 +363,1427 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
               AND requested_by LIKE 'trial:water:ai:%'
               AND request_payload->>'source' = 'ai-operator-acc-water-only-trial'
               AND request_payload->'aiAcc'->>'confirmation' = 'APPROVE_AI_WATER_ONLY_TRIAL'
-              AND request_payload->'waterTrial'->>'bootId' ~ '^[0-9a-fA-F]{16}$'
+              AND request_payload->'waterTrial'->>'bootId' ~ '^[0-9a-fA-F]{16}
+                WHERE d.site_id = spff.control_commands.site_id
+                  AND d.device_id = spff.control_commands.device_id
+                  AND d.enabled = true
+              )
+              AND EXISTS (
+                SELECT 1 FROM spff.device_automatic_control_configs m
+                WHERE m.site_id = spff.control_commands.site_id
+                  AND m.device_id = spff.control_commands.device_id
+                  AND m.desired_mode = 'automatic'
+                  AND m.applied_mode = 'automatic'
+                  AND m.acknowledgement_status = 'applied'
+                  AND m.acknowledged_revision = m.revision
+              )
+              AND EXISTS (
+                SELECT 1 FROM spff.device_status_events st
+                WHERE st.site_id = spff.control_commands.site_id
+                  AND st.device_id = spff.control_commands.device_id
+                  AND st.device_status_id = (
+                    SELECT max(latest.device_status_id)
+                    FROM spff.device_status_events latest
+                    WHERE latest.site_id = st.site_id AND latest.device_id = st.device_id
+                  )
+                  AND st.online = true AND st.mode = 'automatic'
+                  AND st.recorded_at BETWEEN now() - interval '45 seconds' AND now() + interval '2 seconds'
+                  AND st.received_at BETWEEN now() - interval '45 seconds' AND now() + interval '2 seconds'
+                  -- Exactly the validated firmware contract, not a prefix downgrade.
+                  AND st.firmware_version = '1.5.07-AI-ACC-SESSION'
+                  AND st.raw_payload->>'aiAccWaterTrialCapable' = 'true'
+                  AND st.raw_payload->>'timedWaterTrialCapable' = 'true'
+                  -- Independent MCU tank guard remains mandatory even if the
+                  -- operator deliberately disabled the configurable interlock.
+                  AND st.raw_payload->>'aiAccTankGuardCapable' = 'true'
+                  AND st.raw_payload->>'aiAccTankGuardHealthy' = 'true'
+                  AND st.raw_payload->>'pumpReadbackValid' = 'true'
+                  AND st.raw_payload->>'pumpWaterActualActive' = 'false'
+                  AND st.raw_payload->>'pumpFertActualActive' = 'false'
+                  AND st.raw_payload->>'aiAccSessionActive' = 'false'
+                  AND st.raw_payload->>'pulseBootId' = request_payload->'waterTrial'->>'bootId'
+                  AND EXISTS (
+                    SELECT 1 FROM spff.device_water_interlock_configs wi
+                    WHERE wi.site_id = st.site_id AND wi.device_id = st.device_id
+                      AND wi.acknowledgement_status = 'applied'
+                      AND wi.acknowledged_revision = wi.revision
+                      AND wi.enabled = wi.applied_enabled
+                      AND st.raw_payload->>'waterInterlockEnabled' = wi.applied_enabled::text
+                  )
+              )
+              -- Historical state rows must agree, but their age is NOT live
+              -- proof. The fresh 1.5.07 register-level heartbeat above is.
+              AND (
+                SELECT count(*) FROM spff.latest_actuator_states a
+                WHERE a.site_id = spff.control_commands.site_id
+                  AND a.device_id = spff.control_commands.device_id
+                  AND a.actuator_key IN ('pump_water','pump_fert')
+                  AND a.state = 'inactive' AND a.is_active = false
+              ) = 2
+              AND EXISTS (
+                SELECT 1 FROM (
+                  SELECT t.recorded_at,t.received_at,t.sensor_health,t.flow_water_total_l
+                  FROM spff.telemetry_samples t
+                  WHERE t.site_id = spff.control_commands.site_id
+                    AND t.device_id = spff.control_commands.device_id
+                  ORDER BY t.received_at DESC, t.telemetry_id DESC LIMIT 1
+                ) recent
+                WHERE recent.recorded_at BETWEEN now() - interval '45 seconds' AND now() + interval '2 seconds'
+                  AND recent.received_at BETWEEN now() - interval '45 seconds' AND now() + interval '2 seconds'
+                  AND recent.sensor_health->'tank_water_distance_cm'->>'valid' = 'true'
+                  AND recent.sensor_health->'flow_water_total_l'->>'valid' = 'true'
+                  AND recent.flow_water_total_l IS NOT NULL
+                  AND recent.flow_water_total_l >= 0
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM spff.control_commands other
+                WHERE other.site_id = spff.control_commands.site_id
+                  AND other.device_id = spff.control_commands.device_id
+                  AND other.command_id <> spff.control_commands.command_id
+                  AND other.status IN ('pending','published','accepted')
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM spff.actuator_schedules s
+                WHERE s.site_id = spff.control_commands.site_id
+                  AND s.device_id = spff.control_commands.device_id
+                  AND s.enabled = true
+                  AND s.actuator_key IN ('pump_water','pump_fert')
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM spff.soil_ec_pulse_sessions s
+                WHERE s.site_id = spff.control_commands.site_id
+                  AND s.device_id = spff.control_commands.device_id
+                  AND s.status IN ('waiting','in_flight','fault')
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM spff.adaptive_fert_sessions s
+                WHERE s.site_id = spff.control_commands.site_id
+                  AND s.device_id = spff.control_commands.device_id
+                  AND s.status NOT IN ('completed','fault')
+              )
+            )
+          )
+        ORDER BY issued_at ASC, created_at ASC
+        LIMIT $1
+      `,
+      [safeLimit, config.aiAcc.workerDispatchEnabled],
+    );
+
+    const iso = (value: Date | string) =>
+      value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+
+    return result.rows.map((row) => ({
+      commandId: row.command_id,
+      siteId: row.site_id,
+      deviceId: row.device_id,
+      actuatorKey: row.actuator_key,
+      requestedIsActive: row.requested_is_active,
+      requestedBy: row.requested_by,
+      issuedAt: iso(row.issued_at),
+      expiresAt: iso(row.expires_at),
+      source: typeof row.request_payload?.source === 'string'
+        ? row.request_payload.source : undefined,
+      aiAccConfirmation: typeof (row.request_payload?.aiAcc as Record<string, unknown> | undefined)?.confirmation === 'string'
+        ? (row.request_payload?.aiAcc as Record<string, string>).confirmation : undefined,
+      aiAccExpectedEvaluatedAt: typeof (row.request_payload?.aiAcc as Record<string, unknown> | undefined)?.expectedEvaluatedAt === 'string'
+        ? (row.request_payload?.aiAcc as Record<string, string>).expectedEvaluatedAt : undefined,
+      waterTrial: isWaterTrialPayload(row.request_payload) ? row.request_payload.waterTrial : undefined,
+    }));
+  }
+
+  async markCommandPublished(
+    commandId: string,
+    publishedAt: string,
+  ): Promise<void> {
+    const result = await this.pool.query(
+      `
+        UPDATE spff.control_commands
+        SET
+          status = 'published',
+          published_at = COALESCE(published_at, $2::timestamptz),
+          updated_at = now()
+        WHERE command_id = $1
+          AND status = 'pending'
+          AND expires_at > now()
+      `,
+      [commandId, publishedAt],
+    );
+
+    if ((result.rowCount ?? 0) === 0) {
+      console.warn("[repository] command was not marked published", {
+        commandId,
+      });
+    }
+  }
+
+  async enabledSchedules(requireAppliedMode = true): Promise<ActuatorSchedule[]> {
+    const [scheduleResult, actuatorResult, siteResult] = await Promise.all([
+      this.pool.query<{ schedule: JsonObject }>(
+        `SELECT to_jsonb(s) AS schedule FROM spff.actuator_schedules s`,
+      ),
+      this.pool.query<{
+        site_id: string;
+        device_id: string;
+        actuator_key: string;
+      }>(
+        `
+          SELECT actuator.site_id, actuator.device_id, actuator.actuator_key
+          FROM spff.actuators actuator
+          LEFT JOIN spff.device_automatic_control_configs automatic_control
+            ON automatic_control.site_id = actuator.site_id
+           AND automatic_control.device_id = actuator.device_id
+          WHERE actuator.enabled = true
+            AND automatic_control.desired_mode = 'automatic'
+            AND ($1 = false OR (
+              automatic_control.applied_mode = 'automatic'
+              AND automatic_control.acknowledgement_status = 'applied'
+              AND automatic_control.acknowledged_revision = automatic_control.revision
+            ))
+        `,
+        [requireAppliedMode],
+      ),
+      this.pool.query<{ site_id: string; timezone: string }>(
+        `SELECT site_id, timezone FROM spff.sites`,
+      ),
+    ]);
+
+    const timezoneBySite = new Map(
+      siteResult.rows.map((row) => [row.site_id, row.timezone]),
+    );
+    const schedules: ActuatorSchedule[] = [];
+
+    for (const row of scheduleResult.rows) {
+      const raw = asObject(row.schedule);
+      const enabled = firstBoolean(raw, ["enabled", "is_enabled", "isEnabled"]);
+      if (enabled === false) continue;
+
+      const scheduleId = firstScalarString(raw, ["schedule_id", "scheduleId", "id"]);
+      const actuatorKey = firstString(raw, [
+        "actuator_key",
+        "actuatorKey",
+        "target_id",
+        "targetId",
+      ]);
+      if (!scheduleId || !actuatorKey) {
+        console.warn("[repository] schedule skipped: missing identity", { raw });
+        continue;
+      }
+
+      const requestedSiteId = firstString(raw, ["site_id", "siteId"]);
+      const requestedDeviceId = firstString(raw, ["device_id", "deviceId"]);
+      const candidates = actuatorResult.rows.filter(
+        (actuator) =>
+          actuator.actuator_key === actuatorKey &&
+          (!requestedSiteId || actuator.site_id === requestedSiteId) &&
+          (!requestedDeviceId || actuator.device_id === requestedDeviceId),
+      );
+
+      if (candidates.length !== 1) {
+        console.warn("[repository] schedule skipped: actuator identity is ambiguous or missing", {
+          scheduleId,
+          actuatorKey,
+          siteId: requestedSiteId,
+          deviceId: requestedDeviceId,
+          matches: candidates.length,
+        });
+        continue;
+      }
+
+      const actuator = candidates[0];
+      if (!actuator) continue;
+
+      const repeatRule = normalizeRepeatRule(
+        firstString(raw, [
+          "repeat_rule",
+          "repeatRule",
+          "repeat_type",
+          "repeatType",
+          "recurrence",
+          "repeat",
+        ]),
+      );
+      const onTime = normalizeScheduleTime(
+        firstString(raw, [
+          "on_time",
+          "onTime",
+          "start_time",
+          "startTime",
+          "time",
+        ]),
+      );
+      const offTime = normalizeScheduleTime(
+        firstString(raw, ["off_time", "offTime", "end_time", "endTime"]),
+      );
+      const durationSecondsValue = firstNumber(raw, [
+        "duration_seconds",
+        "durationSeconds",
+      ]);
+      const durationMinutesValue = firstNumber(raw, [
+        "duration_minutes",
+        "durationMinutes",
+        "duration_min",
+      ]);
+      const durationSeconds =
+        durationSecondsValue !== null && durationSecondsValue > 0
+          ? Math.round(durationSecondsValue)
+          : durationMinutesValue !== null && durationMinutesValue > 0
+            ? Math.round(durationMinutesValue * 60)
+            : null;
+      const onceDate = normalizeDateOnly(
+        firstString(raw, [
+          "once_date",
+          "onceDate",
+          "scheduled_date",
+          "scheduledDate",
+          "run_date",
+          "runDate",
+          "date",
+        ]),
+      );
+      const timezoneCandidate =
+        firstString(raw, ["timezone", "time_zone", "timeZone"]) ??
+        timezoneBySite.get(actuator.site_id) ??
+        "Asia/Jakarta";
+
+      if (!repeatRule || !onTime) {
+        console.warn("[repository] schedule skipped: repeat rule/on time is invalid", {
+          scheduleId,
+          repeatRule: firstString(raw, ["repeat_rule", "repeatRule", "recurrence", "repeat"]),
+          onTime: firstString(raw, ["on_time", "onTime", "start_time", "startTime", "time"]),
+        });
+        continue;
+      }
+      if (repeatRule === "once" && !onceDate) {
+        console.warn("[repository] one-time schedule skipped: date is missing", {
+          scheduleId,
+        });
+        continue;
+      }
+      if (!isValidTimezone(timezoneCandidate)) {
+        console.warn("[repository] schedule skipped: invalid timezone", {
+          scheduleId,
+          timezone: timezoneCandidate,
+        });
+        continue;
+      }
+
+      schedules.push({
+        scheduleId,
+        siteId: actuator.site_id,
+        deviceId: actuator.device_id,
+        actuatorKey,
+        enabled: enabled ?? true,
+        repeatRule,
+        onTime,
+        offTime,
+        durationSeconds,
+        onceDate,
+        timezone: timezoneCandidate,
+      });
+    }
+
+    return schedules;
+  }
+
+  async scheduleSnapshots(
+    authority: ScheduleExecutionAuthority,
+    force: boolean,
+  ): Promise<ScheduleSyncMessage[]> {
+    const [syncResult, schedules] = await Promise.all([
+      this.pool.query<{
+        site_id: string;
+        device_id: string;
+        revision: string | number;
+      }>(
+        `
+          WITH authority_revision AS (
+            UPDATE spff.device_schedule_sync_state
+            SET
+              revision = revision + 1,
+              updated_at = now()
+            WHERE published_revision = revision
+              AND published_authority IS NOT NULL
+              AND published_authority IS DISTINCT FROM $1
+            RETURNING site_id, device_id
+          )
+          SELECT site_id, device_id, revision
+          FROM spff.device_schedule_sync_state
+          WHERE $2::boolean
+             OR published_revision IS DISTINCT FROM revision
+             OR published_authority IS DISTINCT FROM $1
+          ORDER BY site_id, device_id
+        `,
+        [
+          authority,
+          force,
+        ],
+      ),
+      this.enabledSchedules(false),
+    ]);
+
+    const generatedAt = new Date().toISOString();
+
+    return syncResult.rows.map((sync) => {
+      const deviceSchedules = schedules
+        .filter(
+          (schedule) =>
+            schedule.siteId === sync.site_id &&
+            schedule.deviceId === sync.device_id &&
+            schedule.enabled &&
+            schedule.offTime !== null,
+        )
+        .map((schedule) => ({
+          scheduleId: schedule.scheduleId,
+          targetId: schedule.actuatorKey,
+          onTime: schedule.onTime,
+          offTime: schedule.offTime as string,
+          repeatRule: schedule.repeatRule,
+          runDate: schedule.onceDate,
+          timezone: schedule.timezone,
+          enabled: true,
+        }));
+
+      if (deviceSchedules.length > 64) {
+        throw new Error(
+          `Device ${sync.site_id}/${sync.device_id} has ${deviceSchedules.length} enabled schedules; maximum is 64.`,
+        );
+      }
+
+      return {
+        kind: "schedule_sync",
+        schemaVersion: 1,
+        siteId: sync.site_id,
+        deviceId: sync.device_id,
+        revision: Number(sync.revision),
+        generatedAt,
+        executionAuthority: authority,
+        schedules: deviceSchedules,
+      };
+    });
+  }
+
+  async markSchedulePublished(
+    siteId: string,
+    deviceId: string,
+    revision: number,
+    authority: ScheduleExecutionAuthority,
+    publishedAt: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `
+        UPDATE spff.device_schedule_sync_state
+        SET
+          published_revision = $3,
+          published_authority = $4,
+          published_at = $5::timestamptz,
+          updated_at = now()
+        WHERE site_id = $1
+          AND device_id = $2
+          AND revision = $3
+      `,
+      [
+        siteId,
+        deviceId,
+        revision,
+        authority,
+        publishedAt,
+      ],
+    );
+  }
+
+  async automaticControlSnapshots(
+    force: boolean,
+  ): Promise<AutomaticControlSyncMessage[]> {
+    const result = await this.pool.query(
+      `
+        SELECT *
+        FROM spff.device_automatic_control_configs
+        WHERE $1::boolean
+           OR published_revision IS DISTINCT FROM revision
+        ORDER BY site_id, device_id
+      `,
+      [force],
+    );
+    const generatedAt = new Date().toISOString();
+    const nullableNumber = (value: unknown) =>
+      value === null || value === undefined ? null : Number(value);
+
+    return result.rows.map((row) => ({
+      kind: "automatic_control_sync" as const,
+      schemaVersion: 1 as const,
+      siteId: String(row.site_id),
+      deviceId: String(row.device_id),
+      revision: Number(row.revision),
+      generatedAt,
+      config: {
+        desiredMode: row.desired_mode as "manual" | "automatic",
+        water: {
+          enabled: Boolean(row.water_enabled),
+          sensorKey: row.water_sensor_key as "soil_1_moisture" | "soil_2_moisture",
+          moistureLowPercent: nullableNumber(row.water_moisture_low_pct),
+          moistureTargetPercent: nullableNumber(row.water_moisture_target_pct),
+          maxRuntimeSeconds: nullableNumber(row.water_max_runtime_seconds),
+          cooldownSeconds: nullableNumber(row.water_cooldown_seconds),
+          minTankLevelPercent: nullableNumber(row.water_min_tank_level_pct),
+          minFlowLpm: nullableNumber(row.water_min_flow_lpm),
+          triggerSampleCount: Number(row.water_trigger_sample_count),
+          sensorStaleSeconds: Number(row.water_sensor_stale_seconds),
+        },
+        fertilizer: {
+          enabled: Boolean(row.fertilizer_enabled),
+          sensorKey: "liquid_ec_us_cm" as const,
+          ecLowUsCm: nullableNumber(row.fertilizer_ec_low_us_cm),
+          ecTargetUsCm: nullableNumber(row.fertilizer_ec_target_us_cm),
+          ecHighUsCm: nullableNumber(row.fertilizer_ec_high_us_cm),
+          dosePulseSeconds: nullableNumber(row.fertilizer_dose_pulse_seconds),
+          mixingDelaySeconds: nullableNumber(row.fertilizer_mixing_delay_seconds),
+          cooldownSeconds: nullableNumber(row.fertilizer_cooldown_seconds),
+          maxDoseVolumeL: nullableNumber(row.fertilizer_max_dose_volume_l),
+          maxDailyVolumeL: nullableNumber(row.fertilizer_max_daily_volume_l),
+          minTankLevelPercent: nullableNumber(row.fertilizer_min_tank_level_pct),
+          minFlowLpm: nullableNumber(row.fertilizer_min_flow_lpm),
+          triggerSampleCount: Number(row.fertilizer_trigger_sample_count),
+          sensorStaleSeconds: Number(row.fertilizer_sensor_stale_seconds),
+        },
+      },
+    }));
+  }
+
+  async markAutomaticControlPublished(
+    siteId: string,
+    deviceId: string,
+    revision: number,
+    publishedAt: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `
+        UPDATE spff.device_automatic_control_configs
+        SET
+          published_revision = $3,
+          published_at = $4::timestamptz,
+          updated_at = now()
+        WHERE site_id = $1
+          AND device_id = $2
+          AND revision = $3
+      `,
+      [siteId, deviceId, revision, publishedAt],
+    );
+  }
+
+  async saveAutomaticControlAck(
+    message: AutomaticControlAckMessage,
+  ): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+          INSERT INTO spff.automatic_control_ack_events (
+            site_id, device_id, revision, status, applied_mode,
+            reason, acknowledged_at, raw_payload
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::jsonb)
+          ON CONFLICT (
+            site_id, device_id, revision, status, acknowledged_at
+          ) DO NOTHING
+        `,
+        [
+          message.siteId,
+          message.deviceId,
+          message.revision,
+          message.status,
+          message.appliedMode,
+          message.reason ?? null,
+          message.acknowledgedAt,
+          JSON.stringify(message),
+        ],
+      );
+      await client.query(
+        `
+          UPDATE spff.device_automatic_control_configs
+          SET
+            acknowledged_revision = $3,
+            acknowledgement_status = $4,
+            acknowledged_at = $5::timestamptz,
+            acknowledgement_reason = $6,
+            applied_mode = $7,
+            updated_at = now()
+          WHERE site_id = $1
+            AND device_id = $2
+            AND $3 >= COALESCE(acknowledged_revision, 0)
+            AND $3 <= revision
+        `,
+        [
+          message.siteId,
+          message.deviceId,
+          message.revision,
+          message.status,
+          message.acknowledgedAt,
+          message.reason ?? null,
+          message.appliedMode,
+        ],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    console.log("[repository] automatic control acknowledgement stored", {
+      siteId: message.siteId,
+      deviceId: message.deviceId,
+      revision: message.revision,
+      status: message.status,
+      appliedMode: message.appliedMode,
+    });
+  }
+
+  async saveScheduleSyncAck(message: ScheduleSyncAckMessage): Promise<void> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+          INSERT INTO spff.schedule_sync_ack_events (
+            site_id,
+            device_id,
+            revision,
+            status,
+            stored_schedule_count,
+            reason,
+            acknowledged_at,
+            raw_payload
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::jsonb)
+          ON CONFLICT (
+            site_id,
+            device_id,
+            revision,
+            status,
+            acknowledged_at
+          ) DO NOTHING
+        `,
+        [
+          message.siteId,
+          message.deviceId,
+          message.revision,
+          message.status,
+          message.storedScheduleCount,
+          message.reason ?? null,
+          message.acknowledgedAt,
+          JSON.stringify(message),
+        ],
+      );
+
+      await client.query(
+        `
+          UPDATE spff.device_schedule_sync_state
+          SET
+            acknowledged_revision = $3,
+            acknowledgement_status = $4,
+            acknowledged_at = $5::timestamptz,
+            acknowledgement_reason = $6,
+            stored_schedule_count = $7,
+            updated_at = now()
+          WHERE site_id = $1
+            AND device_id = $2
+            AND $3 >= COALESCE(acknowledged_revision, 0)
+        `,
+        [
+          message.siteId,
+          message.deviceId,
+          message.revision,
+          message.status,
+          message.acknowledgedAt,
+          message.reason ?? null,
+          message.storedScheduleCount,
+        ],
+      );
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    console.log("[repository] schedule sync acknowledgement stored", {
+      siteId: message.siteId,
+      deviceId: message.deviceId,
+      revision: message.revision,
+      status: message.status,
+      storedScheduleCount: message.storedScheduleCount,
+    });
+  }
+
+  async createScheduledCommand(request: ScheduledCommandRequest): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+          INSERT INTO spff.control_commands (
+            command_id,
+            site_id,
+            device_id,
+            actuator_key,
+            command_type,
+            requested_is_active,
+            requested_by,
+            status,
+            issued_at,
+            expires_at,
+            request_payload
+          ) VALUES (
+            $1, $2, $3, $4, 'set_pump', $5,
+            $6, 'pending', $7::timestamptz, $8::timestamptz, $9::jsonb
+          )
+        `,
+        [
+          request.commandId,
+          request.siteId,
+          request.deviceId,
+          request.actuatorKey,
+          request.requestedIsActive,
+          `schedule:${request.scheduleId}:${request.action}`,
+          request.issuedAt,
+          request.expiresAt,
+          JSON.stringify({
+            source: "schedule",
+            scheduleId: request.scheduleId,
+            action: request.action,
+            scheduledFor: request.scheduledFor,
+            repeatRule: request.repeatRule,
+            timezone: request.timezone,
+          }),
+        ],
+      );
+
+      const runResult = await client.query(
+        `
+          INSERT INTO spff.actuator_schedule_runs (
+            schedule_id,
+            scheduled_for,
+            action,
+            command_id
+          ) VALUES ($1, $2::timestamptz, $3, $4)
+          ON CONFLICT (schedule_id, scheduled_for, action) DO NOTHING
+          RETURNING schedule_run_id
+        `,
+        [
+          request.scheduleId,
+          request.scheduledFor,
+          request.action,
+          request.commandId,
+        ],
+      );
+
+      if ((runResult.rowCount ?? 0) === 0) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveFertigationSession(message: FertigationSessionEvent): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Serializes *all* sessions per device, preventing concurrent active sessions.
+      const device = await client.query(
+        'SELECT device_id FROM spff.devices WHERE site_id=$1 AND device_id=$2 FOR UPDATE',
+        [message.siteId, message.deviceId],
+      );
+      if ((device.rowCount ?? 0) !== 1) throw new Error('Unknown session device.');
+      const previous = await client.query<{
+        session_id: string; site_id: string; device_id: string; recipe_id: string | null; status: string;
+        last_recorded_at: Date;
+      }>('SELECT session_id,site_id,device_id,recipe_id,status,last_recorded_at FROM spff.fertigation_sessions WHERE session_id=$1 FOR UPDATE',
+        [message.sessionId]);
+      const last = previous.rows[0];
+      const already = await client.query<{ payload: FertigationSessionEvent }>(
+        'SELECT payload FROM spff.fertigation_session_events WHERE site_id=$1 AND device_id=$2 AND message_id=$3',
+        [message.siteId,message.deviceId,message.messageId],
+      );
+      if (already.rows.length) {
+        if (JSON.stringify(already.rows[0]!.payload) !== JSON.stringify(message)) {
+          // pg jsonb may reorder keys: compare semantic JSONB in database below.
+          const same = await client.query('SELECT payload=$4::jsonb AS same FROM spff.fertigation_session_events WHERE site_id=$1 AND device_id=$2 AND message_id=$3',
+            [message.siteId,message.deviceId,message.messageId,JSON.stringify(message)]);
+          if (same.rows[0]?.same !== true) throw new Error('Conflicting session messageId replay.');
+        }
+        await client.query('COMMIT');
+        return;
+      }
+      const replay = await client.query(
+        'SELECT 1 FROM spff.fertigation_session_events WHERE session_id=$1 AND sequence=$2 LIMIT 1',
+        [message.sessionId,message.sequence],
+      );
+      if (replay.rowCount) throw new Error('Session sequence already used.');
+      if (!last && message.status !== 'started') throw new Error('Session must begin with started.');
+      if (last && (last.site_id !== message.siteId || last.device_id !== message.deviceId)) throw new Error('Session device mismatch.');
+      if (last && last.recipe_id !== message.recipeId) throw new Error('Session recipe mismatch.');
+      if (last && ['completed','aborted','fault'].includes(last.status))
+        throw new Error('Terminal session cannot transition.');
+      if (last && new Date(message.recordedAt).getTime() <= new Date(last.last_recorded_at).getTime())
+        throw new Error('Session timestamp must advance.');
+      const maxSequence = await client.query<{ max_seq: string | null }>(
+        'SELECT MAX(sequence)::text AS max_seq FROM spff.fertigation_session_events WHERE session_id=$1',
+        [message.sessionId],
+      );
+      if (maxSequence.rows[0]?.max_seq !== null && maxSequence.rows[0]?.max_seq !== undefined &&
+          message.sequence <= Number(maxSequence.rows[0].max_seq))
+        throw new Error('Session sequence must advance.');
+      if (message.status === 'started' && last) throw new Error('Session already started.');
+      if (message.status === 'completed' && (!message.pumpsOff ||
+          message.actualWaterL === null || message.actualStockL === null))
+        throw new Error('Completion requires actual volumes and pumps OFF.');
+      if (!last) {
+        const active = await client.query(
+          "SELECT 1 FROM spff.fertigation_sessions WHERE site_id=$1 AND device_id=$2 AND status IN ('started','running') LIMIT 1",
+          [message.siteId,message.deviceId],
+        );
+        if (active.rowCount) throw new Error('Another application session is active.');
+        await client.query(`INSERT INTO spff.fertigation_sessions
+          (session_id,site_id,device_id,recipe_id,target_water_l,target_stock_l,actual_water_l,
+           actual_stock_l,status,pumps_off,completion_reason,started_at,finished_at,last_recorded_at)
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::timestamptz,NULL,$12::timestamptz)`,
+          [message.sessionId,message.siteId,message.deviceId,message.recipeId,message.targetWaterL,
+           message.targetStockL,message.actualWaterL,message.actualStockL,message.status,
+           message.pumpsOff,message.completionReason,message.recordedAt]);
+      } else {
+        const original = await client.query<{target_water_l:number;target_stock_l:number}>(
+          'SELECT target_water_l,target_stock_l FROM spff.fertigation_sessions WHERE session_id=$1',
+          [message.sessionId]);
+        if (original.rows[0]?.target_water_l !== message.targetWaterL ||
+            original.rows[0]?.target_stock_l !== message.targetStockL)
+          throw new Error('Session targets cannot change.');
+        await client.query(`UPDATE spff.fertigation_sessions SET status=$2,actual_water_l=$3,
+           actual_stock_l=$4,pumps_off=$5,completion_reason=$6,
+           finished_at=CASE WHEN $2 IN ('completed','aborted','fault') THEN $7::timestamptz ELSE NULL END,
+           last_recorded_at=$7::timestamptz,updated_at=now() WHERE session_id=$1`,
+          [message.sessionId,message.status,message.actualWaterL,message.actualStockL,
+           message.pumpsOff,message.completionReason,message.recordedAt]);
+      }
+      await client.query(`INSERT INTO spff.fertigation_session_events
+        (session_id,site_id,device_id,message_id,sequence,status,recorded_at,payload)
+        VALUES($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::jsonb)`,
+        [message.sessionId,message.siteId,message.deviceId,message.messageId,message.sequence,
+         message.status,message.recordedAt,JSON.stringify(message)]);
+      await client.query('COMMIT');
+    } catch(error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveTelemetry(message: TelemetryMessage): Promise<void> {
+    const raw = asObject(message);
+    const { sensors, sensorHealth } = deriveTankLevels(message);
+    const schemaVersion =
+      typeof raw.schemaVersion === "number" && Number.isInteger(raw.schemaVersion)
+        ? raw.schemaVersion
+        : 1;
+    const recordedAt = requiredTimestamp(
+      raw,
+      ["recordedAt", "timestamp"],
+      "Telemetry recordedAt",
+    );
+    const sensorValid =
+      firstBoolean(raw, ["sensorValid", "sensor_valid"]) ??
+      firstBoolean(sensors, ["sensorValid", "sensor_valid"]) ??
+      true;
+
+    const values: unknown[] = [
+      schemaVersion,
+      message.siteId,
+      message.deviceId,
+      message.messageId,
+      message.sequence,
+      recordedAt,
+      optionalNumber(sensors, "soil_1_moisture"),
+      optionalNumber(sensors, "soil_1_temp"),
+      optionalNumber(sensors, "soil_1_ec_us_cm"),
+      optionalNumber(sensors, "soil_1_ph"),
+      optionalNumber(sensors, "soil_1_n"),
+      optionalNumber(sensors, "soil_1_p"),
+      optionalNumber(sensors, "soil_1_k"),
+      optionalNumber(sensors, "soil_2_moisture"),
+      optionalNumber(sensors, "soil_2_temp"),
+      optionalNumber(sensors, "soil_2_ec_us_cm"),
+      optionalNumber(sensors, "soil_2_ph"),
+      optionalNumber(sensors, "soil_2_n"),
+      optionalNumber(sensors, "soil_2_p"),
+      optionalNumber(sensors, "soil_2_k"),
+      optionalNumber(sensors, "liquid_ph"),
+      optionalNumber(sensors, "liquid_ec_us_cm"),
+      optionalNumber(sensors, "liquid_temp"),
+      optionalNumber(sensors, "air_temp"),
+      optionalNumber(sensors, "air_humidity"),
+      optionalNumber(sensors, "tank_water_distance_cm"),
+      optionalNumber(sensors, "tank_water_level_pct"),
+      optionalNumber(sensors, "tank_fert_distance_cm"),
+      optionalNumber(sensors, "tank_fert_level_pct"),
+      optionalNumber(sensors, "flow_water_lpm"),
+      optionalNumber(sensors, "flow_water_total_l"),
+      optionalNumber(sensors, "flow_fert_lpm"),
+      optionalNumber(sensors, "flow_fert_total_l"),
+      optionalNumber(sensors, "battery_voltage"),
+      optionalNumber(sensors, "ac_voltage_v"),
+      optionalNumber(sensors, "ac_current_a"),
+      optionalNumber(sensors, "ac_power_w"),
+      optionalNumber(sensors, "ac_energy_kwh"),
+      optionalNumber(sensors, "ac_frequency_hz"),
+      optionalNumber(sensors, "ac_power_factor"),
+      sensorValid,
+      JSON.stringify(sensorHealth),
+      JSON.stringify(message),
+    ];
+
+    const result = await this.pool.query(
+      `
+        INSERT INTO spff.telemetry_samples (
+          schema_version,
+          site_id,
+          device_id,
+          message_id,
+          sequence,
+          recorded_at,
+          soil_1_moisture,
+          soil_1_temp,
+          soil_1_ec_us_cm,
+          soil_1_ph,
+          soil_1_n,
+          soil_1_p,
+          soil_1_k,
+          soil_2_moisture,
+          soil_2_temp,
+          soil_2_ec_us_cm,
+          soil_2_ph,
+          soil_2_n,
+          soil_2_p,
+          soil_2_k,
+          liquid_ph,
+          liquid_ec_us_cm,
+          liquid_temp,
+          air_temp,
+          air_humidity,
+          tank_water_distance_cm,
+          tank_water_level_pct,
+          tank_fert_distance_cm,
+          tank_fert_level_pct,
+          flow_water_lpm,
+          flow_water_total_l,
+          flow_fert_lpm,
+          flow_fert_total_l,
+          battery_voltage,
+          ac_voltage_v,
+          ac_current_a,
+          ac_power_w,
+          ac_energy_kwh,
+          ac_frequency_hz,
+          ac_power_factor,
+          sensor_valid,
+          sensor_health,
+          raw_payload
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6,
+          $7, $8, $9, $10, $11, $12, $13,
+          $14, $15, $16, $17, $18, $19, $20,
+          $21, $22, $23, $24, $25,
+          $26, $27, $28, $29,
+          $30, $31, $32, $33,
+          $34, $35, $36, $37, $38, $39, $40,
+          $41, $42::jsonb, $43::jsonb
+        )
+        ON CONFLICT (site_id, device_id, message_id) DO NOTHING
+        RETURNING telemetry_id
+      `,
+      values,
+    );
+
+    const inserted = (result.rowCount ?? 0) > 0;
+    console.log(inserted ? "[repository] telemetry stored" : "[repository] telemetry duplicate ignored", {
+      siteId: message.siteId,
+      deviceId: message.deviceId,
+      messageId: message.messageId,
+      sequence: message.sequence,
+    });
+  }
+
+  async saveAcknowledgement(message: CommandAckMessage): Promise<void> {
+    const raw = asObject(message);
+    const status = asAckStatus(message.status);
+    const acknowledgedAt = requiredTimestamp(
+      raw,
+      ["acknowledgedAt", "recordedAt", "timestamp"],
+      "Acknowledgement timestamp",
+    );
+    const actualState = firstObject(raw, ["actualState", "actual"]);
+    const actualIsActive =
+      firstBoolean(raw, ["actualIsActive", "isActive"]) ??
+      firstBoolean(actualState, ["isActive", "active"]);
+    const reason = firstString(raw, ["reason", "message"]);
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const acknowledgementInserted = await this.insertAcknowledgement(
+        client,
+        message,
+        status,
+        acknowledgedAt,
+        actualIsActive,
+        reason,
+      );
+      const commandUpdated = await client.query(
+        `
+          UPDATE spff.control_commands
+          SET
+            status = $2,
+            completed_at = CASE
+              -- MCU clock may lag server time; keep device time in ack history.
+              -- Lifecycle completion is server-observed and cannot predate issuance.
+              WHEN $2 IN ('completed', 'rejected', 'timed_out') THEN GREATEST(now(), issued_at)
+              ELSE completed_at
+            END,
+            reason = COALESCE($3, reason),
+            updated_at = now()
+          WHERE command_id = $1
+            AND site_id = $4 AND device_id = $5 AND actuator_key = $6
+            -- Terminal statuses are immutable, including duplicate terminal ACKs.
+            -- Out-of-order 'accepted' after 'completed' must never reopen a command.
+            AND status IN ('pending','published','accepted')
+            -- A timed trial can never complete while relay is reported ON.
+            AND (NOT COALESCE(request_payload ? 'waterTrial', false) OR $2 <> 'completed' OR $7::boolean = false)
+          RETURNING command_id
+        `,
+        [message.commandId, status, reason,
+         message.siteId, message.deviceId, message.targetId, actualIsActive],
+      );
+
+      if (acknowledgementInserted && (commandUpdated.rowCount ?? 0) > 0
+          && actualIsActive !== null) {
+        await client.query(
+          `
+            INSERT INTO spff.actuator_state_events (
+              site_id,
+              device_id,
+              actuator_key,
+              command_id,
+              source,
+              state,
+              is_active,
+              reason,
+              recorded_at,
+              raw_payload
+            )
+            SELECT
+              c.site_id,
+              c.device_id,
+              c.actuator_key,
+              c.command_id,
+              'command_ack',
+              CASE WHEN $2::boolean THEN 'active' ELSE 'inactive' END,
+              $2,
+              $3,
+              $4::timestamptz,
+              $5::jsonb
+            FROM spff.control_commands c
+            WHERE c.command_id = $1
+          `,
+          [
+            message.commandId,
+            actualIsActive,
+            reason,
+            acknowledgedAt,
+            JSON.stringify(message),
+          ],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    console.log("[repository] acknowledgement stored", {
+      commandId: message.commandId,
+      deviceId: message.deviceId,
+      status,
+    });
+  }
+
+  async saveActuatorState(message: ActuatorStateMessage): Promise<void> {
+    const raw = asObject(message);
+    const recordedAt = requiredTimestamp(
+      raw,
+      ["recordedAt", "timestamp"],
+      "Actuator state recordedAt",
+    );
+    const commandId = firstString(raw, ["commandId"]);
+    const reason = firstString(raw, ["reason"]);
+
+    const result = await this.pool.query(
+      `
+        INSERT INTO spff.actuator_state_events (
+          site_id,
+          device_id,
+          actuator_key,
+          message_id,
+          command_id,
+          source,
+          state,
+          is_active,
+          reason,
+          recorded_at,
+          raw_payload
+        ) VALUES (
+          $1, $2, $3, $4, $5, 'telemetry', $6, $7, $8, $9, $10::jsonb
+        )
+        ON CONFLICT (site_id, device_id, actuator_key, message_id)
+          WHERE message_id IS NOT NULL
+        DO NOTHING
+        RETURNING actuator_state_id
+      `,
+      [
+        message.siteId,
+        message.deviceId,
+        message.targetId,
+        message.messageId,
+        commandId,
+        message.state,
+        message.isActive,
+        reason,
+        recordedAt,
+        JSON.stringify(message),
+      ],
+    );
+
+    console.log(
+      (result.rowCount ?? 0) > 0
+        ? "[repository] actuator state stored"
+        : "[repository] actuator state duplicate ignored",
+      {
+        siteId: message.siteId,
+        deviceId: message.deviceId,
+        targetId: message.targetId,
+        state: message.state,
+      },
+    );
+  }
+
+  async saveDeviceStatus(message: DeviceStatusMessage): Promise<void> {
+    const raw = asObject(message);
+    const recordedAt = requiredTimestamp(
+      raw,
+      ["recordedAt", "timestamp"],
+      "Device status recordedAt",
+    );
+    const messageId = firstString(raw, ["messageId"]);
+    const firmwareVersion = firstString(raw, ["firmwareVersion", "firmware"]);
+    const systemState = firstString(raw, ["systemState", "system_state"]);
+    const growthPhase = firstString(raw, ["growthPhase", "growth_phase"]);
+    const sensorValid = firstBoolean(raw, ["sensorValid", "sensor_valid"]);
+
+    const result = await this.pool.query(
+      `
+        INSERT INTO spff.device_status_events (
+          site_id,
+          device_id,
+          message_id,
+          online,
+          mode,
+          firmware_version,
+          system_state,
+          growth_phase,
+          sensor_valid,
+          recorded_at,
+          raw_payload
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb
+        )
+        ON CONFLICT (site_id, device_id, message_id)
+          WHERE message_id IS NOT NULL
+        DO NOTHING
+        RETURNING device_status_id
+      `,
+      [
+        message.siteId,
+        message.deviceId,
+        messageId,
+        message.online,
+        message.mode ?? null,
+        firmwareVersion,
+        systemState,
+        growthPhase,
+        sensorValid,
+        recordedAt,
+        JSON.stringify(message),
+      ],
+    );
+
+    console.log(
+      (result.rowCount ?? 0) > 0
+        ? "[repository] device status stored"
+        : "[repository] device status duplicate ignored",
+      {
+        siteId: message.siteId,
+        deviceId: message.deviceId,
+        online: message.online,
+        mode: message.mode,
+      },
+    );
+  }
+
+  async alarmRules(siteId: string): Promise<AlarmRule[]> {
+    const result = await this.pool.query<{
+      site_id: string;
+      rule_key: string;
+      source_type: "sensor" | "actuator" | "system";
+      source_key: string;
+      comparator: AlarmRule["comparator"];
+      threshold_value: number | string | null;
+      unit: string | null;
+      enabled: boolean;
+    }>(
+      `
+        SELECT site_id, rule_key, source_type, source_key, comparator,
+               threshold_value, unit, enabled
+        FROM spff.alarm_rules
+        WHERE site_id = $1 AND enabled = true
+        ORDER BY rule_key
+      `,
+      [siteId],
+    );
+    return result.rows.map((row) => ({
+      siteId: row.site_id,
+      ruleKey: row.rule_key,
+      sourceType: row.source_type,
+      sourceKey: row.source_key,
+      comparator: row.comparator,
+      thresholdValue:
+        row.threshold_value === null ? null : Number(row.threshold_value),
+      unit: row.unit,
+      enabled: row.enabled,
+    }));
+  }
+
+  async applyAlarmObservation(observation: AlarmObservation): Promise<void> {
+    await this.pool.query(
+      `
+        SELECT spff.apply_alarm_observation(
+          $1, $2, $3, $4, $5, $6, $7::timestamptz,
+          $8, $9, $10::jsonb
+        )
+      `,
+      [
+        observation.siteId,
+        observation.deviceId,
+        observation.ruleKey,
+        observation.incidentKey,
+        observation.sourceKey,
+        observation.violating,
+        observation.observedAt,
+        observation.currentValue,
+        observation.thresholdText,
+        JSON.stringify(observation.metadata),
+      ],
+    );
+  }
+
+  async alarmHealthSubjects(): Promise<AlarmHealthSubject[]> {
+    const result = await this.pool.query<{
+      site_id: string;
+      device_id: string;
+      device_online: boolean | null;
+      device_age_seconds: number | string | null;
+      telemetry_age_seconds: number | string | null;
+      recorded_at: Date | string | null;
+      air_temp: number | string | null;
+      air_humidity: number | string | null;
+    }>(
+      `
+        SELECT
+          device.site_id,
+          device.device_id,
+          status.online AS device_online,
+          extract(epoch FROM (clock_timestamp() - status.received_at))
+            AS device_age_seconds,
+          extract(epoch FROM (clock_timestamp() - telemetry.received_at))
+            AS telemetry_age_seconds,
+          telemetry.recorded_at,
+          telemetry.air_temp,
+          telemetry.air_humidity
+        FROM spff.devices device
+        LEFT JOIN LATERAL (
+          SELECT online, received_at
+          FROM spff.device_status_events candidate
+          WHERE candidate.site_id = device.site_id
+            AND candidate.device_id = device.device_id
+          ORDER BY candidate.received_at DESC, candidate.device_status_id DESC
+          LIMIT 1
+        ) status ON true
+        LEFT JOIN LATERAL (
+          SELECT recorded_at, received_at, air_temp, air_humidity
+          FROM spff.telemetry_samples candidate
+          WHERE candidate.site_id = device.site_id
+            AND candidate.device_id = device.device_id
+          ORDER BY candidate.received_at DESC, candidate.telemetry_id DESC
+          LIMIT 1
+        ) telemetry ON true
+        WHERE device.enabled = true
+        ORDER BY device.site_id, device.device_id
+      `,
+    );
+
+    const numeric = (value: number | string | null): number | null => {
+      if (value === null) return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const iso = (value: Date | string | null): string | null => {
+      if (value === null) return null;
+      const parsed = value instanceof Date ? value : new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+    };
+
+    return result.rows.map((row) => ({
+      siteId: row.site_id,
+      deviceId: row.device_id,
+      deviceOnline: row.device_online,
+      deviceAgeSeconds: numeric(row.device_age_seconds),
+      telemetryAgeSeconds: numeric(row.telemetry_age_seconds),
+      latestRecordedAt: iso(row.recorded_at),
+      sensors: {
+        air_temp: numeric(row.air_temp),
+        air_humidity: numeric(row.air_humidity),
+      },
+    }));
+  }
+
+  async alarmCommandSubjects(): Promise<AlarmCommandSubject[]> {
+    const result = await this.pool.query<{
+      site_id: string;
+      device_id: string;
+      actuator_key: string;
+      command_id: string;
+      status: AlarmCommandSubject["status"];
+      reason: string | null;
+      requested_is_active: boolean;
+      updated_at: Date | string;
+    }>(
+      `
+        SELECT
+          actuator.site_id,
+          actuator.device_id,
+          actuator.actuator_key,
+          latest.command_id,
+          latest.status,
+          latest.reason,
+          latest.requested_is_active,
+          latest.updated_at
+        FROM spff.actuators actuator
+        CROSS JOIN LATERAL (
+          SELECT command_id, status, reason, updated_at, requested_is_active
+          FROM spff.control_commands command
+          WHERE command.site_id = actuator.site_id
+            AND command.device_id = actuator.device_id
+            AND command.actuator_key = actuator.actuator_key
+            AND command.status IN (
+              'completed',
+              'rejected',
+              'timed_out',
+              'failed'
+            )
+          ORDER BY command.updated_at DESC, command.created_at DESC
+          LIMIT 1
+        ) latest
+        LEFT JOIN spff.alarm_rule_states state
+          ON state.site_id = actuator.site_id
+         AND state.device_id = actuator.device_id
+         AND state.incident_key = 'command_failed:' || actuator.actuator_key
+        WHERE actuator.enabled = true
+          AND (
+            state.last_observed_at IS NULL
+            OR latest.updated_at > state.last_observed_at
+          )
+        ORDER BY actuator.site_id, actuator.device_id, actuator.actuator_key
+      `,
+    );
+
+    return result.rows.map((row) => ({
+      siteId: row.site_id,
+      deviceId: row.device_id,
+      targetId: row.actuator_key,
+      commandId: row.command_id,
+      status: row.status,
+      reason: row.reason,
+      requestedIsActive: row.requested_is_active,
+      updatedAt:
+        row.updated_at instanceof Date
+          ? row.updated_at.toISOString()
+          : new Date(row.updated_at).toISOString(),
+    }));
+  }
+
+  private async insertAcknowledgement(
+    client: PoolClient,
+    message: CommandAckMessage,
+    status: AckStatus,
+    acknowledgedAt: string,
+    actualIsActive: boolean | null,
+    reason: string | null,
+  ): Promise<boolean> {
+    const result = await client.query(
+      `
+        INSERT INTO spff.command_ack_events (
+          command_id,
+          status,
+          actual_is_active,
+          reason,
+          acknowledged_at,
+          raw_payload
+        ) VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+        ON CONFLICT (command_id, status, acknowledged_at) DO NOTHING
+        RETURNING ack_event_id
+      `,
+      [
+        message.commandId,
+        status,
+        actualIsActive,
+        reason,
+        acknowledgedAt,
+        JSON.stringify(message),
+      ],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+}
+
+              -- Independent persisted permission: SHADOW/OFF never dispatches AI.
+              AND EXISTS (
+                SELECT 1 FROM spff.ai_execution_modes ai_mode
+                WHERE ai_mode.site_id = spff.control_commands.site_id
+                  AND ai_mode.device_id = spff.control_commands.device_id
+                  AND ai_mode.mode = 'live'
+              )
               AND EXISTS (
                 SELECT 1 FROM spff.devices d
                 WHERE d.site_id = spff.control_commands.site_id
