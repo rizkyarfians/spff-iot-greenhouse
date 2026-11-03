@@ -22,7 +22,7 @@ DO $$ DECLARE r text; BEGIN
       EXECUTE format('GRANT SELECT,INSERT,UPDATE ON spff.ai_execution_modes TO %I',r);
     END IF;
   END LOOP;
-  FOREACH r IN ARRAY ARRAY['spff_worker','spff_mqtt_role'] LOOP
+  FOREACH r IN ARRAY ARRAY['spff_worker','spff_worker_role'] LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname=r) THEN
       EXECUTE format('GRANT SELECT ON spff.ai_execution_modes TO %I',r);
     END IF;
