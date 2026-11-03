@@ -4,6 +4,7 @@ import {getAiCommandPreparation} from '../controllers/aiCommandPreparationContro
 import { getAiSafetyEvidence } from '../controllers/aiSafetyEvidenceController.js';
 import { postAiOperatorAccDryRun } from '../controllers/aiOperatorAccController.js';
 import { postAiAccWaterTrial } from '../controllers/aiAccWaterTrialController.js';
+import { getAiExecutionMode, putAiExecutionMode } from '../controllers/aiExecutionModeController.js';
 import { startCalibrationTrial, readCalibrationTrial, stopCalibrationTrial, saveCalibrationMeasurement } from '../controllers/waterTrialController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
 import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
@@ -173,6 +174,9 @@ apiRouter.post(
 
 // Read-only AI observation, protected by the login middleware above.
 apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);
+// Per-device AI execution mode. Does not modify ESP32 selector mode.
+apiRouter.get('/unified-ai/execution-mode', requireOperator, getAiExecutionMode);
+apiRouter.put('/unified-ai/execution-mode', requireAdmin, requireCsrf, putAiExecutionMode);
 // Read-only preparation; never creates an actuator command.
 apiRouter.get('/unified-ai/dispatch-readiness', requireOperator, getAiDispatchReadiness);
 // Non-executable AI intent preview. GET never creates a command.
