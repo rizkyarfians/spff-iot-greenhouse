@@ -20,6 +20,7 @@ export const aiExecutionModeStateSchema = z.object({
   updatedAt: z.string().datetime({ offset: true }).nullable(),
   updatedBy: z.string().nullable(),
   liveSelectable: z.boolean(),
+  apiTrialEnabled: z.boolean(),
   workerDispatchConfirmed: z.literal(false),
 }).strict();
 export type AiExecutionModeState = z.infer<typeof aiExecutionModeStateSchema>;
