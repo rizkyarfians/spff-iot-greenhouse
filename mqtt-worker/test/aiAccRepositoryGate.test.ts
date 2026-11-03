@@ -24,7 +24,7 @@ test('SQL excludes AI ACC from Manual command branch and requires explicit gate 
   assert.match(sql, /st\.raw_payload->>'pulseBootId' = request_payload->'waterTrial'->>'bootId'/);
   assert.match(sql, /st\.raw_payload->>'waterInterlockEnabled' = 'true'/);
   assert.match(sql, /wi\.acknowledged_revision = wi\.revision/);
-  assert.match(sql, /a\.received_at >= now\(\) - interval '30 seconds'/);
+  assert.match(sql, /a\.received_at BETWEEN now\(\) - interval '30 seconds' AND now\(\) \+ interval '2 seconds'/);
   assert.match(sql, /latest\.device_status_id/);
   assert.match(sql, /other\.status IN \('pending','published','accepted'\)/);
   assert.match(sql, /NOT EXISTS \(\s*SELECT 1 FROM spff\.actuator_schedules/);
