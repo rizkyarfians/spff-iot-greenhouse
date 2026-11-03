@@ -40,6 +40,7 @@ import {
   Ruler,
   Settings,
   SlidersHorizontal,
+  ShieldAlert,
   Sprout,
   Thermometer,
   UserRound,
@@ -469,6 +470,7 @@ Array<{
     label: 'Program Fertigasi',
   },
   {key:'ai-needs',icon:BrainCircuit,label:'AI & Kebutuhan Tanaman'},
+  {key:'ai-live',icon:ShieldAlert,label:'AI LIVE'},
   {key:'guide',icon:BookOpen,label:'Panduan'},
   {
     key: 'controls',
