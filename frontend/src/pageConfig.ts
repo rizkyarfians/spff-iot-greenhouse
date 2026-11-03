@@ -4,6 +4,7 @@ export type PageKey =
   | 'smart-soil'
   | 'fertigation'
   | 'ai-needs'
+  | 'ai-live'
   | 'guide'
   | 'controls'
   | 'logs'
@@ -28,6 +29,7 @@ Record<
 
   fertigation: 'Program Fertigasi',
   'ai-needs': 'AI & Kebutuhan Tanaman',
+  'ai-live': 'AI LIVE',
   guide: 'Panduan',
   controls:
     'Kontrol Perangkat',
@@ -64,6 +66,7 @@ Record<
 
   fertigation: 'Program Fertigasi',
   'ai-needs': 'Kebutuhan air dan pupuk, perhitungan, dan keputusan Unified AI.',
+  'ai-live': 'Pengaturan OFF / SHADOW / LIVE, ACC operator dan status trial air.',
   guide: 'Protokol budidaya dan kebutuhan pupuk sesuai Excel.',
   controls:
     'Nyalakan pompa, pilih cara kerja, dan atur jadwal.',
