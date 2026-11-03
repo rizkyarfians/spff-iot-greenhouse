@@ -1,7 +1,7 @@
 import { AiAccWaterTrialBlocked } from './aiAccWaterTrialPolicy.js';
 
 const FIRMWARE_VERSION = '1.5.07-AI-ACC-SESSION';
-const block = (reason: string): never => { throw new AiAccWaterTrialBlocked(reason); };
+function block(reason: string): never { throw new AiAccWaterTrialBlocked(reason); }
 
 function fresh(value: Date | string | null, now: Date): boolean {
   const time = value instanceof Date ? value.getTime() : Date.parse(String(value ?? ''));
