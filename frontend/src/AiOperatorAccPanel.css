@@ -24,3 +24,18 @@
 .ain-acc-live-status{margin-top:14px;padding:12px;border:1px solid #c4d2c8;border-radius:8px;overflow-wrap:anywhere}
 .ain-acc-live-status button{padding:10px 14px;border-radius:8px;border:1px solid #a73932;background:#fff5f4;color:#8c2924;font-weight:700}
 @media(max-width:620px){.ain-acc-live-fields{grid-template-columns:1fr}}
+
+/* AI mode switch, deliberately independent of ESP32 Manual/Automatic selector. */
+.ain-mode-settings{margin:12px 0 20px;padding:14px;border:1px solid #cadbcf;background:#f2f8f3;border-radius:12px;min-width:0}
+.ain-mode-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ain-mode-heading h4{margin:0;font-size:14px;color:#234d34}
+.ain-mode-heading button{background:transparent;border:1px solid #b4c9bb;color:#23553a;border-radius:8px;padding:7px 12px;cursor:pointer}
+.ain-mode-settings p{font-size:12px;line-height:1.6}
+.ain-mode-current{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:#e5f1e9;border-radius:8px;padding:10px 12px}
+.ain-mode-current strong{font-size:13px;color:#1e5138}
+.ain-mode-current small{font-size:11px;color:#466453}
+.ain-mode-select{display:flex;flex-direction:column;gap:7px;margin:12px 0;font-size:12px;color:#365846}
+.ain-mode-select select{width:100%;min-width:0;min-height:42px;padding:9px;border:1px solid #c3d3c7;border-radius:8px;color:#244c35;background:white}
+.ain-mode-select select:focus-visible{outline:3px solid #7ad1a7;outline-offset:2px}
+.ain-mode-settings .ain-mode-note{padding:9px 11px;background:#fff9e7;border-radius:8px;color:#73562a}
+@media(max-width:620px){.ain-mode-heading{flex-wrap:wrap}.ain-mode-current{align-items:flex-start;flex-direction:column}}
