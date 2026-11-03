@@ -20,6 +20,9 @@ test('SQL excludes AI ACC from Manual command branch and requires explicit gate 
   assert.match(sql, /requested_by NOT LIKE 'trial:water:ai:%'/);
   assert.match(sql, /COALESCE\(request_payload->>'source', ''\) <> 'ai-operator-acc-water-only-trial'/);
   assert.match(sql, /\$2::boolean = true/);
+  assert.match(sql, /FROM spff\.ai_execution_modes ai_mode/);
+  assert.match(sql, /ai_mode\.mode = 'live'/);
+  assert.match(sql, /ai_mode\.device_id = spff\.control_commands\.device_id/);
   assert.match(sql, /m\.desired_mode = 'automatic'/);
   assert.match(sql, /st\.raw_payload->>'pulseBootId' = request_payload->'waterTrial'->>'bootId'/);
   assert.match(sql, /st\.firmware_version = '1\.5\.07-AI-ACC-SESSION'/);
