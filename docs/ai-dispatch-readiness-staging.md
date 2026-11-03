@@ -37,3 +37,24 @@ node --test functions/test/aiDispatchReadiness.test.mjs
 ```
 
 The Node endpoint is only available after intentionally building/running this branch's **staging** API. No production deployment, database migration or ESP32 firmware modification belongs to this stage.
+
+## Isolated localhost preview (port 5002)
+
+The standalone `functions/src/aiPreviewLocal.ts` process is NOT the operational Express API
+and deliberately does not mount `apiRouter`. It exposes only the read-only health,
+AI dashboard, and dispatch-readiness GET endpoints. The readiness route reuses the
+same shared-contract validator and fail-closed controller, reading Python at the
+configured localhost `AI_PREVIEW_PYTHON_PORT` (normally `5011`).
+
+Unlike the operational API's readiness route, **the preview has no operator login**.
+It MUST remain bound to `127.0.0.1` and be accessed only on the host or through
+an SSH tunnel. Do not reverse-proxy it to a public network without appropriate
+access control. Preview responses never create commands, and no actuator/POST
+routes are mounted. HTTP 200 means preflight data was read, NOT dispatch permission.
+
+Verify after building and intentionally restarting only `spff-ai-dev-api`:
+
+```bash
+curl -sS -i http://127.0.0.1:5002/api/unified-ai/dispatch-readiness
+node --test functions/test/aiPreviewDispatchReadiness.test.mjs
+```

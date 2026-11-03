@@ -2,16 +2,16 @@ import type { Request, Response } from 'express';
 import { unifiedAiDashboardSchema } from '@spff/contracts';
 import { assessAiDispatchReadiness } from '../services/aiDispatchReadiness.js';
 
-// Fixed loopback STAGING source only. Never accept a URL supplied by a browser.
-// No POST handler, persistence, command queue insertion, or MQTT publish.
-const LOCAL_AI_SUMMARY_URL = 'http://127.0.0.1:5011/dashboard/summary';
-
-export async function getAiDispatchReadiness(_req: Request, res: Response): Promise<void> {
+// Loopback source only. The optional port comes from trusted server configuration,
+// never from HTTP input. No POST handler, persistence, queue insertion, or MQTT.
+export function createAiDispatchReadinessController(pythonPort: number) {
+  const localAiSummaryUrl = `http://127.0.0.1:${pythonPort}/dashboard/summary`;
+  return async function getReadiness(_req: Request, res: Response): Promise<void> {
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 12000);
   res.set('Cache-Control', 'no-store');
   try {
-    const response = await fetch(LOCAL_AI_SUMMARY_URL, {
+    const response = await fetch(localAiSummaryUrl, {
       method: 'GET',
       signal: abort.signal,
       headers: { Accept: 'application/json' },
@@ -44,4 +44,8 @@ export async function getAiDispatchReadiness(_req: Request, res: Response): Prom
   } finally {
     clearTimeout(timeout);
   }
+  };
 }
+
+// The existing authenticated operational endpoint retains the fixed 5011 source.
+export const getAiDispatchReadiness = createAiDispatchReadinessController(5011);
