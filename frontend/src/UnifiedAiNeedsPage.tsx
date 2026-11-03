@@ -4,7 +4,6 @@ import type {UnifiedAiDashboard} from '@spff/contracts';
 import {fetchUnifiedAiDashboard} from './api';
 import {aiCalculationReadiness} from './aiCalculationReadiness';
 import './UnifiedAiNeedsPage.css';
-import { AiOperatorAccPanel } from './AiOperatorAccPanel';
 
 const nf = new Intl.NumberFormat('id-ID',{maximumFractionDigits:2});
 const show = (n:number|null|undefined,unit='') =>
@@ -127,7 +126,6 @@ export function UnifiedAiNeedsPage(){
       </div>
     </div>
 
-    <AiOperatorAccPanel report={data}/>
     {loading&&!data&&!error?<div className="ain-notice" role="status">Memuat data dan perhitungan AI…</div>:null}
     {error?<div className="ain-notice ain-error" role="alert"><AlertTriangle size={17}/> {error} <span>Pastikan API dan service AI lokal berjalan.</span></div>:null}
     {!error&&data&&data.status!=='CURRENT'?<div className="ain-notice ain-warning" role="status">
