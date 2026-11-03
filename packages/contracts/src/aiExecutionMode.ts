@@ -5,8 +5,10 @@ import { z } from 'zod';
 export const aiExecutionModeSchema = z.enum(['off', 'shadow', 'live']);
 export type AiExecutionMode = z.infer<typeof aiExecutionModeSchema>;
 
+export const aiExecutionModeDeviceIdSchema = z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/);
+
 export const aiExecutionModeUpdateSchema = z.object({
-  deviceId: z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/),
+  deviceId: aiExecutionModeDeviceIdSchema,
   mode: aiExecutionModeSchema,
   expectedRevision: z.number().int().nonnegative(),
   confirmation: z.enum(['CHANGE_AI_MODE', 'ENABLE_AI_LIVE_SUPERVISED']),
