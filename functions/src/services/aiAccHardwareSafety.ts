@@ -6,7 +6,7 @@ const block = (reason: string): never => { throw new AiAccWaterTrialBlocked(reas
 function fresh(value: Date | string | null, now: Date): boolean {
   const time = value instanceof Date ? value.getTime() : Date.parse(String(value ?? ''));
   const skewMs = time - now.getTime();
-  return Number.isFinite(time) && skewMs <= 2000 && skewMs >= -30000;
+  return Number.isFinite(time) && skewMs <= 2000 && skewMs >= -45000;
 }
 
 export interface AiAccDeviceEvidence {

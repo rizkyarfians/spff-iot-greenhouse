@@ -23,6 +23,8 @@ test('SQL excludes AI ACC from Manual command branch and requires explicit gate 
   assert.match(sql, /m\.desired_mode = 'automatic'/);
   assert.match(sql, /st\.raw_payload->>'pulseBootId' = request_payload->'waterTrial'->>'bootId'/);
   assert.match(sql, /st\.firmware_version = '1\.5\.07-AI-ACC-SESSION'/);
+  assert.match(sql, /st\.recorded_at BETWEEN now\(\) - interval '45 seconds'/);
+  assert.match(sql, /recent\.received_at BETWEEN now\(\) - interval '45 seconds'/);
   assert.match(sql, /st\.raw_payload->>'aiAccTankGuardHealthy' = 'true'/);
   assert.match(sql, /st\.raw_payload->>'pumpReadbackValid' = 'true'/);
   assert.match(sql, /st\.raw_payload->>'pumpWaterActualActive' = 'false'/);

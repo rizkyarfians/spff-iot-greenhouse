@@ -389,8 +389,8 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
                     WHERE latest.site_id = st.site_id AND latest.device_id = st.device_id
                   )
                   AND st.online = true AND st.mode = 'automatic'
-                  AND st.recorded_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
-                  AND st.received_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
+                  AND st.recorded_at BETWEEN now() - interval '45 seconds' AND now() + interval '2 seconds'
+                  AND st.received_at BETWEEN now() - interval '45 seconds' AND now() + interval '2 seconds'
                   -- Exactly the validated firmware contract, not a prefix downgrade.
                   AND st.firmware_version = '1.5.07-AI-ACC-SESSION'
                   AND st.raw_payload->>'aiAccWaterTrialCapable' = 'true'
@@ -430,8 +430,8 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
                     AND t.device_id = spff.control_commands.device_id
                   ORDER BY t.received_at DESC, t.telemetry_id DESC LIMIT 1
                 ) recent
-                WHERE recent.recorded_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
-                  AND recent.received_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
+                WHERE recent.recorded_at BETWEEN now() - interval '45 seconds' AND now() + interval '2 seconds'
+                  AND recent.received_at BETWEEN now() - interval '45 seconds' AND now() + interval '2 seconds'
                   AND recent.sensor_health->'tank_water_distance_cm'->>'valid' = 'true'
                   AND recent.sensor_health->'flow_water_total_l'->>'valid' = 'true'
                   AND recent.flow_water_total_l IS NOT NULL

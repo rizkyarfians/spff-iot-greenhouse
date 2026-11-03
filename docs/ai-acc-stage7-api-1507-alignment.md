@@ -27,7 +27,7 @@ Firmware staging ZIP `SPFF_MASTER_1_5_07_AI_ACC_SESSION_STAGING.zip`:
   `SPFF_AI_ACC_WATER_TRIAL_ENABLED`).
 - Existing AI decision policy still requires real current operational plan,
   operator-reviewed evaluation ID, non-HOLD source and fresh data.
-- Hardware gate now accepts *only* exact 1.5.07 heartbeat, both capabilities,
+- Hardware gate now accepts *only* exact 1.5.07 heartbeat (45s max age for a 30s MCU heartbeat), both capabilities,
   independent healthy MCU tank guard, fresh register-level OFF readback for
   both outputs, no active AI session, valid boot ID, and Automatic.
 - Configuration `device_water_interlock_configs.enabled=false` is treated
