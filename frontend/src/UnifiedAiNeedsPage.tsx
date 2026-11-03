@@ -121,7 +121,7 @@ export function UnifiedAiNeedsPage(){
         <p>Rekomendasi dan kebutuhan dari program SPFF serta perhitungan Python AI. Hasil ini bukan perintah ke pompa.</p>
       </div>
       <div className="ain-hero-side">
-        <span className="ain-mode"><ShieldAlert size={14}/> MODE EKSEKUSI · Lihat pengaturan AI & ACC</span>
+        <span className="ain-mode"><ShieldAlert size={14}/> MONITORING AI · PENGATURAN DI MENU AI LIVE</span>
         <button type="button" className="ain-refresh" onClick={()=>{setLoading(true);setRetry(n=>n+1)}}><RefreshCw size={16}/> Muat ulang</button>
       </div>
     </div>
@@ -422,7 +422,7 @@ export function UnifiedAiNeedsPage(){
               <div><dt>Fuzzy score</dt><dd>{show(plan?.fuzzy_score)}</dd></div>
               <div><dt>Profil perhitungan</dt><dd>{data.decision.configuration_version??'Belum dikalibrasi'}</dd></div>
               <div><dt>Sumber data</dt><dd>PostgreSQL lokal</dd></div>
-              <div><dt>Status eksekusi</dt><dd>Lihat mode AI &amp; ACC di atas</dd></div>
+              <div><dt>Status eksekusi</dt><dd>Buka menu AI LIVE di sidebar untuk pengaturan</dd></div>
             </dl>
             <p className="ain-footnote">{data.note}</p>
           </article>
