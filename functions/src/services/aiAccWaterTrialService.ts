@@ -57,6 +57,16 @@ export async function queueAiAccWaterTrial(
       });
     }
 
+    // Fail closed: staging/SHADOW/OFF never enqueues an AI actuator command.
+    // Per-device advisory lock serializes this check with mode switches.
+    const aiMode = await client.query<{ mode: string }>(
+      'SELECT mode FROM spff.ai_execution_modes WHERE site_id=$1 AND device_id=$2 FOR SHARE',
+      [configuredSiteId, input.deviceId],
+    );
+    if (aiMode.rows[0]?.mode !== 'live') {
+      block('AI masih OFF/SHADOW; aktifkan LIVE supervised setelah commissioning.');
+    }
+
     const device = await client.query<{ enabled: boolean }>(
       'SELECT enabled FROM spff.devices WHERE site_id=$1 AND device_id=$2',
       [configuredSiteId, input.deviceId],
