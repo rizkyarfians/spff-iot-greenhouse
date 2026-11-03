@@ -1,5 +1,5 @@
 .ain-operator-acc{border-color:#cdded3;background:#f9fcfa}
-.ain-operator-acc>.ain-panel-heading>span{font-size:11px;font-weight:750;color:#6c583a;text-align:right}
+.ain-operator-acc>.ain-panel-heading>span{font-size:11px;font-weight:700;color:#6c583a;text-align:right}
 .ain-operator-acc>p{font-size:12px;line-height:1.7;color:#546b5d}
 .ain-acc-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
 .ain-acc-summary>div{padding:12px;border-radius:9px;background:#eef5f0;display:flex;flex-direction:column;gap:7px;overflow-wrap:anywhere}
@@ -7,7 +7,7 @@
 .ain-acc-summary strong{font-size:13px;color:#243e2d}
 .ain-acc-confirm{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.6;color:#344c3a;margin:13px 0}
 .ain-acc-confirm input{margin-top:4px;flex-shrink:0;accent-color:#1d7753}
-.ain-acc-check{border:0;background:#1d7753;border-radius:9px;color:#fff;padding:11px 16px;min-height:40px;font-size:12px;font-weight:750;cursor:pointer}
+.ain-acc-check{border:0;background:#1d7753;border-radius:9px;color:#fff;padding:11px 16px;min-height:40px;font-size:12px;font-weight:700;cursor:pointer}
 .ain-acc-check:disabled{opacity:.45;cursor:not-allowed}
 .ain-acc-check:focus-visible{outline:3px solid #7ad1a7;outline-offset:2px}
 .ain-acc-error,.ain-acc-blocked{padding:12px;border-radius:9px;background:#fff4ed;color:#8b4426;font-size:12px}
