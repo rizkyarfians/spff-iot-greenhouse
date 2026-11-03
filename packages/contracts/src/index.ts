@@ -98,7 +98,7 @@ export interface PumpCommandMessage extends MessageIdentity {
   params: {
     isActive: boolean;
     /** Explicit, operator-approved bounded water calibration trial. */
-    waterTrial?: { targetWaterL: number; durationSec: number };
+    waterTrial?: { targetWaterL: number; durationSec: number; bootId?: string };
   };
 }
 
@@ -379,6 +379,7 @@ export function isPumpCommandMessage(value: unknown): value is PumpCommandMessag
     typeof value.requestedBy === 'string' &&
     typeof value.targetId === 'string' &&
     typeof value.params.isActive === 'boolean' &&
+    (typeof value.requestedBy !== 'string' || !value.requestedBy.startsWith('trial:water:ai:') || value.params.waterTrial !== undefined) &&
     (value.params.waterTrial === undefined ||
       (value.targetId === 'pump_water' &&
        value.params.isActive === true &&
@@ -392,7 +393,9 @@ export function isPumpCommandMessage(value: unknown): value is PumpCommandMessag
        typeof value.params.waterTrial.targetWaterL === 'number' &&
        Number.isFinite(value.params.waterTrial.targetWaterL) &&
        value.params.waterTrial.targetWaterL >= 1 &&
-       value.params.waterTrial.targetWaterL <= 100))
+       value.params.waterTrial.targetWaterL <= 100 &&
+       (value.params.waterTrial.bootId === undefined || (typeof value.params.waterTrial.bootId === 'string' && /^[a-f0-9]{16}$/i.test(value.params.waterTrial.bootId))) &&
+       (!value.requestedBy.startsWith('trial:water:ai:') || typeof value.params.waterTrial.bootId === 'string')))
   );
 }
 
