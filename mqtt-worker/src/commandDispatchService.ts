@@ -69,6 +69,19 @@ export class CommandDispatchService {
       });
       return;
     }
+    // Even when a command was selected before an admin switched to OFF/SHADOW,
+    // do not publish it without a fresh persisted LIVE check.
+    const aiCommand = command.requestedBy.startsWith('trial:water:ai:') ||
+      command.source === 'ai-operator-acc-water-only-trial';
+    if (aiCommand) {
+      const live = await this.repository.recheckAiDispatch?.(command);
+      if (live !== true) {
+        console.warn('[command-dispatch] AI ACC mode changed or no longer pending', {
+          commandId: command.commandId,
+        });
+        return;
+      }
+    }
     const message: PumpCommandMessage = {
       schemaVersion: 1,
       siteId: command.siteId,
