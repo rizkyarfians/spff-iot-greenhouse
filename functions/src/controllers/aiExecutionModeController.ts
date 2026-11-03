@@ -1,15 +1,12 @@
 import type { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import { aiExecutionModeUpdateSchema } from '@spff/contracts';
+import { aiExecutionModeDeviceIdSchema, aiExecutionModeUpdateSchema } from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
 import { AiAccWaterTrialBlocked } from '../services/aiAccWaterTrialPolicy.js';
 import { AiExecutionModeBlocked, changeAiExecutionMode, readAiExecutionMode } from '../services/aiExecutionModeService.js';
 
-const deviceQuerySchema = z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/);
-
 export async function getAiExecutionMode(req: Request, res: Response, next: NextFunction): Promise<void> {
   res.set('Cache-Control', 'no-store');
-  const parsed = deviceQuerySchema.safeParse(req.query.deviceId);
+  const parsed = aiExecutionModeDeviceIdSchema.safeParse(req.query.deviceId);
   if (!parsed.success) {
     res.status(400).json({ success:false,data:null,message:'deviceId tidak valid.' });
     return;
