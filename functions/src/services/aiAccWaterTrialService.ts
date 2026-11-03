@@ -88,6 +88,12 @@ export async function queueAiAccWaterTrial(
     if (deviceStatus.raw_payload?.waterInterlockEnabled !== true) {
       block('Firmware harus melaporkan interlock air aktif.');
     }
+    // Firmware binds AI trial to this specific MCU boot. A later reboot
+    // invalidates an old command and prevents replay against new hardware state.
+    const bootId = deviceStatus.raw_payload?.pulseBootId;
+    if (typeof bootId !== 'string' || !/^[0-9a-f]{16}$/i.test(bootId)) {
+      block('Boot ID ESP32 tidak tersedia atau tidak valid.');
+    }
 
     const control = await client.query<{
       desired_mode: string;
@@ -178,7 +184,7 @@ export async function queueAiAccWaterTrial(
         JSON.stringify({
           source: 'ai-operator-acc-water-only-trial',
           deviceId:input.deviceId,
-          waterTrial: { targetWaterL:candidate.targetWaterL, durationSec:input.durationSec },
+          waterTrial: { targetWaterL:candidate.targetWaterL, durationSec:input.durationSec, bootId },
           aiAcc: { expectedAction:input.expectedAction,
             expectedEvaluatedAt:input.expectedEvaluatedAt,
             sourceWaterL:candidate.plannedWaterL,
