@@ -54,6 +54,25 @@ test('isolated preview exposes read-only readiness but no actuator routes', { ti
       assert.equal(body.success, false);
       assert.equal(body.data, null);
     }
+    const preparation = await fetch(base + '/api/unified-ai/command-preparation', {
+      signal: AbortSignal.timeout(15000),
+    });
+    assert.ok([200, 503].includes(preparation.status), 'Preparation route missing: ' + preparation.status);
+    const prepBody = await preparation.json();
+    if (preparation.status === 200) {
+      assert.equal(prepBody.data.stage, 'NON_EXECUTABLE_PREPARATION');
+      assert.equal(prepBody.data.canDispatch, false);
+      assert.equal(prepBody.data.commandCreated, false);
+      assert.equal(prepBody.data.command.commandId, null);
+      assert.equal(prepBody.data.command.targetId, null);
+      assert.equal(prepBody.data.executablePayload, null);
+    } else {
+      assert.equal(prepBody.success, false);
+    }
+    const writePreparation = await fetch(base + '/api/unified-ai/command-preparation', {
+      method: 'POST', signal: AbortSignal.timeout(1000),
+    });
+    assert.equal(writePreparation.status, 404, 'Preparation must not accept POST');
     const pumpRoute = await fetch(base + '/api/pumps', { signal: AbortSignal.timeout(1000) });
     assert.equal(pumpRoute.status, 404, 'Actuator routes must not exist in preview');
     const commandRoute = await fetch(base + '/api/pumps/water', {

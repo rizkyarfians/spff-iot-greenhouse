@@ -1,6 +1,7 @@
 import express from 'express';
 import { unifiedAiDashboardSchema } from '@spff/contracts';
 import { createAiDispatchReadinessController } from './controllers/aiDispatchReadinessController.js';
+import { createAiCommandPreparationController } from './controllers/aiCommandPreparationController.js';
 
 // Independent preview process. NEVER mount the operational SPFF router here:
 // that router exposes mutation, actuator and login endpoints.
@@ -63,6 +64,8 @@ app.get('/api/unified-ai/dashboard', async (_req, res) => {
 // available on loopback in this isolated preview process (no login here).
 // The preview shares the validated Python port; it never creates a command.
 app.get('/api/unified-ai/dispatch-readiness', createAiDispatchReadinessController(pythonPort));
+// Blocked draft with no executable payload; localhost-only GET.
+app.get('/api/unified-ai/command-preparation', createAiCommandPreparationController(pythonPort));
 // No authentication, actuator, evaluation, MQTT, registration or write routes.
 // This process must remain localhost-only behind an SSH tunnel.
 app.use((_req, res) => {
