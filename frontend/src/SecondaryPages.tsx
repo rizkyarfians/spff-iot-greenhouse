@@ -6,6 +6,7 @@ import { WaterInterlockSettings } from './WaterInterlockSettings'
 import { SoilEcExecutionSettings } from './SoilEcExecutionSettings'
 import { FertigationPage } from './FertigationPage'
 import { UnifiedAiNeedsPage } from './UnifiedAiNeedsPage'
+import { AiLivePage } from './AiLivePage'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
 import { ParameterPicker } from './ParameterPicker'
@@ -4718,6 +4719,7 @@ export function SecondaryPage({
 }: SecondaryPageProps) {
   if (page === 'fertigation') return <FertigationPage devices={data?.devices ?? []} />
   if (page === 'ai-needs') return <UnifiedAiNeedsPage />
+  if (page === 'ai-live') return <AiLivePage />
   if (page === 'guide') return <Suspense fallback={<section className="guide-page" role="status">Memuat panduan…</section>}><GuidePage/></Suspense>
 
   const connectedProps = {
