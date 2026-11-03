@@ -117,7 +117,7 @@ export function assessAiSafetyEvidence(
     deviceLastSeenAt: observed ? iso(rows?.status?.recorded_at) : null,
     telemetryRecordedAt: observed ? iso(rows?.telemetry?.recorded_at) : null,
     reportedMode: observed && (rows?.status?.mode === 'manual' || rows?.status?.mode === 'automatic')
-      ? rows.status.mode : null,
+      ? rows?.status?.mode : null,
     firmwareVersion: observed && typeof rows?.status?.firmware_version === 'string'
       ? rows.status.firmware_version.slice(0,120) : null,
     checks,

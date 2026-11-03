@@ -47,42 +47,45 @@ export async function loadAiSafetyRows(config: Extract<AiSafetyDatabaseConfig, {
         const device = (await client.query(
           'SELECT enabled FROM spff.devices WHERE site_id=$1 AND device_id=$2', args)).rows[0] ?? null;
         const status = (await client.query(
-          \`SELECT online,mode,firmware_version,recorded_at,received_at,raw_payload
+          `SELECT online,mode,firmware_version,recorded_at,received_at,raw_payload
            FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2
-           ORDER BY received_at DESC,device_status_id DESC LIMIT 1\`, args)).rows[0] ?? null;
+           ORDER BY received_at DESC,device_status_id DESC LIMIT 1`, args)).rows[0] ?? null;
         const telemetry = (await client.query(
-          \`SELECT recorded_at,received_at,sensor_valid
+          `SELECT recorded_at,received_at,sensor_valid
            FROM spff.telemetry_samples WHERE site_id=$1 AND device_id=$2
-           ORDER BY received_at DESC,telemetry_id DESC LIMIT 1\`, args)).rows[0] ?? null;
+           ORDER BY received_at DESC,telemetry_id DESC LIMIT 1`, args)).rows[0] ?? null;
         const actuators = (await client.query(
-          \`SELECT actuator_key,state,is_active,source,recorded_at,received_at
+          `SELECT actuator_key,state,is_active,source,recorded_at,received_at
            FROM spff.latest_actuator_states
-           WHERE site_id=$1 AND device_id=$2 AND actuator_key IN ('pump_water','pump_fert')\`,
+           WHERE site_id=$1 AND device_id=$2 AND actuator_key IN ('pump_water','pump_fert')`,
           args)).rows;
         const automatic = (await client.query(
-          \`SELECT revision,acknowledged_revision,acknowledgement_status,desired_mode,applied_mode
+          `SELECT revision,acknowledged_revision,acknowledgement_status,desired_mode,applied_mode
            FROM spff.device_automatic_control_configs
-           WHERE site_id=$1 AND device_id=$2\`, args)).rows[0] ?? null;
+           WHERE site_id=$1 AND device_id=$2`, args)).rows[0] ?? null;
         const interlock = (await client.query(
-          \`SELECT revision,enabled,acknowledged_revision,acknowledgement_status,applied_enabled
+          `SELECT revision,enabled,acknowledged_revision,acknowledgement_status,applied_enabled
            FROM spff.device_water_interlock_configs
-           WHERE site_id=$1 AND device_id=$2\`, args)).rows[0] ?? null;
+           WHERE site_id=$1 AND device_id=$2`, args)).rows[0] ?? null;
         const unfinished = (await client.query(
-          \`SELECT EXISTS(SELECT 1 FROM spff.control_commands
-           WHERE site_id=$1 AND device_id=$2 AND status IN ('pending','published','accepted')) AS busy\`,
-          args)).rows[0]?.busy === true;
+          `SELECT EXISTS(SELECT 1 FROM spff.control_commands
+           WHERE site_id=$1 AND device_id=$2 AND status IN ('pending','published','accepted')) AS busy`,
+          args)).rows[0]?.busy;
         const schedules = (await client.query(
-          \`SELECT EXISTS(SELECT 1 FROM spff.actuator_schedules
+          `SELECT EXISTS(SELECT 1 FROM spff.actuator_schedules
            WHERE site_id=$1 AND device_id=$2 AND enabled
-           AND actuator_key IN ('pump_water','pump_fert')) AS busy\`, args)).rows[0]?.busy === true;
+           AND actuator_key IN ('pump_water','pump_fert')) AS busy`, args)).rows[0]?.busy;
         const soilSession = (await client.query(
-          \`SELECT EXISTS(SELECT 1 FROM spff.soil_ec_pulse_sessions
-           WHERE site_id=$1 AND device_id=$2 AND status IN ('waiting','in_flight','fault')) AS busy\`,
-          args)).rows[0]?.busy === true;
+          `SELECT EXISTS(SELECT 1 FROM spff.soil_ec_pulse_sessions
+           WHERE site_id=$1 AND device_id=$2 AND status IN ('waiting','in_flight','fault')) AS busy`,
+          args)).rows[0]?.busy;
         const adaptiveSession = (await client.query(
-          \`SELECT EXISTS(SELECT 1 FROM spff.adaptive_fert_sessions
-           WHERE site_id=$1 AND device_id=$2 AND status NOT IN ('completed','fault')) AS busy\`,
-          args)).rows[0]?.busy === true;
+          `SELECT EXISTS(SELECT 1 FROM spff.adaptive_fert_sessions
+           WHERE site_id=$1 AND device_id=$2 AND status NOT IN ('completed','fault')) AS busy`,
+          args)).rows[0]?.busy;
+        if ([unfinished, schedules, soilSession, adaptiveSession].some(v => typeof v !== 'boolean')) {
+          throw new Error('Missing boolean conflict evidence');
+        }
         await client.query('COMMIT');
         return {
           device, status, telemetry, actuators, automatic, interlock,
