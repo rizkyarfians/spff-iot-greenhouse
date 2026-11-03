@@ -249,8 +249,9 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
           Mode OFF/SHADOW tidak menghentikan command yang sudah terkirim.
         </p>}
       </section>
-      <p>Operator meninjau usulan AI sebelum perangkat dapat menerima perintah.
-        Tahap ini hanya menguji pemeriksaan ACC, <strong>tidak menjalankan pompa</strong>.</p>
+      <p>Operator meninjau usulan AI. Cek ACC dry-run <strong>tidak menjalankan pompa</strong>.
+        Trial air fisik hanya tersedia di mode LIVE supervised setelah persetujuan terpisah
+        dan seluruh safety gate lulus.</p>
       <div className="ain-acc-summary">
         <div><small>Aksi AI</small><strong>{canReview ? action : 'Tidak ada rekomendasi yang dapat direview'}</strong></div>
         <div><small>Keputusan</small><strong>{report?.status ?? 'Tidak tersedia'}</strong></div>
@@ -320,7 +321,7 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
       <p className="ain-footnote">
         {previewOnly
           ? 'Preview port 5002 hanya menerima GET. Tidak ada login, approval tersimpan, MQTT publish, atau command.'
-          : 'Hanya operator/admin terautentikasi dengan CSRF valid yang bisa menjalankan preflight ini. Tidak ada approval tersimpan atau command.'}
+          : 'Cek ACC dry-run tidak mengantrekan command. Trial air saat LIVE memerlukan ACC operator terautentikasi dan CSRF yang valid.'}
         {' '}Firmware 1.5.07 belum terverifikasi di hardware; tank guard MCU tetap wajib.
       </p>
     </article>
