@@ -41,6 +41,7 @@ function presentMode(deviceId: string, row?: ModeRow): AiExecutionModeState {
     updatedAt: row?.updated_at instanceof Date ? row.updated_at.toISOString() : null,
     updatedBy: row?.updated_by ?? null,
     liveSelectable: aiLiveSwitchAvailable(),
+    apiTrialEnabled: row?.mode === 'live' && aiLiveSwitchAvailable(),
     // Worker is independently gated by env+fresh ESP32 evidence; never claim it is ready.
     workerDispatchConfirmed: false,
   };
