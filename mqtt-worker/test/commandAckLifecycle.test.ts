@@ -51,7 +51,7 @@ test('terminal ACK uses server DB clock; MCU timestamp remains in the ACK audit 
   const indexes = [...commandUpdate.text.matchAll(/\$(\d+)\b/g)].map((match) => Number(match[1]));
   assert.deepEqual([...new Set(indexes)].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7]);
   assert.equal(commandUpdate.values.length, 7);
-  assert.equal(commandUpdate.values[2], undefined);
+  assert.equal(commandUpdate.values[2], null);
   assert.equal(commandUpdate.values[3], completion.siteId);
   assert.equal(commandUpdate.values[6], false);
   // ESP32 time remains evidence-only, in the append-only acknowledgement table.
