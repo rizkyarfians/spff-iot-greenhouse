@@ -1358,15 +1358,18 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           SET
             status = $2,
             completed_at = CASE
-              WHEN $2 IN ('completed', 'rejected', 'timed_out') THEN $3::timestamptz
+              -- MCU clock may lag server time; keep device time in ack history.
+              -- Lifecycle completion is server-observed and cannot predate issuance.
+              WHEN $2 IN ('completed', 'rejected', 'timed_out') THEN GREATEST(now(), issued_at)
               ELSE completed_at
             END,
             reason = COALESCE($4, reason),
             updated_at = now()
           WHERE command_id = $1
             AND site_id = $5 AND device_id = $6 AND actuator_key = $7
-            -- QoS1 delayed/duplicated ACK must not resurrect terminal commands.
-            AND (status NOT IN ('completed','rejected','timed_out') OR status = $2)
+            -- Terminal statuses are immutable, including duplicate terminal ACKs.
+            -- Out-of-order 'accepted' after 'completed' must never reopen a command.
+            AND status IN ('pending','published','accepted')
             -- A timed trial can never complete while relay is reported ON.
             AND (NOT COALESCE(request_payload ? 'waterTrial', false) OR $2 <> 'completed' OR $8::boolean = false)
           RETURNING command_id
