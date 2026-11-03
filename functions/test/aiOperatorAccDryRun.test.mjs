@@ -16,6 +16,7 @@ const now = new Date('2026-11-03T06:00:05.000Z');
 function fixture(overrides = {}) {
   return {
     status: 'CURRENT', evaluated_at: request.expectedEvaluatedAt,
+    planning_recorded_at: request.expectedEvaluatedAt,
     planning_source: 'POSTGRES_READ_ONLY', planning_status: 'CURRENT',
     decision: { type: 'IRRIGATE', proposed_action: 'IRRIGATE', hold_reasons: [], configuration_version: 'validated' },
     sensors: { device_mode: 'automatic' },
