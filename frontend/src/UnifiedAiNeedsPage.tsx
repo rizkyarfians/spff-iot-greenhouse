@@ -122,7 +122,7 @@ export function UnifiedAiNeedsPage(){
         <p>Rekomendasi dan kebutuhan dari program SPFF serta perhitungan Python AI. Hasil ini bukan perintah ke pompa.</p>
       </div>
       <div className="ain-hero-side">
-        <span className="ain-mode"><ShieldAlert size={14}/> SHADOW MODE · Tidak mengontrol pompa</span>
+        <span className="ain-mode"><ShieldAlert size={14}/> MODE EKSEKUSI · Lihat pengaturan AI & ACC</span>
         <button type="button" className="ain-refresh" onClick={()=>{setLoading(true);setRetry(n=>n+1)}}><RefreshCw size={16}/> Muat ulang</button>
       </div>
     </div>
@@ -399,7 +399,7 @@ export function UnifiedAiNeedsPage(){
               <small>Hasil final</small><b>{current?data.decision.type??'HOLD':'HOLD · Data tidak segar'}</b>
             </div>
             <h4>Alasan / hambatan</h4>
-            {data.decision.hold_reasons.length?<ul className="ain-reasons">{data.decision.hold_reasons.map(reason=><li key={reason}>{reasonLabel(reason)}</li>)}</ul>:<p className="ain-muted">Belum ada alasan tersimpan. AI tetap tidak memiliki akses dispatch.</p>}
+            {data.decision.hold_reasons.length?<ul className="ain-reasons">{data.decision.hold_reasons.map(reason=><li key={reason}>{reasonLabel(reason)}</li>)}</ul>:<p className="ain-muted">Belum ada alasan tersimpan. Eksekusi tetap memerlukan mode LIVE, ACC dan seluruh safety gate.</p>}
           </article>
           <article className="ain-panel">
             <div className="ain-panel-heading"><h3><CheckCircle2 size={18}/> Sensor &amp; Feedback</h3></div>
@@ -424,7 +424,7 @@ export function UnifiedAiNeedsPage(){
               <div><dt>Fuzzy score</dt><dd>{show(plan?.fuzzy_score)}</dd></div>
               <div><dt>Profil perhitungan</dt><dd>{data.decision.configuration_version??'Belum dikalibrasi'}</dd></div>
               <div><dt>Sumber data</dt><dd>PostgreSQL lokal</dd></div>
-              <div><dt>Status eksekusi</dt><dd>Tidak diizinkan</dd></div>
+              <div><dt>Status eksekusi</dt><dd>Lihat mode AI &amp; ACC di atas</dd></div>
             </dl>
             <p className="ain-footnote">{data.note}</p>
           </article>
