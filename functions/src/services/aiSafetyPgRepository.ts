@@ -24,7 +24,10 @@ export function getAiSafetyDatabaseConfig(env: NodeJS.ProcessEnv): AiSafetyDatab
       !siteId || !deviceId || !safeId.test(siteId) || !safeId.test(deviceId) ||
       !host || !database || !user || !password ||
       !Number.isInteger(port) || port < 1 || port > 65535) {
-    return { configured: false, siteId, deviceId };
+    return { configured: false,
+      siteId: siteId && safeId.test(siteId) ? siteId : null,
+      deviceId: deviceId && safeId.test(deviceId) ? deviceId : null,
+    };
   }
   return { configured: true, siteId, deviceId, host, port, database, user, password };
 }
@@ -83,13 +86,29 @@ export async function loadAiSafetyRows(config: Extract<AiSafetyDatabaseConfig, {
           `SELECT EXISTS(SELECT 1 FROM spff.adaptive_fert_sessions
            WHERE site_id=$1 AND device_id=$2 AND status NOT IN ('completed','fault')) AS busy`,
           args)).rows[0]?.busy;
-        if ([unfinished, schedules, soilSession, adaptiveSession].some(v => typeof v !== 'boolean')) {
+        const soilCommand = (await client.query(
+          `SELECT EXISTS(
+             SELECT 1 FROM spff.soil_ec_pulse_commands c
+             JOIN spff.soil_ec_pulse_sessions s ON s.session_id=c.session_id
+             WHERE s.site_id=$1 AND s.device_id=$2
+               AND c.status IN ('pending','published','accepted')
+           ) AS busy`, args)).rows[0]?.busy;
+        const adaptiveCommand = (await client.query(
+          `SELECT EXISTS(
+             SELECT 1 FROM spff.adaptive_fert_commands c
+             JOIN spff.adaptive_fert_sessions s
+               ON s.site_id=c.site_id AND s.session_id=c.session_id
+             WHERE s.site_id=$1 AND s.device_id=$2
+               AND c.status IN ('pending','dispatching','forwarded')
+           ) AS busy`, args)).rows[0]?.busy;
+        if ([unfinished, schedules, soilSession, adaptiveSession, soilCommand, adaptiveCommand]
+            .some(v => typeof v !== 'boolean')) {
           throw new Error('Missing boolean conflict evidence');
         }
         await client.query('COMMIT');
         return {
           device, status, telemetry, actuators, automatic, interlock,
-          unfinished, schedules, soilSession, adaptiveSession,
+          unfinished, schedules, soilSession, adaptiveSession, soilCommand, adaptiveCommand,
         };
       } catch (error) {
         await client.query('ROLLBACK');

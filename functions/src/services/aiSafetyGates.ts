@@ -27,6 +27,8 @@ export interface AiSafetyRows {
   schedules: boolean;
   soilSession: boolean;
   adaptiveSession: boolean;
+  soilCommand: boolean;
+  adaptiveCommand: boolean;
 }
 
 type Gate = 'PASS' | 'BLOCKED' | 'UNKNOWN';
@@ -88,6 +90,8 @@ export function assessAiSafetyEvidence(
     && modeCfg.acknowledged_revision != null
     && Number(modeCfg.acknowledged_revision) === Number(modeCfg.revision);
 
+  const reportedMode = rows?.status?.mode;
+  const firmwareVersion = rows?.status?.firmware_version;
   const observed = source === 'POSTGRES_READ_ONLY' && rows !== null;
   const check = (value: boolean): Gate => observed ? (value ? 'PASS' : 'BLOCKED') : UNKNOWN;
   const checks = {
@@ -99,7 +103,8 @@ export function assessAiSafetyEvidence(
     waterInterlockConfirmed: check(interlockOk),
     noUnfinishedCommands: check(rows?.unfinished === false),
     noEnabledPumpSchedules: check(rows?.schedules === false),
-    noRelayOwningSessions: check(rows?.soilSession === false && rows?.adaptiveSession === false),
+    noRelayOwningSessions: check(rows?.soilSession === false && rows?.adaptiveSession === false &&
+      rows?.soilCommand === false && rows?.adaptiveCommand === false),
     // No validated boot/session identity contract or hydraulic calibration path yet.
     bootIdentityVerified: UNKNOWN,
     hydraulicCalibrationVerified: UNKNOWN,
@@ -116,10 +121,10 @@ export function assessAiSafetyEvidence(
     siteId, deviceId,
     deviceLastSeenAt: observed ? iso(rows?.status?.recorded_at) : null,
     telemetryRecordedAt: observed ? iso(rows?.telemetry?.recorded_at) : null,
-    reportedMode: observed && (rows?.status?.mode === 'manual' || rows?.status?.mode === 'automatic')
-      ? rows?.status?.mode : null,
-    firmwareVersion: observed && typeof rows?.status?.firmware_version === 'string'
-      ? rows.status.firmware_version.slice(0,120) : null,
+    reportedMode: observed && (reportedMode === 'manual' || reportedMode === 'automatic')
+      ? reportedMode : null,
+    firmwareVersion: observed && typeof firmwareVersion === 'string'
+      ? firmwareVersion.slice(0,120) : null,
     checks,
     blockers: [
       ...(source !== 'POSTGRES_READ_ONLY' ? [source] : []),

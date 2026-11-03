@@ -21,6 +21,7 @@ const rows = () => ({
   interlock: { enabled: true, applied_enabled: true, revision: 2,
     acknowledged_revision: 2, acknowledgement_status: 'applied' },
   unfinished: false, schedules: false, soilSession: false, adaptiveSession: false,
+  soilCommand: false, adaptiveCommand: false,
 });
 
 test('fresh PG observations can pass individual gates but never authorize dispatch', () => {
@@ -51,11 +52,20 @@ test('stale and missing feedback always blocks, never infers OFF', () => {
 });
 
 test('pending commands and any owning sessions block conflict checks', () => {
-  const x = { ...rows(), unfinished: true, schedules: true, soilSession: true };
+  const x = { ...rows(), unfinished: true, schedules: true, soilSession: true, adaptiveCommand: true };
   const report = assessAiSafetyEvidence('greenhouse-01', 'esp32-01', x, now, 'POSTGRES_READ_ONLY');
   assert.equal(report.checks.noUnfinishedCommands, 'BLOCKED');
   assert.equal(report.checks.noEnabledPumpSchedules, 'BLOCKED');
   assert.equal(report.checks.noRelayOwningSessions, 'BLOCKED');
+});
+
+test('unfinished commands from alternate session queues also block', () => {
+  const a = assessAiSafetyEvidence('greenhouse-01', 'esp32-01',
+    { ...rows(), soilCommand: true }, now, 'POSTGRES_READ_ONLY');
+  assert.equal(a.checks.noRelayOwningSessions, 'BLOCKED');
+  const b = assessAiSafetyEvidence('greenhouse-01', 'esp32-01',
+    { ...rows(), adaptiveCommand: true }, now, 'POSTGRES_READ_ONLY');
+  assert.equal(b.checks.noRelayOwningSessions, 'BLOCKED');
 });
 
 test('unconfigured or unavailable PostgreSQL remains fail-closed', () => {
