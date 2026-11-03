@@ -24,7 +24,7 @@ export function aiAccDispatchBlocker(
   if (command.aiAccConfirmation !== 'APPROVE_AI_WATER_ONLY_TRIAL') {
     return 'operator_confirmation_missing';
   }
-  if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(command.commandId)) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(command.commandId)) {
     return 'invalid_ai_command_id';
   }
   const trial = command.waterTrial;

@@ -54,7 +54,12 @@ cd ~/spff-ai-acc-worker-review
 npm ci
 npm run build
 npm run lint
-npx tsx --test mqtt-worker/test/aiAccDispatchGuard.test.ts mqtt-worker/test/aiAccRepositoryGate.test.ts mqtt-worker/test/commandDispatchService.test.ts
+# Synthetic URL only for mocked repository tests; no database is contacted.
+DATABASE_URL=postgresql://unused:unused@127.0.0.1:1/unused \
+  ./node_modules/.bin/tsx --test \
+  mqtt-worker/test/aiAccDispatchGuard.test.ts \
+  mqtt-worker/test/aiAccRepositoryGate.test.ts \
+  mqtt-worker/test/commandDispatchService.test.ts
 ```
 
 Do not enable either AI dispatch flag. Next phase: obtain exact deployed

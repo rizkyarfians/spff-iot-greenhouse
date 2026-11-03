@@ -389,8 +389,8 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
                     WHERE latest.site_id = st.site_id AND latest.device_id = st.device_id
                   )
                   AND st.online = true AND st.mode = 'automatic'
-                  AND st.recorded_at >= now() - interval '30 seconds'
-                  AND st.received_at >= now() - interval '30 seconds'
+                  AND st.recorded_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
+                  AND st.received_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
                   -- 1.5.06 is NOT accepted until its actual firmware contract is verified.
                   AND st.firmware_version LIKE '1.5.04-WATER-TRIAL-AI-ACC-%'
                   AND st.raw_payload->>'aiAccWaterTrialCapable' = 'true'
@@ -413,7 +413,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
                   AND a.device_id = spff.control_commands.device_id
                   AND a.actuator_key IN ('pump_water','pump_fert')
                   AND a.state = 'inactive' AND a.is_active = false
-                  AND a.received_at >= now() - interval '30 seconds'
+                  AND a.received_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
               ) = 2
               AND EXISTS (
                 SELECT 1 FROM (
@@ -423,8 +423,8 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
                     AND t.device_id = spff.control_commands.device_id
                   ORDER BY t.received_at DESC, t.telemetry_id DESC LIMIT 1
                 ) recent
-                WHERE recent.recorded_at >= now() - interval '30 seconds'
-                  AND recent.received_at >= now() - interval '30 seconds'
+                WHERE recent.recorded_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
+                  AND recent.received_at BETWEEN now() - interval '30 seconds' AND now() + interval '2 seconds'
                   AND recent.sensor_health->'tank_water_distance_cm'->>'valid' = 'true'
                   AND recent.sensor_health->'flow_water_total_l'->>'valid' = 'true'
                   AND recent.flow_water_total_l IS NOT NULL
