@@ -44,3 +44,30 @@ not a real SQL transition race. Before deployment:
 4. Confirm STOP and physical safety with motor power isolated.
 
 No flag changes and no operational DB writes are part of this patch.
+
+
+## PostgreSQL 14 isolated-test finding and fix (2026-11-03)
+
+First `pg_virtualenv` execution failed with PostgreSQL SQLSTATE `42P18`:
+`could not determine data type of parameter $3`. The prior patch changed
+`completed_at` to `GREATEST(now(), issued_at)` but still supplied the
+obsolete `acknowledgedAt` as bind `$3` for the command UPDATE.
+
+Corrected the UPDATE bind indexes to contiguous `$1..$7` and removed
+the unused acknowledgement timestamp from that UPDATE's parameter list.
+The timestamp remains preserved in the ACK event INSERT. Added regression
+assertions for contiguous bind indexes, and a repeatable real-Postgres
+test runner using minimal disposable schema:
+
+```bash
+cd ~/spff-ai-ack-review
+# After updating to the latest staging commit and rebuilding:
+pg_virtualenv bash mqtt-worker/test/runAckPostgresIntegration.sh
+```
+
+The test runner verifies a pg_virtualenv marker and port, refuses the
+operational `spff` database, and exercises the real repository SQL for:
+terminal completed, late accepted, expiry, duplicate completed and
+actuator/audit event counts. It is not a full migration-schema nor
+concurrency test. It has not been run against real PostgreSQL after
+the new bind-index fix yet.
