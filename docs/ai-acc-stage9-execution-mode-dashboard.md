@@ -73,9 +73,13 @@ The hardware STOP and MCU fail-safe always remain authoritative.
 
 ## UI
 
-`AI & Kebutuhan Tanaman → Mode AI & ACC Operator` has a responsive selector,
+`AI LIVE` is a standalone left-sidebar page (`#/ai-live`), directly below `AI & Kebutuhan Tanaman`. The AI recommendation page remains read-only and no longer mounts the ACC panel. `AI LIVE` has a responsive selector,
 device-scoped mode, revision, refresh and admin save action, optional LIVE
 confirmation, loading/error indications and an independent water-only
 commissioning panel. The API does not equate an ACK `accepted` with completed.
 
 The mode switch is **backend authority**, not localStorage or frontend-only.
+
+## Production rollout hold
+
+Operator supplied a read-only production check: `/opt/spff/frontend/dist` exists and systemd reports API/Worker active, but `curl http://127.0.0.1:5001/api/health` returned connection refused. Do **not** interpret that alone as API failure; discover the actual port and reverse-proxy routing first. Do not deploy migration 038 or new Worker SQL before backup, exact version comparison and endpoint verification. Firmware 1.5.06 remains operational; LIVE execution flags must remain OFF.
