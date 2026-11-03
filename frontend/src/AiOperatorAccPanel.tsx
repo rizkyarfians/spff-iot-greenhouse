@@ -86,7 +86,7 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
       setConfirmLive(false);
     } catch(cause) {
       setAiModeError(cause instanceof Error ? cause.message : 'Mode AI gagal disimpan.');
-      void refreshAiMode();
+      // Leave error visible; admin can press Refresh to resolve revision conflicts.
     } finally {
       setSavingAiMode(false);
     }
@@ -152,7 +152,7 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
   }, [liveCommandId]);
 
   const aiWaterL = report?.calculation.water_l ?? null;
-  const canPhysicalTrial = !previewOnly && aiMode?.mode === 'live' && !!report && report.status === 'CURRENT' &&
+  const canPhysicalTrial = !previewOnly && aiMode?.apiTrialEnabled === true && !!report && report.status === 'CURRENT' &&
     canReview && report.sensors.device_mode === 'automatic' &&
     aiWaterL !== null && aiWaterL >= 1 &&
     report.decision.hold_reasons.length === 0;
@@ -196,7 +196,7 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
     <article className="ain-panel ain-operator-acc" aria-label="Trial ACC operator">
       <div className="ain-panel-heading">
         <h3><ClipboardCheck size={18} /> Mode AI &amp; ACC Operator</h3>
-        <span>{previewOnly ? 'PREVIEW · SHADOW' : aiMode?.mode === 'live' ? 'LIVE SUPERVISED' : 'AI · NON-AKTUASI'}</span>
+        <span>{previewOnly ? 'PREVIEW · SHADOW' : aiMode?.apiTrialEnabled ? 'LIVE SUPERVISED' : 'AI · NON-AKTUASI'}</span>
       </div>
       <section className="ain-mode-settings" aria-label="Pengaturan mode eksekusi AI">
         <div className="ain-mode-heading">
@@ -243,8 +243,10 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
         )}
         {aiModeError && <p className="ain-acc-error" role="alert"><AlertTriangle size={15}/>{aiModeError}</p>}
         {aiMode?.mode === 'live' && <p className="ain-mode-note">
-          LIVE hanya mengizinkan antrean trial setelah ACC dan semua gate API/Worker;
-          bukan bukti pompa menyala. OFF/SHADOW tidak menghentikan command yang sudah terkirim.
+          {aiMode.apiTrialEnabled ? 'API trial tersedia untuk ACC bersyarat.' :
+            'LIVE tersimpan, tetapi gate API dinonaktifkan: eksekusi BLOCKED.'}
+          {' '}Worker dan hardware tetap mempunyai gate independen.
+          Mode OFF/SHADOW tidak menghentikan command yang sudah terkirim.
         </p>}
       </section>
       <p>Operator meninjau usulan AI sebelum perangkat dapat menerima perintah.
@@ -252,7 +254,7 @@ export function AiOperatorAccPanel({ report }: { report: UnifiedAiDashboard | nu
       <div className="ain-acc-summary">
         <div><small>Aksi AI</small><strong>{canReview ? action : 'Tidak ada rekomendasi yang dapat direview'}</strong></div>
         <div><small>Keputusan</small><strong>{report?.status ?? 'Tidak tersedia'}</strong></div>
-        <div><small>Eksekusi</small><strong>{!previewOnly && aiMode?.mode === 'live' ? 'ACC wajib / gate safety' : 'BLOCKED'}</strong></div>
+        <div><small>Eksekusi</small><strong>{!previewOnly && aiMode?.apiTrialEnabled ? 'ACC wajib / gate safety' : 'BLOCKED'}</strong></div>
       </div>
       <label className="ain-acc-confirm">
         <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />
