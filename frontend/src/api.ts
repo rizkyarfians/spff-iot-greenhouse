@@ -948,3 +948,23 @@ export const saveGuideEcProfile=(id:string,input:import('@spff/contracts').Guide
 // Unified AI is read-only; values are computed in the Python SHADOW engine.
 export const fetchUnifiedAiDashboard = (signal?: AbortSignal) =>
   request<import('@spff/contracts').UnifiedAiDashboard>('/unified-ai/dashboard', {signal});
+
+ 
+// ACC staging boundary: operator request is evaluated but cannot actuate.
+export function checkAiOperatorAccDryRun(input: import('@spff/contracts').AiOperatorAccRequest) {
+  return request<import('@spff/contracts').AiOperatorAccResult>(
+    '/unified-ai/operator-acc/dry-run',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  )
+}
+
+export function fetchAiAccPreparation(signal?: AbortSignal) {
+  return request<import('@spff/contracts').AiCommandPreparation>(
+    '/unified-ai/command-preparation',
+    { signal },
+  )
+}

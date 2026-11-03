@@ -2,6 +2,7 @@ import {getUnifiedAiDashboard} from '../controllers/unifiedAiDashboardController
 import {getAiDispatchReadiness} from '../controllers/aiDispatchReadinessController.js';
 import {getAiCommandPreparation} from '../controllers/aiCommandPreparationController.js';
 import { getAiSafetyEvidence } from '../controllers/aiSafetyEvidenceController.js';
+import { postAiOperatorAccDryRun } from '../controllers/aiOperatorAccController.js';
 import { startCalibrationTrial, readCalibrationTrial, stopCalibrationTrial, saveCalibrationMeasurement } from '../controllers/waterTrialController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
 import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
@@ -177,6 +178,8 @@ apiRouter.get('/unified-ai/dispatch-readiness', requireOperator, getAiDispatchRe
 apiRouter.get('/unified-ai/command-preparation', requireOperator, getAiCommandPreparation);
 // PostgreSQL safety evidence only, no command creation.
 apiRouter.get('/unified-ai/safety-evidence', requireOperator, getAiSafetyEvidence);
+// Explicit operator + CSRF; dry-run only, not connected to MQTT or pump command queue.
+apiRouter.post('/unified-ai/operator-acc/dry-run', requireOperator, requireCsrf, postAiOperatorAccDryRun);
  
 // OFF by default: SPFF_WATER_TRIAL_DISPATCH_ENABLED must be explicitly enabled
 // only after firmware capability, power isolation and bench checks.
