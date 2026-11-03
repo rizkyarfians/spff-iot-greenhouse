@@ -47,7 +47,14 @@ test('terminal ACK uses server DB clock; MCU timestamp remains in the ACK audit 
   assert.match(commandUpdate.text, /GREATEST\(now\(\), issued_at\)/);
   assert.match(commandUpdate.text, /AND status IN \('pending','published','accepted'\)/);
   assert.doesNotMatch(commandUpdate.text, /THEN \$3::timestamptz/);
-  assert.equal(commandUpdate.values[2], completion.acknowledgedAt);
+  // Every parameter position must be used and type-inferable by PostgreSQL.
+  const indexes = [...commandUpdate.text.matchAll(/\$(\d+)\b/g)].map((match) => Number(match[1]));
+  assert.deepEqual([...new Set(indexes)].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(commandUpdate.values.length, 7);
+  assert.equal(commandUpdate.values[2], undefined);
+  assert.equal(commandUpdate.values[3], completion.siteId);
+  assert.equal(commandUpdate.values[6], false);
+  // ESP32 time remains evidence-only, in the append-only acknowledgement table.
   assert.equal(ackInsert.values[4], completion.acknowledgedAt);
   assert.equal(queries.some(q => /INSERT INTO spff\.actuator_state_events/.test(q.text)), true);
 });
