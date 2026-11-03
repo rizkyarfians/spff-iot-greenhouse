@@ -111,7 +111,7 @@ export async function queueAiAccWaterTrial(
 
     const states = await client.query<{ actuator_key: string; is_active: boolean | null; state: string }>(
       ['SELECT actuator_key,is_active,state FROM spff.latest_actuator_states',
-       'WHERE site_id=$1 AND device_id=$2 AND actuator_key IN (\\'pump_water\\',\\'pump_fert\\')'].join(' '),
+       'WHERE site_id=$1 AND device_id=$2 AND actuator_key IN (\'pump_water\',\'pump_fert\')'].join(' '),
       [configuredSiteId, input.deviceId],
     );
     if (states.rows.length !== 2 ||
@@ -143,7 +143,7 @@ export async function queueAiAccWaterTrial(
 
     const busy = await client.query(
       ['SELECT 1 FROM spff.control_commands',
-       'WHERE site_id=$1 AND device_id=$2 AND status IN (\\'pending\\',\\'published\\',\\'accepted\\') LIMIT 1'].join(' '),
+       'WHERE site_id=$1 AND device_id=$2 AND status IN (\'pending\',\'published\',\'accepted\') LIMIT 1'].join(' '),
       [configuredSiteId, input.deviceId],
     );
     if (busy.rows.length) block('Command lain belum final.');
@@ -151,14 +151,14 @@ export async function queueAiAccWaterTrial(
     const schedule = await client.query(
       ['SELECT 1 FROM spff.actuator_schedules',
        'WHERE site_id=$1 AND device_id=$2 AND enabled',
-       'AND actuator_key IN (\\'pump_water\\',\\'pump_fert\\') LIMIT 1'].join(' '),
+       'AND actuator_key IN (\'pump_water\',\'pump_fert\') LIMIT 1'].join(' '),
       [configuredSiteId, input.deviceId],
     );
     if (schedule.rows.length) block('Jadwal pompa harus dinonaktifkan selama trial ACC.');
 
     const maxRuntime = await client.query<{ max_runtime_seconds: number | string | null }>(
       ['SELECT max_runtime_seconds FROM spff.actuators',
-       'WHERE site_id=$1 AND device_id=$2 AND actuator_key=\\'pump_water\\' AND enabled'].join(' '),
+       'WHERE site_id=$1 AND device_id=$2 AND actuator_key=\'pump_water\' AND enabled'].join(' '),
       [configuredSiteId, input.deviceId],
     );
     const allowed = Number(maxRuntime.rows[0]?.max_runtime_seconds ?? NaN);
@@ -172,7 +172,7 @@ export async function queueAiAccWaterTrial(
       ['INSERT INTO spff.control_commands',
        '(command_id,site_id,device_id,actuator_key,requested_is_active,',
        'requested_by,issued_at,expires_at,request_payload)',
-       'VALUES($1,$2,$3,\\'pump_water\\',true,$4,now(),now()+interval \\'15 seconds\\',$5::jsonb)'].join(' '),
+       'VALUES($1,$2,$3,\'pump_water\',true,$4,now(),now()+interval \'15 seconds\',$5::jsonb)'].join(' '),
       [
         input.commandId,configuredSiteId,input.deviceId,requestedBy,
         JSON.stringify({
