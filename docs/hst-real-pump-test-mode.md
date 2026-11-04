@@ -35,3 +35,41 @@ Changing the browser selection is **not** changing the ESP32 manual/automatic se
 The production Python HST service remains `SHADOW_MODE`, and `/hst/approvals` returns `SHADOW_REVIEW_BLOCKED` by design.
 
 This branch must not be deployed as if TEST REAL can already run the pump.
+
+## 2026-11-04: verified firmware 1.5.07 source compatibility stage
+
+The attached staging ZIP identifies two **separate** physical paths:
+- `set_pump / params.waterTrial`: water-only AI trial in **Automatic**. Production
+  heartbeat reported `aiAccWaterTrialCapable=false`, `timedWaterTrialCapable=false`,
+  `timedWaterMaxSeconds=0`. No AI water trial authority is available.
+- `adaptive_fert_command`: water + fertilizer adaptive volume/EC session in
+  **Manual** with a synchronized manual automatic-control config and disabled
+  competing sensor rules. It must not reuse the water-only trial contract.
+
+Changes on this feature branch:
+1. Exact firmware version `1.5.07-AI-ACC-SESSION` at local API preflight;
+   fresh device status, confirmed water+fert output OFF, no active AI water
+   trial, manual mode/revision ACK and trusted sensor readings.
+2. START dispatcher now requires `bootId` from the current device_status
+   `raw_payload.pulseBootId` (16 hex), `issuedAt` and `expiresAt` UTC;
+   expiration is the same exact instant in command JSON and PostgreSQL row
+   (15s). The Edge strict validator rejects unbound preview START.
+3. Firmware sends extra fields `ecValid`, `flowValid`,
+   `waterPumpKnown`, `fertPumpKnown`, `volumeEstimated` and `bootId`
+   in adaptive telemetry. The worker validates them; uncertain evidence
+   cannot increase credited fertilizer mass. The adaptive telemetry firmware
+   string in the uploaded header still says `1.5.06-TIMED-WATER-AI-GUARD`,
+   despite the main status saying 1.5.07; version gating uses status, not that
+   stale telemetry label.
+4. New authenticated read-only HST proposal preflight:
+   `GET /api/unified-ai/hst/real-preview/:obligationId`. It checks source
+   activity, one product per session, HST due today, Guide EC profile,
+   device mode/firmware and output states. Returns `BLOCKED` by construction
+   until single-stock concentration and atomic HST->session binding are proven.
+5. No HST-to-physical ACC POST route was added. This feature branch is **not
+   deployable as a working REAL switch**. The existing operational AI remains
+   SHADOW and no ESP32 command was sent.
+
+Host validation on attached ZIP: checksum and both g++ test suites passed in
+isolated container. Node full build/lint and MQTT/ESP32 acceptance test remain
+outstanding. See package scripts for `npm run build`, `npm run lint` and tests.

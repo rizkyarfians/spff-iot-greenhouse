@@ -5,6 +5,7 @@ import {
   aiHstApprovalResultSchema,
   aiHstProposalsSchema,
   aiHstExecutionReadinessSchema,
+  aiHstRealPreflightSchema,
 } from '../dist/index.js';
 
 const obligationId = 'a'.repeat(64);
@@ -92,4 +93,13 @@ test('HST mode readiness can only report non-dispatching TEST REAL until hardwar
   assert.equal(aiHstExecutionReadinessSchema.safeParse({
     ...blocked, realTest: { ready: true, blockers: [] },
   }).success, false);
+});
+
+
+test('per-obligation HST real preflight always forbids actuation',()=>{
+ const block={schemaVersion:1,obligationId, status:'BLOCKED',
+  reasons:['one_verified_fertilizer_product_per_session_required'],canDispatch:false};
+ assert.equal(aiHstRealPreflightSchema.safeParse(block).success,true);
+ assert.equal(aiHstRealPreflightSchema.safeParse({...block,canDispatch:true}).success,false);
+ assert.equal(aiHstRealPreflightSchema.safeParse({...block,status:'READY',reasons:[]}).success,false);
 });

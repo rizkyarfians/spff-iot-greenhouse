@@ -32,6 +32,21 @@ test('adaptive backend pins conversion, allocates batches, persists duplicate te
   await assert.rejects(adaptive.createAdaptiveSession(input,'admin'),/belum diaktifkan/)
   process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED='true'
   await assert.rejects(adaptive.createAdaptiveSession({...input,expectedProfileRevision:99},'admin'),/Profil konversi/);
+  // A live-looking device must still be rejected if readback says pump ON.
+  await query(`UPDATE spff.device_status_events
+    SET raw_payload=jsonb_set(raw_payload,'{pumpWaterActualActive}','true'::jsonb)
+    WHERE site_id='greenhouse-01' AND device_id='esp32-s3-01'`);
+  await assert.rejects(adaptive.createAdaptiveSession(input,'admin'),/output kedua pompa/);
+  await query(`UPDATE spff.device_status_events
+    SET raw_payload=jsonb_set(raw_payload,'{pumpWaterActualActive}','false'::jsonb)
+    WHERE site_id='greenhouse-01' AND device_id='esp32-s3-01'`);
+  // Missing runtime boot identity is never replaced by guessed preview data.
+  await query(`UPDATE spff.device_status_events SET raw_payload=raw_payload-'pulseBootId'
+    WHERE site_id='greenhouse-01' AND device_id='esp32-s3-01'`);
+  await assert.rejects(adaptive.createAdaptiveSession(input,'admin'),/Boot ID perangkat/);
+  await query(`UPDATE spff.device_status_events
+    SET raw_payload=jsonb_set(raw_payload,'{pulseBootId}','"a1b2c3d4e5f60708"'::jsonb)
+    WHERE site_id='greenhouse-01' AND device_id='esp32-s3-01'`);
   const session=await adaptive.createAdaptiveSession(input,'admin');
   assert.equal(session.command_snapshot.bootId,'a1b2c3d4e5f60708');
   assert.ok(Date.parse(session.command_snapshot.expiresAt)>Date.parse(session.command_snapshot.issuedAt));
