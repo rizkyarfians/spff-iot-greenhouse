@@ -14,7 +14,9 @@ test('adaptive dispatch persists dedup across guard restarts, sends exact firmwa
   await guard.forward(message);assert.deepEqual(sent,[command]);assert.equal(events[0].payload.status,'forwarded')
   guard=new AdaptiveDispatchGuard(directory,async p=>sent.push(p),async e=>events.push(e));await guard.forward(message);assert.equal(sent.length,1);assert.equal(events.at(-1).payload.status,'unknown')
   await assert.rejects(guard.forward({...message,command:{...command,targetEcUs:2600}}),/conflict/)
-  await guard.forward({...message,expiresAt:new Date(Date.now()-1000).toISOString()});assert.equal(sent.length,1);assert.equal(events.at(-1).payload.status,'expired')
+  const expiredAt=new Date(Date.now()-1000).toISOString();
+  await guard.forward({...message,expiresAt:expiredAt,command:{...message.command,issuedAt:new Date(Date.now()-16000).toISOString(),expiresAt:expiredAt}});
+  assert.equal(sent.length,1);assert.equal(events.at(-1).payload.status,'expired')
  }finally{await rm(directory,{recursive:true,force:true})}
 })
 test('serial uncertainty never causes an automatic retry, and adaptive outbox waits for database acknowledgement',async()=>{
