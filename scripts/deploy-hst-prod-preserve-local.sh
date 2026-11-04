@@ -212,6 +212,66 @@ with p.open('a') as f:
 PY
 echo "HST_SOURCE_INTEGRATION=OK — original /opt/spff source untouched"
 
+echo "=== 3B. ALIGN ISOLATED STALE TEST FIXTURE WITH EXISTING PRODUCTION SAFETY SCHEMA ==="
+# This modifies ONLY the disposable WORK/test file, not the live validator,
+# not /opt/spff and not the firmware. First prove the expected mismatch
+# against the currently running compiled production contract.
+LIVE_CONTRACT="$PROD/packages/contracts/dist/index.js" node --input-type=module <<'JS'
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+const contracts = await import(pathToFileURL(process.env.LIVE_CONTRACT).href);
+const command = {
+  kind:'adaptive_fert_command',schemaVersion:1,
+  siteId:'greenhouse-01',deviceId:'esp32-s3-01',
+  sessionId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  commandId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  commandType:'start',
+  targetEcUs:2500,ecToleranceUs:100,maxDurationSec:600,
+  targetWaterVolumeL:100,targetFertVolumeL:5,
+  nominalConcentrationGPerL:10,plantCount:2000,flushDurationSec:30
+};
+const result = contracts.adaptiveStartCommandSchema.safeParse(command);
+if (result.success) throw new Error('STOP: live validator no longer requires the three safety fields');
+const fields = result.error.issues
+  .filter(x => x.code === 'invalid_type' && x.message.includes('received undefined'))
+  .map(x => x.path.join('.')).sort();
+assert.deepEqual(fields, ['bootId','expiresAt','issuedAt'],
+  'STOP: unexpected live command contract; fixture cannot be aligned automatically');
+assert.equal(result.error.issues.length,3,
+  'STOP: unrelated live validator failures; do not modify tests automatically');
+console.log('LIVE_COMMAND_VALIDATOR=CONFIRMED (3 existing required safety fields)');
+JS
+python3 - "$WORK/packages/contracts/test/adaptive-fertigation.test.mjs" <<'PY'
+from pathlib import Path
+import sys
+file = Path(sys.argv[1])
+data = file.read_text()
+anchor = "commandType:'start',targetEcUs:2500"
+if data.count(anchor) != 1:
+    raise SystemExit('STOP: adaptive-fertigation test fixture changed unexpectedly')
+data = data.replace(anchor,
+  "commandType:'start',"
+  "bootId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',"
+  "issuedAt:new Date().toISOString(),"
+  "expiresAt:new Date(Date.now()+30000).toISOString(),"
+  "targetEcUs:2500",1)
+old = "['targetEcUs','ecToleranceUs','maxDurationSec'"
+new = "['bootId','issuedAt','expiresAt','targetEcUs','ecToleranceUs','maxDurationSec'"
+if data.count(old) != 1:
+    raise SystemExit('STOP: expected required-field test assertion missing')
+data = data.replace(old,new,1)
+old = "for(const patch of [{targetEcUs:8000}"
+new = "for(const patch of [{bootId:''},{issuedAt:'invalid'},{expiresAt:'invalid'},{targetEcUs:8000}"
+if data.count(old) != 1:
+    raise SystemExit('STOP: expected invalid-value test assertion missing')
+data = data.replace(old,new,1)
+file.write_text(data)
+print('ISOLATED_TEST_FIXTURE=UPDATED; live schema remains untouched')
+PY
+sha256sum "$WORK/packages/contracts/test/adaptive-fertigation.test.mjs" \
+  > "$RUN/isolated-adaptive-fixture.sha256"
+echo "LIVE_ACTUATOR_VALIDATOR=UNMODIFIED"
+
 echo "=== 4. BUILD, LINT AND TEST PRESERVED PRODUCTION SOURCE ==="
 (cd "$WORK" && npm ci --no-audit --no-fund && npm run build && npm run lint \
   && npm run test --workspace @spff/contracts \
