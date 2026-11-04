@@ -114,6 +114,7 @@ node --test functions/test/localAiEndpoint.test.mjs
 
 echo "=== 3. BUILD ISOLATED PYTHON AI RELEASE ==="
 SHORT_SHA="$(git -c safe.directory="$SRC" -C "$SRC" rev-parse --short HEAD)"
+install -d -m 755 "$AI/releases"
 AI_RELEASE="$AI/releases/hst-shadow-$SHORT_SHA-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$AI_RELEASE/standalone-ai"
 (cd "$AI_SRC/standalone-ai" && tar --exclude='./.venv' --exclude='./.env' --exclude='./data' --exclude='__pycache__' -cf - .) \
@@ -141,11 +142,12 @@ echo "=== 5. START ISOLATED AI 5010 IN SHADOW MODE ==="
 install -d -m 755 /etc/systemd/system/spff-ai-engine.service.d
 install -d -m 755 /etc/systemd/system/spff-api.service.d
 KEY="$(openssl rand -hex 32)"
-printf 'AI_HST_BRIDGE_KEY=%s\nAI_POLL_ENABLED=true\nAI_MODE=SHADOW_MODE\n' "$KEY" > /etc/spff-ai/hst-runtime.env
-chmod 600 /etc/spff-ai/hst-runtime.env
-unset KEY
 CHANGED=1
 ENV_CREATED=1
+printf 'AI_HST_BRIDGE_KEY=%s\nAI_POLL_ENABLED=true\nAI_MODE=SHADOW_MODE\nAI_LOCAL_PORT=5010\n' "$KEY" > /etc/spff-ai/hst-runtime.env
+chmod 600 /etc/spff-ai/hst-runtime.env
+unset KEY
+AI_DROPIN=1
 cat > /etc/systemd/system/spff-ai-engine.service.d/95-hst-prod.conf <<EOF
 [Service]
 WorkingDirectory=$AI_RELEASE/standalone-ai
@@ -153,13 +155,12 @@ ExecStart=
 ExecStart=$AI_RELEASE/venv/bin/python -m app
 EnvironmentFile=/etc/spff-ai/hst-runtime.env
 EOF
-AI_DROPIN=1
+API_DROPIN=1
 cat > /etc/systemd/system/spff-api.service.d/95-hst-prod.conf <<'EOF'
 [Service]
 Environment=AI_LOCAL_PORT=5010
 EnvironmentFile=/etc/spff-ai/hst-runtime.env
 EOF
-API_DROPIN=1
 chmod 644 /etc/systemd/system/spff-api.service.d/95-hst-prod.conf
 chmod 644 /etc/systemd/system/spff-ai-engine.service.d/95-hst-prod.conf
 systemctl daemon-reload
