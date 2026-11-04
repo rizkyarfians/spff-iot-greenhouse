@@ -44,6 +44,17 @@ export class AdaptiveFertigationTransport {
       await c.query(`UPDATE spff.adaptive_fert_commands SET status=$4,ack=$5 WHERE site_id=$1 AND session_id=$2 AND command_id::text=$3 AND status IN ('dispatching','unknown')`,[event.siteId,row.session_id,payload.commandId,payload.status,JSON.stringify(payload)]);
      }else if(payload.kind==='adaptive_fert_ack'){
       await c.query(`UPDATE spff.adaptive_fert_commands SET status=$4,ack=$5 WHERE site_id=$1 AND session_id=$2 AND command_id::text=$3 AND status NOT IN ('completed','rejected')`,[event.siteId,row.session_id,payload.commandId,payload.status,JSON.stringify(payload)]);
+      // Final completion is correlated to BOTH firmware terminal ACK and
+      // terminal measured telemetry (arrival order does not matter).
+      if(payload.status==='completed'&&payload.state==='COMPLETED'&&
+         payload.commandId===row.command_snapshot?.commandId&&
+         row.status!=='reconciliation_required'&&row.last_telemetry?.state==='COMPLETED'&&
+         row.last_telemetry?.waterPump===false&&row.last_telemetry?.fertPump===false&&
+         row.last_telemetry?.waterPumpKnown===true&&row.last_telemetry?.fertPumpKnown===true&&
+         row.last_telemetry?.volumeEstimated===false&&
+         row.last_telemetry?.flowValid===true&&row.last_telemetry?.ecValid===true&&
+         row.last_telemetry?.bootId===row.command_snapshot?.bootId)
+        await c.query("UPDATE spff.adaptive_fert_sessions SET status='completed',reason='device_terminal_ack_and_measured_pumps_off' WHERE site_id=$1 AND session_id=$2 AND status NOT IN ('completed','fault','reconciliation_required')",[event.siteId,row.session_id]);
       if(payload.status==='fault'&&!['completed','fault'].includes(row.status)&&(!row.last_telemetry_at||at>=row.last_telemetry_at.getTime()))await c.query("UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',reason=$3 WHERE site_id=$1 AND session_id=$2",[event.siteId,row.session_id,payload.reason]);
       // Firmware reuses the start ID for control ACKs. Do not invent a correlation to a new command.
       if(payload.status==='rejected'&&payload.commandId===row.command_snapshot.commandId&&row.status==='queued')await c.query("UPDATE spff.adaptive_fert_sessions SET status='fault',reason=$3 WHERE site_id=$1 AND session_id=$2",[event.siteId,row.session_id,payload.reason]);
@@ -67,6 +78,11 @@ export class AdaptiveFertigationTransport {
        let status=payload.state==='COMPLETED'?'completed':payload.state==='FAULT'?'fault':payload.state==='PAUSED'?'paused':'running';
        if((payload.state==='COMPLETED'||payload.state==='FAULT')&&(payload.waterPump||payload.fertPump))status='reconciliation_required';
        if(payload.state==='FAULT'||payload.ecTargetUnreachable||row.status==='reconciliation_required')status='reconciliation_required';
+       if(payload.state==='COMPLETED'&&status==='completed'){
+        const startAck=(await c.query("SELECT status FROM spff.adaptive_fert_commands WHERE site_id=$1 AND command_id=$2",[event.siteId,row.command_snapshot.commandId])).rows[0];
+        // A telemetry packet alone is not a command completion ACK.
+        if(startAck?.status!=='completed')status='running';
+       }
        if(terminal&&status!==row.status)status='reconciliation_required';
        if(payload.waterVolumeL+1e-6<row.water_volume_l||payload.fertVolumeL+1e-6<row.fert_volume_l)status='reconciliation_required';
        const mass=payload.fertVolumeL*row.command_snapshot.nominalConcentrationGPerL;
