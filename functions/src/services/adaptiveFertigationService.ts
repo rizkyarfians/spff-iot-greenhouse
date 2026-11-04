@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {adaptiveStartCommandSchema,adaptiveFirmware1507StartSchema,guideEcRecipe,guideProgramHst,type AdaptiveSessionInput,type GuideActivity,type AiHstRealPlan} from '@spff/contracts';
 import {pool,configuredSiteId as siteId} from './postgresRepository.js';
+import {requireHstRealMode} from './hstExecutionModeService.js';
 import {readGuideEcConversions} from './guideEcConversionService.js';
 import {activityFingerprint} from './guideProgramService.js';
 const fail=(message:string,status=409):never=>{throw Object.assign(new Error(message),{status});};
@@ -44,7 +45,11 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
   await client.query('BEGIN');
   // Serialize same-program dose allocation and the existing soil-EC controller's device lock.
   await client.query('SELECT program_id FROM spff.guide_programs WHERE site_id=$1 AND program_id=$2 FOR UPDATE',[siteId,input.programId]);
-  if(hst)await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[ 'hst-real:'+siteId+':'+hst.obligationId ]);
+  if(hst){
+   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[ 'hst-mode:'+siteId ]);
+   await requireHstRealMode(client);
+   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[ 'hst-real:'+siteId+':'+hst.obligationId ]);
+  }
   const prior=(await client.query('SELECT * FROM spff.adaptive_fert_sessions WHERE site_id=$1 AND request_id=$2',[siteId,input.requestId])).rows[0];
   if(prior){if(hst){
    const link=(await client.query('SELECT obligation_id,approval_id FROM spff.hst_real_sessions WHERE site_id=$1 AND session_id=$2',[siteId,prior.session_id])).rows[0];

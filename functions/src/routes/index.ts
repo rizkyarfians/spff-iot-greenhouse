@@ -12,7 +12,8 @@ import {
 import { requireAiEvaluationEnabled } from '../middleware/aiEvaluation.js';
 import { getHstProposals, postHstApproval, getHstExecutionReadiness, getHstRealPreflight,
  getHstRealHardwareProfile,putHstRealHardwareProfile,
- postHstRealExecute,getHstRealSession,postHstRealStop,getHstRealLatest } from '../controllers/aiHstController.js';
+ postHstRealExecute,getHstRealSession,postHstRealStop,getHstRealLatest,
+ getHstMode,putHstMode } from '../controllers/aiHstController.js';
 
 
 import {
@@ -169,6 +170,8 @@ apiRouter.post(
  */
 
 apiRouter.get('/unified-ai/hst/proposals', requireOperator, getHstProposals);
+apiRouter.get('/unified-ai/hst/mode',requireOperator,getHstMode);
+apiRouter.put('/unified-ai/hst/mode',requireAdmin,requireCsrf,putHstMode);
 apiRouter.get('/unified-ai/hst/execution-readiness', requireOperator, getHstExecutionReadiness);
 apiRouter.get('/unified-ai/hst/real-preview/:obligationId', requireOperator, getHstRealPreflight);
 apiRouter.get('/unified-ai/hst/real-profile', requireOperator, getHstRealHardwareProfile);

@@ -159,3 +159,13 @@ export const aiHstRealSessionSummarySchema=z.object({
 export type AiHstRealSessionSummary=z.infer<typeof aiHstRealSessionSummarySchema>;
 
 export const aiHstRealStopRequestSchema=z.object({requestId:z.string().uuid()}).strict();
+
+/** Site-wide durable HST control state, not a browser-only visual selection.
+ * SHADOW ON is always fail-safe: real HST START requires OFF in PostgreSQL. */
+export const aiHstModeSchema=z.object({
+ schemaVersion:z.literal(1),
+ shadowEnabled:z.boolean(),
+ updatedAt:z.string().datetime({offset:true}),
+}).strict();
+export type AiHstMode=z.infer<typeof aiHstModeSchema>;
+export const aiHstModeRequestSchema=z.object({shadowEnabled:z.boolean()}).strict();

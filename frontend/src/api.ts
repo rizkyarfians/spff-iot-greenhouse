@@ -985,3 +985,10 @@ export const stopAiHstRealSession=(id:string,requestId:string)=>
 export const fetchAiHstRealLatest=(obligationId:string)=>
  request<import('@spff/contracts').AiHstRealSessionSummary|null>(
  '/unified-ai/hst/real-sessions/latest/'+encodeURIComponent(obligationId));
+
+export const fetchAiHstMode=(signal?:AbortSignal)=>
+ request<import('@spff/contracts').AiHstMode>('/unified-ai/hst/mode',{signal});
+export const setAiHstMode=(shadowEnabled:boolean)=>
+ request<import('@spff/contracts').AiHstMode>('/unified-ai/hst/mode',{
+ method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({shadowEnabled}),
+});

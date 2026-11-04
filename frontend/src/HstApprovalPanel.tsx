@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { canReviewShadow, type HstOperatorMode } from './hstExecutionMode';
 import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } from 'lucide-react';
 import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/contracts';
-import { fetchAiHstExecutionReadiness, fetchAiHstProposals, fetchAiHstRealPreflight, reviewAiHstApproval } from './api';
+import { fetchAiHstExecutionReadiness, fetchAiHstProposals, fetchAiHstRealPreflight, reviewAiHstApproval, fetchAiHstMode, setAiHstMode } from './api';
+import {useAuth} from './authContext';
 import type { AiHstExecutionReadiness, AiHstRealPreflight } from '@spff/contracts';
 import { HstRealExecutionCard } from './HstRealExecutionCard';
 import './HstApprovalPanel.css';
@@ -25,6 +26,7 @@ function newApprovalId(): string {
 }
 
 export function HstApprovalPanel() {
+  const {user}=useAuth();
   const [data, setData] = useState<AiHstProposals | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,6 +34,8 @@ export function HstApprovalPanel() {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [review, setReview] = useState<AiHstApprovalResult | null>(null);
   const [mode, setMode] = useState<HstOperatorMode>('SHADOW');
+  const [modeReady,setModeReady]=useState(false);
+  const [modeSaving,setModeSaving]=useState(false);
   const [readiness, setReadiness] = useState<AiHstExecutionReadiness | null>(null);
   const [realPreflights, setRealPreflights] = useState<Record<string, AiHstRealPreflight>>({});
   const [realPreflightErrors, setRealPreflightErrors] = useState<Record<string, string>>({});
@@ -53,6 +57,9 @@ export function HstApprovalPanel() {
 
   useEffect(() => {
     const controller = new AbortController();
+    void fetchAiHstMode(controller.signal)
+      .then(value=>{if(!controller.signal.aborted){setMode(value.shadowEnabled?'SHADOW':'TEST_REAL');setModeReady(true);}})
+      .catch(()=>{if(!controller.signal.aborted){setMode('SHADOW');setModeReady(false);}});
     void fetchAiHstExecutionReadiness(controller.signal)
       .then(result => { if (!controller.signal.aborted) setReadiness(result); })
       .catch(() => { if (!controller.signal.aborted) setReadiness(null); });
@@ -124,10 +131,19 @@ export function HstApprovalPanel() {
         <button type="button" role="switch" aria-label="SHADOW MODE"
           aria-checked={mode === 'SHADOW'}
           className={`hst-shadow-toggle ${mode === 'SHADOW' ? 'is-on' : 'is-off'}`}
+          disabled={!modeReady||modeSaving||user.role!=='admin'}
           onClick={() => {
-            setMode(current => current === 'SHADOW' ? 'TEST_REAL' : 'SHADOW');
-            setConfirmId(null);
-            setReview(null);
+            if(!modeReady||modeSaving||user.role!=='admin')return;
+            setModeSaving(true);
+            setError('');
+            void setAiHstMode(mode !== 'SHADOW').then(next=>{
+              setMode(next.shadowEnabled?'SHADOW':'TEST_REAL');
+              setConfirmId(null);
+              setReview(null);
+              setRealPreflights({});
+            }).catch(cause=>{
+              setError(cause instanceof Error?cause.message:'Gagal mengubah SHADOW MODE.');
+            }).finally(()=>setModeSaving(false));
           }}>
           <span className="hst-shadow-toggle-track" aria-hidden="true">
             <span className="hst-shadow-toggle-thumb" />
@@ -135,6 +151,8 @@ export function HstApprovalPanel() {
           <strong>{mode === 'SHADOW' ? 'ON' : 'OFF'}</strong>
         </button>
       </div>
+      {!modeReady && <p role="alert" className="hst-review">Mode SHADOW server tidak tersedia: switch terkunci ON demi keamanan.</p>}
+      {modeReady&&user.role!=='admin' && <small>Hanya admin dapat mengubah SHADOW MODE.</small>}
       {mode === 'TEST_REAL' && <div className="hst-real-readiness" role="status">
         <strong>{readiness?.realTest.ready
           ? 'SHADOW OFF · ACC fisik tersedia jika preflight lolos'

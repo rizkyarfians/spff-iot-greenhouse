@@ -8,6 +8,8 @@ import {
   aiHstHardwareProfileSchema,
   aiHstRealExecuteRequestSchema,
   aiHstRealStopRequestSchema,
+  aiHstModeSchema,
+  aiHstModeRequestSchema,
   guideProgramConfigSchema,
   guideProgramHst,
   guideEcRecipe,
@@ -22,6 +24,7 @@ import { readGuideEcConversions } from '../services/guideEcConversionService.js'
 import {readHstRealHardwareProfile,saveHstRealHardwareProfile,executeHstReal,hstRealSession,latestHstRealSession}
  from '../services/hstRealExecutionService.js';
 import {controlAdaptiveSession} from '../services/adaptiveFertigationService.js';
+import {readHstMode,setHstMode} from '../services/hstExecutionModeService.js';
 
 export async function getHstProposals(_req: Request, res: Response): Promise<void> {
   res.set('Cache-Control', 'no-store');
@@ -224,6 +227,7 @@ export async function getHstRealPreflight(req: Request, res: Response): Promise<
           blockers.add('manual_session_control_not_acknowledged');
       }
     }
+    if((await readHstMode()).shadowEnabled)blockers.add('hst_shadow_mode_enabled');
     const profile=proposal.source_row===null?null:
       await readHstRealHardwareProfile(proposal.program_id,proposal.activity_id,proposal.source_row);
     if(!profile)blockers.add('verified_hydraulics_and_single_stock_profile_missing');
@@ -339,5 +343,31 @@ export async function getHstRealLatest(req:Request,res:Response):Promise<void>{
   res.json({success:true,data:latest,message:latest?'Sesi HST terbaru':'Belum ada sesi fisik HST'});
  }catch{
   res.status(503).json({success:false,data:null,message:'Histori sesi HST tidak tersedia.'});
+ }
+}
+
+export async function getHstMode(_req:Request,res:Response):Promise<void>{
+ res.set('Cache-Control','no-store');
+ try{
+  const data=await readHstMode();
+  res.json({success:true,data:aiHstModeSchema.parse({schemaVersion:1,...data}),
+   message:'Mode HST lokal dari PostgreSQL.'});
+ }catch{
+  res.status(503).json({success:false,data:null,message:'Mode SHADOW lokal tidak tersedia; default aman ON.'});
+ }
+}
+export async function putHstMode(req:Request,res:Response):Promise<void>{
+ res.set('Cache-Control','no-store');
+ const parsed=aiHstModeRequestSchema.safeParse(req.body as unknown);
+ if(!parsed.success){
+  res.status(400).json({success:false,data:null,message:'Pilihan SHADOW tidak valid.'});return;
+ }
+ try{
+  const data=await setHstMode(parsed.data.shadowEnabled,requestActor(req));
+  res.json({success:true,data:aiHstModeSchema.parse({schemaVersion:1,...data}),
+   message:data.shadowEnabled?'SHADOW ON: ACC fisik HST diblokir.':'SHADOW OFF: ACC fisik perlu lolos preflight.'});
+ }catch(e){
+  res.status(e instanceof Error&&'status'in e?Number(e.status):503)
+    .json({success:false,data:null,message:e instanceof Error?e.message:'Gagal mengubah SHADOW MODE.'});
  }
 }

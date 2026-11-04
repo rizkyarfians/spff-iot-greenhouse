@@ -8,6 +8,7 @@ import {pool,configuredSiteId as siteId} from './postgresRepository.js';
 import {readGuideEcConversions} from './guideEcConversionService.js';
 import {createAdaptiveSession,readAdaptiveSession} from './adaptiveFertigationService.js';
 import {localAiUrl} from './localAiEndpoint.js';
+import {readHstMode} from './hstExecutionModeService.js';
 
 const blocked=(reason:string,status=409):never=>{throw Object.assign(new Error(reason),{status});};
 const bridge=()=>{const k=process.env.AI_HST_BRIDGE_KEY;if(!k||k.length<32)return blocked('Kunci bridge HST tidak dikonfigurasi.',503);return k;};
@@ -65,6 +66,7 @@ const toleratedHolds=new Set(['shadow_mode_no_fertigation_dispatch',
  'firmware_external_volume_only_authority_not_implemented','manual_mode_blocks_automatic_start']);
 export async function executeHstReal(raw:AiHstRealExecuteRequest,actor:string){
  const input=aiHstRealExecuteRequestSchema.parse(raw);
+ if((await readHstMode()).shadowEnabled)return blocked('SHADOW MODE ON. ACC fisik ditolak oleh server.');
  if(process.env.SPFF_HST_REAL_DISPATCH_ENABLED!=='true'||
     process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED!=='true')
   return blocked('Eksekusi real HST belum diaktifkan di server.',503);
