@@ -8,7 +8,7 @@ export const adaptiveStartCommandSchema=z.object({...base,commandType:z.literal(
  * for physical START. The planning-only adaptiveStartCommandSchema above MUST
  * NOT be used directly by an Edge/MQTT dispatcher.
  */
-export const adaptiveFirmware1507StartSchema=adaptiveStartCommandSchema.extend({
+export const adaptiveFirmware1507StartSchema=adaptiveStartCommandSchema.safeExtend({
  bootId:z.string().regex(/^[a-fA-F0-9]{16}$/),
  issuedAt:z.string().datetime({offset:true}),
  expiresAt:z.string().datetime({offset:true}),
