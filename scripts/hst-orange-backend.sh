@@ -15,10 +15,12 @@ SWAPPED=0; SUCCESS=0
 fatal(){ echo "STOP: $*" >&2; exit 1; }
 say(){ echo "=== $* ==="; }
 [[ "$EUID" == 0 ]] || fatal "must use sudo"
-[[ "$MODE" =~ ^(deploy|enable|disable|status)$ ]] || fatal "Expected deploy|enable|disable|status"
+[[ "$MODE" =~ ^(deploy|enable|disable|status|diagnose)$ ]] || fatal "Expected deploy|enable|disable|status|diagnose"
 exec 9>/run/lock/spff-hst-prod-rollout.lock
 flock -n 9 || fatal "SPFF deployment lock occupied"
-db(){ runuser -u postgres -- psql -X -qAt -v ON_ERROR_STOP=1 -d spff -c "$1"; }
+# postgres cannot traverse /home/orangepi (0700). Run psql from / instead,
+# and feed migration SQL over stdin as root (the postgres user never opens SRC).
+db(){ ( cd / && runuser -u postgres -- psql -X -qAt -v ON_ERROR_STOP=1 -d spff -c "$1" ); }
 gates(){
  install -d -m 755 /etc/systemd/system/spff-api.service.d /etc/systemd/system/spff-mqtt-worker.service.d
  printf '[Service]\nEnvironment=SPFF_HST_REAL_DISPATCH_ENABLED=%s\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\n' "$1" "$1" > "$APIGATE"
@@ -64,6 +66,17 @@ finish(){
  fi
  exit "$code"
 }
+if [[ "$MODE" == diagnose ]]; then
+ say "Read-only PostgreSQL diagnosis; no deployment or settings change"
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff -P pager=off -c "SELECT current_database() AS checked_database, current_user AS checked_as, inet_server_addr() AS server_address")
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff -P pager=off -c "SELECT name, to_regclass('spff.'||name) IS NOT NULL AS installed FROM (VALUES ('sites'),('devices'),('guide_programs'),('guide_program_revisions'),('guide_program_completions'),('guide_ec_profiles'),('guide_ec_profile_revisions'),('adaptive_fert_sessions'),('adaptive_fert_commands'),('adaptive_fert_events'),('adaptive_fert_reconciliations'),('hst_real_profiles'),('hst_real_sessions'),('hst_execution_modes')) AS x(name)")
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff -P pager=off -c "SELECT datname AS available_db FROM pg_database WHERE datallowconn AND NOT datistemplate ORDER BY datname")
+ echo "=== API service environment file locations (not contents) ==="
+ systemctl show spff-api.service -p EnvironmentFiles --value || true
+ echo "=== API service working directory ==="
+ systemctl show spff-api.service -p WorkingDirectory --value || true
+ exit 0
+fi
 if [[ "$MODE" == deploy ]]; then
  mkdir -p "$STORE"
  RUN="$STORE/hst-backend-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -77,7 +90,11 @@ if [[ "$MODE" == deploy ]]; then
  [[ -z "$(git -C "$SRC" status --porcelain --untracked-files=no)" ]] || fatal "staging has local edits"
  git -C "$SRC" log -1 --oneline
  git -c safe.directory="$PROD" -C "$PROD" status --short --untracked-files=no > "$RUN/prod-source-edits.txt" || true
- [[ "$(db "SELECT (to_regclass('spff.adaptive_fert_sessions') IS NOT NULL AND to_regclass('spff.adaptive_fert_commands') IS NOT NULL AND to_regclass('spff.guide_programs') IS NOT NULL)::text")" == t ]] || fatal "migration 034-036 missing"
+ if [[ "$(db "SELECT (to_regclass('spff.adaptive_fert_sessions') IS NOT NULL AND to_regclass('spff.adaptive_fert_commands') IS NOT NULL AND to_regclass('spff.guide_programs') IS NOT NULL)::text")" != t ]]; then
+  echo "DB prerequisite tables absent in local PostgreSQL database 'spff'."
+  echo "Run: sudo bash scripts/hst-orange-backend.sh diagnose \"$SRC\""
+  fatal "migration 034-036 not verified; no runtime change"
+ fi
  [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain adaptive sessions; do not interrupt"
  for loc in "$PROD/packages/contracts/dist" "$PROD/functions/lib" "$PROD/mqtt-worker/dist" "$PROD/frontend/dist"; do
   [[ -d "$loc" && ! -L "$loc" ]] || fatal "unexpected runtime directory: $loc"
@@ -181,7 +198,7 @@ PY
  [[ -s "$MERGED/frontend/dist/index.html" ]] || fatal "merged frontend build output missing"
  cp -a "$MERGED/frontend/dist" "$RUN/new/web"
  say "Back up PostgreSQL before additive migration"
- runuser -u postgres -- pg_dump -Fc -d spff > "$RUN/db-before.dump"
+ (cd / && runuser -u postgres -- pg_dump -Fc -d spff) > "$RUN/db-before.dump"
  [[ -s "$RUN/db-before.dump" ]] || fatal "DB backup failed"
  sha256sum "$RUN/db-before.dump" > "$RUN/db-before.sha256"
  if [[ -e "$APIGATE" ]]; then cp -a "$APIGATE" "$RUN/old-api-gate"; fi
@@ -189,14 +206,14 @@ PY
  say "Migration 037: HST physical stock binding and session identity"
  tables="$(db "SELECT (to_regclass('spff.hst_real_profiles') IS NOT NULL)::int::text || ',' || (to_regclass('spff.hst_real_sessions') IS NOT NULL)::int::text")"
  case "$tables" in
-  0,0) runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff -f "$SRC/infrastructure/postgres/migrations/037_hst_real_adaptive_binding.sql";;
+  0,0)  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/037_hst_real_adaptive_binding.sql";;
   1,1) say "Migration 037 already installed; skip";;
   *) fatal "migration 037 only partly installed";;
  esac
  [[ "$(db "SELECT (to_regclass('spff.hst_real_profiles') IS NOT NULL AND to_regclass('spff.hst_real_sessions') IS NOT NULL)::text")" == t ]] || fatal "migration 037 not installed"
  say "Migration 038: durable SHADOW MODE ON by default"
  if [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" != t ]]; then
-   runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff -f "$SRC/infrastructure/postgres/migrations/038_hst_shadow_mode.sql"
+   (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/038_hst_shadow_mode.sql"
  fi
  [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == t ]] || fatal "migration 038 missing"
  [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "SHADOW MODE default must be ON at deployment"
