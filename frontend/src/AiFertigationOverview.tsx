@@ -1,3 +1,4 @@
+import {hstIrrigationDisplay} from './hstIrrigationSummary'
 import {useEffect,useState} from 'react'
 import {Check,Clock3,Cpu,Droplets,FlaskConical,Leaf,Radio,ShieldAlert} from 'lucide-react'
 import type {AiHstMode,AiHstExecutionReadiness,AiHstProposal,AiHstRealSessionSummary,FertigationProgress} from '@spff/contracts'
@@ -98,7 +99,7 @@ export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:
  const liquidFresh=liquid?.planning_status==='CURRENT'&&Number.isFinite(sourceAge)&&sourceAge>=-5000&&sourceAge<=120000
  const water=liquidFresh&&liquid?.tank_preview?.level_status==='ESTIMATED'?liquid.tank_preview.estimated_available_l:null
  const stock=liquidFresh&&liquid?.fertilizer_tank_preview?.level_status==='ESTIMATED'?liquid.fertilizer_tank_preview.estimated_liquid_volume_l:null
- const remaining=liquid?.water_carryover?.status!=='NO_PLAN'?liquid?.water_carryover?.remaining_for_reassessment_l:null
+ const irrigation=hstIrrigationDisplay(liquid)
  const credited=proposal?.status!=='REQUIRES_REVIEW'&&proposal?.review_reasons.length===0
  const target=matched?matched.commandedFertL:proposal?.target_g
  const value=uncertain?null:matched?(matched.lastTelemetryAt?matched.fertVolumeL:null):(credited?proposal?.delivered_g:null)
@@ -130,7 +131,8 @@ export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:
   </div>
   <ol className="afo-pipeline" aria-label="Tahapan eksekusi AI">{stages.map(stage=><li key={stage.name} className={(stage.reached?'is-reached ':'')+(stage.active?'is-active':'')}><span><stage.icon size={17}/></span><small>{stage.name}</small><span className="afo-sr">{stage.active?'berjalan':stage.reached?'tercatat':'menunggu'}</span></li>)}</ol>
   {matched&&<div className="afo-session"><VolumeBar label="Air sesi" value={matched.lastTelemetryAt?matched.waterVolumeL:null} target={matched.commandedWaterL}/><VolumeBar label="Larutan stok sesi" value={matched.lastTelemetryAt?matched.fertVolumeL:null} target={matched.commandedFertL}/><small><Clock3 size={12}/> Laporan sesi {time(matched.lastTelemetryAt)}</small></div>}
-  <div className="afo-remaining"><span>Sisa kebutuhan penyiraman</span><strong>{amount(remaining,'L')}</strong></div>
+  <div className="afo-remaining"><span>{irrigation.label}</span><strong>{amount(irrigation.valueL,'L')}</strong></div>
+  <small className="afo-irrigation-note">{irrigation.note}</small>
   {(uncertain||sessionError)&&<p className="afo-alert"><ShieldAlert size={15}/> Periksa sesi sebelum melanjutkan.</p>}
   <footer><small>Estimasi tandon · {time(liquid?.planning_recorded_at)}</small><small>ACC di panel HST</small></footer>
  </section>
