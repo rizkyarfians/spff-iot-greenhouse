@@ -72,9 +72,8 @@ class HstWorkflow:
 
     def proposals(self):
         state = self.store.read()
-        live = state.get("live", {})
         workflow = state.get("hst_workflow", {})
-        obligations = live.get("obligations", {})
+        obligations = workflow.get("obligations", {})
         approvals = workflow.get("approvals", {})
         result = [
             _summarize(p, obligations[p["obligation_id"]], approvals)
@@ -91,8 +90,8 @@ class HstWorkflow:
             raise HstWorkflowConflict("guide_program_source_not_ready")
         now = now or datetime.now(timezone.utc)
         with self.store.transaction() as state:
-            live = state.get("live") or {}
-            previous = live.get("obligations", {})
+            workflow = state.get("hst_workflow") or {}
+            previous = workflow.get("obligations", {})
             selected_programs = []
             for program in guides.get("programs", []):
                 if program.get("status") != "PREVIEW_ONLY":
@@ -127,17 +126,22 @@ class HstWorkflow:
             ):
                 return {"status": "NO_SCHEDULE", "created": 0, "can_dispatch": False}
 
-            # Reuse the existing obligation identity/progress/validation rules.
-            # It will never credit doses based on a manual Guide checkbox.
-            live = state.setdefault("live", empty_live())
-            sync_obligations(live, {"guide_programs": {
+            # V2 ledger deliberately ignores the 4k legacy development
+            # decisions/obligations. No old physical delivery is inferred.
+            # New verified session feedback needs an explicit V2 binding.
+            workflow = state.setdefault("hst_workflow", {
+                "obligations": {}, "proposals": {}, "approvals": {},
+            })
+            obligations = workflow.setdefault("obligations", {})
+            work_state = empty_live()
+            work_state["obligations"] = obligations
+            sync_obligations(work_state, {"guide_programs": {
                 "status": "READ_ONLY_PREVIEW", "programs": selected_programs,
             }}, None)
-            workflow = state.setdefault("hst_workflow", {"proposals": {}, "approvals": {}})
             proposals = workflow.setdefault("proposals", {})
             workflow.setdefault("approvals", {})
             created = 0
-            for obligation_id, obligation in live["obligations"].items():
+            for obligation_id, obligation in obligations.items():
                 if obligation.get("status") == "COMPLETED" or obligation_id in proposals:
                     continue
                 snapshot = obligation.get("snapshot", {})
@@ -172,10 +176,9 @@ class HstWorkflow:
         if expected is None or expected <= 0:
             raise HstWorkflowConflict("invalid_expected_remaining")
         with self.store.transaction() as state:
-            live = state.get("live", {})
             workflow = state.get("hst_workflow", {})
             proposal = workflow.get("proposals", {}).get(obligation_id)
-            obligation = live.get("obligations", {}).get(obligation_id)
+            obligation = workflow.get("obligations", {}).get(obligation_id)
             if not proposal or not obligation:
                 raise HstWorkflowConflict("unknown_hst_obligation")
             approvals = workflow.setdefault("approvals", {})
@@ -237,9 +240,9 @@ class HstWorkflow:
             plan = None
             if (config and not config.simulation_only and config.version == profile.version
                     and binding and water_valid and stock_valid and soil2_valid):
-                flows = live.get("ema", {}).get(
-                    profile.version, {"water": config.water_flow_lpm,
-                                      "fertilizer": config.fertilizer_flow_lpm})
+                # Do not reuse unverified legacy development EMA from the old ledger.
+                flows = {"water": config.water_flow_lpm,
+                         "fertilizer": config.fertilizer_flow_lpm}
                 try:
                     plan = plan_fertigation(
                         remaining, binding.concentration_g_l,
