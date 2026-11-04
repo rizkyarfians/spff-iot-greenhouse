@@ -9,7 +9,7 @@ umask 077
 export GIT_OPTIONAL_LOCKS=0
 
 BASE="219e444a09c92b7400a765e579f72780e71f1899"
-AI_SOURCE_SHA="40dfb1a78000d384959367049fd206ed093b40ac"
+AI_SOURCE_SHA="7d5c654b60eb9c6434512bfc3b9dcd91e2cd2fc0"
 BACKUP="/mnt/spff-data/backups/hst-prod-preflight-20261104T065115Z"
 BACKUP_SHA="79a21d67ab062fbf478dcdeb1a64c93dbd317bf0287771c5f8521c6c8bb3b023"
 PROD=/opt/spff
@@ -375,9 +375,27 @@ python3 -m venv "$AI_RELEASE/venv"
 (cd "$AI_RELEASE/standalone-ai" && "$AI_RELEASE/venv/bin/python" -m unittest discover -s tests -p test_hst_workflow.py)
 (cd "$AI_RELEASE/standalone-ai" && "$AI_RELEASE/venv/bin/python" -m unittest discover -s tests -p test_live_source.py)
 (cd "$AI_RELEASE/standalone-ai" && "$AI_RELEASE/venv/bin/python" -m unittest discover -s tests -p test_api.py)
+(cd "$AI_RELEASE/standalone-ai" && "$AI_RELEASE/venv/bin/python" -m unittest discover -s tests -p test_hst_state_separation.py)
 chown -R root:root "$AI_RELEASE"
 chmod -R a+rX "$AI_RELEASE"
 echo "PYTHON_RELEASE=$AI_RELEASE"
+
+echo "=== 5B. COPY ONLY HST SUBSECTION TO A SMALL POSTGRESQL SCOPE ==="
+# Existing preflight already backed up the old 56+ MB JSONB history.
+# The migration performs INSERT ... ON CONFLICT DO NOTHING for a new scope;
+# it never updates, deletes, or reads the entire legacy payload.
+# Load the same protected service configuration without shell-evaluating it.
+(
+  cd "$AI_RELEASE/standalone-ai"
+  "$AI_RELEASE/venv/bin/python" - <<'PY'
+from pathlib import Path
+from app.settings import load_env
+from app.migrate_hst_scope import migrate
+load_env(Path("/etc/spff-ai/engine.env"))
+migrate()
+PY
+)
+echo "HST_SCOPE_MIGRATION_VERIFIED=YES"
 
 echo "=== 6. PREPARE NEW COMPILED ARTIFACTS ==="
 mkdir -p "$RUN/new" "$RUN/old"
@@ -430,6 +448,17 @@ curl -fsS -m 8 http://127.0.0.1:5010/status \
   | python3 -c 'import sys,json; x=json.load(sys.stdin); assert x["mode"]=="SHADOW_MODE" and x["source_configured"] is True and x["state_backend"]=="postgresql" and x["polling"]["enabled"] is True and x["can_dispatch"] is False'
 curl -fsS -m 12 http://127.0.0.1:5010/source/guide-programs >/dev/null \
   || { echo "STOP: service user cannot read production Guide"; exit 1; }
+# Wait for the first safe HST schedule scan to finish. This verifies DB state
+# writes using the actual service identity, not just a root migration.
+ready=0
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  if curl -fsS -m 5 http://127.0.0.1:5010/ready >/dev/null 2>&1; then
+    ready=1; break
+  fi
+  sleep 2
+done
+test "$ready" = 1 || { echo "STOP: initial HST source poll never became ready"; exit 1; }
+echo "HST_POLL_READY=YES"
 curl -fsS -m 10 http://127.0.0.1:5010/hst/proposals \
   | python3 -c 'import sys,json; x=json.load(sys.stdin); assert x["schemaVersion"]==1 and x["can_dispatch"] is False and isinstance(x["proposals"],list)'
 UNAUTH='{"obligation_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","approval_id":"11111111-1111-4111-8111-111111111111","actor":"unauthorized","expected_remaining_g":1,"confirmation":"REVIEW_HST_SHADOW_SESSION"}'
