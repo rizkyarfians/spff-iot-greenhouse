@@ -112,6 +112,25 @@ npm run lint
 npm run test --workspace @spff/contracts
 node --test functions/test/localAiEndpoint.test.mjs
 
+echo "=== 2B. CHECK DEPLOYED RUNTIME HAS NO HIDDEN CORE HOTFIXES ==="
+for tree in functions/lib packages/contracts/dist; do
+  while IFS= read -r -d '' current; do
+    rel="$(realpath --relative-to="$PROD/$tree" "$current")"
+    case "$tree/$rel" in
+      functions/lib/routes/index.js|functions/lib/routes/index.d.ts|packages/contracts/dist/index.js|packages/contracts/dist/index.d.ts)
+        continue ;;
+    esac
+    case "$rel" in
+      *.js|*.d.ts)
+        if [[ ! -f "$SRC/$tree/$rel" ]] || ! cmp -s "$current" "$SRC/$tree/$rel"; then
+          echo "STOP: existing production compiled module differs from clean baseline: $tree/$rel"
+          exit 1
+        fi ;;
+    esac
+  done < <(find "$PROD/$tree" -type f -print0)
+done
+echo "PRODUCTION_CORE_MODULES=UNCHANGED"
+
 echo "=== 3. BUILD ISOLATED PYTHON AI RELEASE ==="
 SHORT_SHA="$(git -c safe.directory="$SRC" -C "$SRC" rev-parse --short HEAD)"
 install -d -m 755 "$AI/releases"
