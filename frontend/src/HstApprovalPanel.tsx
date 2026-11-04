@@ -4,6 +4,7 @@ import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } 
 import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/contracts';
 import { fetchAiHstExecutionReadiness, fetchAiHstProposals, fetchAiHstRealPreflight, reviewAiHstApproval } from './api';
 import type { AiHstExecutionReadiness, AiHstRealPreflight } from '@spff/contracts';
+import { HstRealExecutionCard } from './HstRealExecutionCard';
 import './HstApprovalPanel.css';
 
 const previewOnly = import.meta.env.DEV && import.meta.env.VITE_SPFF_AI_PREVIEW === 'true';
@@ -172,21 +173,23 @@ export function HstApprovalPanel() {
                 <div><small>Terpenuhi</small><strong>{mass(proposal.delivered_g)}</strong></div>
                 <div><small>Sisa</small><strong>{mass(proposal.remaining_g)}</strong></div>
               </div>
-              {mode === 'TEST_REAL' && <div className="hst-real-proposal-readiness" role="status">
-                <strong>Kesiapan sesi pupuk real: BELUM SIAP</strong>
-                {realPreflightErrors[proposal.obligation_id] &&
-                  <small>{realPreflightErrors[proposal.obligation_id]}</small>}
-                {realPreflights[proposal.obligation_id]?.reasons.map(reason =>
-                  <small key={reason}>• {reason.replaceAll('_', ' ')}</small>)}
-                {!realPreflights[proposal.obligation_id] &&
-                  !realPreflightErrors[proposal.obligation_id] &&
-                  <small>Memeriksa keterkaitan proposal, stok pupuk, dan firmware…</small>}
-              </div>}
+              {mode === 'TEST_REAL' && <HstRealExecutionCard
+                proposal={proposal}
+                preflight={realPreflights[proposal.obligation_id]??null}
+                preflightError={realPreflightErrors[proposal.obligation_id]??null}
+                refreshPreflight={() => {
+                  void fetchAiHstRealPreflight(proposal.obligation_id)
+                   .then(next=>setRealPreflights(prev=>({...prev,[proposal.obligation_id]:next})))
+                   .catch(cause=>setRealPreflightErrors(prev=>({
+                     ...prev,[proposal.obligation_id]:cause instanceof Error?cause.message:'Gagal cek kesiapan',
+                   })));
+                }}
+              />}
               {proposal.review_reasons.length > 0 &&
                 <p className="hst-review"><ShieldAlert size={16} />
                   Perlu rekonsiliasi: {proposal.review_reasons.join(', ').replaceAll('_', ' ')}
                 </p>}
-              {proposal.status === 'COMPLETED' ?
+              {mode === 'SHADOW' && (proposal.status === 'COMPLETED' ?
                 <p className="hst-success"><CheckCircle2 size={16} /> Kewajiban selesai</p> :
                 <label className="hst-confirm">
                   <input type="checkbox" disabled={!canApprove || !!pendingId}
@@ -195,14 +198,14 @@ export function HstApprovalPanel() {
                   {mode === 'SHADOW'
                     ? 'Saya meninjau sisa dosis dan ingin memeriksa sesi ini. ACC berikutnya harus diberikan ulang.'
                     : 'ACC uji real terkunci sampai firmware dan alur eksekusi HST terverifikasi.'}
-                </label>}
-              <button type="button" className="hst-approve"
+                </label>)}
+              {mode === 'SHADOW' && <button type="button" className="hst-approve"
                 disabled={!canApprove || confirmId !== proposal.obligation_id || !!pendingId}
                 onClick={() => { void approve(proposal); }}>
                 <ClipboardCheck size={16} />
                 {mode === 'TEST_REAL' ? 'ACC & Jalankan Pompa (BELUM SIAP)'
                   : pendingId === proposal.obligation_id ? 'Memeriksa sensor…' : 'ACC & Periksa Sesi (SHADOW)'}
-              </button>
+              </button>}
               <small>Review tercatat: {proposal.approval_count} · Belum ada bukti dosis dari ACC saja.</small>
             </section>
           );

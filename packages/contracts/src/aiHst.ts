@@ -90,10 +90,19 @@ export type AiHstExecutionReadiness = z.infer<typeof aiHstExecutionReadinessSche
 export const aiHstRealPreflightSchema=z.object({
  schemaVersion:z.literal(1),
  obligationId:z.string().regex(/^[a-f0-9]{64}$/),
- status:z.literal('BLOCKED'),
+ status:z.enum(['BLOCKED','READY']),
  reasons:z.array(z.string().min(1)),
- canDispatch:z.literal(false),
-}).strict();
+ canDispatch:z.boolean(),
+ setup:z.object({
+  programRevision:z.number().int().positive(),
+  ecProfileRevision:z.number().int().positive().nullable(),
+  deviceId:z.string().min(1).nullable(),
+  profile:z.lazy(()=>aiHstHardwareProfileSchema).nullable(),
+ }).strict().nullable(),
+}).strict().superRefine((v,ctx)=>{
+ if(v.canDispatch!==(v.status==='READY'&&v.reasons.length===0))
+  ctx.addIssue({code:'custom',message:'Preflight readiness is inconsistent.'});
+});
 export type AiHstRealPreflight=z.infer<typeof aiHstRealPreflightSchema>;
 
 /** Physical execution is separately authorized; a SHADOW review is only AI

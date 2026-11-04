@@ -237,12 +237,20 @@ export async function getHstRealPreflight(req: Request, res: Response): Promise<
     if(process.env.SPFF_HST_REAL_DISPATCH_ENABLED!=='true'||
        process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED!=='true')
        blockers.add('real_execution_server_flag_disabled');
-    // The Python HST source is still SHADOW for calculation. Final dispatch
-    // requires explicit real ACC and fresh AI review inside the POST handler.
-    blockers.add('final_operator_acc_and_fresh_ai_review_required');
-
+    // Ready means capable of *requesting* an explicit REAL ACC; the POST still
+    // performs a fresh Python AI review and atomic local DB/device checks.
+    const canDispatch=blockers.size===0;
+    const conversion=cfg.success? (await readGuideEcConversions(proposal.program_id))
+      .find(item=>item.activityId===proposal.activity_id):null;
     const result = aiHstRealPreflightSchema.parse({
-      schemaVersion: 1, obligationId, status: 'BLOCKED', reasons: [...blockers].sort(), canDispatch: false,
+      schemaVersion: 1, obligationId, status: canDispatch?'READY':'BLOCKED',
+      reasons: [...blockers].sort(), canDispatch,
+      setup: row && cfg.success ? {
+       programRevision:Number(row.revision),
+       ecProfileRevision:conversion?.profile?.revision??null,
+       deviceId:cfg.data.deviceId,
+       profile:profile??null,
+      }:null,
     });
     res.json({ success: true, data: result, message: 'Pemeriksaan TEST REAL read-only; tidak ada perintah pompa.' });
   } catch {
