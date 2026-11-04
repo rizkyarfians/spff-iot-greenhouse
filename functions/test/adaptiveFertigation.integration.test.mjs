@@ -39,10 +39,14 @@ test('adaptive backend pins conversion, allocates batches, persists duplicate te
   await assert.rejects(adaptive.createAdaptiveSession({...input,requestId:randomUUID()},'admin'),/masih aktif/)
   await assert.rejects(query("UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',water_enabled=true,water_moisture_low_pct=10,water_moisture_target_pct=60,water_max_runtime_seconds=600,water_cooldown_seconds=60,water_min_tank_level_pct=10,water_min_flow_lpm=1 WHERE site_id='greenhouse-01'"),/adaptive_session_owns_relays/)
   await transport.dispatch();await transport.dispatch();assert.equal(sent.length,1)
-  const now=new Date().toISOString(),telemetry={kind:'adaptive_fert_telemetry',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:session.session_id,timestamp:now,state:'EC_CONTROL',filteredEc:2000,rawEc:2000,waterFlowLpm:10,fertFlowLpm:1,waterVolumeL:10,fertVolumeL:1,fertMassGrams:100,volumePerPlantMl:1,waterPump:true,fertPump:true,faultReason:'none',ecTargetUnreachable:false}
+  const now=new Date().toISOString(),telemetry={kind:'adaptive_fert_telemetry',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:session.session_id,timestamp:now,state:'EC_CONTROL',filteredEc:2000,rawEc:2000,waterFlowLpm:10,fertFlowLpm:1,waterVolumeL:10,fertVolumeL:1,fertMassGrams:100,volumePerPlantMl:1,waterPump:true,fertPump:true,faultReason:'none',ecTargetUnreachable:false,ecValid:true,flowValid:true,waterPumpKnown:true,fertPumpKnown:true,volumeEstimated:false,bootId:'a1b2c3d4e5f60708'}
   const first=event(telemetry);await transport.saveEvent(first);await transport.saveEvent(first)
   let progress=await adaptive.adaptiveProgress(p.programId);assert.equal(progress.activities[0].estimatedDeliveredMassG,100);assert.equal(progress.history[0].status,'running')
   assert.equal((await query('SELECT count(*)::int AS n FROM spff.adaptive_fert_events')).rows[0].n,1)
+  // Replayed/forged telemetry from another MCU boot must NOT inflate delivered dose.
+  await transport.saveEvent(event({...telemetry,timestamp:new Date().toISOString(),bootId:'ffffffffffffffff',fertVolumeL:2,fertMassGrams:200}));
+  assert.equal((await adaptive.adaptiveProgress(p.programId)).activities[0].estimatedDeliveredMassG,100);
+  assert.equal((await adaptive.adaptiveProgress(p.programId)).history[0].status,'reconciliation_required');
   await transport.saveEvent(event({...telemetry,timestamp:new Date(Date.now()-1000).toISOString(),waterVolumeL:5,fertVolumeL:0.5,fertMassGrams:50}));assert.equal((await adaptive.adaptiveProgress(p.programId)).activities[0].estimatedDeliveredMassG,100)
   await assert.rejects(adaptive.controlAdaptiveSession(session.session_id,'resume',randomUUID()),/priming/)
   const pause=await adaptive.controlAdaptiveSession(session.session_id,'pause',randomUUID());await transport.dispatch();assert.equal(sent.length,2)

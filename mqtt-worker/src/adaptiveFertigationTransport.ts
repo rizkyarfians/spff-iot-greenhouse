@@ -50,6 +50,19 @@ export class AdaptiveFertigationTransport {
      }else{
       const newer=!row.last_telemetry_at||at>=row.last_telemetry_at.getTime();
       if(newer){
+       // Device reports flow/counter and register readback validity in 1.5.07.
+       // Never allocate a fertilizer dose from an estimated counter, another
+       // boot, stale/invalid sensor, or an already uncertain session.
+       const evidenceVerified=payload.bootId===row.command_snapshot?.bootId &&
+        payload.flowValid===true && payload.ecValid===true &&
+        payload.waterPumpKnown===true && payload.fertPumpKnown===true &&
+        payload.volumeEstimated===false;
+       if(!evidenceVerified || row.status==='reconciliation_required'){
+        await c.query(`UPDATE spff.adaptive_fert_sessions
+         SET status='reconciliation_required',reason=$3,last_telemetry_at=$4,last_telemetry=$5
+         WHERE site_id=$1 AND session_id=$2`,
+         [event.siteId,row.session_id,'adaptive_measurement_unverified',payload.timestamp,JSON.stringify(payload)]);
+       }else{
        const terminal=row.status==='completed'||row.status==='fault';
        let status=payload.state==='COMPLETED'?'completed':payload.state==='FAULT'?'fault':payload.state==='PAUSED'?'paused':'running';
        if((payload.state==='COMPLETED'||payload.state==='FAULT')&&(payload.waterPump||payload.fertPump))status='reconciliation_required';
@@ -59,6 +72,7 @@ export class AdaptiveFertigationTransport {
        const mass=payload.fertVolumeL*row.command_snapshot.nominalConcentrationGPerL;
        if(payload.fertVolumeL>row.command_snapshot.targetFertVolumeL+Math.max(0.1,row.command_snapshot.targetFertVolumeL*0.05)||Math.abs(payload.fertMassGrams-mass)>Math.max(1,mass*0.02))status='reconciliation_required';
        await c.query(`UPDATE spff.adaptive_fert_sessions SET water_volume_l=GREATEST(water_volume_l,$3),fert_volume_l=GREATEST(fert_volume_l,$4),last_telemetry_at=$5,last_telemetry=$6,status=$7,reason=$8 WHERE site_id=$1 AND session_id=$2`,[event.siteId,row.session_id,payload.waterVolumeL,payload.fertVolumeL,payload.timestamp,JSON.stringify(payload),status,payload.faultReason]);
+       }
       }
      }
     }
