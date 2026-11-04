@@ -1,6 +1,7 @@
 import {useEffect,useId,useRef,useState} from 'react'
 import type {FertigationProgress} from '@spff/contracts'
 import {X} from 'lucide-react'
+import {AiFertigationOverview} from './AiFertigationOverview'
 import {AdaptiveRecommendation} from './AdaptiveRecommendation'
 import './FloatingAiRecommendation.css'
 
@@ -25,7 +26,10 @@ export function FloatingAiRecommendation({deviceId,report,onOpenProgram}:{
    <header className="ai-floating-header"><div><strong id={titleId}>Kebutuhan tanaman</strong></div>
     <button type="button" className="ai-floating-close" ref={closeButton} aria-label="Tutup kebutuhan tanaman" onClick={close}><X size={19} aria-hidden="true"/></button>
    </header>
+   <AiFertigationOverview deviceId={deviceId} report={report}/>
+   <details className="afo-details"><summary>Detail sensor &amp; program</summary>
    <AdaptiveRecommendation deviceId={deviceId} report={report} onOpen={()=>{close();onOpenProgram()}}/>
+   </details>
   </section>}
   <button type="button" className={`ai-floating-trigger${open?' is-open':''}`} ref={trigger} aria-label={open?'Tutup kebutuhan tanaman':'Buka kebutuhan tanaman'}
    aria-expanded={open} aria-controls={open?panelId:undefined} aria-haspopup="dialog" onClick={()=>open?close():setOpen(true)}>
