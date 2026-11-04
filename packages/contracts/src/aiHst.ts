@@ -49,7 +49,7 @@ export const aiHstApprovalResultSchema = z.object({
   obligation_id: z.string().regex(/^[a-f0-9]{64}$/),
   operator_id: z.string().min(1).max(128),
   approved_at: z.string().datetime({ offset: true }),
-  approval_date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/),
+  approval_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   expected_remaining_g: z.number().finite().positive(),
   status: z.literal('SHADOW_REVIEW_BLOCKED'),
   can_dispatch: z.literal(false),
