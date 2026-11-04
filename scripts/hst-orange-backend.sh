@@ -93,7 +93,8 @@ if [[ "$MODE" == deploy ]]; then
  mkdir -m 700 "$RUN"
  printf '%s\n' "$RUN" > "$STORE/hst-backend-latest.txt"
  exec > >(tee -a "$RUN/deploy.log") 2>&1
- trap finish EXIT ERR
+ # EXIT fires for every set -e failure; avoid duplicate rollback/log lines.
+ trap finish EXIT
  say "Check current production and staging"
  [[ -d "$SRC/.git" && -d "$PROD/.git" ]] || fatal "missing source checkout"
  healthy || fatal "production API/worker/edge unhealthy"
@@ -214,7 +215,23 @@ if 'HstApprovalPanel' not in guide:
  guide_path.write_text(guide)
 print('PRESERVED_PRODUCTION_FRONTEND_SOURCE=PASS')
 PY
- (cd "$MERGED/frontend" && "$SRC/node_modules/.bin/tsc" -b && "$SRC/node_modules/.bin/vite" build)
+ # npm workspaces may install Vite in frontend/node_modules instead of root.
+ # The same frontend package already passed npm run build above; reuse its
+ # locally installed binary while building from MERGED/frontend (not SRC).
+ if [[ -d "$SRC/frontend/node_modules" && ! -e "$MERGED/frontend/node_modules" ]]; then
+   ln -s "$SRC/frontend/node_modules" "$MERGED/frontend/node_modules"
+ fi
+ VITE_BIN=''
+ for candidate in "$SRC/frontend/node_modules/.bin/vite" "$SRC/node_modules/.bin/vite"; do
+   if [[ -x "$candidate" ]]; then VITE_BIN="$candidate"; break; fi
+ done
+ [[ -n "$VITE_BIN" ]] || fatal "Cannot find existing Vite binary in staging workspace; no runtime changes made"
+ TSC_BIN=''
+ for candidate in "$SRC/frontend/node_modules/.bin/tsc" "$SRC/node_modules/.bin/tsc"; do
+   if [[ -x "$candidate" ]]; then TSC_BIN="$candidate"; break; fi
+ done
+ [[ -n "$TSC_BIN" ]] || fatal "Cannot find TypeScript compiler in staging workspace"
+ (cd "$MERGED/frontend" && "$TSC_BIN" -b && "$VITE_BIN" build)
  [[ -s "$MERGED/frontend/dist/index.html" ]] || fatal "merged frontend build output missing"
  cp -a "$MERGED/frontend/dist" "$RUN/new/web"
  say "Back up PostgreSQL before additive migration"
