@@ -99,14 +99,21 @@ if [[ "$MODE" == deploy ]]; then
  for loc in "$PROD/packages/contracts/dist" "$PROD/functions/lib" "$PROD/mqtt-worker/dist" "$PROD/frontend/dist"; do
   [[ -d "$loc" && ! -L "$loc" ]] || fatal "unexpected runtime directory: $loc"
  done
- say "Build and test staged source; production remains live"
- ( cd "$SRC"; npm run build; npm run lint
-   npm run test --workspace @spff/contracts
-   npm run test --workspace functions
-   npm run test --workspace frontend
-   npm run test --workspace @spff/edge-gateway
-   npm run test --workspace @spff/mqtt-worker
- )
+ say "Build and test staged source as its non-root owner; production remains live"
+ STAGING_USER="$(stat -c '%U' "$SRC")"
+ [[ "$STAGING_USER" != root && "$STAGING_USER" != UNKNOWN ]] || fatal "staging must be owned by a non-root user"
+ # Avoid generating root-owned .git/index, npm cache, dist, tsbuildinfo etc.
+ runuser -u "$STAGING_USER" -- bash -s -- "$SRC" <<'STAGING_BUILD'
+set -Eeuo pipefail
+cd "$1"
+npm run build
+npm run lint
+npm run test --workspace @spff/contracts
+npm run test --workspace functions
+npm run test --workspace frontend
+npm run test --workspace @spff/edge-gateway
+npm run test --workspace @spff/mqtt-worker
+STAGING_BUILD
  say "Prepare surgical merged runtime with original production files"
  mkdir -p "$RUN/new" "$RUN/old"
  cp -a "$PROD/packages/contracts/dist" "$RUN/new/contracts"
