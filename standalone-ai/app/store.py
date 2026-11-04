@@ -108,6 +108,26 @@ class PostgresStore:
     def close(self):
         pass
 
+    def read_summary(self):
+        """Read only the small source-shadow dashboard sections.
+
+        Legacy 4k development decisions can exceed 55 MB. Never deserialize
+        them for an HST view or dashboard planning preview.
+        PostgreSQL JSONB extracts exactly the requested object keys.
+        """
+        import psycopg
+        with psycopg.connect(self.dsn, connect_timeout=5) as connection:
+            connection.execute("SET TRANSACTION READ ONLY")
+            connection.execute("SET LOCAL statement_timeout = '5s'")
+            row = connection.execute(
+                "SELECT payload->'guide_stock_bindings', payload->'shadow_water_plans' "
+                "FROM spff_ai.engine_state WHERE scope=%s", (self.scope,)
+            ).fetchone()
+            return {
+                "guide_stock_bindings": (row[0] or {}) if row else {},
+                "shadow_water_plans": (row[1] or {}) if row else {},
+            }
+
     def runtime_profile(self):
         import psycopg
         with psycopg.connect(self.dsn, connect_timeout=5) as connection:

@@ -47,6 +47,12 @@ def create_app(settings=None, config=None, store=None):
     owns_store = store is None
     if store is None:
         store = PostgresStore(settings.state_dsn, scope) if settings.state_dsn else SQLiteStore(str(ROOT / settings.state_path), scope)
+    # Keep the 56+ MB immutable legacy-development history in its existing scope.
+    # HST is an independent, tiny PostgreSQL row (same database/table), so
+    # scheduled scans and authenticated approvals never deserialize the legacy
+    # decisions blob. An explicitly supplied test store remains unchanged.
+    hst_store = (PostgresStore(settings.state_dsn, scope + "/hst-v1")
+                 if owns_store and settings.state_dsn else store)
     engine = Engine(store, config, mode=settings.mode)
     source = SPFFSource(settings.source_dsn, settings.site_id, settings.device_id, settings.zone_id,
                         fertilizer_delivery_route=settings.fertilizer_delivery_route) if settings.source_dsn else None
@@ -57,7 +63,7 @@ def create_app(settings=None, config=None, store=None):
         from datetime import datetime, timezone
         while True:
             try:
-                await asyncio.to_thread(source.record_shadow, store)
+                await asyncio.to_thread(source.record_shadow, hst_store)
                 poll_status.update(last_success=datetime.now(timezone.utc).isoformat(), last_error=None)
             except Exception as error:
                 # Exception text can include credentials supplied by drivers; log only type.
@@ -77,6 +83,8 @@ def create_app(settings=None, config=None, store=None):
                 pass
         if owns_store:
             store.close()
+            if hst_store is not store:
+                hst_store.close()
 
     app = FastAPI(title="SPFF Adaptive AI — standalone", version="1.0.0", lifespan=lifespan)
 
@@ -92,7 +100,7 @@ def create_app(settings=None, config=None, store=None):
     @app.get("/ready")
     def ready():
         try:
-            store.read()
+            hst_store.read()
         except Exception:
             raise HTTPException(503, "state storage unavailable")
         if poll_status["enabled"] and (poll_status["last_error"] or not poll_status["last_success"]):
@@ -102,13 +110,15 @@ def create_app(settings=None, config=None, store=None):
 
     @app.get("/status")
     def status():
-        state = store.read()
+        state = hst_store.read()
         return {"mode": settings.mode, "port": settings.port, "can_dispatch": False,
                 "fertilizer_delivery_route": settings.fertilizer_delivery_route,
                 "source_configured": source is not None, "state_backend": "postgresql" if settings.state_dsn else "sqlite-local",
                 "polling": poll_status,
                 "decision_count": len(state.get("hst_workflow", {}).get("proposals", {})),
-                "legacy_development_decision_count": len(state["decisions"]),
+                "legacy_development_decision_count": (
+                    len(state.get("decisions", {})) if hst_store is store else None),
+                "legacy_history_scope": "separate_retained_legacy_scope" if hst_store is not store else "same_scope",
                 "decision_trigger": "HST_SCHEDULE_ONLY",
                 "blocking_reason": "existing firmware volume-session contract is unverified"}
 
@@ -140,7 +150,7 @@ def create_app(settings=None, config=None, store=None):
         if not source:
             raise HTTPException(503, "real SPFF source is not configured")
         try:
-            state = store.read()
+            state = store.read_summary() if hasattr(store, "read_summary") else store.read()
             # The 4k legacy source-shadow decisions are development history,
             # NOT active HST proposals. Current duties are exposed by /hst/proposals.
             # Preserve legacy /decisions readback for explicit history inspection.
@@ -164,7 +174,7 @@ def create_app(settings=None, config=None, store=None):
 
     @app.get("/hst/proposals")
     def hst_proposals():
-        return HstWorkflow(store, settings.site_id, settings.device_id, settings.zone_id).proposals()
+        return HstWorkflow(hst_store, settings.site_id, settings.device_id, settings.zone_id).proposals()
 
     @app.post("/hst/approvals")
     def hst_approval(body: HstApproval, x_spff_bridge_key: str | None = Header(default=None)):
@@ -180,7 +190,7 @@ def create_app(settings=None, config=None, store=None):
             # Idempotent replay must still work if the source goes offline
             # after the initial recorded review. Never reuse the UUID for
             # another actor/obligation/remaining-mass amount.
-            existing = store.read().get("hst_workflow", {}).get("approvals", {}).get(str(body.approval_id))
+            existing = hst_store.read().get("hst_workflow", {}).get("approvals", {}).get(str(body.approval_id))
             if existing:
                 if (existing["obligation_id"] != body.obligation_id
                         or existing["operator_id"] != body.actor
@@ -190,9 +200,9 @@ def create_app(settings=None, config=None, store=None):
                 return existing
             # The sensor/tank/Soil 2 read occurs ONLY after explicit ACC.
             observation = json.loads(json.dumps(source.inspect(), default=str, allow_nan=False))
-            raw_profile = store.runtime_profile() if hasattr(store, "runtime_profile") else None
+            raw_profile = hst_store.runtime_profile() if hasattr(hst_store, "runtime_profile") else None
             profile = LiveProfile.model_validate(raw_profile) if raw_profile else None
-            return HstWorkflow(store, settings.site_id, settings.device_id, settings.zone_id).review_approval(
+            return HstWorkflow(hst_store, settings.site_id, settings.device_id, settings.zone_id).review_approval(
                 obligation_id=body.obligation_id,
                 approval_id=body.approval_id,
                 actor=body.actor,
@@ -207,11 +217,11 @@ def create_app(settings=None, config=None, store=None):
 
     @app.get("/obligations")
     def obligations():
-        return list(store.read().get("hst_workflow", {}).get("obligations", {}).values())
+        return list(hst_store.read().get("hst_workflow", {}).get("obligations", {}).values())
 
     @app.get("/live/state")
     def live_state():
-        state = store.read().get("hst_workflow", {})
+        state = hst_store.read().get("hst_workflow", {})
         return {"mode": settings.mode, "can_dispatch": False, "obligations": state.get("obligations", {}),
                 "sessions": {}, "ema": {},
                 "decision_count": len(state.get("proposals", {})),
@@ -264,7 +274,7 @@ def create_app(settings=None, config=None, store=None):
         if settings.mode == "DRY_RUN":
             raise HTTPException(409, "DRY_RUN does not persist source decisions; use /source/audit")
         try:
-            return source.record_shadow(store)
+            return source.record_shadow(hst_store)
         except Exception:
             raise HTTPException(503, "source evaluation unavailable")
 
