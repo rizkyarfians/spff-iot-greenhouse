@@ -226,14 +226,16 @@ class SPFFSource:
             }
 
     def record_shadow(self, store):
-        from .live_engine import LiveEngine, LiveProfile
-        import json
-        observation = self.inspect()
-        observation = json.loads(json.dumps(observation, default=str, allow_nan=False))
+        """HST schedule scan; no telemetry read or repeated decision snapshots.
+
+        Bound hardware feedback still reconciles only explicitly linked sessions.
+        Approval-time safety/evidence inspection is handled separately.
+        """
+        from .hst_workflow import HstWorkflow
         self.process_bound_feedback(store)
-        raw_profile = store.runtime_profile() if hasattr(store, "runtime_profile") else None
-        profile = LiveProfile.model_validate(raw_profile) if raw_profile else None
-        return LiveEngine(store, self.site_id, self.device_id, self.zone_id).evaluate(observation, profile)
+        return HstWorkflow(store, self.site_id, self.device_id, self.zone_id).scan(
+            self.inspect_guides()
+        )
 
     def process_bound_feedback(self, store):
         """Only DB-origin events explicitly bound by a dispatcher may debit a dose."""
