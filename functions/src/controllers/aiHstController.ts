@@ -1,13 +1,12 @@
 import type { Request, Response } from 'express';
+import {
+  aiHstApprovalRequestSchema,
+  aiHstApprovalResultSchema,
+  aiHstProposalsSchema,
+} from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
 
 const AI_URL = 'http://127.0.0.1:5011';
-const OBLIGATION_ID = /^[0-9a-f]{64}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 export async function getHstProposals(_req: Request, res: Response): Promise<void> {
   res.set('Cache-Control', 'no-store');
@@ -22,12 +21,12 @@ export async function getHstProposals(_req: Request, res: Response): Promise<voi
       res.status(503).json({ success: false, data: null, message: 'HST AI belum tersedia.' });
       return;
     }
-    const data: unknown = await response.json();
-    if (!isRecord(data) || !Array.isArray(data.proposals) || data.can_dispatch !== false) {
+    const parsed = aiHstProposalsSchema.safeParse(await response.json() as unknown);
+    if (!parsed.success) {
       res.status(503).json({ success: false, data: null, message: 'Format HST AI tidak valid.' });
       return;
     }
-    res.json({ success: true, data, message: 'Usulan HST SHADOW.' });
+    res.json({ success: true, data: parsed.data, message: 'Usulan HST SHADOW.' });
   } catch {
     res.status(503).json({ success: false, data: null, message: 'HST AI tidak terjangkau.' });
   }
@@ -35,16 +34,12 @@ export async function getHstProposals(_req: Request, res: Response): Promise<voi
 
 export async function postHstApproval(req: Request, res: Response): Promise<void> {
   res.set('Cache-Control', 'no-store');
-  const body: unknown = req.body;
-  if (!isRecord(body) ||
-      typeof body.obligationId !== 'string' || !OBLIGATION_ID.test(body.obligationId) ||
-      typeof body.approvalId !== 'string' || !UUID.test(body.approvalId) ||
-      typeof body.expectedRemainingG !== 'number' ||
-      !Number.isFinite(body.expectedRemainingG) || body.expectedRemainingG <= 0 ||
-      body.confirmation !== 'REVIEW_HST_SHADOW_SESSION') {
+  const parsedRequest = aiHstApprovalRequestSchema.safeParse(req.body as unknown);
+  if (!parsedRequest.success) {
     res.status(400).json({ success: false, data: null, message: 'ACC HST tidak valid.' });
     return;
   }
+  const body = parsedRequest.data;
   const key = process.env.AI_HST_BRIDGE_KEY;
   // A public browser must never have access to this backend-to-AI secret.
   if (!key || key.length < 32) {
@@ -80,14 +75,13 @@ export async function postHstApproval(req: Request, res: Response): Promise<void
       });
       return;
     }
-    const data: unknown = await response.json();
-    if (!isRecord(data) || data.can_dispatch !== false ||
-        data.command_created !== false || data.status !== 'SHADOW_REVIEW_BLOCKED') {
+    const parsedResult = aiHstApprovalResultSchema.safeParse(await response.json() as unknown);
+    if (!parsedResult.success) {
       res.status(503).json({ success: false, data: null,
         message: 'Konfirmasi SHADOW dari AI tidak valid.' });
       return;
     }
-    res.json({ success: true, data,
+    res.json({ success: true, data: parsedResult.data,
       message: 'ACC sesi dicatat sebagai review SHADOW. Tidak ada perintah pompa.' });
   } catch {
     res.status(503).json({ success: false, data: null,
