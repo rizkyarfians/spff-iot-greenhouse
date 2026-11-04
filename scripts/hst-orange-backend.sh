@@ -87,9 +87,9 @@ if [[ "$MODE" == deploy ]]; then
  say "Check current production and staging"
  [[ -d "$SRC/.git" && -d "$PROD/.git" ]] || fatal "missing source checkout"
  healthy || fatal "production API/worker/edge unhealthy"
- [[ -z "$(git -C "$SRC" status --porcelain --untracked-files=no)" ]] || fatal "staging has local edits"
+ [[ -z "$(GIT_OPTIONAL_LOCKS=0 git -C "$SRC" -c core.fsmonitor=false status --porcelain --untracked-files=no)" ]] || fatal "staging has local edits"
  git -C "$SRC" log -1 --oneline
- git -c safe.directory="$PROD" -C "$PROD" status --short --untracked-files=no > "$RUN/prod-source-edits.txt" || true
+ GIT_OPTIONAL_LOCKS=0 git -c safe.directory="$PROD" -C "$PROD" -c core.fsmonitor=false status --short --untracked-files=no > "$RUN/prod-source-edits.txt" || true
  if [[ "$(db "SELECT (to_regclass('spff.adaptive_fert_sessions') IS NOT NULL AND to_regclass('spff.adaptive_fert_commands') IS NOT NULL AND to_regclass('spff.guide_programs') IS NOT NULL)::text")" != t ]]; then
   echo "DB prerequisite tables absent in local PostgreSQL database 'spff'."
   echo "Run: sudo bash scripts/hst-orange-backend.sh diagnose \"$SRC\""
