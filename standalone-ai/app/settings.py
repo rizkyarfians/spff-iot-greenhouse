@@ -34,8 +34,9 @@ class Settings:
     site_id: str = "greenhouse-01"
     device_id: str = "esp32-s3-01"
     zone_id: str = "soil-1"
-    poll_seconds: float = 10
+    poll_seconds: float = 300
     poll_enabled: bool = False
+    hst_bridge_key: str = ""
     fertilizer_delivery_route: str = "reference"
     tank_capacity_l: float = 5000.0
     fert_tank_capacity_l: float = 500.0
@@ -49,8 +50,9 @@ class Settings:
                      mode=os.getenv("AI_MODE", "SHADOW_MODE"), state_path=os.getenv("AI_STATE_PATH", "data/shadow.sqlite3"),
                      source_dsn=os.getenv("AI_SOURCE_DSN", ""), state_dsn=os.getenv("AI_STATE_DSN", ""),
                      site_id=os.getenv("AI_SITE_ID", "greenhouse-01"), device_id=os.getenv("AI_DEVICE_ID", "esp32-s3-01"),
-                     zone_id=os.getenv("AI_ZONE_ID", "soil-1"), poll_seconds=float(os.getenv("AI_POLL_SECONDS", "10")),
+                     zone_id=os.getenv("AI_ZONE_ID", "soil-1"), poll_seconds=float(os.getenv("AI_POLL_SECONDS", "300")),
                      poll_enabled=os.getenv("AI_POLL_ENABLED", "false").lower() == "true",
+                      hst_bridge_key=os.getenv("AI_HST_BRIDGE_KEY", ""),
                      fertilizer_delivery_route=os.getenv("AI_FERTILIZER_DELIVERY_ROUTE", "reference"),
                      tank_capacity_l=float(os.getenv("AI_TANK_CAPACITY_L", "5000")),
                      tank_height_cm=float(os.getenv("AI_TANK_HEIGHT_CM", "180")),
@@ -60,6 +62,8 @@ class Settings:
             raise ValueError("local prototype API must bind to 127.0.0.1")
         if not 1 <= result.port <= 65535 or result.poll_seconds < 1:
             raise ValueError("invalid port or polling interval")
+        if result.hst_bridge_key and len(result.hst_bridge_key) < 32:
+            raise ValueError("AI_HST_BRIDGE_KEY must have at least 32 characters")
         if result.mode not in ("DRY_RUN", "SHADOW_MODE"):
             raise ValueError("ACTIVE is unavailable until the session firmware contract is verified")
         if result.fertilizer_delivery_route not in ("reference", "drip"):
