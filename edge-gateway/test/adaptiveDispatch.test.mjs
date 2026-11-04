@@ -5,8 +5,8 @@ import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {AdaptiveDispatchGuard,adaptiveEnvelope} from '../dist/adaptiveDispatch.js'
 import {DurableOutbox} from '../dist/outbox.js'
-const command={kind:'adaptive_fert_command',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',commandId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',commandType:'start',targetEcUs:2500,ecToleranceUs:100,maxDurationSec:600,targetWaterVolumeL:100,targetFertVolumeL:5,nominalConcentrationGPerL:10,plantCount:2000,flushDurationSec:30}
-const envelope=()=>({kind:'adaptive_fert_dispatch',schemaVersion:1,siteId:command.siteId,deviceId:command.deviceId,command,expiresAt:new Date(Date.now()+15000).toISOString()})
+const command={bootId:'a1b2c3d4e5f60708',issuedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+15000).toISOString(),kind:'adaptive_fert_command',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',commandId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',commandType:'start',targetEcUs:2500,ecToleranceUs:100,maxDurationSec:600,targetWaterVolumeL:100,targetFertVolumeL:5,nominalConcentrationGPerL:10,plantCount:2000,flushDurationSec:30}
+const envelope=()=>({kind:'adaptive_fert_dispatch',schemaVersion:1,siteId:command.siteId,deviceId:command.deviceId,command,expiresAt:command.expiresAt})
 test('adaptive dispatch persists dedup across guard restarts, sends exact firmware shape and blocks conflicts/expiry',async()=>{
  const directory=await mkdtemp(path.join(tmpdir(),'spff-adaptive-')),sent=[],events=[]
  try{
