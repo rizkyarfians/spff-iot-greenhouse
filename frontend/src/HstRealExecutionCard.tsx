@@ -8,8 +8,14 @@ type Props={proposal:AiHstProposal;shadowEnabled:boolean;preflight:AiHstRealPref
 const unavailable=import.meta.env.DEV&&import.meta.env.VITE_SPFF_AI_PREVIEW==='true';
 
 function uuid():string{
- if(!globalThis.crypto?.randomUUID)throw new Error('Browser tidak mendukung identitas ACC aman.');
- return globalThis.crypto.randomUUID();
+ // crypto.randomUUID() is unavailable on non-HTTPS LAN origins. The browser's
+ // getRandomValues() remains available and is already used by SHADOW ACC.
+ if(!globalThis.crypto?.getRandomValues)throw new Error('WebCrypto tidak tersedia untuk ACC.');
+ const bytes=new Uint8Array(16);
+ globalThis.crypto.getRandomValues(bytes);
+ bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+ const hex=[...bytes].map(value=>value.toString(16).padStart(2,'0')).join('');
+ return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
 }
 function displayTime(value:string|null):string{
  if(!value)return 'Belum ada telemetry sesi';
