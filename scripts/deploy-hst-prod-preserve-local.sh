@@ -242,7 +242,7 @@ assert.equal(result.error.issues.length,3,
 const issuedAt = new Date().toISOString();
 const expiresAt = new Date(Date.now()+30000).toISOString();
 const currentFixture = {...command,
-  bootId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  bootId:'c0ffee123456abcd',
   issuedAt, expiresAt};
 const valid = contracts.adaptiveStartCommandSchema.safeParse(currentFixture);
 assert.ok(valid.success,
@@ -261,7 +261,7 @@ if data.count(anchor) != 1:
     raise SystemExit('STOP: adaptive-fertigation test fixture changed unexpectedly')
 data = data.replace(anchor,
   "commandType:'start',"
-  "bootId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',"
+  "bootId:'c0ffee123456abcd',"
   "issuedAt:new Date().toISOString(),"
   "expiresAt:new Date(Date.now()+30000).toISOString(),"
   "targetEcUs:2500",1)
