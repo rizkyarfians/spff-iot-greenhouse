@@ -194,16 +194,13 @@ export function HstApprovalPanel() {
                   <input type="checkbox" disabled={!canApprove || !!pendingId}
                     checked={confirmId === proposal.obligation_id}
                     onChange={event => setConfirmId(event.target.checked ? proposal.obligation_id : null)}/>
-                  {mode === 'SHADOW'
-                    ? 'Saya meninjau sisa dosis dan ingin memeriksa sesi ini. ACC berikutnya harus diberikan ulang.'
-                    : 'ACC uji real terkunci sampai firmware dan alur eksekusi HST terverifikasi.'}
+                  Saya meninjau sisa dosis dan ingin memeriksa sesi ini. ACC berikutnya harus diberikan ulang.
                 </label>)}
               {mode === 'SHADOW' && <button type="button" className="hst-approve"
                 disabled={!canApprove || confirmId !== proposal.obligation_id || !!pendingId}
                 onClick={() => { void approve(proposal); }}>
                 <ClipboardCheck size={16} />
-                {mode === 'TEST_REAL' ? 'ACC & Jalankan Pompa (BELUM SIAP)'
-                  : pendingId === proposal.obligation_id ? 'Memeriksa sensor…' : 'ACC & Periksa Sesi (SHADOW)'}
+                {pendingId === proposal.obligation_id ? 'Memeriksa sensor…' : 'ACC & Periksa Sesi (SHADOW)'}
               </button>}
               <small>Review tercatat: {proposal.approval_count} · Belum ada bukti dosis dari ACC saja.</small>
             </section>
