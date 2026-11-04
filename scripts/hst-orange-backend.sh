@@ -44,11 +44,12 @@ finish(){
   if [[ "$SWAPPED" == 1 && "$SUCCESS" != 1 ]]; then
    say "ROLLBACK: restore old compiled runtime"
    systemctl stop "$API" "$WORKER" || true
-   for label in contracts api worker; do
+   for label in contracts api worker web; do
     case "$label" in
      contracts) live="$PROD/packages/contracts/dist";;
      api) live="$PROD/functions/lib";;
      worker) live="$PROD/mqtt-worker/dist";;
+     web) live="$PROD/frontend/dist";;
     esac
     if [[ -d "$RUN/old/$label" ]]; then
       if [[ -e "$live" ]]; then mv "$live" "$RUN/failed-$label" || true; fi
@@ -78,7 +79,7 @@ if [[ "$MODE" == deploy ]]; then
  git -c safe.directory="$PROD" -C "$PROD" status --short --untracked-files=no > "$RUN/prod-source-edits.txt" || true
  [[ "$(db "SELECT (to_regclass('spff.adaptive_fert_sessions') IS NOT NULL AND to_regclass('spff.adaptive_fert_commands') IS NOT NULL AND to_regclass('spff.guide_programs') IS NOT NULL)::text")" == t ]] || fatal "migration 034-036 missing"
  [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain adaptive sessions; do not interrupt"
- for loc in "$PROD/packages/contracts/dist" "$PROD/functions/lib" "$PROD/mqtt-worker/dist"; do
+ for loc in "$PROD/packages/contracts/dist" "$PROD/functions/lib" "$PROD/mqtt-worker/dist" "$PROD/frontend/dist"; do
   [[ -d "$loc" && ! -L "$loc" ]] || fatal "unexpected runtime directory: $loc"
  done
  say "Build and test staged source; production remains live"
@@ -133,6 +134,48 @@ live=live[:pos]+'\n'.join(routes)+'\n\n'+live[pos:]
 dest.write_text(live)
 print('PRESERVED_LOCAL_API_ROUTES=PASS;',len(routes),'HST routes merged')
 PY
+ say "Merge local frontend TS/CSS in disposable build directory"
+ MERGED="$RUN/merged-build"
+ mkdir -p "$MERGED"
+ (cd "$SRC" && tar --exclude='./node_modules' --exclude='./.git' --exclude='./frontend/dist' --exclude='./functions/lib' --exclude='./mqtt-worker/dist' --exclude='./edge-gateway/dist' --exclude='./.env' --exclude='*/.env' -cf - .) | tar -xf - -C "$MERGED"
+ ln -s "$SRC/node_modules" "$MERGED/node_modules"
+ [[ -d "$PROD/frontend/src" ]] || fatal "production frontend source missing"
+ rm -rf "$MERGED/frontend/src"
+ cp -a "$PROD/frontend/src" "$MERGED/frontend/src"
+ if [[ -d "$PROD/frontend/public" && -d "$MERGED/frontend/public" ]]; then cp -a "$PROD/frontend/public/." "$MERGED/frontend/public/"; fi
+ for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx hstExecutionMode.ts; do
+   install -m644 "$SRC/frontend/src/$hst_file" "$MERGED/frontend/src/$hst_file"
+ done
+ python3 - "$MERGED/frontend/src/api.ts" "$SRC/frontend/src/api.ts" "$MERGED/frontend/src/GuidePage.tsx" <<'PY'
+from pathlib import Path
+import re,sys
+local_path,stage_path,guide_path=[Path(x) for x in sys.argv[1:]]
+local=local_path.read_text();stage=stage_path.read_text()
+mark="// AI HST: observation and one authenticated SHADOW operator review"
+if stage.count(mark)!=1: raise SystemExit('STOP: HST source anchor changed')
+hst=stage[stage.index(mark):]
+api_marker='export function fetchAiHstProposals'
+loc=local.find(api_marker)
+if loc<0: raise SystemExit('STOP: live frontend API lacks HST integration')
+tail=local[loc:]
+exports=re.findall(r'export\s+(?:const|function|type)\s+(\w+)',tail)
+allowed=('fetchAiHst','reviewAiHst','saveAiHst','executeAiHst','stopAiHst','setAiHst')
+if any(not name.startswith(allowed) for name in exports):
+ raise SystemExit('STOP: unrelated production API exports after HST: '+str(exports))
+local_path.write_text(local[:loc]+'\n'+hst)
+guide=guide_path.read_text()
+if 'HstApprovalPanel' not in guide:
+ i="import './GuidePage.css'"
+ c="    <AutomationMethodNote/>"
+ if guide.count(i)!=1 or guide.count(c)!=1: raise SystemExit('STOP: GuidePage anchors changed')
+ guide=guide.replace(i,i+"\nimport {HstApprovalPanel} from './HstApprovalPanel'",1)
+ guide=guide.replace(c,"    <HstApprovalPanel/>\n"+c,1)
+ guide_path.write_text(guide)
+print('PRESERVED_PRODUCTION_FRONTEND_SOURCE=PASS')
+PY
+ (cd "$MERGED/frontend" && "$SRC/node_modules/.bin/tsc" -b && "$SRC/node_modules/.bin/vite" build)
+ [[ -s "$MERGED/frontend/dist/index.html" ]] || fatal "merged frontend build output missing"
+ cp -a "$MERGED/frontend/dist" "$RUN/new/web"
  say "Back up PostgreSQL before additive migration"
  runuser -u postgres -- pg_dump -Fc -d spff > "$RUN/db-before.dump"
  [[ -s "$RUN/db-before.dump" ]] || fatal "DB backup failed"
@@ -159,11 +202,12 @@ PY
  SWAPPED=1
  gates false false
  systemctl stop "$API" "$WORKER"
- for label in contracts api worker; do
+ for label in contracts api worker web; do
   case "$label" in
    contracts) live="$PROD/packages/contracts/dist";;
    api) live="$PROD/functions/lib";;
    worker) live="$PROD/mqtt-worker/dist";;
+     web) live="$PROD/frontend/dist";;
   esac
   mv "$live" "$RUN/old/$label"
   mv "$RUN/new/$label" "$live"
