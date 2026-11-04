@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import {adaptiveStartCommandSchema,adaptiveFirmware1507StartSchema,guideEcRecipe,guideProgramHst,type AdaptiveSessionInput,type GuideActivity} from '@spff/contracts';
+import {adaptiveStartCommandSchema,adaptiveFirmware1507StartSchema,guideEcRecipe,guideProgramHst,type AdaptiveSessionInput,type GuideActivity,type AiHstRealPlan} from '@spff/contracts';
 import {pool,configuredSiteId as siteId} from './postgresRepository.js';
 import {readGuideEcConversions} from './guideEcConversionService.js';
 import {activityFingerprint} from './guideProgramService.js';
@@ -36,19 +36,55 @@ async function plan(input:AdaptiveSessionInput,database:Pick<typeof pool,'query'
  return {program:p,activity,conversion,command:command.data,remainingMassG:remaining.remainingMassG,mixedVolumeL:mixedL};
 }
 export async function previewAdaptiveSession(input:AdaptiveSessionInput){const p=await plan(input);return {command:p.command,conversion:p.conversion,remainingMassG:p.remainingMassG,mixedVolumeL:p.mixedVolumeL,dispatchEnabled:process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED==='true',resumeSupported:false};}
-export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:string){
+export type HstAdaptiveBinding={obligationId:string;approvalId:string;expectedRemainingG:number;sourceRow:number;product:string;aiPlan:AiHstRealPlan};
+export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:string,hst?:HstAdaptiveBinding){
  if(process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED!=='true')return fail('Dispatch adaptif belum diaktifkan; preview dan penerimaan telemetry tetap tersedia.');
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
   // Serialize same-program dose allocation and the existing soil-EC controller's device lock.
   await client.query('SELECT program_id FROM spff.guide_programs WHERE site_id=$1 AND program_id=$2 FOR UPDATE',[siteId,input.programId]);
+  if(hst)await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[ 'hst-real:'+siteId+':'+hst.obligationId ]);
   const prior=(await client.query('SELECT * FROM spff.adaptive_fert_sessions WHERE site_id=$1 AND request_id=$2',[siteId,input.requestId])).rows[0];
-  if(prior){if(JSON.stringify(prior.input)!==JSON.stringify(JSON.parse(JSON.stringify(input)))){
+  if(prior){if(hst){
+   const link=(await client.query('SELECT obligation_id,approval_id FROM spff.hst_real_sessions WHERE site_id=$1 AND session_id=$2',[siteId,prior.session_id])).rows[0];
+   if(!link||link.obligation_id!==hst.obligationId||link.approval_id!==hst.approvalId)return fail('ACC HST sudah digunakan oleh sesi yang berbeda.');
+  }else{
+   const link=(await client.query('SELECT 1 FROM spff.hst_real_sessions WHERE site_id=$1 AND session_id=$2',[siteId,prior.session_id])).rows[0];
+   if(link)return fail('Sesi HST tidak boleh digunakan ulang sebagai sesi adaptif biasa.');
+  }
+  if(JSON.stringify(prior.input)!==JSON.stringify(JSON.parse(JSON.stringify(input)))){
    // PostgreSQL jsonb key order differs; compare canonical sorted fields.
    if(Object.entries(input).some(([k,v])=>prior.input[k]!==v))return fail('requestId sudah dipakai untuk permintaan berbeda.');
   }await client.query('COMMIT');return prior;}
   const p=await plan(input,client),device=p.command.deviceId;
+  let command=p.command;
+  if(hst){
+   const matching=p.activity.requirements.filter(r=>r.row===hst.sourceRow&&r.product===hst.product);
+   if(p.activity.requirements.length!==1||matching.length!==1)
+    return fail('Satu sesi HST harus terikat ke satu produk pupuk dan baris Panduan yang tepat.');
+   const planMass=hst.aiPlan.stock_l*input.stockConcentrationGPerL;
+   const toler=Math.max(0.01,Math.abs(planMass)*0.001);
+   if(!Number.isFinite(planMass)||Math.abs(hst.aiPlan.mass_g-planMass)>toler||
+      hst.aiPlan.mass_g>hst.expectedRemainingG+toler ||
+      hst.aiPlan.mass_g>p.remainingMassG+toler ||
+      Math.abs(hst.expectedRemainingG-p.remainingMassG)>Math.max(0.1,hst.expectedRemainingG*0.001))
+    return fail('Massa AI, jatah HST tersisa, dan konsentrasi stok tidak konsisten.');
+   if(hst.aiPlan.duration_seconds>input.maxDurationSec ||
+      hst.aiPlan.flush_reserve_l<=0 || hst.aiPlan.priming_water_l<=0 ||
+      hst.aiPlan.water_l<=hst.aiPlan.priming_water_l+hst.aiPlan.flush_reserve_l)
+    return fail('Durasi/volume air AI tidak memenuhi cadangan priming dan flushing.');
+   const validated=adaptiveStartCommandSchema.safeParse({
+      ...p.command,targetWaterVolumeL:hst.aiPlan.water_l,targetFertVolumeL:hst.aiPlan.stock_l,
+   });
+   if(!validated.success)return fail('Hasil kalkulasi AI berada di luar batas pompa firmware 1.5.07.');
+   command=validated.data;
+   const existing=(await client.query(`SELECT s.status FROM spff.hst_real_sessions h
+     JOIN spff.adaptive_fert_sessions s ON s.site_id=h.site_id AND s.session_id=h.session_id
+     WHERE h.site_id=$1 AND h.obligation_id=$2 AND s.status NOT IN ('completed','fault')
+     LIMIT 1`,[siteId,hst.obligationId])).rows[0];
+   if(existing)return fail('Sudah ada sesi HST aktif atau membutuhkan rekonsiliasi.');
+  }
   if(input.expectedProfileRevision!==p.conversion.profile!.revision)return fail('Profil konversi berubah atau belum ditinjau. Sertakan expectedProfileRevision dari preview.');
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`soil-ec:${siteId}:${device}`]);
   const profile=(await client.query('SELECT revision FROM spff.guide_ec_profiles WHERE site_id=$1 AND recipe_key=$2 FOR SHARE',[siteId,p.conversion.recipeKey])).rows[0];
@@ -74,7 +110,7 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
   const issuedAt=new Date();
   const expiresAt=new Date(issuedAt.getTime()+15000);
   const firmwareStart=adaptiveFirmware1507StartSchema.safeParse({
-   ...p.command,
+   ...command,
    bootId:equipment.raw_payload?.pulseBootId,
    issuedAt:issuedAt.toISOString(),
    expiresAt:expiresAt.toISOString(),
@@ -84,6 +120,11 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
   const args=[siteId,start.sessionId,device,input.programId,input.expectedProgramRevision,input.activityId,activityFingerprint(p.activity,p.program.config),input.requestId,JSON.stringify(input),JSON.stringify(start),JSON.stringify(p.conversion),actor];
   const row=(await client.query(`INSERT INTO spff.adaptive_fert_sessions(site_id,session_id,device_id,program_id,program_revision,activity_id,activity_fingerprint,request_id,input,command_snapshot,conversion_snapshot,created_by)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)RETURNING *`,args)).rows[0];
   await client.query(`INSERT INTO spff.adaptive_fert_commands(site_id,command_id,session_id,request_id,payload,expires_at)VALUES($1,$2,$3,$4,$5,$6::timestamptz)`,[siteId,start.commandId,start.sessionId,input.requestId,JSON.stringify(start),start.expiresAt]);
+  if(hst)await client.query(`INSERT INTO spff.hst_real_sessions
+   (site_id,obligation_id,approval_id,session_id,source_row,product,expected_remaining_g,ai_plan,actor)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+   [siteId,hst.obligationId,hst.approvalId,start.sessionId,hst.sourceRow,hst.product,
+    hst.expectedRemainingG,JSON.stringify(hst.aiPlan),actor]);
   await client.query('COMMIT');return row;
  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 }

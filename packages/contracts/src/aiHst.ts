@@ -95,3 +95,54 @@ export const aiHstRealPreflightSchema=z.object({
  canDispatch:z.literal(false),
 }).strict();
 export type AiHstRealPreflight=z.infer<typeof aiHstRealPreflightSchema>;
+
+/** Physical execution is separately authorized; a SHADOW review is only AI
+ * calculation evidence. The browser never submits actuator parameters. */
+export const aiHstHardwareProfileSchema=z.object({
+ programId:z.string().uuid(),activityId:z.string().regex(/^row-\d+$/),sourceRow:z.number().int().positive(),
+ deviceId:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/),
+ product:z.string().trim().min(1),
+ programRevision:z.number().int().positive(),ecProfileRevision:z.number().int().positive(),
+ stockConcentrationGPerL:z.number().finite().positive().max(1000),
+ waterMeterPosition:z.enum(['before_injector','after_injector']),
+ hydraulicsReference:z.string().trim().min(10).max(1000),
+ ecToleranceUs:z.number().finite().min(20).max(500),
+ maxDurationSec:z.number().int().min(60).max(7200),
+ flushDurationSec:z.number().int().min(10).max(600),
+}).strict();
+export type AiHstHardwareProfile=z.infer<typeof aiHstHardwareProfileSchema>;
+
+export const aiHstRealExecuteRequestSchema=z.object({
+ obligationId:z.string().regex(/^[a-f0-9]{64}$/),
+ approvalId:z.string().uuid(),
+ expectedRemainingG:z.number().finite().positive(),
+ confirmation:z.literal('EXECUTE_HST_REAL_ADAPTIVE_SESSION'),
+}).strict();
+export type AiHstRealExecuteRequest=z.infer<typeof aiHstRealExecuteRequestSchema>;
+
+export const aiHstRealPlanSchema=z.object({
+ water_l:z.number().finite().positive(),
+ stock_l:z.number().finite().positive(),
+ mass_g:z.number().finite().positive(),
+ duration_seconds:z.number().finite().positive(),
+ priming_water_l:z.number().finite().nonnegative(),
+ flush_reserve_l:z.number().finite().nonnegative(),
+}).strict();
+export type AiHstRealPlan=z.infer<typeof aiHstRealPlanSchema>;
+
+export const aiHstRealSessionSummarySchema=z.object({
+ obligationId:z.string().regex(/^[a-f0-9]{64}$/),
+ approvalId:z.string().uuid(),
+ sessionId:z.string().uuid(),
+ commandId:z.string().uuid(),
+ status:z.enum(['queued','running','paused','completed','fault','reconciliation_required']),
+ reason:z.string().nullable(),
+ waterVolumeL:z.number().finite().nonnegative(),
+ fertVolumeL:z.number().finite().nonnegative(),
+ commandedWaterL:z.number().finite().positive(),
+ commandedFertL:z.number().finite().positive(),
+ estimatedMassG:z.number().finite().nonnegative(),
+ requestedAt:z.string().datetime({offset:true}),
+ lastTelemetryAt:z.string().datetime({offset:true}).nullable(),
+}).strict();
+export type AiHstRealSessionSummary=z.infer<typeof aiHstRealSessionSummarySchema>;
