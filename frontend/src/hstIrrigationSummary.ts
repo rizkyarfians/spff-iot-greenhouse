@@ -3,7 +3,7 @@ export type HstIrrigationSource={
  planning_recorded_at:string|null;
  water_carryover?:{status:string;remaining_for_reassessment_l:number|null};
  irrigation_schedule_preview?:{status:string;tomorrow_at_least_l:number|null;fuzzy_demand_l:number|null};
- fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null}|null;
+ fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null;basis?:'SIMULATION_PROFILE'|'OPERATIONAL_PROFILE'}|null;
 }
 type Display={kind:'recorded'|'capacity_preview'|'demand_preview'|'unavailable';label:string;valueL:number|null;note:string}
 const valid=(value:unknown):value is number=>typeof value==='number'&&Number.isFinite(value)&&value>=0;
@@ -24,8 +24,9 @@ export function hstIrrigationDisplay(data:HstIrrigationSource|null|undefined,now
    note:'Estimasi kapasitas tandon, bukan realisasi penyiraman.'};
  const fuzzy=data?.fuzzy_preview;
  if(current&&fuzzy&&fresh(fuzzy.recorded_at,now)&&valid(fuzzy.illustrative_water_l))
-  return {kind:'demand_preview',label:'Kebutuhan penyiraman · estimasi AI',valueL:fuzzy.illustrative_water_l,
-   note:'Hasil Fuzzy terbaru; belum ada rencana atau realisasi tercatat.'};
+  return {kind:'demand_preview',label:fuzzy.basis==='OPERATIONAL_PROFILE'?'Kebutuhan air · profil Panduan':'Kebutuhan air · simulasi Fuzzy',valueL:fuzzy.illustrative_water_l,
+   note:fuzzy.basis==='OPERATIONAL_PROFILE'?'Target dari profil Panduan terverifikasi; belum menjadi perintah pompa.':'Profil simulasi; belum menjadi target pompa produksi.'};
  return {kind:'unavailable',label:'Kebutuhan penyiraman',valueL:null,
   note:'Menunggu hasil perhitungan AI terbaru.'};
 }
+
