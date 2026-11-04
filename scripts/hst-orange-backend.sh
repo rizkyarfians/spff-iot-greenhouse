@@ -122,7 +122,10 @@ npm run test --workspace @spff/contracts
 npm run test --workspace functions
 npm run test --workspace frontend
 npm run test --workspace @spff/edge-gateway
-npm run test --workspace @spff/mqtt-worker
+# These MQTT Worker unit tests import runtime config but use fake repositories.
+# Supply an intentionally unreachable, non-production URL only for the test.
+# Never export real DATABASE_URL or connect to the production PostgreSQL.
+DATABASE_URL='postgresql://spff_test:invalid@127.0.0.1:1/spff_test' npm run test --workspace @spff/mqtt-worker
 STAGING_BUILD
  say "Prepare surgical merged runtime with original production files"
  mkdir -p "$RUN/new" "$RUN/old"
