@@ -13,7 +13,8 @@ const dispatch=command=>({kind:'adaptive_fert_dispatch',schemaVersion:1,siteId:c
 test('1.5.07 START needs fresh boot identity and bounded issued/expiry timestamps',()=>{
  assert.equal(adaptiveFirmware1507StartSchema.safeParse(start).success,true);
  assert.equal(adaptiveDispatchSchema.safeParse(dispatch(start)).success,true);
- assert.equal(adaptiveStartCommandSchema.safeParse({...start,bootId:undefined,issuedAt:undefined,expiresAt:undefined}).success,true);
+ const {bootId,issuedAt,expiresAt,...preview}=start;
+ assert.equal(adaptiveStartCommandSchema.safeParse(preview).success,true);
  for(const field of ['bootId','issuedAt','expiresAt']){
   const broken={...start};delete broken[field];
   assert.equal(adaptiveDispatchSchema.safeParse(dispatch(broken)).success,false,field);
