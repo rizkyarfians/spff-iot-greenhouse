@@ -81,7 +81,7 @@ test('HST ACC review only accepts SHADOW_BLOCKED without actuator dispatch', () 
 });
 
 
-test('HST mode readiness can only report non-dispatching TEST REAL until hardware contract is proven', () => {
+test('HST execution readiness requires a consistent explicit server capability', () => {
   const blocked = {
     schemaVersion: 1, runningMode: 'SHADOW_MODE', canDispatch: false,
     realTest: { ready: false, blockers: ['firmware_contract_unverified'] },
@@ -93,13 +93,19 @@ test('HST mode readiness can only report non-dispatching TEST REAL until hardwar
   assert.equal(aiHstExecutionReadinessSchema.safeParse({
     ...blocked, realTest: { ready: true, blockers: [] },
   }).success, false);
+  assert.equal(aiHstExecutionReadinessSchema.safeParse({
+    ...blocked, canDispatch:true, realTest:{ready:true,blockers:[]},
+  }).success, true);
 });
 
 
 test('per-obligation HST real preflight always forbids actuation',()=>{
- const block={schemaVersion:1,obligationId, status:'BLOCKED',
+ const block={schemaVersion:1,obligationId, status:'BLOCKED', setup:null,
   reasons:['one_verified_fertilizer_product_per_session_required'],canDispatch:false};
  assert.equal(aiHstRealPreflightSchema.safeParse(block).success,true);
  assert.equal(aiHstRealPreflightSchema.safeParse({...block,canDispatch:true}).success,false);
  assert.equal(aiHstRealPreflightSchema.safeParse({...block,status:'READY',reasons:[]}).success,false);
+ assert.equal(aiHstRealPreflightSchema.safeParse({
+  ...block,status:'READY',reasons:[],canDispatch:true,
+ }).success,true);
 });

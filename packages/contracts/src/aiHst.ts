@@ -78,11 +78,13 @@ export const aiHstExecutionReadinessSchema = z.object({
   schemaVersion: z.literal(1),
   runningMode: z.literal('SHADOW_MODE'),
   realTest: z.object({
-    ready: z.literal(false),
+    ready: z.boolean(),
     blockers: z.array(z.string().min(1)),
   }).strict(),
-  canDispatch: z.literal(false),
-}).strict();
+  canDispatch: z.boolean(),
+}).strict().superRefine((v,ctx)=>{
+ if(v.realTest.ready!==v.canDispatch)ctx.addIssue({code:'custom',message:'Server readiness must match dispatch capability'});
+});
 export type AiHstExecutionReadiness = z.infer<typeof aiHstExecutionReadinessSchema>;
 
 /** Non-actuating, per-obligation inspection for eventual physical HST sessions.

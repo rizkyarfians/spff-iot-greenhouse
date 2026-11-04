@@ -117,14 +117,14 @@ export function getHstExecutionReadiness(_req: Request, res: Response): void {
       schemaVersion: 1,
       runningMode: 'SHADOW_MODE',
       realTest: {
-        ready: false,
-        blockers: [
-          'hst_ai_to_firmware_volume_session_not_verified',
-          'device_ack_and_actual_pump_state_integration_not_verified',
-          'fertilizer_dose_to_single_stock_session_binding_not_verified',
-        ],
+        ready: process.env.SPFF_HST_REAL_DISPATCH_ENABLED==='true' &&
+           process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED==='true',
+        blockers: process.env.SPFF_HST_REAL_DISPATCH_ENABLED==='true' &&
+           process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED==='true'
+          ? [] : ['real_execution_server_flag_disabled'],
       },
-      canDispatch: false,
+      canDispatch: process.env.SPFF_HST_REAL_DISPATCH_ENABLED==='true' &&
+        process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED==='true',
     }),
     message: 'TEST REAL belum dapat diaktifkan; SHADOW tetap aman.',
   });
