@@ -4,6 +4,9 @@
 # additions, then swaps compiled artifacts with rollback. No source overwrites.
 set -Eeuo pipefail
 umask 077
+# Root must never refresh the index of the orangepi-owned Git checkouts.
+# Git inspections here are read-only and have no need for index write locks.
+export GIT_OPTIONAL_LOCKS=0
 
 BASE="219e444a09c92b7400a765e579f72780e71f1899"
 AI_SOURCE_SHA="40dfb1a78000d384959367049fd206ed093b40ac"
