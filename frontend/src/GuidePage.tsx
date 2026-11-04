@@ -7,7 +7,7 @@ import snapshot from './data/protocolGuide.json'
 import {columnName,guideRows,applyGuideOverrides,guideColumnKind,type GuideDataset,type GuideCell} from './protocolGuide'
 import './GuidePage.css'
 import {HstApprovalPanel} from './HstApprovalPanel'
-import {AutomationMethod,AutomationMethodNote} from './AutomationMethod'
+import {AutomationMethod} from './AutomationMethod'
 
 const guide=snapshot as GuideDataset
 export function GuidePage(){
@@ -89,7 +89,6 @@ export function GuidePage(){
       {notes.length>0&&<div className="guide-source-notes" aria-label="Catatan pada Excel">{notes.map((note,index)=><p key={index}>{note.display}</p>)}</div>}
     </section>
     <HstApprovalPanel/>
-    <AutomationMethodNote/>
     <form id="guide-edit-form" ref={form} className="guide-table-card" aria-labelledby="guide-table-heading" onSubmit={event=>{event.preventDefault();void save()}}>
       <header><h2 id="guide-table-heading">Jadwal dan kebutuhan</h2><p className="guide-table-hint">Geser tabel untuk melihat semua kolom.</p>
         <div className="guide-mobile-layout" role="group" aria-label="Tampilan panduan">
