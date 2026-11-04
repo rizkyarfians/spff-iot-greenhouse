@@ -6,6 +6,9 @@ import {
   aiHstProposalsSchema,
   aiHstExecutionReadinessSchema,
   aiHstRealPreflightSchema,
+  aiHstRealExecuteRequestSchema,
+  aiHstRealPlanSchema,
+  aiHstHardwareProfileSchema,
 } from '../dist/index.js';
 
 const obligationId = 'a'.repeat(64);
@@ -108,4 +111,33 @@ test('per-obligation HST real preflight always forbids actuation',()=>{
  assert.equal(aiHstRealPreflightSchema.safeParse({
   ...block,status:'READY',reasons:[],canDispatch:true,
  }).success,true);
+});
+
+test('physical HST ACC never accepts an impersonated actor, arbitrary actuator parameters or a SHADOW confirmation',()=>{
+ const request={obligationId,approvalId:'11111111-1111-4111-8111-111111111111',
+  expectedRemainingG:30000,confirmation:'EXECUTE_HST_REAL_ADAPTIVE_SESSION'};
+ assert.equal(aiHstRealExecuteRequestSchema.safeParse(request).success,true);
+ assert.equal(aiHstRealExecuteRequestSchema.safeParse({...request,actor:'admin'}).success,false);
+ assert.equal(aiHstRealExecuteRequestSchema.safeParse({...request,targetWaterVolumeL:100}).success,false);
+ assert.equal(aiHstRealExecuteRequestSchema.safeParse({...request,confirmation:'REVIEW_HST_SHADOW_SESSION'}).success,false);
+ assert.equal(aiHstRealExecuteRequestSchema.safeParse({...request,expectedRemainingG:0}).success,false);
+});
+test('physical HST AI plan must have bounded finite measured dose semantics',()=>{
+ const plan={water_l:120,stock_l:3,mass_g:300,duration_seconds:300,
+  priming_water_l:10,flush_reserve_l:10};
+ assert.equal(aiHstRealPlanSchema.safeParse(plan).success,true);
+ assert.equal(aiHstRealPlanSchema.safeParse({...plan,stock_l:0}).success,false);
+ assert.equal(aiHstRealPlanSchema.safeParse({...plan,mass_g:NaN}).success,false);
+ assert.equal(aiHstRealPlanSchema.safeParse({...plan,manualPumpOn:true}).success,false);
+});
+test('hardware profile requires a selected single stock and an auditable hydraulic reference',()=>{
+ const profile={programId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',activityId:'row-19',
+  sourceRow:19,deviceId:'esp32-s3-01',product:'Satu Pupuk',programRevision:1,ecProfileRevision:1,
+  stockConcentrationGPerL:100,waterMeterPosition:'before_injector',
+  hydraulicsReference:'Measured flow with Venturi and water isolation',ecToleranceUs:100,
+  maxDurationSec:600,flushDurationSec:30};
+ assert.equal(aiHstHardwareProfileSchema.safeParse(profile).success,true);
+ assert.equal(aiHstHardwareProfileSchema.safeParse({...profile,hydraulicsReference:''}).success,false);
+ assert.equal(aiHstHardwareProfileSchema.safeParse({...profile,stockConcentrationGPerL:-1}).success,false);
+ assert.equal(aiHstHardwareProfileSchema.safeParse({...profile,waterMeterPosition:'unknown'}).success,false);
 });
