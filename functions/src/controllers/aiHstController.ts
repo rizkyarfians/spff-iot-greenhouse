@@ -5,6 +5,9 @@ import {
   aiHstProposalsSchema,
   aiHstExecutionReadinessSchema,
   aiHstRealPreflightSchema,
+  aiHstHardwareProfileSchema,
+  aiHstRealExecuteRequestSchema,
+  aiHstRealStopRequestSchema,
   guideProgramConfigSchema,
   guideProgramHst,
   guideEcRecipe,
@@ -16,6 +19,9 @@ import { requestActor } from '../middleware/operatorAuth.js';
 import { localAiUrl } from '../services/localAiEndpoint.js';
 import { pool, configuredSiteId as siteId } from '../services/postgresRepository.js';
 import { readGuideEcConversions } from '../services/guideEcConversionService.js';
+import {readHstRealHardwareProfile,saveHstRealHardwareProfile,executeHstReal,hstRealSession}
+ from '../services/hstRealExecutionService.js';
+import {controlAdaptiveSession} from '../services/adaptiveFertigationService.js';
 
 export async function getHstProposals(_req: Request, res: Response): Promise<void> {
   res.set('Cache-Control', 'no-store');
@@ -218,11 +224,22 @@ export async function getHstRealPreflight(req: Request, res: Response): Promise<
           blockers.add('manual_session_control_not_acknowledged');
       }
     }
-    // These gates remain until verified stock profile, atomic HST reservation,
-    // hardware volume/ACK correlation and physical acceptance tests exist.
-    blockers.add('single_stock_concentration_and_hst_mass_binding_not_verified');
-    blockers.add('atomic_hst_approval_to_firmware_session_binding_not_implemented');
-    blockers.add('hardware_volume_ack_interlock_acceptance_test_pending');
+    const profile=proposal.source_row===null?null:
+      await readHstRealHardwareProfile(proposal.program_id,proposal.activity_id,proposal.source_row);
+    if(!profile)blockers.add('verified_hydraulics_and_single_stock_profile_missing');
+    else{
+      if(profile.product!==proposal.product)blockers.add('configured_stock_product_mismatch');
+      if(row&&profile.programRevision!==row.revision)blockers.add('configured_program_revision_stale');
+      const ec=(await readGuideEcConversions(proposal.program_id)).find(c=>c.activityId===proposal.activity_id);
+      if(ec?.profile?.revision!==profile.ecProfileRevision)blockers.add('configured_ec_profile_revision_stale');
+      if(row?.config?.deviceId!==profile.deviceId)blockers.add('configured_device_mismatch');
+    }
+    if(process.env.SPFF_HST_REAL_DISPATCH_ENABLED!=='true'||
+       process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED!=='true')
+       blockers.add('real_execution_server_flag_disabled');
+    // The Python HST source is still SHADOW for calculation. Final dispatch
+    // requires explicit real ACC and fresh AI review inside the POST handler.
+    blockers.add('final_operator_acc_and_fresh_ai_review_required');
 
     const result = aiHstRealPreflightSchema.parse({
       schemaVersion: 1, obligationId, status: 'BLOCKED', reasons: [...blockers].sort(), canDispatch: false,
@@ -231,4 +248,74 @@ export async function getHstRealPreflight(req: Request, res: Response): Promise<
   } catch {
     res.status(503).json({ success: false, data: null, message: 'Pemeriksaan TEST REAL HST belum tersedia.' });
   }
+}
+
+export async function putHstRealHardwareProfile(req:Request,res:Response):Promise<void>{
+ res.set('Cache-Control','no-store');
+ const parsed=aiHstHardwareProfileSchema.safeParse(req.body as unknown);
+ if(!parsed.success){res.status(400).json({success:false,data:null,message:'Profil stok/hidrolik tidak valid.'});return;}
+ try{
+  const result=await saveHstRealHardwareProfile(parsed.data,requestActor(req));
+  res.json({success:true,data:result,message:'Profil stok/hidrolik disimpan dan diaudit.'});
+ }catch(e){
+  res.status(e instanceof Error&&'status'in e?Number(e.status):503)
+   .json({success:false,data:null,message:e instanceof Error?e.message:'Tidak dapat menyimpan profil.'});
+ }
+}
+export async function getHstRealHardwareProfile(req:Request,res:Response):Promise<void>{
+ res.set('Cache-Control','no-store');
+ const id=req.query.programId,activity=req.query.activityId,row=req.query.sourceRow;
+ if(typeof id!=='string'||typeof activity!=='string'||typeof row!=='string'||
+    !/^[0-9a-f-]{36}$/i.test(id)||!/^row-\d+$/.test(activity)||!/^[1-9]\d*$/.test(row)){
+  res.status(400).json({success:false,data:null,message:'Identitas profil invalid.'});return;
+ }
+ try{
+  const profile=await readHstRealHardwareProfile(id,activity,Number(row));
+  res.json({success:true,data:profile,message:profile?'Profil tersedia.':'Profil belum disimpan.'});
+ }catch{
+  res.status(503).json({success:false,data:null,message:'Profil tidak tersedia.'});
+ }
+}
+export async function postHstRealExecute(req:Request,res:Response):Promise<void>{
+ res.set('Cache-Control','no-store');
+ const parsed=aiHstRealExecuteRequestSchema.safeParse(req.body as unknown);
+ if(!parsed.success){res.status(400).json({success:false,data:null,message:'Permintaan ACC real tidak valid.'});return;}
+ try{
+  const session=await executeHstReal(parsed.data,requestActor(req));
+  res.status(202).json({success:true,data:session,message:'Command sesi HST dicatat; tunggu ACK dan volume aktual ESP32.'});
+ }catch(e){
+  res.status(e instanceof Error&&'status'in e?Number(e.status):503)
+   .json({success:false,data:null,message:e instanceof Error?e.message:'Tidak dapat menjalankan sesi HST.'});
+ }
+}
+export async function getHstRealSession(req:Request,res:Response):Promise<void>{
+ res.set('Cache-Control','no-store');
+ const id=req.params.sessionId;
+ if(typeof id!=='string'||!/^[0-9a-f-]{36}$/i.test(id)){
+  res.status(400).json({success:false,data:null,message:'ID sesi tidak valid.'});return;
+ }
+ try{
+  const session=await hstRealSession(id);
+  res.json({success:true,data:session,message:'Status sesi aktual dari PostgreSQL.'});
+ }catch(e){
+  res.status(e instanceof Error&&'status'in e?Number(e.status):503)
+   .json({success:false,data:null,message:e instanceof Error?e.message:'Sesi tidak ditemukan.'});
+ }
+}
+export async function postHstRealStop(req:Request,res:Response):Promise<void>{
+ res.set('Cache-Control','no-store');
+ const id=req.params.sessionId;
+ const parsed=aiHstRealStopRequestSchema.safeParse(req.body as unknown);
+ if(typeof id!=='string'||!/^[0-9a-f-]{36}$/i.test(id)||!parsed.success){
+  res.status(400).json({success:false,data:null,message:'Permintaan STOP tidak valid.'});return;
+ }
+ try{
+  await hstRealSession(id);
+  const command=await controlAdaptiveSession(id,'stop',parsed.data.requestId);
+  res.status(202).json({success:true,data:{commandId:command.command_id,status:command.status},
+    message:'STOP diminta; tunggu bukti kedua pompa OFF dari ESP32.'});
+ }catch(e){
+  res.status(e instanceof Error&&'status'in e?Number(e.status):503)
+   .json({success:false,data:null,message:e instanceof Error?e.message:'Gagal mengirim STOP.'});
+ }
 }

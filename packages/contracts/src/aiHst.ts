@@ -146,3 +146,5 @@ export const aiHstRealSessionSummarySchema=z.object({
  lastTelemetryAt:z.string().datetime({offset:true}).nullable(),
 }).strict();
 export type AiHstRealSessionSummary=z.infer<typeof aiHstRealSessionSummarySchema>;
+
+export const aiHstRealStopRequestSchema=z.object({requestId:z.string().uuid()}).strict();

@@ -965,3 +965,19 @@ export function fetchAiHstRealPreflight(obligationId: string, signal?: AbortSign
   return request<import('@spff/contracts').AiHstRealPreflight>(
     '/unified-ai/hst/real-preview/' + encodeURIComponent(obligationId), { signal })
 }
+
+export const fetchAiHstRealProfile=(programId:string,activityId:string,sourceRow:number)=>
+ request<import('@spff/contracts').AiHstHardwareProfile|null>(
+ '/unified-ai/hst/real-profile?'+new URLSearchParams({programId,activityId,sourceRow:String(sourceRow)}));
+export const saveAiHstRealProfile=(input:import('@spff/contracts').AiHstHardwareProfile)=>
+ request<{profile:import('@spff/contracts').AiHstHardwareProfile;verifiedAt:string}>('/unified-ai/hst/real-profile',
+ {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});
+export const executeAiHstReal=(input:import('@spff/contracts').AiHstRealExecuteRequest)=>
+ request<import('@spff/contracts').AiHstRealSessionSummary>('/unified-ai/hst/real-sessions',
+ {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});
+export const fetchAiHstRealSession=(id:string)=>
+ request<import('@spff/contracts').AiHstRealSessionSummary>(
+ '/unified-ai/hst/real-sessions/'+encodeURIComponent(id));
+export const stopAiHstRealSession=(id:string,requestId:string)=>
+ request<{commandId:string;status:string}>('/unified-ai/hst/real-sessions/'+encodeURIComponent(id)+'/stop',
+ {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId})});
