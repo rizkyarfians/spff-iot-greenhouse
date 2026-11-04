@@ -156,13 +156,17 @@ if stage.count(mark)!=1: raise SystemExit('STOP: HST source anchor changed')
 hst=stage[stage.index(mark):]
 api_marker='export function fetchAiHstProposals'
 loc=local.find(api_marker)
-if loc<0: raise SystemExit('STOP: live frontend API lacks HST integration')
-tail=local[loc:]
-exports=re.findall(r'export\s+(?:const|function|type)\s+(\w+)',tail)
-allowed=('fetchAiHst','reviewAiHst','saveAiHst','executeAiHst','stopAiHst','setAiHst')
-if any(not name.startswith(allowed) for name in exports):
- raise SystemExit('STOP: unrelated production API exports after HST: '+str(exports))
-local_path.write_text(local[:loc]+'\n'+hst)
+if loc<0:
+ # Older production installed only compiled HST artifacts and intentionally
+ # kept its original source untouched. Append the new HST API source.
+ local_path.write_text(local.rstrip()+'\n\n'+hst)
+else:
+ tail=local[loc:]
+ exports=re.findall(r'export\s+(?:const|function|type)\s+(\w+)',tail)
+ allowed=('fetchAiHst','reviewAiHst','saveAiHst','executeAiHst','stopAiHst','setAiHst')
+ if any(not name.startswith(allowed) for name in exports):
+  raise SystemExit('STOP: unrelated production API exports after HST: '+str(exports))
+ local_path.write_text(local[:loc]+'\n'+hst)
 guide=guide_path.read_text()
 if 'HstApprovalPanel' not in guide:
  i="import './GuidePage.css'"
