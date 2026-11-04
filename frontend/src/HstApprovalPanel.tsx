@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { canReviewShadow, type HstOperatorMode } from './hstExecutionMode';
 import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } from 'lucide-react';
 import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/contracts';
-import { fetchAiHstExecutionReadiness, fetchAiHstProposals, fetchAiHstRealPreflight, reviewAiHstApproval, fetchAiHstMode, setAiHstMode } from './api';
+import { fetchAiHstExecutionReadiness, fetchAiHstLiquidSummary, fetchAiHstProposals, fetchAiHstRealPreflight, reviewAiHstApproval, fetchAiHstMode, setAiHstMode } from './api';
 import {useAuth} from './authContext';
 import type { AiHstExecutionReadiness, AiHstRealPreflight } from '@spff/contracts';
 import { HstRealExecutionCard } from './HstRealExecutionCard';
@@ -27,6 +27,8 @@ function newApprovalId(): string {
 
 export function HstApprovalPanel() {
   const {user}=useAuth();
+  const [liquidData,setLiquidData]=useState<Awaited<ReturnType<typeof fetchAiHstLiquidSummary>>|null>(null);
+  const [liquidError,setLiquidError]=useState('');
   const [data, setData] = useState<AiHstProposals | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -68,6 +70,27 @@ export function HstApprovalPanel() {
     const interval = setInterval(() => { void refresh(controller.signal); }, 300000);
     return () => { controller.abort(); clearInterval(interval); };
   }, [refresh]);
+
+  useEffect(()=>{
+    const controller=new AbortController();
+    let pending=false;
+    async function refreshLiquid(){
+      if(pending)return;
+      pending=true;
+      try{
+        const result=await fetchAiHstLiquidSummary(controller.signal);
+        if(!controller.signal.aborted){setLiquidData(result);setLiquidError('');}
+      }catch(cause){
+        if(!controller.signal.aborted){
+          setLiquidData(null);
+          setLiquidError(cause instanceof Error?cause.message:'Hasil konversi larutan belum tersedia.');
+        }
+      }finally{pending=false;}
+    }
+    void refreshLiquid();
+    const timer=setInterval(()=>void refreshLiquid(),15000);
+    return()=>{controller.abort();clearInterval(timer);};
+  },[]);
 
   useEffect(() => {
     if (mode !== 'TEST_REAL' || !data?.proposals.length) return;
@@ -115,12 +138,34 @@ export function HstApprovalPanel() {
     }
   }
 
+  const liquidLitres=(value:number|null|undefined)=>
+    typeof value==='number'&&Number.isFinite(value)&&value>=0?number.format(value)+' L':'Belum tersedia';
+  const liquidCurrent=liquidData?.planning_status==='CURRENT';
+  const waterLitres=liquidCurrent&&liquidData?.tank_preview?.level_status==='ESTIMATED'
+    ?liquidData.tank_preview.estimated_available_l:null;
+  const stockLitres=liquidCurrent&&liquidData?.fertilizer_tank_preview?.level_status==='ESTIMATED'
+    ?liquidData.fertilizer_tank_preview.estimated_liquid_volume_l:null;
+  const remainingLitres=liquidData?.water_carryover?.status!=='NO_PLAN'
+    ?liquidData?.water_carryover?.remaining_for_reassessment_l:null;
+
   return (
     <article className="ain-panel hst-panel" aria-label="Usulan pemupukan berbasis HST">
       <div className="ain-panel-heading">
         <h3><CalendarCheck2 size={18} /> Usulan Pemupukan HST</h3>
         <span>{mode === 'SHADOW' ? 'SHADOW MODE ON' : 'SHADOW MODE OFF'}</span>
       </div>
+      <section aria-label="Sisa larutan dalam liter">
+        <div className="hst-figures" aria-live="polite">
+          <div><small>Sisa air di tandon</small><strong>{liquidLitres(waterLitres)}</strong></div>
+          <div><small>Sisa larutan di tandon pupuk</small><strong>{liquidLitres(stockLitres)}</strong></div>
+          <div><small>Sisa kebutuhan penyiraman</small><strong>{liquidLitres(remainingLitres)}</strong></div>
+        </div>
+        <small>Volume tandon memakai hasil konversi AI yang sudah tersedia. Sisa kebutuhan memakai catatan sesi perangkat.</small>
+        {liquidData?.planning_recorded_at&&<p className="hst-note">Data tandon: {new Date(liquidData.planning_recorded_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB</p>}
+        {liquidError&&<p role="status" className="hst-note">{liquidError}</p>}
+        {!liquidError&&liquidData&&(waterLitres===null||stockLitres===null)&&<p className="hst-note">Volume tandon menunggu hasil konversi dari sensor yang valid dan terbaru.</p>}
+        {!liquidError&&liquidData?.water_carryover?.status==='NO_PLAN'&&<p className="hst-note">Belum ada rencana penyiraman tercatat untuk menghitung sisa kebutuhan.</p>}
+      </section>
       <div className="hst-shadow-mode-row">
         <div className="hst-shadow-mode-label">
           <strong>SHADOW MODE</strong>
