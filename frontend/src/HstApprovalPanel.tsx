@@ -4,6 +4,8 @@ import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/c
 import { fetchAiHstProposals, reviewAiHstApproval } from './api';
 import './HstApprovalPanel.css';
 
+const previewOnly = import.meta.env.DEV && import.meta.env.VITE_SPFF_AI_PREVIEW === 'true';
+
 const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
 const mass = (n: number | null): string =>
   n === null || !Number.isFinite(n) ? 'Perlu verifikasi' : number.format(n / 1000) + ' kg';
@@ -51,7 +53,7 @@ export function HstApprovalPanel() {
   }, [refresh]);
 
   async function approve(proposal: AiHstProposal) {
-    if (pendingId || confirmId !== proposal.obligation_id || proposal.status === 'COMPLETED' ||
+    if (previewOnly || pendingId || confirmId !== proposal.obligation_id || proposal.status === 'COMPLETED' ||
         proposal.status === 'REQUIRES_REVIEW' || proposal.remaining_g === null ||
         proposal.remaining_g <= 0) return;
     setPendingId(proposal.obligation_id);
@@ -85,6 +87,10 @@ export function HstApprovalPanel() {
         yang belum selesai. Sensor tandon dan Soil 2 dievaluasi setelah ACC.
         Tidak ada perintah pompa dari halaman ini.
       </p>
+      {previewOnly && <p className="hst-review" role="note">
+        <ShieldAlert size={16} /> Mode preview tidak memiliki login operator; ACC HST hanya tersedia
+        melalui API operasional yang menerapkan autentikasi dan CSRF.
+      </p>}
       <button className="hst-refresh" type="button" onClick={() => { setLoading(true); void refresh(); }}>
         <RefreshCw size={15} /> Perbarui usulan
       </button>
@@ -95,7 +101,7 @@ export function HstApprovalPanel() {
       </p>}
       <div className="hst-cards">
         {data?.proposals.map(proposal => {
-          const canApprove = proposal.status !== 'COMPLETED' &&
+          const canApprove = !previewOnly && proposal.status !== 'COMPLETED' &&
             proposal.status !== 'REQUIRES_REVIEW' &&
             proposal.remaining_g !== null && proposal.remaining_g > 0;
           return (
