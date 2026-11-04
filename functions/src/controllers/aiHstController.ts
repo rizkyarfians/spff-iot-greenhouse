@@ -88,3 +88,29 @@ export async function postHstApproval(req: Request, res: Response): Promise<void
       message: 'Pemeriksaan sensor setelah ACC gagal; status eksekusi tetap BLOCKED.' });
   }
 }
+
+/** Expose authoritative fail-closed readiness. This route never changes AI
+ * runtime state, grants MQTT privileges, or drives the ESP32.
+ * Do not turn this flag on until HST/firmware session mapping is implemented,
+ * proven with real hardware, and guarded by independent safety preflight.
+ */
+export function getHstExecutionReadiness(_req: Request, res: Response): void {
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    success: true,
+    data: {
+      schemaVersion: 1,
+      runningMode: 'SHADOW_MODE',
+      realTest: {
+        ready: false,
+        blockers: [
+          'hst_ai_to_firmware_volume_session_not_verified',
+          'device_ack_and_actual_pump_state_integration_not_verified',
+          'fertilizer_dose_to_single_stock_session_binding_not_verified',
+        ],
+      },
+      canDispatch: false,
+    },
+    message: 'TEST REAL belum dapat diaktifkan; SHADOW tetap aman.',
+  });
+}

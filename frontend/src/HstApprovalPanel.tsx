@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { canReviewShadow, type HstOperatorMode } from './hstExecutionMode';
 import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } from 'lucide-react';
 import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/contracts';
-import { fetchAiHstProposals, reviewAiHstApproval } from './api';
+import { fetchAiHstExecutionReadiness, fetchAiHstProposals, reviewAiHstApproval } from './api';
+import type { AiHstExecutionReadiness } from '@spff/contracts';
 import './HstApprovalPanel.css';
 
 const previewOnly = import.meta.env.DEV && import.meta.env.VITE_SPFF_AI_PREVIEW === 'true';
@@ -28,6 +30,8 @@ export function HstApprovalPanel() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [review, setReview] = useState<AiHstApprovalResult | null>(null);
+  const [mode, setMode] = useState<HstOperatorMode>('SHADOW');
+  const [readiness, setReadiness] = useState<AiHstExecutionReadiness | null>(null);
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -46,6 +50,9 @@ export function HstApprovalPanel() {
 
   useEffect(() => {
     const controller = new AbortController();
+    void fetchAiHstExecutionReadiness(controller.signal)
+      .then(result => { if (!controller.signal.aborted) setReadiness(result); })
+      .catch(() => { if (!controller.signal.aborted) setReadiness(null); });
     void refresh(controller.signal);
     // Refresh the UI, not the AI decision. Scheduler persists only HST events.
     const interval = setInterval(() => { void refresh(controller.signal); }, 300000);
@@ -53,7 +60,7 @@ export function HstApprovalPanel() {
   }, [refresh]);
 
   async function approve(proposal: AiHstProposal) {
-    if (previewOnly || pendingId || confirmId !== proposal.obligation_id || proposal.status === 'COMPLETED' ||
+    if (mode !== 'SHADOW' || previewOnly || pendingId || confirmId !== proposal.obligation_id || proposal.status === 'COMPLETED' ||
         proposal.status === 'REQUIRES_REVIEW' || proposal.remaining_g === null ||
         proposal.remaining_g <= 0) return;
     setPendingId(proposal.obligation_id);
@@ -80,12 +87,34 @@ export function HstApprovalPanel() {
     <article className="ain-panel hst-panel" aria-label="Usulan pemupukan berbasis HST">
       <div className="ain-panel-heading">
         <h3><CalendarCheck2 size={18} /> Usulan Pemupukan HST</h3>
-        <span>SHADOW · ACC per sesi</span>
+        <span>{mode === 'SHADOW' ? 'SHADOW · ACC per sesi' : 'TEST REAL · BELUM DIAKTIFKAN'}</span>
       </div>
+      <div className="hst-mode-selector" role="group" aria-label="Pilihan mode pengujian HST">
+        <button type="button" className={mode === 'SHADOW' ? 'is-selected' : ''}
+          aria-pressed={mode === 'SHADOW'}
+          onClick={() => { setMode('SHADOW'); setConfirmId(null); setReview(null); }}>
+          <ShieldAlert size={16} /> SHADOW
+        </button>
+        <button type="button" className={mode === 'TEST_REAL' ? 'is-selected is-real' : ''}
+          aria-pressed={mode === 'TEST_REAL'}
+          onClick={() => { setMode('TEST_REAL'); setConfirmId(null); setReview(null); }}>
+          <ClipboardCheck size={16} /> TEST POMPA REAL
+        </button>
+      </div>
+      {mode === 'TEST_REAL' && <div className="hst-real-readiness" role="status">
+        <strong>Uji pompa asli belum dapat dijalankan.</strong>
+        <p>Tujuan mode ini: setelah ACC operator, hasil perhitungan AI
+          diteruskan ke sesi pompa fisik. Koneksi HST ke sesi volume firmware,
+          interlock, dan konfirmasi ACK masih harus diverifikasi.
+          Memilih mode ini tidak mengubah mode ESP32 atau menjalankan pompa.</p>
+        {readiness?.realTest.blockers.map(blocker =>
+          <small key={blocker}>{blocker.replaceAll('_', ' ')}</small>)}
+        {!readiness && <small>Status kesiapan backend tidak tersedia; default aman: diblokir.</small>}
+      </div>}
       <p className="hst-note">
-        Usulan hanya dibuat saat jadwal HST jatuh tempo atau ada kewajiban sebelumnya
-        yang belum selesai. Sensor tandon dan Soil 2 dievaluasi setelah ACC.
-        Tidak ada perintah pompa dari halaman ini.
+        {mode === 'SHADOW'
+          ? 'Usulan dibuat dari jadwal HST. Sensor tandon dan Soil 2 diperiksa setelah ACC. Tidak ada perintah pompa dalam mode SHADOW.'
+          : 'TEST REAL ditujukan untuk eksekusi setelah ACC dan preflight perangkat, bukan mengaktifkan relay saat berpindah mode.'}
       </p>
       {previewOnly && <p className="hst-review" role="note">
         <ShieldAlert size={16} /> Mode preview tidak memiliki login operator; ACC HST hanya tersedia
@@ -101,9 +130,12 @@ export function HstApprovalPanel() {
       </p>}
       <div className="hst-cards">
         {data?.proposals.map(proposal => {
-          const canApprove = !previewOnly && proposal.status !== 'COMPLETED' &&
-            proposal.status !== 'REQUIRES_REVIEW' &&
-            proposal.remaining_g !== null && proposal.remaining_g > 0;
+          const canApprove = canReviewShadow({
+            mode,
+            previewOnly,
+            status: proposal.status,
+            remainingG: proposal.remaining_g,
+          });
           return (
             <section key={proposal.obligation_id} className="hst-card">
               <div className="hst-card-title">
@@ -126,13 +158,16 @@ export function HstApprovalPanel() {
                   <input type="checkbox" disabled={!canApprove || !!pendingId}
                     checked={confirmId === proposal.obligation_id}
                     onChange={event => setConfirmId(event.target.checked ? proposal.obligation_id : null)}/>
-                  Saya meninjau sisa dosis dan ingin memeriksa sesi ini. ACC berikutnya harus diberikan ulang.
+                  {mode === 'SHADOW'
+                    ? 'Saya meninjau sisa dosis dan ingin memeriksa sesi ini. ACC berikutnya harus diberikan ulang.'
+                    : 'ACC uji real terkunci sampai firmware dan alur eksekusi HST terverifikasi.'}
                 </label>}
               <button type="button" className="hst-approve"
                 disabled={!canApprove || confirmId !== proposal.obligation_id || !!pendingId}
                 onClick={() => { void approve(proposal); }}>
                 <ClipboardCheck size={16} />
-                {pendingId === proposal.obligation_id ? 'Memeriksa sensor…' : 'ACC & Periksa Sesi (SHADOW)'}
+                {mode === 'TEST_REAL' ? 'ACC & Jalankan Pompa (BELUM SIAP)'
+                  : pendingId === proposal.obligation_id ? 'Memeriksa sensor…' : 'ACC & Periksa Sesi (SHADOW)'}
               </button>
               <small>Review tercatat: {proposal.approval_count} · Belum ada bukti dosis dari ACC saja.</small>
             </section>

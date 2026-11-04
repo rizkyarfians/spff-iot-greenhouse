@@ -954,3 +954,9 @@ export function reviewAiHstApproval(input: import('@spff/contracts').AiHstApprov
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(input),
   })
 }
+
+// Read-only HST execution capability. Real pump dispatch is intentionally absent
+// until the independent firmware/volume-session/ACK contract is verified.
+export function fetchAiHstExecutionReadiness(signal?: AbortSignal) {
+  return request<import('@spff/contracts').AiHstExecutionReadiness>('/unified-ai/hst/execution-readiness', {signal})
+}

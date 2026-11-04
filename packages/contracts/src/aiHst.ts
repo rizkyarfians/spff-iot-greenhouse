@@ -71,3 +71,16 @@ export const aiHstApprovalResultSchema = z.object({
   plan: z.record(z.string(), z.unknown()).nullable(),
 }).strict();
 export type AiHstApprovalResult = z.infer<typeof aiHstApprovalResultSchema>;
+
+/** Read-only mode readiness. HST TEST_REAL deliberately cannot dispatch until
+ * an independently verified firmware volume-session integration is installed. */
+export const aiHstExecutionReadinessSchema = z.object({
+  schemaVersion: z.literal(1),
+  runningMode: z.literal('SHADOW_MODE'),
+  realTest: z.object({
+    ready: z.literal(false),
+    blockers: z.array(z.string().min(1)),
+  }).strict(),
+  canDispatch: z.literal(false),
+}).strict();
+export type AiHstExecutionReadiness = z.infer<typeof aiHstExecutionReadinessSchema>;
