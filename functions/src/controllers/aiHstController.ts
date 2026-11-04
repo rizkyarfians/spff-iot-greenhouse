@@ -6,12 +6,12 @@ import {
 } from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
 
-const AI_URL = 'http://127.0.0.1:5011';
+import { localAiUrl } from '../services/localAiEndpoint.js';
 
 export async function getHstProposals(_req: Request, res: Response): Promise<void> {
   res.set('Cache-Control', 'no-store');
   try {
-    const response = await fetch(`${AI_URL}/hst/proposals`, {
+    const response = await fetch(localAiUrl('/hst/proposals'), {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(8000),
       redirect: 'error',
@@ -48,7 +48,7 @@ export async function postHstApproval(req: Request, res: Response): Promise<void
     return;
   }
   try {
-    const response = await fetch(`${AI_URL}/hst/approvals`, {
+    const response = await fetch(localAiUrl('/hst/approvals'), {
       method: 'POST',
       headers: {
         Accept: 'application/json',
