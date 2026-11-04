@@ -34,6 +34,16 @@ healthy(){
  systemctl is-active --quiet spff-edge-gateway.service
  curl -fsS -m 5 http://127.0.0.1:3001/api/health >/dev/null
 }
+# EnvironmentFile can override Environment= in a systemd drop-in.
+# Check the actual live process; never report a physical gate state merely
+# because a drop-in file was successfully written.
+assert_runtime_gate(){
+ local svc="$1" key="$2" expected="$3" pid value
+ pid="$(systemctl show "$svc" -p MainPID --value)"
+ [[ "$pid" =~ ^[0-9]+$ && "$pid" -gt 1 && -r "/proc/$pid/environ" ]] || fatal "Cannot verify runtime environment of $svc"
+ value="$(tr '\0' '\n' < "/proc/$pid/environ" | sed -n "s/^$key=//p" | tail -n 1)"
+ [[ "$value" == "$expected" ]] || fatal "$svc runtime $key expected $expected, got ${value:-MISSING}. Check EnvironmentFile precedence; NOT armed."
+}
 restore_gates(){
  if [[ -f "$RUN/old-api-gate" ]]; then cp -a "$RUN/old-api-gate" "$APIGATE"; else rm -f "$APIGATE"; fi
  if [[ -f "$RUN/old-worker-gate" ]]; then cp -a "$RUN/old-worker-gate" "$WORKERGATE"; else rm -f "$WORKERGATE"; fi
@@ -246,6 +256,9 @@ PY
   sleep 2
  done
  healthy || fatal "API/worker/edge smoke failed"
+ assert_runtime_gate "$API" SPFF_HST_REAL_DISPATCH_ENABLED false
+ assert_runtime_gate "$API" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
+ assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
  status="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/unified-ai/hst/execution-readiness)"
  [[ "$status" == 401 ]] || fatal "auth boundary failed, expected 401 got $status"
  SUCCESS=1
@@ -258,6 +271,9 @@ if [[ "$MODE" == disable ]]; then
  gates false false
  systemctl restart "$WORKER" "$API"
  healthy || fatal "service unhealthy"
+ assert_runtime_gate "$API" SPFF_HST_REAL_DISPATCH_ENABLED false
+ assert_runtime_gate "$API" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
+ assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
  echo "NEW_REAL_START=DISABLED. This does NOT shut off an already running pump."
  exit 0
 fi
@@ -280,7 +296,11 @@ echo 'Check ESP32 MANUAL selector, pumps/stock isolated for commissioning, EC/fl
 read -r -p 'Type ENABLE-HST-PHYSICAL while physically present: ' confirmation
 [[ "$confirmation" == ENABLE-HST-PHYSICAL ]] || fatal 'not armed'
 gates true true
-if ! systemctl restart "$WORKER" "$API" || ! healthy; then
+if ! systemctl restart "$WORKER" "$API" ||
+   ! ( healthy &&
+       assert_runtime_gate "$API" SPFF_HST_REAL_DISPATCH_ENABLED true &&
+       assert_runtime_gate "$API" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED true &&
+       assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED true ); then
  gates false false
  systemctl restart "$WORKER" "$API" || true
  fatal 'enable failed; gates reverted OFF'
