@@ -49,9 +49,6 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
   if(prior){if(hst){
    const link=(await client.query('SELECT obligation_id,approval_id FROM spff.hst_real_sessions WHERE site_id=$1 AND session_id=$2',[siteId,prior.session_id])).rows[0];
    if(!link||link.obligation_id!==hst.obligationId||link.approval_id!==hst.approvalId)return fail('ACC HST sudah digunakan oleh sesi yang berbeda.');
-  }else{
-   const link=(await client.query('SELECT 1 FROM spff.hst_real_sessions WHERE site_id=$1 AND session_id=$2',[siteId,prior.session_id])).rows[0];
-   if(link)return fail('Sesi HST tidak boleh digunakan ulang sebagai sesi adaptif biasa.');
   }
   if(JSON.stringify(prior.input)!==JSON.stringify(JSON.parse(JSON.stringify(input)))){
    // PostgreSQL jsonb key order differs; compare canonical sorted fields.
@@ -60,6 +57,21 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
   const p=await plan(input,client),device=p.command.deviceId;
   let command=p.command;
   if(hst){
+   // Lock the verified stock/hydraulics row while creating the physical
+   // command. A concurrent admin edit must not silently change the plant dose.
+   const verified=(await client.query(`SELECT * FROM spff.hst_real_profiles
+    WHERE site_id=$1 AND program_id=$2 AND activity_id=$3 AND source_row=$4 FOR SHARE`,
+    [siteId,input.programId,input.activityId,hst.sourceRow])).rows[0];
+   if(!verified||verified.product!==hst.product||verified.device_id!==device||
+      verified.program_revision!==input.expectedProgramRevision||
+      verified.ec_profile_revision!==input.expectedProfileRevision||
+      verified.water_meter_position!==input.waterMeterPosition||
+      verified.stock_concentration_g_l!==input.stockConcentrationGPerL||
+      verified.max_duration_sec!==input.maxDurationSec||
+      verified.flush_duration_sec!==input.flushDurationSec||
+      verified.ec_tolerance_us!==input.ecToleranceUs||
+      verified.hydraulics_reference!==input.hydraulicsReference)
+     return fail('Konfigurasi fisik pupuk/hidrolik berubah saat ACC. Ulangi preflight.');
    const matching=p.activity.requirements.filter(r=>r.row===hst.sourceRow&&r.product===hst.product);
    if(p.activity.requirements.length!==1||matching.length!==1)
     return fail('Satu sesi HST harus terikat ke satu produk pupuk dan baris Panduan yang tepat.');
