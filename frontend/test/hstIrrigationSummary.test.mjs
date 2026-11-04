@@ -28,7 +28,7 @@ test('when tank geometry is unavailable show current Fuzzy demand under a demand
  const result=hstIrrigationDisplay({...current,irrigation_schedule_preview:{status:'HEIGHT_UNVERIFIED',tomorrow_at_least_l:null,fuzzy_demand_l:600}},now)
  assert.equal(result.kind,'demand_preview')
  assert.equal(result.valueL,600)
- assert.match(result.label,/Kebutuhan penyiraman/)
+ assert.match(result.label,/Kebutuhan air/)
  assert.ok(!result.label.includes('Sisa'))
 })
 test('zero mathematical capacity deficit stays zero without claiming a delivered dose',()=>{
@@ -52,3 +52,15 @@ test('missing, invalid, stale and future data do not turn into a fabricated zero
   assert.equal(result.valueL,null)
  }
 })
+
+test('operational Guide calculation is distinguished from a simulator',()=>{
+ const source={...current,irrigation_schedule_preview:undefined,
+  fuzzy_preview:{illustrative_water_l:844.44,recorded_at:new Date(now).toISOString(),basis:'OPERATIONAL_PROFILE'}}
+ const result=hstIrrigationDisplay(source,now)
+ assert.equal(result.valueL,844.44)
+ assert.match(result.label,/profil Panduan/)
+ assert.ok(!result.note.includes('Profil simulasi'))
+ const simulated=hstIrrigationDisplay({...source,fuzzy_preview:{...source.fuzzy_preview,basis:'SIMULATION_PROFILE'}},now)
+ assert.match(simulated.label,/simulasi Fuzzy/)
+})
+
