@@ -1003,6 +1003,8 @@ export function fetchAiHstLiquidSummary(signal?:AbortSignal){
   fertilizer_tank_preview:{estimated_liquid_volume_l:number|null;level_status:string;capacity_l?:number|null};
   water_carryover:{status:string;remaining_for_reassessment_l:number|null;planning_date:string|null};
   irrigation_schedule_preview?:{status:string;tomorrow_at_least_l:number|null;fuzzy_demand_l:number|null};
-  fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null}|null;
+  fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null;basis?:'SIMULATION_PROFILE'|'OPERATIONAL_PROFILE'}|null;
+  operational_profile?:{status:'MISSING'|'REVIEW_REQUIRED'|'GUIDE_BOUND';version:string|null;target_water_l:number|null;calculation_ready:boolean;blockers:string[]};
  }>('/unified-ai/dashboard',{signal});
 }
+
