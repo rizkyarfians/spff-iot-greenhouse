@@ -131,9 +131,13 @@ export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:
   </div>
   <ol className="afo-pipeline" aria-label="Tahapan eksekusi AI">{stages.map(stage=><li key={stage.name} className={(stage.reached?'is-reached ':'')+(stage.active?'is-active':'')}><span><stage.icon size={17}/></span><small>{stage.name}</small><span className="afo-sr">{stage.active?'berjalan':stage.reached?'tercatat':'menunggu'}</span></li>)}</ol>
   {matched&&<div className="afo-session"><VolumeBar label="Air sesi" value={matched.lastTelemetryAt?matched.waterVolumeL:null} target={matched.commandedWaterL}/><VolumeBar label="Larutan stok sesi" value={matched.lastTelemetryAt?matched.fertVolumeL:null} target={matched.commandedFertL}/><small><Clock3 size={12}/> Laporan sesi {time(matched.lastTelemetryAt)}</small></div>}
+  {liquid?.operational_profile&&<p className="afo-irrigation-note">{liquid.operational_profile.calculation_ready
+    ?'Fuzzy: profil Panduan · maksimum '+amount(liquid.operational_profile.target_water_l,'L')
+    :liquid.operational_profile.status==='MISSING'?'Fuzzy produksi: profil belum terpasang':'Fuzzy produksi: profil perlu ditinjau'}</p>}
   <div className="afo-remaining"><span>{irrigation.label}</span><strong>{amount(irrigation.valueL,'L')}</strong></div>
   <small className="afo-irrigation-note">{irrigation.note}</small>
   {(uncertain||sessionError)&&<p className="afo-alert"><ShieldAlert size={15}/> Periksa sesi sebelum melanjutkan.</p>}
   <footer><small>Estimasi tandon · {time(liquid?.planning_recorded_at)}</small><small>ACC di panel HST</small></footer>
  </section>
 }
+
