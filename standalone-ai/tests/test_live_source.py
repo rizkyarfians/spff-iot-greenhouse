@@ -20,8 +20,8 @@ class SourceDecisionTests(unittest.TestCase):
             self.assertEqual(result["created"], 1)
             self.assertEqual(again["created"], 0)
             self.assertFalse(result["can_dispatch"])
-            self.assertEqual(len(store.read()["live"]["obligations"]), 1)
+            self.assertEqual(len(store.read()["hst_workflow"]["obligations"]), 1)
             self.assertEqual(store.read()["decisions"], {})
-            self.assertEqual(store.read()["live"]["decisions"], {})
+            self.assertNotIn("live", store.read())
         finally:
             store.close()
