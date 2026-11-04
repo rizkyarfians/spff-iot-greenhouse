@@ -239,7 +239,17 @@ assert.deepEqual(fields, ['bootId','expiresAt','issuedAt'],
   'STOP: unexpected live command contract; fixture cannot be aligned automatically');
 assert.equal(result.error.issues.length,3,
   'STOP: unrelated live validator failures; do not modify tests automatically');
+const issuedAt = new Date().toISOString();
+const expiresAt = new Date(Date.now()+30000).toISOString();
+const currentFixture = {...command,
+  bootId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  issuedAt, expiresAt};
+const valid = contracts.adaptiveStartCommandSchema.safeParse(currentFixture);
+assert.ok(valid.success,
+  'STOP: corrected fixture still invalid under running firmware contract: ' +
+    JSON.stringify(valid.success ? [] : valid.error.issues));
 console.log('LIVE_COMMAND_VALIDATOR=CONFIRMED (3 existing required safety fields)');
+console.log('FIXED_FIXTURE_VALIDATED_AGAINST_LIVE_SCHEMA=PASS');
 JS
 python3 - "$WORK/packages/contracts/test/adaptive-fertigation.test.mjs" <<'PY'
 from pathlib import Path
