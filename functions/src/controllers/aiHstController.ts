@@ -3,6 +3,7 @@ import {
   aiHstApprovalRequestSchema,
   aiHstApprovalResultSchema,
   aiHstProposalsSchema,
+  aiHstExecutionReadinessSchema,
 } from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
 
@@ -98,7 +99,7 @@ export function getHstExecutionReadiness(_req: Request, res: Response): void {
   res.set('Cache-Control', 'no-store');
   res.json({
     success: true,
-    data: {
+    data: aiHstExecutionReadinessSchema.parse({
       schemaVersion: 1,
       runningMode: 'SHADOW_MODE',
       realTest: {
@@ -110,7 +111,7 @@ export function getHstExecutionReadiness(_req: Request, res: Response): void {
         ],
       },
       canDispatch: false,
-    },
+    }),
     message: 'TEST REAL belum dapat diaktifkan; SHADOW tetap aman.',
   });
 }
