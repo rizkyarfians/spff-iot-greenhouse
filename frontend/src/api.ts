@@ -1007,3 +1007,18 @@ export function updateAiExecutionMode(input: import('@spff/contracts').AiExecuti
     { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal: AbortSignal.timeout(15000) },
   )
 }
+
+ 
+// HST-based AI proposals. ACC is one SHADOW review per session, never a command.
+export function fetchAiHstProposals(signal?: AbortSignal) {
+  return request<import('@spff/contracts').AiHstProposals>(
+    '/unified-ai/hst/proposals', { signal },
+  )
+}
+export function reviewAiHstApproval(input: import('@spff/contracts').AiHstApprovalRequest) {
+  return request<import('@spff/contracts').AiHstApprovalResult>(
+    '/unified-ai/hst/approvals',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input) },
+  )
+}
