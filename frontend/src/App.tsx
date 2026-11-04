@@ -713,7 +713,7 @@ function App() {
     setSelectedSensor,
   ] =
     useState<SensorKey>(
-      'soil_1_moisture',
+      'soil_2_moisture',
     )
 
 
@@ -722,7 +722,7 @@ function App() {
     setDashboardSensorGroup,
   ] =
     useState<DashboardSensorGroup>(
-      'soil1',
+      'soil2',
     )
 
 
@@ -1401,7 +1401,7 @@ function App() {
     )
 
 
-  const chartSensorOptions =
+  const chartSensorOptions = (
     backendData
       ?.sensorDefinitions
       ?.length
@@ -1427,6 +1427,7 @@ function App() {
             group: isEnergySensor(definition.key) ? 'Energi' : definition.ideal,
           }),
         )
+  ).filter(option=>!option.key.startsWith('soil_1_'))
 const soilNpkGroups =
   [
     {
@@ -2600,9 +2601,10 @@ const soilNpkGroups =
                               setChartHour('')
                             }}
                           >
-                            <option value="soil1">Tanah 1</option>
+                            <option value="soil1" disabled>Tanah 1</option>
                             <option value="soil2">Tanah 2</option>
-                            <option value="environment">Air &amp; Lingkungan</option>
+                            <option value="water">Air</option>
+                            <option value="environment">Lingkungan</option>
                             <option value="energy">
                               Energi
                             </option>
