@@ -205,7 +205,7 @@ PY
  rm -rf "$MERGED/frontend/src"
  cp -a "$PROD/frontend/src" "$MERGED/frontend/src"
  if [[ -d "$PROD/frontend/public" && -d "$MERGED/frontend/public" ]]; then cp -a "$PROD/frontend/public/." "$MERGED/frontend/public/"; fi
- for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css; do
+ for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts; do
    install -m644 "$SRC/frontend/src/$hst_file" "$MERGED/frontend/src/$hst_file"
  done
  python3 - "$MERGED/frontend/src/api.ts" "$SRC/frontend/src/api.ts" "$MERGED/frontend/src/GuidePage.tsx" <<'PY'
@@ -244,6 +244,7 @@ print('PRESERVED_PRODUCTION_FRONTEND_SOURCE=PASS')
 PY
  # Add the compact drawer while preserving all local sensor/controller UI.
  node "$SRC/scripts/merge-ai-fertigation-overview.cjs" "$SRC" "$MERGED/frontend/src/FloatingAiRecommendation.tsx"
+ node "$SRC/scripts/merge-dashboard-sensor-groups.cjs" "$SRC" "$MERGED/frontend/src/App.tsx"
  # npm workspaces may install Vite in frontend/node_modules instead of root.
  # The same frontend package already passed npm run build above; reuse its
  # locally installed binary while building from MERGED/frontend (not SRC).
