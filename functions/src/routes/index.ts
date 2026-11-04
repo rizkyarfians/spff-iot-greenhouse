@@ -4,6 +4,7 @@ import {getAiCommandPreparation} from '../controllers/aiCommandPreparationContro
 import { getAiSafetyEvidence } from '../controllers/aiSafetyEvidenceController.js';
 import { postAiOperatorAccDryRun } from '../controllers/aiOperatorAccController.js';
 import { postAiAccWaterTrial } from '../controllers/aiAccWaterTrialController.js';
+import { getHstProposals, postHstApproval } from '../controllers/aiHstController.js';
 import { getAiExecutionMode, putAiExecutionMode } from '../controllers/aiExecutionModeController.js';
 import { startCalibrationTrial, readCalibrationTrial, stopCalibrationTrial, saveCalibrationMeasurement } from '../controllers/waterTrialController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
@@ -187,6 +188,9 @@ apiRouter.get('/unified-ai/safety-evidence', requireOperator, getAiSafetyEvidenc
 apiRouter.post('/unified-ai/operator-acc/dry-run', requireOperator, requireCsrf, postAiOperatorAccDryRun);
 // Disabled by default; authenticated operator ACC to durable WATER-ONLY trial queue.
 apiRouter.post('/unified-ai/operator-acc/water-trial', requireOperator, requireCsrf, postAiAccWaterTrial);
+// HST scheduler writes only proposals; reviews are authenticated and SHADOW-only.
+apiRouter.get('/unified-ai/hst/proposals', requireOperator, getHstProposals);
+apiRouter.post('/unified-ai/hst/approvals', requireOperator, requireCsrf, postHstApproval);
  
 // OFF by default: SPFF_WATER_TRIAL_DISPATCH_ENABLED must be explicitly enabled
 // only after firmware capability, power isolation and bench checks.

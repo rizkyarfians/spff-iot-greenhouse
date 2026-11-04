@@ -49,6 +49,29 @@ class ApiTests(unittest.TestCase):
     def test_unknown_scenario(self):
         self.assertEqual(self.client.post("/simulations/unknown").status_code, 404)
 
+    def test_hst_proposals_empty_read_does_not_create_decision(self):
+        before = self.store.read()
+        result = self.client.get("/hst/proposals")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json()["schemaVersion"], 1)
+        self.assertEqual(result.json()["status"], "NO_SCHEDULE")
+        self.assertEqual(self.store.read(), before)
+
+    def test_hst_approval_denied_without_authenticated_bridge(self):
+        from uuid import uuid4
+        with patch("app.api.SPFFSource") as source:
+            with TestClient(create_app(Settings(source_dsn="read-only-test"), Config(), self.store)) as client:
+                response = client.post("/hst/approvals", json={
+                    "obligation_id": "a" * 64,
+                    "approval_id": str(uuid4()),
+                    "actor": "operator",
+                    "expected_remaining_g": 50000,
+                    "confirmation": "REVIEW_HST_SHADOW_SESSION",
+                })
+            self.assertEqual(response.status_code, 403)
+            source.return_value.inspect.assert_not_called()
+        self.assertNotIn("hst_workflow", self.store.read())
+
     def test_source_unconfigured(self):
         self.assertEqual(self.client.get("/source/audit").status_code, 503)
         self.assertEqual(self.client.get("/source/guide-programs").status_code, 503)

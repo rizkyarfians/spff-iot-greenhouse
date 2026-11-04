@@ -1,10 +1,15 @@
 import asyncio
+import hmac
+import json
 import logging
+import math
+from typing import Literal
+from uuid import UUID
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import Field
 
@@ -15,6 +20,8 @@ from .settings import ROOT, Settings, load_config
 from .source import SPFFSource
 from .dashboard_summary import present_shadow_dashboard
 from .store import PostgresStore, SQLiteStore
+from .hst_workflow import HstWorkflow, HstWorkflowConflict
+from .live_engine import LiveProfile
 
 log = logging.getLogger("spff_ai")
 
@@ -22,6 +29,14 @@ log = logging.getLogger("spff_ai")
 class Evaluation(Model):
     snapshot: Snapshot
     programs: list[Program] = Field(default_factory=list, max_length=100)
+
+
+class HstApproval(Model):
+    obligation_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    approval_id: UUID
+    actor: str = Field(min_length=1, max_length=128)
+    expected_remaining_g: float = Field(gt=0, allow_inf_nan=False)
+    confirmation: Literal["REVIEW_HST_SHADOW_SESSION"]
 
 
 def create_app(settings=None, config=None, store=None):
@@ -35,7 +50,8 @@ def create_app(settings=None, config=None, store=None):
     engine = Engine(store, config, mode=settings.mode)
     source = SPFFSource(settings.source_dsn, settings.site_id, settings.device_id, settings.zone_id,
                         fertilizer_delivery_route=settings.fertilizer_delivery_route) if settings.source_dsn else None
-    poll_status = {"enabled": settings.poll_enabled, "last_success": None, "last_error": None}
+    poll_status = {"enabled": settings.poll_enabled, "last_success": None, "last_error": None,
+                   "scan_interval_seconds": max(300, settings.poll_seconds)}
 
     async def poll():
         from datetime import datetime, timezone
@@ -47,7 +63,7 @@ def create_app(settings=None, config=None, store=None):
                 # Exception text can include credentials supplied by drivers; log only type.
                 poll_status["last_error"] = type(error).__name__
                 log.error("shadow_poll_failed", extra={"error_type": type(error).__name__})
-            await asyncio.sleep(settings.poll_seconds)
+            await asyncio.sleep(poll_status["scan_interval_seconds"])
 
     @asynccontextmanager
     async def lifespan(app):
@@ -90,7 +106,10 @@ def create_app(settings=None, config=None, store=None):
         return {"mode": settings.mode, "port": settings.port, "can_dispatch": False,
                 "fertilizer_delivery_route": settings.fertilizer_delivery_route,
                 "source_configured": source is not None, "state_backend": "postgresql" if settings.state_dsn else "sqlite-local",
-                "polling": poll_status, "decision_count": len(state["decisions"]),
+                "polling": poll_status,
+                "decision_count": len(state.get("hst_workflow", {}).get("proposals", {})),
+                "legacy_development_decision_count": len(state["decisions"]),
+                "decision_trigger": "HST_SCHEDULE_ONLY",
                 "blocking_reason": "existing firmware volume-session contract is unverified"}
 
     @app.get("/config")
@@ -122,7 +141,10 @@ def create_app(settings=None, config=None, store=None):
             raise HTTPException(503, "real SPFF source is not configured")
         try:
             state = store.read()
-            saved = state["decisions"]
+            # The 4k legacy source-shadow decisions are development history,
+            # NOT active HST proposals. Current duties are exposed by /hst/proposals.
+            # Preserve legacy /decisions readback for explicit history inspection.
+            saved = {}
             # GET performs a read-only source inspection. It must not create
             # SHADOW decisions, credit doses, or write operational databases.
             planning_observation = source.inspect()
@@ -140,16 +162,60 @@ def create_app(settings=None, config=None, store=None):
             log.warning("shadow_dashboard_read_failed")
             raise HTTPException(503, "shadow dashboard unavailable")
 
+    @app.get("/hst/proposals")
+    def hst_proposals():
+        return HstWorkflow(store, settings.site_id, settings.device_id, settings.zone_id).proposals()
+
+    @app.post("/hst/approvals")
+    def hst_approval(body: HstApproval, x_spff_bridge_key: str | None = Header(default=None)):
+        # Only the authenticated Node API may relay operator identity. The
+        # standalone AI endpoint is disabled unless an explicit shared secret
+        # is configured on both services; localhost alone is not authentication.
+        if (not settings.hst_bridge_key or not x_spff_bridge_key
+                or not hmac.compare_digest(x_spff_bridge_key, settings.hst_bridge_key)):
+            raise HTTPException(403, "authenticated operator bridge required")
+        if not source or settings.mode != "SHADOW_MODE":
+            raise HTTPException(409, "HST operator review requires source-shadow mode")
+        try:
+            # Idempotent replay must still work if the source goes offline
+            # after the initial recorded review. Never reuse the UUID for
+            # another actor/obligation/remaining-mass amount.
+            existing = store.read().get("hst_workflow", {}).get("approvals", {}).get(str(body.approval_id))
+            if existing:
+                if (existing["obligation_id"] != body.obligation_id
+                        or existing["operator_id"] != body.actor
+                        or not math.isclose(existing["expected_remaining_g"],
+                                            body.expected_remaining_g, rel_tol=0, abs_tol=0.01)):
+                    raise HstWorkflowConflict("approval_id_conflicts_with_existing_review")
+                return existing
+            # The sensor/tank/Soil 2 read occurs ONLY after explicit ACC.
+            observation = json.loads(json.dumps(source.inspect(), default=str, allow_nan=False))
+            raw_profile = store.runtime_profile() if hasattr(store, "runtime_profile") else None
+            profile = LiveProfile.model_validate(raw_profile) if raw_profile else None
+            return HstWorkflow(store, settings.site_id, settings.device_id, settings.zone_id).review_approval(
+                obligation_id=body.obligation_id,
+                approval_id=body.approval_id,
+                actor=body.actor,
+                expected_remaining_g=body.expected_remaining_g,
+                observation=observation, profile=profile,
+            )
+        except HstWorkflowConflict as error:
+            raise HTTPException(409, str(error)) from error
+        except Exception as error:
+            log.error("hst_approval_preflight_failed", extra={"error_type": type(error).__name__})
+            raise HTTPException(503, "HST sensor review unavailable") from error
+
     @app.get("/obligations")
     def obligations():
-        return list(store.read().get("live", {}).get("obligations", {}).values())
+        return list(store.read().get("hst_workflow", {}).get("obligations", {}).values())
 
     @app.get("/live/state")
     def live_state():
-        state = store.read().get("live", {})
+        state = store.read().get("hst_workflow", {})
         return {"mode": settings.mode, "can_dispatch": False, "obligations": state.get("obligations", {}),
-                "sessions": state.get("sessions", {}), "ema": state.get("ema", {}),
-                "decision_count": len(state.get("decisions", {})),
+                "sessions": {}, "ema": {},
+                "decision_count": len(state.get("proposals", {})),
+                "legacy_development_state_ignored": True,
                 "ec_target_required_for_scheduling": False}
 
     @app.get("/simulations")

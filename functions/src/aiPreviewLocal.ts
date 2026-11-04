@@ -1,5 +1,5 @@
 import express from 'express';
-import { unifiedAiDashboardSchema } from '@spff/contracts';
+import { aiHstProposalsSchema, unifiedAiDashboardSchema } from '@spff/contracts';
 import { createAiDispatchReadinessController } from './controllers/aiDispatchReadinessController.js';
 import { createAiCommandPreparationController } from './controllers/aiCommandPreparationController.js';
 import { getAiSafetyEvidence } from './controllers/aiSafetyEvidenceController.js';
@@ -61,6 +61,41 @@ app.get('/api/unified-ai/dashboard', async (_req, res) => {
     clearTimeout(timeout);
   }
 });
+// Read-only HST proposals are safe to preview. NEVER mount the HST ACC POST:
+ // this isolated Vite preview has no operator authentication or CSRF session.
+app.get('/api/unified-ai/hst/proposals', async (_req, res) => {
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 8000);
+  try {
+    const response = await fetch(`http://127.0.0.1:${pythonPort}/hst/proposals`, {
+      method: 'GET', signal: abort.signal, redirect: 'error', cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      res.set('Cache-Control', 'no-store').status(503).json({
+        success: false, data: null, message: 'Usulan HST Python SHADOW belum tersedia.',
+      });
+      return;
+    }
+    const parsed = aiHstProposalsSchema.safeParse(await response.json() as unknown);
+    if (!parsed.success) {
+      res.set('Cache-Control', 'no-store').status(503).json({
+        success: false, data: null, message: 'Kontrak proposal HST tidak valid.',
+      });
+      return;
+    }
+    res.set('Cache-Control', 'no-store').json({
+      success: true, data: parsed.data, message: 'HST preview read-only; ACC tidak tersedia.',
+    });
+  } catch {
+    res.set('Cache-Control', 'no-store').status(503).json({
+      success: false, data: null, message: 'HST Python SHADOW tidak terjangkau.',
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 // Same fail-closed preflight as the authenticated operational API, but only
 // available on loopback in this isolated preview process (no login here).
 // The preview shares the validated Python port; it never creates a command.

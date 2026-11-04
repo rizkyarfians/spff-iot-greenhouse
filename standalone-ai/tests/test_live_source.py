@@ -8,18 +8,20 @@ from test_live_engine import real_observation
 
 
 class SourceDecisionTests(unittest.TestCase):
-    def test_record_shadow_uses_live_scheduler_and_does_not_require_ec_profile(self):
+    def test_record_shadow_scans_hst_only_and_never_inspects_telemetry(self):
         store = SQLiteStore()
         source = SPFFSource("not-connected", "greenhouse-01", "esp32-s3-01", "soil-1")
         observation = real_observation(datetime.now(timezone.utc))
         try:
-            with patch.object(source, "inspect", return_value=observation):
-                result = source.record_shadow(store)
-                again = source.record_shadow(store)
-            self.assertEqual(result["decision_id"], again["decision_id"])
-            self.assertEqual(result["proposed_action"], "FERTIGATE")
-            self.assertEqual(result["obligations"][0]["target_g"], 50000)
-            self.assertFalse(result["ec_target_required_for_scheduling"])
-            self.assertEqual(len(store.read()["live"]["obligations"]), 1)
+            with patch.object(source, "inspect", side_effect=AssertionError("telemetry read before ACC")):
+                with patch.object(source, "inspect_guides", return_value=observation["guide_programs"]):
+                    result = source.record_shadow(store)
+                    again = source.record_shadow(store)
+            self.assertEqual(result["created"], 1)
+            self.assertEqual(again["created"], 0)
+            self.assertFalse(result["can_dispatch"])
+            self.assertEqual(len(store.read()["hst_workflow"]["obligations"]), 1)
+            self.assertEqual(store.read()["decisions"], {})
+            self.assertNotIn("live", store.read())
         finally:
             store.close()

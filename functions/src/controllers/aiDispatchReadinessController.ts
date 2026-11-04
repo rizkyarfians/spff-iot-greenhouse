@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { unifiedAiDashboardSchema } from '@spff/contracts';
 import { assessAiDispatchReadiness } from '../services/aiDispatchReadiness.js';
+import { localAiPort } from '../services/localAiEndpoint.js';
 
 // Loopback source only. The optional port comes from trusted server configuration,
 // never from HTTP input. No POST handler, persistence, queue insertion, or MQTT.
@@ -47,5 +48,5 @@ export function createAiDispatchReadinessController(pythonPort: number) {
   };
 }
 
-// The existing authenticated operational endpoint retains the fixed 5011 source.
-export const getAiDispatchReadiness = createAiDispatchReadinessController(5011);
+// Authenticated operational API connects to the production AI loopback port.
+export const getAiDispatchReadiness = createAiDispatchReadinessController(localAiPort());

@@ -1,10 +1,10 @@
 import type {Request, Response} from 'express';
 import {unifiedAiDashboardSchema} from '@spff/contracts';
 
-// Development branch uses the isolated SHADOW engine on port 5011.
-// Never read the production AI service on port 5010 from the staging dashboard.
-// Never accept browser-provided URLs, paths, or credentials.
-const LOCAL_AI = 'http://127.0.0.1:5011/dashboard/summary';
+// The operational API reads the production AI on loopback only.
+ // The independent DEV preview routes retain their own Python port (5011).
+import { localAiUrl } from '../services/localAiEndpoint.js';
+const LOCAL_AI = localAiUrl('/dashboard/summary');
 
 export async function getUnifiedAiDashboard(
   _req: Request, res: Response,

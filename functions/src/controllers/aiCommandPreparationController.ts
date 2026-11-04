@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { unifiedAiDashboardSchema } from '@spff/contracts';
 import { prepareAiCommandPreview } from '../services/aiCommandPreparation.js';
+import { localAiPort } from '../services/localAiEndpoint.js';
 
 // Trusted, numeric server configuration only; never accept arbitrary remote URLs.
 export function createAiCommandPreparationController(pythonPort: number) {
@@ -49,4 +50,4 @@ export function createAiCommandPreparationController(pythonPort: number) {
 }
 
 // Operational API uses authentication/role middleware in routes/index.ts.
-export const getAiCommandPreparation = createAiCommandPreparationController(5011);
+export const getAiCommandPreparation = createAiCommandPreparationController(localAiPort());

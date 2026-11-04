@@ -3,6 +3,7 @@ import {Activity, AlertTriangle, CalendarDays, CheckCircle2, Clock3, Droplets, F
 import type {UnifiedAiDashboard} from '@spff/contracts';
 import {fetchUnifiedAiDashboard} from './api';
 import {aiCalculationReadiness} from './aiCalculationReadiness';
+import {HstApprovalPanel} from './HstApprovalPanel';
 import './UnifiedAiNeedsPage.css';
 
 const nf = new Intl.NumberFormat('id-ID',{maximumFractionDigits:2});
@@ -125,6 +126,8 @@ export function UnifiedAiNeedsPage(){
         <button type="button" className="ain-refresh" onClick={()=>{setLoading(true);setRetry(n=>n+1)}}><RefreshCw size={16}/> Muat ulang</button>
       </div>
     </div>
+
+    <HstApprovalPanel />
 
     {loading&&!data&&!error?<div className="ain-notice" role="status">Memuat data dan perhitungan AI…</div>:null}
     {error?<div className="ain-notice ain-error" role="alert"><AlertTriangle size={17}/> {error} <span>Pastikan API dan service AI lokal berjalan.</span></div>:null}
