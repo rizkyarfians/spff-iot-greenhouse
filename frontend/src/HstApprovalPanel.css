@@ -65,3 +65,23 @@
 .hst-real-session p{margin:5px 0;}
 .hst-real-session small{display:block;overflow-wrap:anywhere;}
 .hst-stop{background:#a52b30;margin-top:12px;}
+
+/* A single explicit SHADOW ON/OFF switch; the actuator still requires ACC. */
+.hst-shadow-mode-row { display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:12px; margin:14px 0; padding:12px 14px; border:1px solid #d6e2dc;
+  border-radius:12px; background:var(--surface, #fff); }
+.hst-shadow-mode-label { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.hst-shadow-mode-label strong { font-size:14px; letter-spacing:.02em; }
+.hst-shadow-mode-label small { line-height:1.4; color:var(--text-secondary,#657078); }
+.hst-shadow-toggle { display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  padding:8px 12px; border:1px solid #b3c4bb; border-radius:999px; background:#fff;
+  font:inherit; cursor:pointer; min-height:42px; flex-shrink:0; }
+.hst-shadow-toggle:focus-visible { outline:3px solid #648dbb; outline-offset:3px; }
+.hst-shadow-toggle-track { width:43px; height:24px; border-radius:999px; padding:3px;
+  display:flex; align-items:center; background:#9da7a2; transition:background .15s ease; }
+.hst-shadow-toggle-thumb { width:18px; height:18px; border-radius:50%; background:white;
+  box-shadow:0 1px 3px #0003; transition:transform .15s ease; }
+.hst-shadow-toggle.is-on .hst-shadow-toggle-track { background:#177c61; }
+.hst-shadow-toggle.is-on .hst-shadow-toggle-thumb { transform:translateX(19px); }
+.hst-shadow-toggle.is-off strong { color:#9a4e20; }
+@media(max-width:600px){ .hst-shadow-mode-row{align-items:flex-start;} }

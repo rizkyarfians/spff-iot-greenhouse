@@ -112,25 +112,35 @@ export function HstApprovalPanel() {
     <article className="ain-panel hst-panel" aria-label="Usulan pemupukan berbasis HST">
       <div className="ain-panel-heading">
         <h3><CalendarCheck2 size={18} /> Usulan Pemupukan HST</h3>
-        <span>{mode === 'SHADOW' ? 'SHADOW · ACC per sesi' : 'TEST REAL · BELUM DIAKTIFKAN'}</span>
+        <span>{mode === 'SHADOW' ? 'SHADOW MODE ON' : 'SHADOW MODE OFF'}</span>
       </div>
-      <div className="hst-mode-selector" role="group" aria-label="Pilihan mode pengujian HST">
-        <button type="button" className={mode === 'SHADOW' ? 'is-selected' : ''}
-          aria-pressed={mode === 'SHADOW'}
-          onClick={() => { setMode('SHADOW'); setConfirmId(null); setReview(null); }}>
-          <ShieldAlert size={16} /> SHADOW
-        </button>
-        <button type="button" className={mode === 'TEST_REAL' ? 'is-selected is-real' : ''}
-          aria-pressed={mode === 'TEST_REAL'}
-          onClick={() => { setMode('TEST_REAL'); setConfirmId(null); setReview(null); }}>
-          <ClipboardCheck size={16} /> TEST POMPA REAL
+      <div className="hst-shadow-mode-row">
+        <div className="hst-shadow-mode-label">
+          <strong>SHADOW MODE</strong>
+          <small>{mode === 'SHADOW'
+            ? 'ON · AI menghitung, ACC tidak menjalankan pompa'
+            : 'OFF · ACC dapat menjalankan sesi pompa real jika perangkat siap'}</small>
+        </div>
+        <button type="button" role="switch" aria-label="SHADOW MODE"
+          aria-checked={mode === 'SHADOW'}
+          className={`hst-shadow-toggle ${mode === 'SHADOW' ? 'is-on' : 'is-off'}`}
+          onClick={() => {
+            setMode(current => current === 'SHADOW' ? 'TEST_REAL' : 'SHADOW');
+            setConfirmId(null);
+            setReview(null);
+          }}>
+          <span className="hst-shadow-toggle-track" aria-hidden="true">
+            <span className="hst-shadow-toggle-thumb" />
+          </span>
+          <strong>{mode === 'SHADOW' ? 'ON' : 'OFF'}</strong>
         </button>
       </div>
       {mode === 'TEST_REAL' && <div className="hst-real-readiness" role="status">
-        <strong>{readiness?.realTest.ready?'TEST REAL: periksa kesiapan sesi sebelum ACC':'TEST REAL: dispatch belum aktif pada server'}</strong>
-        <p>Setelah ACC operator dan seluruh preflight lolos, hasil perhitungan AI
-          HST disimpan sebagai sesi adaptif dan diteruskan ke ESP32. Status
-          dilacak melalui ACK dan telemetry asli. Pindah mode tidak menyalakan pompa.</p>
+        <strong>{readiness?.realTest.ready
+          ? 'SHADOW OFF · ACC fisik tersedia jika preflight lolos'
+          : 'SHADOW OFF · Eksekusi fisik belum diizinkan oleh server'}</strong>
+        <p>Mematikan SHADOW tidak langsung menyalakan pompa. Pompa hanya dapat
+          dijalankan setelah ACC dan pemeriksaan keselamatan perangkat lolos.</p>
         {readiness?.realTest.blockers.map(blocker =>
           <small key={blocker}>{blocker.replaceAll('_', ' ')}</small>)}
         {!readiness && <small>Status kesiapan backend tidak tersedia; default aman: diblokir.</small>}
@@ -138,7 +148,7 @@ export function HstApprovalPanel() {
       <p className="hst-note">
         {mode === 'SHADOW'
           ? 'Usulan dibuat dari jadwal HST. Sensor tandon dan Soil 2 diperiksa setelah ACC. Tidak ada perintah pompa dalam mode SHADOW.'
-          : 'TEST REAL ditujukan untuk eksekusi setelah ACC dan preflight perangkat, bukan mengaktifkan relay saat berpindah mode.'}
+          : 'SHADOW OFF: ACC menjalankan sesi fertigasi fisik sesuai hasil AI HST apabila semua syarat perangkat terpenuhi.'}
       </p>
       {previewOnly && <p className="hst-review" role="note">
         <ShieldAlert size={16} /> Mode preview tidak memiliki login operator; ACC HST hanya tersedia
@@ -172,7 +182,7 @@ export function HstApprovalPanel() {
                 <div><small>Terpenuhi</small><strong>{mass(proposal.delivered_g)}</strong></div>
                 <div><small>Sisa</small><strong>{mass(proposal.remaining_g)}</strong></div>
               </div>
-              {mode === 'TEST_REAL' && <HstRealExecutionCard
+              <HstRealExecutionCard shadowEnabled={mode === 'SHADOW'}
                 proposal={proposal}
                 preflight={realPreflights[proposal.obligation_id]??null}
                 preflightError={realPreflightErrors[proposal.obligation_id]??null}
@@ -183,7 +193,7 @@ export function HstApprovalPanel() {
                      ...prev,[proposal.obligation_id]:cause instanceof Error?cause.message:'Gagal cek kesiapan',
                    })));
                 }}
-              />}
+              />
               {proposal.review_reasons.length > 0 &&
                 <p className="hst-review"><ShieldAlert size={16} />
                   Perlu rekonsiliasi: {proposal.review_reasons.join(', ').replaceAll('_', ' ')}
@@ -207,7 +217,7 @@ export function HstApprovalPanel() {
           );
         })}
       </div>
-      {review && <div className="hst-result" role="status">
+      {mode === 'SHADOW' && review && <div className="hst-result" role="status">
         <strong><ShieldAlert size={16} /> Review ACC tercatat, eksekusi tetap BLOCKED</strong>
         <p>Sensor diperiksa pada saat ACC. Pompa tidak dinyalakan dan dosis belum dikreditkan.</p>
         <p>Alasan: {review.hold_reasons.join(', ').replaceAll('_', ' ')}</p>

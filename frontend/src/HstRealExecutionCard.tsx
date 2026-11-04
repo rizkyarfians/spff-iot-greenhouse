@@ -3,7 +3,7 @@ import type {AiHstHardwareProfile,AiHstProposal,AiHstRealPreflight,AiHstRealSess
 import {useAuth} from './authContext';
 import {executeAiHstReal,fetchAiHstRealSession,fetchAiHstRealLatest,saveAiHstRealProfile,stopAiHstRealSession} from './api';
 
-type Props={proposal:AiHstProposal;preflight:AiHstRealPreflight|null;
+type Props={proposal:AiHstProposal;shadowEnabled:boolean;preflight:AiHstRealPreflight|null;
  preflightError:string|null;refreshPreflight:()=>void};
 const unavailable=import.meta.env.DEV&&import.meta.env.VITE_SPFF_AI_PREVIEW==='true';
 
@@ -15,7 +15,7 @@ function displayTime(value:string|null):string{
  if(!value)return 'Belum ada telemetry sesi';
  return new Date(value).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'});
 }
-export function HstRealExecutionCard({proposal,preflight,preflightError,refreshPreflight}:Props){
+export function HstRealExecutionCard({proposal,shadowEnabled,preflight,preflightError,refreshPreflight}:Props){
  const {user}=useAuth();
  const setup=preflight?.setup;
  const [editing,setEditing]=useState(false);
@@ -80,7 +80,7 @@ export function HstRealExecutionCard({proposal,preflight,preflightError,refreshP
   finally{setPending(false);lock.current=false;}
  }
  async function run(){
-  if(lock.current||!confirmed||!preflight?.canDispatch||proposal.remaining_g===null||
+  if(shadowEnabled||lock.current||!confirmed||!preflight?.canDispatch||proposal.remaining_g===null||
      proposal.remaining_g<=0||unavailable||session)return;
   lock.current=true;setPending(true);setError('');setNotice('');
   try{
@@ -109,21 +109,25 @@ export function HstRealExecutionCard({proposal,preflight,preflightError,refreshP
  }
  const status=session?.status??'';
  const terminal=status==='completed'||status==='fault';
+ // Keep an existing physical session and its STOP control visible even after
+ // SHADOW is re-enabled. Flipping SHADOW never implicitly stops a live pump.
+ if(shadowEnabled&&!session)return null;
  return <div className="hst-real-control">
   <div className="hst-real-control-header">
-   <strong>Eksekusi fertigasi AI HST</strong>
-   <span>{preflight?.canDispatch?'Preflight siap':'Preflight diblokir'}</span>
+   <strong>{shadowEnabled?'Sesi pompa yang sudah dibuat':'Eksekusi fertigasi AI HST'}</strong>
+   <span>{shadowEnabled?'SHADOW ON · Sesi fisik tetap dipantau'
+     :preflight?.canDispatch?'Perangkat siap':'Menunggu kesiapan perangkat'}</span>
   </div>
-  {preflightError&&<p role="alert">{preflightError}</p>}
-  {!preflight&& !preflightError&&<p>Memeriksa kesiapan sesi real…</p>}
-  {preflight?.reasons.length? <p className="hst-real-blockers">
+  {!shadowEnabled&&preflightError&&<p role="alert">{preflightError}</p>}
+  {!shadowEnabled&&!preflight&&!preflightError&&<p>Memeriksa kesiapan perangkat…</p>}
+  {!shadowEnabled&&preflight?.reasons.length? <p className="hst-real-blockers">
    {preflight.reasons.map(reason=><small key={reason}>• {reason.replaceAll('_',' ')}</small>)}
   </p>:null}
-  {setup?.profile&&<p className="hst-real-stock">
+  {!shadowEnabled&&setup?.profile&&<p className="hst-real-stock">
    Stok terverifikasi: <strong>{setup.profile.stockConcentrationGPerL} g/L</strong> ·
    {setup.profile.product} · flow meter {setup.profile.waterMeterPosition==='before_injector'?'sebelum':'sesudah'} injektor
   </p>}
-  {user.role==='admin' && !session&&<>
+  {!shadowEnabled&&user.role==='admin' && !session&&<>
    <button type="button" className="hst-refresh" onClick={()=>setEditing(v=>!v)}>
     {editing?'Tutup konfigurasi':'Konfigurasi stok dan hidrolik'}
    </button>
@@ -148,13 +152,13 @@ export function HstRealExecutionCard({proposal,preflight,preflightError,refreshP
      onClick={()=>{void save()}} type="button">{pending?'Menyimpan…':'Simpan profil terverifikasi'}</button>
    </div>}
   </>}
-  {!session&&<label className="hst-confirm">
+  {!shadowEnabled&&!session&&<label className="hst-confirm">
    <input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}
     disabled={!preflight?.canDispatch||pending||unavailable}/>
    Saya menyetujui pelaksanaan hasil kalkulasi AI HST pada pompa air dan pupuk fisik,
    serta telah memeriksa stok, jalur, dan keamanan perangkat.
   </label>}
-  {!session&&<button className="hst-approve" type="button"
+  {!shadowEnabled&&!session&&<button className="hst-approve" type="button"
    disabled={!confirmed||!preflight?.canDispatch||pending||unavailable}
    onClick={()=>{void run()}}>
    {pending?'Memproses ACC…':'ACC & Jalankan Sesi Pompa Real'}
