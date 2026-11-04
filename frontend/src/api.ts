@@ -992,3 +992,15 @@ export const setAiHstMode=(shadowEnabled:boolean)=>
  request<import('@spff/contracts').AiHstMode>('/unified-ai/hst/mode',{
  method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({shadowEnabled}),
 });
+
+
+/** Existing Python conversion results; this GET never creates a plan or ACC. */
+export function fetchAiHstLiquidSummary(signal?:AbortSignal){
+ return request<{
+  planning_status:'CURRENT'|'STALE'|'UNAVAILABLE';
+  planning_recorded_at:string|null;
+  tank_preview:{estimated_available_l:number|null;level_status:string};
+  fertilizer_tank_preview:{estimated_liquid_volume_l:number|null;level_status:string};
+  water_carryover:{status:string;remaining_for_reassessment_l:number|null;planning_date:string|null};
+ }>('/unified-ai/dashboard',{signal});
+}
