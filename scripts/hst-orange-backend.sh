@@ -133,16 +133,21 @@ STAGING_BUILD
  cp -a "$PROD/packages/contracts/dist" "$RUN/new/contracts"
  cp -a "$PROD/functions/lib" "$RUN/new/api"
  cp -a "$PROD/mqtt-worker/dist" "$RUN/new/worker"
- for module in aiHst adaptiveFertigation; do
+ for module in aiHst adaptiveFertigation unifiedAiDashboard; do
   install -m644 "$SRC/packages/contracts/dist/$module.js" "$RUN/new/contracts/$module.js"
  done
- for module in controllers/aiHstController services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
+ for module in controllers/aiHstController controllers/unifiedAiDashboardController services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
   install -D -m644 "$SRC/functions/lib/$module.js" "$RUN/new/api/$module.js"
  done
  install -m644 "$SRC/mqtt-worker/dist/adaptiveFertigationTransport.js" "$RUN/new/worker/adaptiveFertigationTransport.js"
  [[ -f "$RUN/new/contracts/index.js" ]] || fatal "contracts barrel missing"
  grep -q "aiHst.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing aiHst export"
  grep -q "adaptiveFertigation.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing adaptive export"
+ # The production barrel may predate the dashboard summary contract.
+ if ! grep -q "unifiedAiDashboard.js" "$RUN/new/contracts/index.js"; then
+   printf "\\nexport * from './unifiedAiDashboard.js';\\n" >> "$RUN/new/contracts/index.js"
+ fi
+
  # Extend HST-specific routes in the compiled production router. Do not lose
  # any user's unrelated local routes or middleware modifications.
  python3 - "$PROD/functions/lib/routes/index.js" "$SRC/functions/lib/routes/index.js" "$RUN/new/api/routes/index.js" <<'PY'
@@ -161,16 +166,35 @@ oldroutes=re.findall(route_pattern,live,re.M)
 if len(routes)<8 or len(oldroutes)<2: raise SystemExit('STOP: HST route anchors changed unexpectedly')
 for entry in oldroutes:
     live=live.replace(entry,'',1)
+# Install the missing read-only dashboard route without replacing local routes.
+summary_path='/unified-ai/dashboard'
+summary_import=r"""import\s*\{([^}]*)\}\s*from\s*['"]\.\./controllers/unifiedAiDashboardController\.js['"];"""
+summary_imports=re.findall(summary_import,live,re.S)
+if len(summary_imports)>1: raise SystemExit('STOP: duplicate dashboard controller imports')
+if not summary_imports:
+    live="import { getUnifiedAiDashboard } from '../controllers/unifiedAiDashboardController.js';\n"+live
+elif 'getUnifiedAiDashboard' not in summary_imports[0]:
+    raise SystemExit('STOP: dashboard controller binding changed')
+summary_routes=list(re.finditer(r"""apiRouter\.get\(\s*['"]/unified-ai/dashboard['"]\s*,[^;]+;""",live,re.S))
+if len(summary_routes)>1: raise SystemExit('STOP: duplicate dashboard summary routes')
+if summary_routes:
+    if 'getUnifiedAiDashboard' not in summary_routes[0].group():
+        raise SystemExit('STOP: dashboard route uses an unexpected handler')
+else:
+    routes.append("apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);")
 anchor="apiRouter.get('/unified-ai/hst/proposals'"
 pos=live.find("apiRouter.get(\n  '/bootstrap'")
 if pos<0: pos=live.find("apiRouter.get('/bootstrap'")
 if pos<0: raise SystemExit('STOP: authenticated bootstrap route anchor not found')
 # HST routes must be inserted immediately before the existing authenticated bootstrap.
-auth=live.find('requireAuth')
-if auth<0 or pos<auth: raise SystemExit('STOP: authentication boundary mismatch')
+auth=re.search(r'apiRouter\.use\(\s*requireAuth\s*,?\s*\)\s*;',live)
+if auth is None or pos<auth.end(): raise SystemExit('STOP: authentication boundary mismatch')
+if summary_routes and summary_routes[0].start()<auth.end():
+    raise SystemExit('STOP: dashboard route is outside authentication')
 live=live[:pos]+'\n'.join(routes)+'\n\n'+live[pos:]
 dest.write_text(live)
-print('PRESERVED_LOCAL_API_ROUTES=PASS;',len(routes),'HST routes merged')
+print('PRESERVED_LOCAL_API_ROUTES=PASS;',len(routes),'HST/dashboard routes merged')
+print('AI_DASHBOARD_ROUTE=INSTALLED; AUTH=REQUIRED')
 PY
  say "Merge local frontend TS/CSS in disposable build directory"
  MERGED="$RUN/merged-build"
@@ -239,6 +263,17 @@ PY
  (cd "$MERGED/frontend" && "$TSC_BIN" -b && "$VITE_BIN" build)
  [[ -s "$MERGED/frontend/dist/index.html" ]] || fatal "merged frontend build output missing"
  cp -a "$MERGED/frontend/dist" "$RUN/new/web"
+ say "Verify existing Python AI summary before changing production runtime"
+ curl -fsS --max-time 20 http://127.0.0.1:5010/dashboard/summary > "$RUN/ai-dashboard-summary.json" || fatal "Python AI /dashboard/summary unavailable; no runtime changes made"
+ node --input-type=module - "$SRC" "$RUN/ai-dashboard-summary.json" <<'SUMMARY_CHECK'
+import {readFileSync} from 'node:fs';
+import {pathToFileURL} from 'node:url';
+const [source,file]=process.argv.slice(2);
+const {unifiedAiDashboardSchema}=await import(pathToFileURL(source+'/packages/contracts/dist/unifiedAiDashboard.js').href);
+const parsed=unifiedAiDashboardSchema.safeParse(JSON.parse(readFileSync(file,'utf8')));
+if(!parsed.success){console.error('STOP: Python AI dashboard response is incompatible');process.exit(1);}
+console.log('AI_SUMMARY_UPSTREAM=PASS; planning='+parsed.data.planning_status);
+SUMMARY_CHECK
  say "Back up PostgreSQL before additive migration"
  (cd / && runuser -u postgres -- pg_dump -Fc -d spff) > "$RUN/db-before.dump"
  [[ -s "$RUN/db-before.dump" ]] || fatal "DB backup failed"
