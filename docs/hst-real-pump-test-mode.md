@@ -153,3 +153,60 @@ The PGlite integration tests are optional when
 `SPFF_TEST_PGLITE_MODULE` is not configured. A skipped integration test
 must never be reported as a pass. All production services remain untouched
 by the above staging commands.
+
+## Orange Pi backend rollout and SHADOW authority (November 2026)
+
+SHADOW MODE is now a **single shared PostgreSQL setting** in additive
+migration `038_hst_shadow_mode.sql`, default **ON** for every site. The
+dashboard obtains it from authenticated `GET /api/unified-ai/hst/mode` and
+admin updates it with CSRF-protected `PUT /api/unified-ai/hst/mode`.
+The API checks SHADOW OFF again inside the same PostgreSQL transaction
+that reserves the HST session + START command. A concurrent switch to
+SHADOW ON is rejected while a physical HST session is unfinished; operators
+must STOP/reconcile first. Neither toggling nor deploying drives a pump.
+
+Run on the actual Orange Pi via PuTTY (checkout already cloned):
+
+```bash
+cd ~/spff-hst-mode-preview
+git fetch origin
+git merge --ff-only origin/feature/hst-shadow-real-test-switch-20261104
+bash -n scripts/hst-orange-backend.sh
+sudo bash scripts/hst-orange-backend.sh deploy "$PWD"
+```
+
+The deploy command checks production health and 034-036, executes build/lint/
+tests from staging, preserves local frontend TS/CSS by compiling a disposable
+merged copy, patches HST API routes into a copy of the live router, backs up
+the database, applies additive 037+038, and swaps ONLY compiled runtime
+directories with rollback. It deliberately leaves physical START gates OFF,
+does not flash firmware, and does not overwrite `/opt/spff` source.
+
+To commission, while physically supervising isolated pumps:
+- Switch SHADOW OFF and use the admin panel to bind one fertilizer product,
+  actual stock concentration, and validated EC and hydraulic profiles.
+- Check the MCU hardware selector MANUAL, validated sensors, emergency STOP,
+  actual relay readback and no competing schedules or sessions.
+- Arm only after the independent commissioning checks:
+
+```bash
+sudo bash scripts/hst-orange-backend.sh enable "$PWD"
+sudo bash scripts/hst-orange-backend.sh status "$PWD"
+```
+
+Operator must type an explicit physical arming confirmation. This permits
+**future** authenticated ACC actions; it does not start a pump on its own.
+For emergency physical STOP, use the ESP32-local selector/kill mechanism;
+turning SHADOW ON or running `disable` cannot guarantee a running pump
+has already stopped. To disable new dispatches from the API/worker:
+
+```bash
+sudo bash scripts/hst-orange-backend.sh disable "$PWD"
+```
+
+Current verification boundaries: GitHub code has been written, but this
+development environment has no SSH connection to the Orange Pi or a full
+npm checkout to run builds/lint. Earlier ARM64 contract tests passed, while
+the HST PostgreSQL integration test was skipped without PGlite. Running the
+rollout is *not* evidence of physical pump functionality. Never bypass
+preflight or claim successful pump state without MCU ACK and actual telemetry.
