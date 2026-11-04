@@ -9,6 +9,8 @@ import {
   aiHstRealExecuteRequestSchema,
   aiHstRealPlanSchema,
   aiHstHardwareProfileSchema,
+  aiHstModeSchema,
+  aiHstModeRequestSchema,
 } from '../dist/index.js';
 
 const obligationId = 'a'.repeat(64);
@@ -140,4 +142,14 @@ test('hardware profile requires a selected single stock and an auditable hydraul
  assert.equal(aiHstHardwareProfileSchema.safeParse({...profile,hydraulicsReference:''}).success,false);
  assert.equal(aiHstHardwareProfileSchema.safeParse({...profile,stockConcentrationGPerL:-1}).success,false);
  assert.equal(aiHstHardwareProfileSchema.safeParse({...profile,waterMeterPosition:'unknown'}).success,false);
+});
+
+test('persistent HST SHADOW switch is typed, fail-closed and accepts only one boolean',()=>{
+ const mode={schemaVersion:1,shadowEnabled:true,updatedAt:'2026-11-04T12:00:00.000Z'};
+ assert.equal(aiHstModeSchema.safeParse(mode).success,true);
+ assert.equal(aiHstModeSchema.safeParse({...mode,shadowEnabled:false}).success,true);
+ assert.equal(aiHstModeSchema.safeParse({...mode,shadowEnabled:'false'}).success,false);
+ assert.equal(aiHstModeRequestSchema.safeParse({shadowEnabled:false}).success,true);
+ assert.equal(aiHstModeRequestSchema.safeParse({shadowEnabled:1}).success,false);
+ assert.equal(aiHstModeRequestSchema.safeParse({shadowEnabled:false,pumpWaterOn:true}).success,false);
 });
