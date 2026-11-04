@@ -26,6 +26,7 @@ mkdir -m 700 -p "$RUN"
 printf '%s\n' "$RUN" > "$BACKUP/hst-preserve-local-latest.txt"
 exec > >(tee -a "$RUN/rollout.log") 2>&1
 CHANGED=0
+RUNTIME_SWITCHED=0
 AI_DROPIN=0
 API_DROPIN=0
 ENV_CREATED=0
@@ -50,9 +51,24 @@ rollback() {
   restore_dir api "$PROD/functions/lib"
   restore_dir web "$PROD/frontend/dist"
   systemctl daemon-reload || true
-  systemctl restart spff-api.service || true
+  # AI-only failure: do NOT restart a healthy production Node API.
+  # Only a swapped runtime or missing service requires an API restart.
+  if [[ "$RUNTIME_SWITCHED" == 1 ]] || ! systemctl is-active --quiet spff-api.service; then
+    echo "ROLLBACK_API_RESTART=REQUIRED"
+    systemctl restart spff-api.service || true
+  else
+    echo "ROLLBACK_API_RESTART=SKIPPED (production API not changed)"
+  fi
   systemctl stop spff-ai-engine.service || true
-  if curl -fsS -m 8 http://127.0.0.1:3001/api/health >/dev/null; then
+  api_ok=0
+  for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    if curl -fsS -m 3 http://127.0.0.1:3001/api/health >/dev/null 2>&1; then
+      api_ok=1
+      break
+    fi
+    sleep 2
+  done
+  if [[ "$api_ok" == 1 ]]; then
     echo "ROLLBACK_API_HEALTH=OK"
   else
     echo "ROLLBACK_API_HEALTH=FAILED — manual inspection required"
@@ -422,6 +438,7 @@ code="$(curl -sS -m 5 -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: a
 test "$code" = 403 || { echo "STOP: unauthorized HST Python write status=$code"; exit 1; }
 
 echo "=== 9. SWITCH COMPILED OUTPUT ONLY, PRESERVE ALL LIVE SOURCE EDITS ==="
+RUNTIME_SWITCHED=1
 mv "$PROD/packages/contracts/dist" "$RUN/old/contracts"
 mv "$RUN/new/contracts" "$PROD/packages/contracts/dist"
 mv "$PROD/functions/lib" "$RUN/old/api"
