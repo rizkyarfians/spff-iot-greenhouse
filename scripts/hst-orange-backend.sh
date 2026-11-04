@@ -213,7 +213,7 @@ if 'HstApprovalPanel' not in guide:
  guide=guide.replace(i,i+"\nimport {HstApprovalPanel} from './HstApprovalPanel'",1)
  guide=guide.replace(c,"    <HstApprovalPanel/>\n"+c,1)
  # Remove the retired informational banner from the preserved production page.
-guide=re.sub(r'^\\s*<AutomationMethodNote\\s*/>\\s*\\n', '', guide, flags=re.M)
+guide=''.join(line for line in guide.splitlines(keepends=True) if line.strip() != '<AutomationMethodNote/>')
 guide=guide.replace('AutomationMethod,AutomationMethodNote', 'AutomationMethod')
 guide_path.write_text(guide)
 print('PRESERVED_PRODUCTION_FRONTEND_SOURCE=PASS')
