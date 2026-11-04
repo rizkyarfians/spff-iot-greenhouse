@@ -2,6 +2,7 @@ import asyncio
 import hmac
 import json
 import logging
+import math
 from typing import Literal
 from uuid import UUID
 from contextlib import asynccontextmanager
@@ -176,6 +177,17 @@ def create_app(settings=None, config=None, store=None):
         if not source or settings.mode != "SHADOW_MODE":
             raise HTTPException(409, "HST operator review requires source-shadow mode")
         try:
+            # Idempotent replay must still work if the source goes offline
+            # after the initial recorded review. Never reuse the UUID for
+            # another actor/obligation/remaining-mass amount.
+            existing = store.read().get("hst_workflow", {}).get("approvals", {}).get(str(body.approval_id))
+            if existing:
+                if (existing["obligation_id"] != body.obligation_id
+                        or existing["operator_id"] != body.actor
+                        or not math.isclose(existing["expected_remaining_g"],
+                                            body.expected_remaining_g, rel_tol=0, abs_tol=0.01)):
+                    raise HstWorkflowConflict("approval_id_conflicts_with_existing_review")
+                return existing
             # The sensor/tank/Soil 2 read occurs ONLY after explicit ACC.
             observation = json.loads(json.dumps(source.inspect(), default=str, allow_nan=False))
             raw_profile = store.runtime_profile() if hasattr(store, "runtime_profile") else None
