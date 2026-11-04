@@ -43,16 +43,16 @@ test('adaptive backend pins conversion, allocates batches, persists duplicate te
   const first=event(telemetry);await transport.saveEvent(first);await transport.saveEvent(first)
   let progress=await adaptive.adaptiveProgress(p.programId);assert.equal(progress.activities[0].estimatedDeliveredMassG,100);assert.equal(progress.history[0].status,'running')
   assert.equal((await query('SELECT count(*)::int AS n FROM spff.adaptive_fert_events')).rows[0].n,1)
-  // Replayed/forged telemetry from another MCU boot must NOT inflate delivered dose.
-  await transport.saveEvent(event({...telemetry,timestamp:new Date().toISOString(),bootId:'ffffffffffffffff',fertVolumeL:2,fertMassGrams:200}));
-  assert.equal((await adaptive.adaptiveProgress(p.programId)).activities[0].estimatedDeliveredMassG,100);
-  assert.equal((await adaptive.adaptiveProgress(p.programId)).history[0].status,'reconciliation_required');
   await transport.saveEvent(event({...telemetry,timestamp:new Date(Date.now()-1000).toISOString(),waterVolumeL:5,fertVolumeL:0.5,fertMassGrams:50}));assert.equal((await adaptive.adaptiveProgress(p.programId)).activities[0].estimatedDeliveredMassG,100)
   await assert.rejects(adaptive.controlAdaptiveSession(session.session_id,'resume',randomUUID()),/priming/)
   const pause=await adaptive.controlAdaptiveSession(session.session_id,'pause',randomUUID());await transport.dispatch();assert.equal(sent.length,2)
   // Firmware ACKs reuse the start command ID; the pause command must not be falsely acknowledged.
   await transport.saveEvent(event({kind:'adaptive_fert_ack',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:session.session_id,commandId:session.command_snapshot.commandId,state:'PAUSED',status:'accepted',acknowledgedAt:new Date().toISOString(),reason:'session_paused'}))
   assert.notEqual((await query('SELECT status FROM spff.adaptive_fert_commands WHERE command_id=$1',[pause.command_id])).rows[0].status,'accepted')
+  // Replayed/forged telemetry from another MCU boot must NOT inflate delivered dose.
+  await transport.saveEvent(event({...telemetry,timestamp:new Date().toISOString(),bootId:'ffffffffffffffff',fertVolumeL:2,fertMassGrams:200}));
+  assert.equal((await adaptive.adaptiveProgress(p.programId)).activities[0].estimatedDeliveredMassG,100);
+  assert.equal((await adaptive.adaptiveProgress(p.programId)).history[0].status,'reconciliation_required');
   await transport.saveEvent(event({...telemetry,timestamp:new Date().toISOString(),state:'FAULT',waterPump:false,fertPump:false,faultReason:'dry_run_water'}))
   assert.equal((await adaptive.adaptiveProgress(p.programId)).history[0].status,'reconciliation_required')
   await query("INSERT INTO spff.actuators(site_id,device_id,actuator_key,display_name,actuator_type)VALUES('greenhouse-01','esp32-s3-01','pump_water','Water','pump')")
