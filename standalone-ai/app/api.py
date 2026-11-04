@@ -105,7 +105,10 @@ def create_app(settings=None, config=None, store=None):
         return {"mode": settings.mode, "port": settings.port, "can_dispatch": False,
                 "fertilizer_delivery_route": settings.fertilizer_delivery_route,
                 "source_configured": source is not None, "state_backend": "postgresql" if settings.state_dsn else "sqlite-local",
-                "polling": poll_status, "decision_count": len(state["decisions"]),
+                "polling": poll_status,
+                "decision_count": len(state.get("hst_workflow", {}).get("proposals", {})),
+                "legacy_development_decision_count": len(state["decisions"]),
+                "decision_trigger": "HST_SCHEDULE_ONLY",
                 "blocking_reason": "existing firmware volume-session contract is unverified"}
 
     @app.get("/config")
@@ -137,7 +140,10 @@ def create_app(settings=None, config=None, store=None):
             raise HTTPException(503, "real SPFF source is not configured")
         try:
             state = store.read()
-            saved = state["decisions"]
+            # The 4k legacy source-shadow decisions are development history,
+            # NOT active HST proposals. Current duties are exposed by /hst/proposals.
+            # Preserve legacy /decisions readback for explicit history inspection.
+            saved = {}
             # GET performs a read-only source inspection. It must not create
             # SHADOW decisions, credit doses, or write operational databases.
             planning_observation = source.inspect()
@@ -189,14 +195,15 @@ def create_app(settings=None, config=None, store=None):
 
     @app.get("/obligations")
     def obligations():
-        return list(store.read().get("live", {}).get("obligations", {}).values())
+        return list(store.read().get("hst_workflow", {}).get("obligations", {}).values())
 
     @app.get("/live/state")
     def live_state():
-        state = store.read().get("live", {})
+        state = store.read().get("hst_workflow", {})
         return {"mode": settings.mode, "can_dispatch": False, "obligations": state.get("obligations", {}),
-                "sessions": state.get("sessions", {}), "ema": state.get("ema", {}),
-                "decision_count": len(state.get("decisions", {})),
+                "sessions": {}, "ema": {},
+                "decision_count": len(state.get("proposals", {})),
+                "legacy_development_state_ignored": True,
                 "ec_target_required_for_scheduling": False}
 
     @app.get("/simulations")
