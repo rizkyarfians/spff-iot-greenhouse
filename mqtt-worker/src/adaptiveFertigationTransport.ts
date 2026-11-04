@@ -71,7 +71,12 @@ export class AdaptiveFertigationTransport {
        if(payload.waterVolumeL+1e-6<row.water_volume_l||payload.fertVolumeL+1e-6<row.fert_volume_l)status='reconciliation_required';
        const mass=payload.fertVolumeL*row.command_snapshot.nominalConcentrationGPerL;
        if(payload.fertVolumeL>row.command_snapshot.targetFertVolumeL+Math.max(0.1,row.command_snapshot.targetFertVolumeL*0.05)||Math.abs(payload.fertMassGrams-mass)>Math.max(1,mass*0.02))status='reconciliation_required';
-       await c.query(`UPDATE spff.adaptive_fert_sessions SET water_volume_l=GREATEST(water_volume_l,$3),fert_volume_l=GREATEST(fert_volume_l,$4),last_telemetry_at=$5,last_telemetry=$6,status=$7,reason=$8 WHERE site_id=$1 AND session_id=$2`,[event.siteId,row.session_id,payload.waterVolumeL,payload.fertVolumeL,payload.timestamp,JSON.stringify(payload),status,payload.faultReason]);
+       if(status==='reconciliation_required'){
+        // Preserve the incident but never debit grams from an uncertain meter.
+        await c.query(`UPDATE spff.adaptive_fert_sessions SET last_telemetry_at=$3,last_telemetry=$4,status='reconciliation_required',reason=$5 WHERE site_id=$1 AND session_id=$2`,[event.siteId,row.session_id,payload.timestamp,JSON.stringify(payload),'adaptive_meter_discrepancy']);
+       }else{
+        await c.query(`UPDATE spff.adaptive_fert_sessions SET water_volume_l=GREATEST(water_volume_l,$3),fert_volume_l=GREATEST(fert_volume_l,$4),last_telemetry_at=$5,last_telemetry=$6,status=$7,reason=$8 WHERE site_id=$1 AND session_id=$2`,[event.siteId,row.session_id,payload.waterVolumeL,payload.fertVolumeL,payload.timestamp,JSON.stringify(payload),status,payload.faultReason]);
+       }
        }
       }
      }
