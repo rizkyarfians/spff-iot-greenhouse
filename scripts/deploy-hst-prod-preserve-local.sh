@@ -376,6 +376,7 @@ python3 -m venv "$AI_RELEASE/venv"
 (cd "$AI_RELEASE/standalone-ai" && "$AI_RELEASE/venv/bin/python" -m unittest discover -s tests -p test_live_source.py)
 (cd "$AI_RELEASE/standalone-ai" && "$AI_RELEASE/venv/bin/python" -m unittest discover -s tests -p test_api.py)
 (cd "$AI_RELEASE/standalone-ai" && "$AI_RELEASE/venv/bin/python" -m unittest discover -s tests -p test_hst_state_separation.py)
+(cd "$AI_RELEASE/standalone-ai" && "$AI_RELEASE/venv/bin/python" -m unittest discover -s tests -p test_hst_scope_migration.py)
 chown -R root:root "$AI_RELEASE"
 chmod -R a+rX "$AI_RELEASE"
 echo "PYTHON_RELEASE=$AI_RELEASE"
