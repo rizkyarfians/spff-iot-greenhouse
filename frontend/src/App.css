@@ -3309,3 +3309,6 @@ and (
 /* Desktop density and container breakpoints are defined in ResponsiveLayout.css. */
 
 .sensor-panel-empty { grid-column:1 / -1; margin:8px 0; color:var(--muted); }
+
+/* Temporarily unavailable dashboard sensor group. */
+.sensor-group-select option:disabled { color: #9ca3af; background: #f3f4f6; }
