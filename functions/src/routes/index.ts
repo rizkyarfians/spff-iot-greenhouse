@@ -1,3 +1,4 @@
+import {getUnifiedAiDashboard} from '../controllers/unifiedAiDashboardController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
 import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
 import {getProtocolGuide,getProtocolGuideHistory,putProtocolGuide} from '../controllers/protocolGuideController.js';
@@ -169,6 +170,7 @@ apiRouter.post(
  * DASHBOARD READ
  */
 
+apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);
 apiRouter.get('/unified-ai/hst/proposals', requireOperator, getHstProposals);
 apiRouter.get('/unified-ai/hst/mode',requireOperator,getHstMode);
 apiRouter.put('/unified-ai/hst/mode',requireAdmin,requireCsrf,putHstMode);
