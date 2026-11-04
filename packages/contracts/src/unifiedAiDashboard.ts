@@ -102,7 +102,7 @@ const planningProductOption = z.object({
 const planningPreview = z.object({
   basis: z.literal('GUIDE_WITH_UNVERIFIED_HISTORICAL_FLOW'),
   water_l: num,
-  water_source: z.enum(['GUIDE', 'OPERATOR_INPUT', 'FUZZY_SIMULATION']).nullable(),
+  water_source: z.enum(['GUIDE', 'OPERATOR_INPUT', 'FUZZY_SIMULATION', 'FUZZY_OPERATIONAL']).nullable(),
   fertilizer_mass_g: num,
   stock_l: num,
   water_duration_minutes: num,
@@ -163,7 +163,7 @@ export const unifiedAiDashboardSchema = z.object({
     duration_seconds: num, fuzzy_score: num,
   }).strict(),
   fuzzy_preview: z.object({
-    basis: z.literal('SIMULATION_PROFILE'),
+    basis: z.enum(['SIMULATION_PROFILE','OPERATIONAL_PROFILE']),
     config_version: str,
     input_key: z.enum(['soil_1_moisture','soil_2_moisture']),
     moisture_pct: z.number().min(0).max(100),
@@ -172,9 +172,16 @@ export const unifiedAiDashboardSchema = z.object({
     model_max_irrigation_l: num,
     recorded_at: nullableStr,
   }).strict().nullable(),
+  operational_profile: z.object({
+    status: z.enum(['MISSING','REVIEW_REQUIRED','GUIDE_BOUND']),
+    version: nullableStr, program_id: nullableStr, activity_id: nullableStr,
+    target_water_l: num, calculation_ready: z.boolean(), can_dispatch: z.literal(false),
+    blockers: reasons,
+  }).strict().optional(),
   fuzzy_preview_blockers: z.array(z.enum(['no_source_decision','simulation_profile_unavailable','control_source_not_selected','selected_sensor_value_missing','selected_sensor_health_invalid','sensor_control_diagnostic_rejected','sensor_raw_poll_not_verified','sensor_poll_boot_missing','sensor_raw_value_unverified','sensor_raw_age_unverified','control_config_not_acknowledged','sensor_timestamp_missing','sensor_snapshot_stale','simulation_rules_invalid'])).max(20),
   programs: z.array(program).max(30),
   note: z.string().max(500),
 }).strict();
 
 export type UnifiedAiDashboard = z.infer<typeof unifiedAiDashboardSchema>;
+
