@@ -10,6 +10,8 @@ import {
   Router,
 } from 'express';
 import { requireAiEvaluationEnabled } from '../middleware/aiEvaluation.js';
+import { getHstProposals, postHstApproval } from '../controllers/aiHstController.js';
+
 
 import {
   auditMutation,
@@ -163,6 +165,9 @@ apiRouter.post(
 /*
  * DASHBOARD READ
  */
+
+apiRouter.get('/unified-ai/hst/proposals', requireOperator, getHstProposals);
+apiRouter.post('/unified-ai/hst/approvals', requireOperator, requireCsrf, postHstApproval);
 
 apiRouter.get(
   '/bootstrap',

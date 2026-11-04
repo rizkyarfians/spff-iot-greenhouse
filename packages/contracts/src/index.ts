@@ -1029,3 +1029,5 @@ export * from './protocolGuideEdits.js';
 export * from './guidePrograms.js';
 export * from './guideEcConversion.js';
 export * from './adaptiveFertigation.js';
+
+export * from './aiHst.js';

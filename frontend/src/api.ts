@@ -944,3 +944,13 @@ export type AdaptiveProgressReport={activities:{activityId:string;targetMassG:nu
 export const fetchGuideEcConversions=(id:string)=>request<import('@spff/contracts').GuideEcConversion[]>(`/guide-programs/${encodeURIComponent(id)}/ec-conversion`)
 export const fetchAdaptiveProgress=(id:string)=>request<AdaptiveProgressReport>(`/adaptive-fertigation/programs/${encodeURIComponent(id)}/progress`)
 export const saveGuideEcProfile=(id:string,input:import('@spff/contracts').GuideEcProfileInput)=>request<{revision:number}>(`/guide-programs/${encodeURIComponent(id)}/ec-profile`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})
+
+// AI HST: observation and one authenticated SHADOW operator review (no pump dispatch).
+export function fetchAiHstProposals(signal?: AbortSignal) {
+  return request<import('@spff/contracts').AiHstProposals>('/unified-ai/hst/proposals', {signal})
+}
+export function reviewAiHstApproval(input: import('@spff/contracts').AiHstApprovalRequest) {
+  return request<import('@spff/contracts').AiHstApprovalResult>('/unified-ai/hst/approvals', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(input),
+  })
+}
