@@ -97,7 +97,7 @@ if [[ "$MODE" == deploy ]]; then
  for module in aiHst adaptiveFertigation; do
   install -m644 "$SRC/packages/contracts/dist/$module.js" "$RUN/new/contracts/$module.js"
  done
- for module in controllers/aiHstController services/adaptiveFertigationService services/hstRealExecutionService; do
+ for module in controllers/aiHstController services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
   install -D -m644 "$SRC/functions/lib/$module.js" "$RUN/new/api/$module.js"
  done
  install -m644 "$SRC/mqtt-worker/dist/adaptiveFertigationTransport.js" "$RUN/new/worker/adaptiveFertigationTransport.js"
@@ -147,6 +147,12 @@ PY
   *) fatal "migration 037 only partly installed";;
  esac
  [[ "$(db "SELECT (to_regclass('spff.hst_real_profiles') IS NOT NULL AND to_regclass('spff.hst_real_sessions') IS NOT NULL)::text")" == t ]] || fatal "migration 037 not installed"
+ say "Migration 038: durable SHADOW MODE ON by default"
+ if [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" != t ]]; then
+   runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff -f "$SRC/infrastructure/postgres/migrations/038_hst_shadow_mode.sql"
+ fi
+ [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == t ]] || fatal "migration 038 missing"
+ [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "SHADOW MODE default must be ON at deployment"
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"
@@ -192,7 +198,7 @@ if [[ "$MODE" == status ]]; then
 fi
 # Explicit in-person arming only, never enabled by the deploy phase.
 healthy || fatal "production unhealthy"
-[[ "$(db "SELECT (to_regclass('spff.hst_real_profiles') IS NOT NULL AND to_regclass('spff.hst_real_sessions') IS NOT NULL)::text")" == t ]] || fatal "migration 037 missing"
+[[ "$(db "SELECT (to_regclass('spff.hst_real_profiles') IS NOT NULL AND to_regclass('spff.hst_real_sessions') IS NOT NULL AND to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == t ]] || fatal "migrations 037-038 missing"
 [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain adaptive session"
 [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_commands WHERE status IN ('pending','dispatching','unknown')")" == 0 ]] || fatal "pending/unknown adaptive command"
 [[ "$(db "SELECT count(*) FROM spff.hst_real_profiles")" -gt 0 ]] || fatal "no verified stock profile. Configure as admin from SHADOW OFF first."
