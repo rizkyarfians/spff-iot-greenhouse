@@ -20,7 +20,7 @@ BACKUP="$NVME/backups/hst-prod-preflight-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -m 700 -p "$BACKUP"
 echo "$BACKUP" > "$NVME/backups/hst-prod-preflight-latest.txt"
 exec > >(tee -a "$BACKUP/preflight.log") 2>&1
-trap 'rc=$?; echo "$rc" > "$BACKUP/preflight.exit"; echo "FINAL EXIT CODE: $rc"; echo "BACKUP=$BACKUP"' EXIT
+trap 'rc=$?; echo "$rc" > "$BACKUP/preflight.exit"; echo "FINAL EXIT CODE: $rc"; echo "BACKUP=$BACKUP"; exit "$rc"' EXIT
 
 echo "=== MACHINE AND GIT ==="
 date -Is
@@ -30,14 +30,14 @@ df -h "$NVME"
 node --version
 npm --version
 python3 --version
-echo "STAGE_HEAD=$(git -C "$STAGE" rev-parse HEAD)"
-[[ -z "$(git -C "$STAGE" status --porcelain --untracked-files=no)" ]] || { echo "STOP: STAGE source modified"; exit 1; }
+echo "STAGE_HEAD=$(git -c safe.directory="$STAGE" -C "$STAGE" rev-parse HEAD)"
+[[ -z "$(git -c safe.directory="$STAGE" -C "$STAGE" status --porcelain --untracked-files=no)" ]] || { echo "STOP: STAGE source modified"; exit 1; }
 if [[ -d "$PROD/.git" ]]; then
-  PHEAD="$(git -C "$PROD" rev-parse HEAD)"
+  PHEAD="$(git -c safe.directory="$PROD" -C "$PROD" rev-parse HEAD)"
   echo "PROD_HEAD=$PHEAD"
-  echo "PROD_TRACKED_CHANGES=$(git -C "$PROD" status --porcelain --untracked-files=no | wc -l)"
-  if git -C "$STAGE" cat-file -e "$PHEAD^{commit}" 2>/dev/null; then
-    if git -C "$STAGE" merge-base --is-ancestor "$PHEAD" HEAD; then
+  echo "PROD_TRACKED_CHANGES=$(git -c safe.directory="$PROD" -C "$PROD" status --porcelain --untracked-files=no | wc -l)"
+  if git -c safe.directory="$STAGE" -C "$STAGE" cat-file -e "$PHEAD^{commit}" 2>/dev/null; then
+    if git -c safe.directory="$STAGE" -C "$STAGE" merge-base --is-ancestor "$PHEAD" HEAD; then
       echo "PROD_ANCESTOR_OF_HST=true"
     else
       echo "PROD_ANCESTOR_OF_HST=false"
