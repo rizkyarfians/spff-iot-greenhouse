@@ -86,6 +86,24 @@ class HstWorkflowTests(unittest.TestCase):
         self.assertNotEqual(first["approval_date"], second["approval_date"])
         self.assertEqual(self.workflow.proposals()["proposals"][0]["approval_count"], 2)
 
+    def test_partial_verified_progress_is_carried_to_next_day(self):
+        self.workflow.scan(self.guide, now=self.now)
+        oid = self.workflow.proposals()["proposals"][0]["obligation_id"]
+        # Future verified-device-feedback adapter alone will update this
+        # authoritative V2 progress; approval never does so.
+        with self.store.transaction() as state:
+            state["hst_workflow"]["obligations"][oid]["delivered_g"] = 20000
+            state["hst_workflow"]["obligations"][oid]["status"] = "PARTIAL"
+        tomorrow = self.now + timedelta(days=1)
+        later = real_observation(tomorrow, due_today=False)
+        self.workflow.scan(later["guide_programs"], now=tomorrow)
+        proposal = self.workflow.proposals()["proposals"][0]
+        self.assertEqual(proposal["status"], "PARTIAL_WAITING_APPROVAL")
+        self.assertEqual(proposal["target_g"], 50000)
+        self.assertEqual(proposal["delivered_g"], 20000)
+        self.assertEqual(proposal["remaining_g"], 30000)
+        self.assertEqual(proposal["approval_count"], 0)
+
     def test_stale_approval_amount_rejected(self):
         self.workflow.scan(self.guide, now=self.now)
         oid = self.workflow.proposals()["proposals"][0]["obligation_id"]
