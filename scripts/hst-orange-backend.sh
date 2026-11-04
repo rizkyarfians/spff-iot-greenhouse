@@ -212,7 +212,10 @@ if 'HstApprovalPanel' not in guide:
  if guide.count(i)!=1 or guide.count(c)!=1: raise SystemExit('STOP: GuidePage anchors changed')
  guide=guide.replace(i,i+"\nimport {HstApprovalPanel} from './HstApprovalPanel'",1)
  guide=guide.replace(c,"    <HstApprovalPanel/>\n"+c,1)
- guide_path.write_text(guide)
+ # Remove the retired informational banner from the preserved production page.
+guide=re.sub(r'^\\s*<AutomationMethodNote\\s*/>\\s*\\n', '', guide, flags=re.M)
+guide=guide.replace('AutomationMethod,AutomationMethodNote', 'AutomationMethod')
+guide_path.write_text(guide)
 print('PRESERVED_PRODUCTION_FRONTEND_SOURCE=PASS')
 PY
  # npm workspaces may install Vite in frontend/node_modules instead of root.
