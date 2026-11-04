@@ -1,3 +1,4 @@
+import {hstIrrigationDisplay} from './hstIrrigationSummary';
 import { useCallback, useEffect, useState } from 'react';
 import { canReviewShadow, type HstOperatorMode } from './hstExecutionMode';
 import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } from 'lucide-react';
@@ -145,8 +146,7 @@ export function HstApprovalPanel() {
     ?liquidData.tank_preview.estimated_available_l:null;
   const stockLitres=liquidCurrent&&liquidData?.fertilizer_tank_preview?.level_status==='ESTIMATED'
     ?liquidData.fertilizer_tank_preview.estimated_liquid_volume_l:null;
-  const remainingLitres=liquidData?.water_carryover?.status!=='NO_PLAN'
-    ?liquidData?.water_carryover?.remaining_for_reassessment_l:null;
+  const irrigation=hstIrrigationDisplay(liquidData);
 
   return (
     <article className="ain-panel hst-panel" aria-label="Usulan pemupukan berbasis HST">
@@ -158,13 +158,12 @@ export function HstApprovalPanel() {
         <div className="hst-figures" aria-live="polite">
           <div><small>Sisa air di tandon</small><strong>{liquidLitres(waterLitres)}</strong></div>
           <div><small>Sisa larutan di tandon pupuk</small><strong>{liquidLitres(stockLitres)}</strong></div>
-          <div><small>Sisa kebutuhan penyiraman</small><strong>{liquidLitres(remainingLitres)}</strong></div>
+          <div><small>{irrigation.label}</small><strong>{liquidLitres(irrigation.valueL)}</strong></div>
         </div>
-        <small>Volume tandon memakai hasil konversi AI yang sudah tersedia. Sisa kebutuhan memakai catatan sesi perangkat.</small>
+        <small>Volume tandon memakai hasil konversi AI yang sudah tersedia. {irrigation.note}</small>
         {liquidData?.planning_recorded_at&&<p className="hst-note">Data tandon: {new Date(liquidData.planning_recorded_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB</p>}
         {liquidError&&<p role="status" className="hst-note">{liquidError}</p>}
         {!liquidError&&liquidData&&(waterLitres===null||stockLitres===null)&&<p className="hst-note">Volume tandon menunggu hasil konversi dari sensor yang valid dan terbaru.</p>}
-        {!liquidError&&liquidData?.water_carryover?.status==='NO_PLAN'&&<p className="hst-note">Belum ada rencana penyiraman tercatat untuk menghitung sisa kebutuhan.</p>}
       </section>
       <div className="hst-shadow-mode-row">
         <div className="hst-shadow-mode-label">
