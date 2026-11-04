@@ -251,6 +251,10 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
   sleep 2
 done
 test "$ok" = 1 || { echo "STOP: Python AI health failed"; exit 1; }
+curl -fsS -m 8 http://127.0.0.1:5010/status \
+  | python3 -c 'import sys,json; x=json.load(sys.stdin); assert x["mode"]=="SHADOW_MODE" and x["source_configured"] is True and x["state_backend"]=="postgresql" and x["polling"]["enabled"] is True and x["can_dispatch"] is False'
+curl -fsS -m 12 http://127.0.0.1:5010/source/guide-programs >/dev/null \
+  || { echo "STOP: service user cannot read production Guide"; exit 1; }
 curl -fsS -m 10 http://127.0.0.1:5010/hst/proposals \
   | python3 -c 'import sys,json; x=json.load(sys.stdin); assert x["schemaVersion"]==1 and x["can_dispatch"] is False and isinstance(x["proposals"],list)'
 UNAUTH='{"obligation_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","approval_id":"11111111-1111-4111-8111-111111111111","actor":"unauthorized","expected_remaining_g":1,"confirmation":"REVIEW_HST_SHADOW_SESSION"}'
