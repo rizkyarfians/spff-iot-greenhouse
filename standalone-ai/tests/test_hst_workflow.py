@@ -30,7 +30,7 @@ class HstWorkflowTests(unittest.TestCase):
         self.guide["programs"][0]["activities"][0]["calendar_status"] = "PAST_DUE"
         self.workflow.scan(self.guide, now=self.now)
         self.assertEqual(self.workflow.proposals()["proposals"], [])
-        self.assertEqual(self.store.read()["live"] if "live" in self.store.read() else {}, {})
+        self.assertNotIn("hst_workflow", self.store.read())
 
     def test_one_hst_proposal_not_repeated_per_sensor_sample(self):
         a = self.workflow.scan(self.guide, now=self.now)
@@ -47,7 +47,7 @@ class HstWorkflowTests(unittest.TestCase):
         self.assertEqual(proposals[0]["remaining_g"], 50000)
         self.assertEqual(proposals[0]["status"], "WAITING_APPROVAL")
         self.assertEqual(self.store.read()["decisions"], {})
-        self.assertEqual(self.store.read()["live"]["decisions"], {})
+        self.assertNotIn("live", self.store.read())
 
     def test_one_approval_is_shadow_only_and_replayed_idempotently(self):
         self.workflow.scan(self.guide, now=self.now)
