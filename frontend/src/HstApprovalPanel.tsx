@@ -127,11 +127,10 @@ export function HstApprovalPanel() {
         </button>
       </div>
       {mode === 'TEST_REAL' && <div className="hst-real-readiness" role="status">
-        <strong>Uji pompa asli belum dapat dijalankan.</strong>
-        <p>Tujuan mode ini: setelah ACC operator, hasil perhitungan AI
-          diteruskan ke sesi pompa fisik. Koneksi HST ke sesi volume firmware,
-          interlock, dan konfirmasi ACK masih harus diverifikasi.
-          Memilih mode ini tidak mengubah mode ESP32 atau menjalankan pompa.</p>
+        <strong>{readiness?.realTest.ready?'TEST REAL: periksa kesiapan sesi sebelum ACC':'TEST REAL: dispatch belum aktif pada server'}</strong>
+        <p>Setelah ACC operator dan seluruh preflight lolos, hasil perhitungan AI
+          HST disimpan sebagai sesi adaptif dan diteruskan ke ESP32. Status
+          dilacak melalui ACK dan telemetry asli. Pindah mode tidak menyalakan pompa.</p>
         {readiness?.realTest.blockers.map(blocker =>
           <small key={blocker}>{blocker.replaceAll('_', ' ')}</small>)}
         {!readiness && <small>Status kesiapan backend tidak tersedia; default aman: diblokir.</small>}

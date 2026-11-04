@@ -148,3 +148,9 @@ export async function hstRealSession(id:string){
   lastTelemetryAt:session.last_telemetry_at instanceof Date?session.last_telemetry_at.toISOString():session.last_telemetry_at??null,
  });
 }
+
+export async function latestHstRealSession(obligationId:string){
+ const row=(await pool.query(`SELECT session_id FROM spff.hst_real_sessions WHERE site_id=$1 AND obligation_id=$2 ORDER BY created_at DESC LIMIT 1`,[siteId,obligationId])).rows[0];
+ if(!row)return null;
+ return hstRealSession(row.session_id);
+}

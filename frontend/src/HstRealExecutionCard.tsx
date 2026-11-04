@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {AiHstHardwareProfile,AiHstProposal,AiHstRealPreflight,AiHstRealSessionSummary} from '@spff/contracts';
 import {useAuth} from './authContext';
-import {executeAiHstReal,fetchAiHstRealSession,saveAiHstRealProfile,stopAiHstRealSession} from './api';
+import {executeAiHstReal,fetchAiHstRealSession,fetchAiHstRealLatest,saveAiHstRealProfile,stopAiHstRealSession} from './api';
 
 type Props={proposal:AiHstProposal;preflight:AiHstRealPreflight|null;
  preflightError:string|null;refreshPreflight:()=>void};
@@ -33,6 +33,13 @@ export function HstRealExecutionCard({proposal,preflight,preflightError,refreshP
  const approvalRef=useRef<string|null>(null);
  const stopRef=useRef<string|null>(null);
  const lock=useRef(false);
+ useEffect(()=>{
+  let live=true;
+  void fetchAiHstRealLatest(proposal.obligation_id)
+   .then(latest=>{if(live&&latest){setSession(latest);approvalRef.current=latest.approvalId}})
+   .catch(e=>{if(live)setError(e instanceof Error?e.message:'Histori sesi HST tidak tersedia.')});
+  return()=>{live=false};
+ },[proposal.obligation_id]);
  useEffect(()=>{
   if(editing)return;
   const p=setup?.profile;

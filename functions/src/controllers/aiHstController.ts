@@ -19,7 +19,7 @@ import { requestActor } from '../middleware/operatorAuth.js';
 import { localAiUrl } from '../services/localAiEndpoint.js';
 import { pool, configuredSiteId as siteId } from '../services/postgresRepository.js';
 import { readGuideEcConversions } from '../services/guideEcConversionService.js';
-import {readHstRealHardwareProfile,saveHstRealHardwareProfile,executeHstReal,hstRealSession}
+import {readHstRealHardwareProfile,saveHstRealHardwareProfile,executeHstReal,hstRealSession,latestHstRealSession}
  from '../services/hstRealExecutionService.js';
 import {controlAdaptiveSession} from '../services/adaptiveFertigationService.js';
 
@@ -325,5 +325,19 @@ export async function postHstRealStop(req:Request,res:Response):Promise<void>{
  }catch(e){
   res.status(e instanceof Error&&'status'in e?Number(e.status):503)
    .json({success:false,data:null,message:e instanceof Error?e.message:'Gagal mengirim STOP.'});
+ }
+}
+
+export async function getHstRealLatest(req:Request,res:Response):Promise<void>{
+ res.set('Cache-Control','no-store');
+ const obligationId=req.params.obligationId;
+ if(typeof obligationId!=='string'||!/^[a-f0-9]{64}$/.test(obligationId)){
+  res.status(400).json({success:false,data:null,message:'ID HST invalid.'});return;
+ }
+ try{
+  const latest=await latestHstRealSession(obligationId);
+  res.json({success:true,data:latest,message:latest?'Sesi HST terbaru':'Belum ada sesi fisik HST'});
+ }catch{
+  res.status(503).json({success:false,data:null,message:'Histori sesi HST tidak tersedia.'});
  }
 }

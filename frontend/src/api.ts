@@ -981,3 +981,7 @@ export const fetchAiHstRealSession=(id:string)=>
 export const stopAiHstRealSession=(id:string,requestId:string)=>
  request<{commandId:string;status:string}>('/unified-ai/hst/real-sessions/'+encodeURIComponent(id)+'/stop',
  {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId})});
+
+export const fetchAiHstRealLatest=(obligationId:string)=>
+ request<import('@spff/contracts').AiHstRealSessionSummary|null>(
+ '/unified-ai/hst/real-sessions/latest/'+encodeURIComponent(obligationId));

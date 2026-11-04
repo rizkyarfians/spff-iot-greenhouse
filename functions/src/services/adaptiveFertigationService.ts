@@ -70,12 +70,17 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
       hst.aiPlan.mass_g>p.remainingMassG+toler ||
       Math.abs(hst.expectedRemainingG-p.remainingMassG)>Math.max(0.1,hst.expectedRemainingG*0.001))
     return fail('Massa AI, jatah HST tersisa, dan konsentrasi stok tidak konsisten.');
-   if(hst.aiPlan.duration_seconds>input.maxDurationSec ||
+   if(hst.aiPlan.duration_seconds+input.flushDurationSec>input.maxDurationSec ||
       hst.aiPlan.flush_reserve_l<=0 || hst.aiPlan.priming_water_l<=0 ||
       hst.aiPlan.water_l<=hst.aiPlan.priming_water_l+hst.aiPlan.flush_reserve_l)
     return fail('Durasi/volume air AI tidak memenuhi cadangan priming dan flushing.');
    const validated=adaptiveStartCommandSchema.safeParse({
-      ...p.command,targetWaterVolumeL:hst.aiPlan.water_l,targetFertVolumeL:hst.aiPlan.stock_l,
+      ...p.command,
+      // The upstream meter counts water only; the downstream meter records
+      // total mixture after Venturi. Never silently treat both as equivalent.
+      targetWaterVolumeL:input.waterMeterPosition==='after_injector'
+       ?hst.aiPlan.water_l+hst.aiPlan.stock_l:hst.aiPlan.water_l,
+      targetFertVolumeL:hst.aiPlan.stock_l,
    });
    if(!validated.success)return fail('Hasil kalkulasi AI berada di luar batas pompa firmware 1.5.07.');
    command=validated.data;
