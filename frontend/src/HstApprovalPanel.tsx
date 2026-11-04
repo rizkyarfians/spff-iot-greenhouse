@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { canReviewShadow, type HstOperatorMode } from './hstExecutionMode';
 import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } from 'lucide-react';
 import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/contracts';
-import { fetchAiHstExecutionReadiness, fetchAiHstProposals, reviewAiHstApproval } from './api';
-import type { AiHstExecutionReadiness } from '@spff/contracts';
+import { fetchAiHstExecutionReadiness, fetchAiHstProposals, fetchAiHstRealPreflight, reviewAiHstApproval } from './api';
+import type { AiHstExecutionReadiness, AiHstRealPreflight } from '@spff/contracts';
 import './HstApprovalPanel.css';
 
 const previewOnly = import.meta.env.DEV && import.meta.env.VITE_SPFF_AI_PREVIEW === 'true';
@@ -32,6 +32,8 @@ export function HstApprovalPanel() {
   const [review, setReview] = useState<AiHstApprovalResult | null>(null);
   const [mode, setMode] = useState<HstOperatorMode>('SHADOW');
   const [readiness, setReadiness] = useState<AiHstExecutionReadiness | null>(null);
+  const [realPreflights, setRealPreflights] = useState<Record<string, AiHstRealPreflight>>({});
+  const [realPreflightErrors, setRealPreflightErrors] = useState<Record<string, string>>({});
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -58,6 +60,28 @@ export function HstApprovalPanel() {
     const interval = setInterval(() => { void refresh(controller.signal); }, 300000);
     return () => { controller.abort(); clearInterval(interval); };
   }, [refresh]);
+
+  useEffect(() => {
+    if (mode !== 'TEST_REAL' || !data?.proposals.length) return;
+    const controller = new AbortController();
+    setRealPreflights({});
+    setRealPreflightErrors({});
+    for (const proposal of data.proposals) {
+      void fetchAiHstRealPreflight(proposal.obligation_id, controller.signal)
+        .then(next => {
+          if (!controller.signal.aborted) setRealPreflights(prev => ({
+            ...prev, [proposal.obligation_id]: next,
+          }));
+        }).catch(cause => {
+          if (!controller.signal.aborted) setRealPreflightErrors(prev => ({
+            ...prev,
+            [proposal.obligation_id]: cause instanceof Error
+              ? cause.message : 'Tidak dapat memeriksa kesiapan sesi.',
+          }));
+        });
+    }
+    return () => { controller.abort(); };
+  }, [mode, data]);
 
   async function approve(proposal: AiHstProposal) {
     if (mode !== 'SHADOW' || previewOnly || pendingId || confirmId !== proposal.obligation_id || proposal.status === 'COMPLETED' ||
@@ -148,6 +172,16 @@ export function HstApprovalPanel() {
                 <div><small>Terpenuhi</small><strong>{mass(proposal.delivered_g)}</strong></div>
                 <div><small>Sisa</small><strong>{mass(proposal.remaining_g)}</strong></div>
               </div>
+              {mode === 'TEST_REAL' && <div className="hst-real-proposal-readiness" role="status">
+                <strong>Kesiapan sesi pupuk real: BELUM SIAP</strong>
+                {realPreflightErrors[proposal.obligation_id] &&
+                  <small>{realPreflightErrors[proposal.obligation_id]}</small>}
+                {realPreflights[proposal.obligation_id]?.reasons.map(reason =>
+                  <small key={reason}>• {reason.replaceAll('_', ' ')}</small>)}
+                {!realPreflights[proposal.obligation_id] &&
+                  !realPreflightErrors[proposal.obligation_id] &&
+                  <small>Memeriksa keterkaitan proposal, stok pupuk, dan firmware…</small>}
+              </div>}
               {proposal.review_reasons.length > 0 &&
                 <p className="hst-review"><ShieldAlert size={16} />
                   Perlu rekonsiliasi: {proposal.review_reasons.join(', ').replaceAll('_', ' ')}

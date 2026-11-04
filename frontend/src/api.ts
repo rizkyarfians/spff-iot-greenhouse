@@ -960,3 +960,8 @@ export function reviewAiHstApproval(input: import('@spff/contracts').AiHstApprov
 export function fetchAiHstExecutionReadiness(signal?: AbortSignal) {
   return request<import('@spff/contracts').AiHstExecutionReadiness>('/unified-ai/hst/execution-readiness', {signal})
 }
+
+export function fetchAiHstRealPreflight(obligationId: string, signal?: AbortSignal) {
+  return request<import('@spff/contracts').AiHstRealPreflight>(
+    '/unified-ai/hst/real-preview/' + encodeURIComponent(obligationId), { signal })
+}

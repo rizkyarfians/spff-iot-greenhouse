@@ -10,7 +10,7 @@ import {
   Router,
 } from 'express';
 import { requireAiEvaluationEnabled } from '../middleware/aiEvaluation.js';
-import { getHstProposals, postHstApproval, getHstExecutionReadiness } from '../controllers/aiHstController.js';
+import { getHstProposals, postHstApproval, getHstExecutionReadiness, getHstRealPreflight } from '../controllers/aiHstController.js';
 
 
 import {
@@ -168,6 +168,7 @@ apiRouter.post(
 
 apiRouter.get('/unified-ai/hst/proposals', requireOperator, getHstProposals);
 apiRouter.get('/unified-ai/hst/execution-readiness', requireOperator, getHstExecutionReadiness);
+apiRouter.get('/unified-ai/hst/real-preview/:obligationId', requireOperator, getHstRealPreflight);
 apiRouter.post('/unified-ai/hst/approvals', requireOperator, requireCsrf, postHstApproval);
 
 apiRouter.get(

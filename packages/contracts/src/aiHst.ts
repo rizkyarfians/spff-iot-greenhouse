@@ -84,3 +84,14 @@ export const aiHstExecutionReadinessSchema = z.object({
   canDispatch: z.literal(false),
 }).strict();
 export type AiHstExecutionReadiness = z.infer<typeof aiHstExecutionReadinessSchema>;
+
+/** Non-actuating, per-obligation inspection for eventual physical HST sessions.
+ * It cannot grant execution authority by construction. */
+export const aiHstRealPreflightSchema=z.object({
+ schemaVersion:z.literal(1),
+ obligationId:z.string().regex(/^[a-f0-9]{64}$/),
+ status:z.literal('BLOCKED'),
+ reasons:z.array(z.string().min(1)),
+ canDispatch:z.literal(false),
+}).strict();
+export type AiHstRealPreflight=z.infer<typeof aiHstRealPreflightSchema>;
