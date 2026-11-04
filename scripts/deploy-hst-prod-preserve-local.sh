@@ -113,6 +113,39 @@ while IFS= read -r -d '' path; do
 done < <(git -c safe.directory="$PROD" -C "$PROD" diff --name-only -z HEAD)
 echo "PRODUCTION_SOURCE_SNAPSHOT=VERIFIED"
 
+echo "=== 2B. INCLUDE LOCAL-ONLY TYPESCRIPT/CSS SOURCE (NEVER SECRETS OR ENV FILES) ==="
+: > "$RUN/local-only-source.sha256"
+: > "$RUN/local-only-source.txt"
+for source_root in frontend/src functions/src edge-gateway/src mqtt-worker/src packages/contracts/src sync-worker/src; do
+  [[ -d "$PROD/$source_root" ]] || continue
+  while IFS= read -r -d '' source_file; do
+    rel="${source_file#"$PROD/"}"
+    if [[ -e "$WORK/$rel" || -L "$WORK/$rel" ]]; then continue; fi
+    case "$rel" in
+      *.ts|*.tsx|*.js|*.jsx|*.mjs|*.css) ;;
+      *) continue ;;
+    esac
+    case "$rel" in
+      */.*|*/.env*|*secret*|*credential*|*private*|*service-account*|*password*|*token*) 
+        echo "STOP: local-only source suspicious path: $rel"; exit 1 ;;
+    esac
+    install -D -m 644 -- "$source_file" "$WORK/$rel"
+    cmp -s -- "$source_file" "$WORK/$rel" || { echo "STOP: local-only source copy mismatch: $rel"; exit 1; }
+    sha256sum -- "$source_file" >> "$RUN/local-only-source.sha256"
+    printf '%s\n' "$rel" >> "$RUN/local-only-source.txt"
+  done < <(find "$PROD/$source_root" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.mjs' -o -name '*.css' \) -print0)
+done
+echo "LOCAL_ONLY_SOURCE_COUNT=$(wc -l < "$RUN/local-only-source.txt")"
+cat "$RUN/local-only-source.txt"
+for module_name in ConversionTarget AdaptiveDevicePanel; do
+  found=0
+  for ext in ts tsx js jsx; do
+    if [[ -f "$WORK/frontend/src/$module_name.$ext" ]]; then found=1; break; fi
+  done
+  [[ "$found" -eq 1 ]] || { echo "STOP: production source lacks local module frontend/src/$module_name.*"; exit 1; }
+done
+echo "LOCAL_ONLY_IMPORTS=VERIFIED"
+
 echo "=== 3. ADD HST COMPONENTS WITHOUT REPLACING ANY LIVE MODIFIED FILE ==="
 for path in \
   packages/contracts/src/aiHst.ts \
@@ -184,6 +217,10 @@ echo "=== 4. BUILD, LINT AND TEST PRESERVED PRODUCTION SOURCE ==="
 git -c safe.directory="$PROD" -C "$PROD" diff --binary HEAD > "$RUN/production-tracked-after.patch"
 cmp -s "$RUN/production-tracked-local.patch" "$RUN/production-tracked-after.patch" \
   || { echo "STOP: production local changes changed during build"; exit 1; }
+if [[ -s "$RUN/local-only-source.sha256" ]]; then
+  sha256sum --check --status "$RUN/local-only-source.sha256" \
+    || { echo "STOP: production local-only modules changed during build"; exit 1; }
+fi
 echo "PRODUCTION_USER_EDIT_PRESERVATION=PASS"
 
 echo "=== 5. PREPARE INDEPENDENT PYTHON AI SHADOW RELEASE ==="
