@@ -51,3 +51,17 @@
 .hst-real-proposal-readiness { border:1px solid #e7c18b; background:#fffaf0; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:5px; line-height:1.4; }
 .hst-real-proposal-readiness strong { font-size:13px; color:#86551e; }
 .hst-real-proposal-readiness small { overflow-wrap:anywhere; color:#775429; }
+
+.hst-real-control{display:flex;flex-direction:column;gap:12px;border:1px solid #d7e2dd;border-radius:12px;padding:13px;min-width:0;}
+.hst-real-control-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.hst-real-control-header span{font-size:12px;color:#805820;}
+.hst-real-blockers{display:flex;flex-direction:column;gap:4px;margin:0;}
+.hst-real-stock{margin:0;line-height:1.5;font-size:13px;}
+.hst-real-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px;}
+.hst-real-form label{display:flex;flex-direction:column;gap:5px;font-size:13px;min-width:0;}
+.hst-real-form input,.hst-real-form select{width:100%;min-width:0;border:1px solid #d2dcd6;border-radius:8px;padding:8px;font:inherit;background:#fff;}
+.hst-real-form button{align-self:end;}
+.hst-real-session{background:#f5f8f7;border-radius:10px;padding:12px;overflow-wrap:anywhere;}
+.hst-real-session p{margin:5px 0;}
+.hst-real-session small{display:block;overflow-wrap:anywhere;}
+.hst-stop{background:#a52b30;margin-top:12px;}
