@@ -228,11 +228,10 @@ class SPFFSource:
     def record_shadow(self, store):
         """HST schedule scan; no telemetry read or repeated decision snapshots.
 
-        Bound hardware feedback still reconciles only explicitly linked sessions.
         Approval-time safety/evidence inspection is handled separately.
+        The V2 ledger must not import legacy development sessions/feedback.
         """
         from .hst_workflow import HstWorkflow
-        self.process_bound_feedback(store)
         return HstWorkflow(store, self.site_id, self.device_id, self.zone_id).scan(
             self.inspect_guides()
         )
