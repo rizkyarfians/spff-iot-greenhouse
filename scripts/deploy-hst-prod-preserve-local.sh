@@ -216,7 +216,7 @@ echo "=== 3B. ALIGN ISOLATED STALE TEST FIXTURE WITH EXISTING PRODUCTION SAFETY 
 # This modifies ONLY the disposable WORK/test file, not the live validator,
 # not /opt/spff and not the firmware. First prove the expected mismatch
 # against the currently running compiled production contract.
-LIVE_CONTRACT="$PROD/packages/contracts/dist/index.js" node --input-type=module <<'JS'
+LIVE_CONTRACT="$PROD/packages/contracts/dist/index.js" HST_FIXTURE_FLAGS="$RUN/adaptive-fixture-flags.json" node --input-type=module <<'JS'
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 const contracts = await import(pathToFileURL(process.env.LIVE_CONTRACT).href);
@@ -250,11 +250,52 @@ assert.ok(valid.success,
     JSON.stringify(valid.success ? [] : valid.error.issues));
 console.log('LIVE_COMMAND_VALIDATOR=CONFIRMED (3 existing required safety fields)');
 console.log('FIXED_FIXTURE_VALIDATED_AGAINST_LIVE_SCHEMA=PASS');
+const ack = {
+  kind:'adaptive_fert_ack', schemaVersion:1,siteId:command.siteId,deviceId:command.deviceId,
+  sessionId:'',commandId:'',state:'IDLE',status:'rejected',
+  acknowledgedAt:new Date().toISOString(), reason:'session_already_active'
+};
+const telemetry = {
+  kind:'adaptive_fert_telemetry', schemaVersion:1,siteId:command.siteId,deviceId:command.deviceId,
+  sessionId:command.sessionId,timestamp:new Date().toISOString(),state:'EC_CONTROL',
+  filteredEc:2500,rawEc:2500,waterFlowLpm:10,fertFlowLpm:1,
+  waterVolumeL:10,fertVolumeL:1,fertMassGrams:10,volumePerPlantMl:5,
+  waterPump:true,fertPump:true,faultReason:'none',ecTargetUnreachable:false
+};
+const session = {
+  programId:command.sessionId,expectedProgramRevision:1,activityId:'row-10',
+  requestId:command.commandId,waterMeterPosition:'before_injector',waterVolumeL:100,
+  stockConcentrationGPerL:100,ecToleranceUs:100,maxDurationSec:600,flushDurationSec:30,
+  hydraulicsReference:'Test commissioning reference'
+};
+const sessionResult = contracts.adaptiveSessionInputSchema.safeParse(session);
+assert.ok(sessionResult.success,
+  'STOP: existing session fixture fails live safety schema: ' +
+  JSON.stringify(sessionResult.success ? [] : sessionResult.error.issues));
+function missingBootIdOnly(schema, payload, label) {
+  const original = schema.safeParse(payload);
+  if (original.success) return false;
+  const missing = original.error.issues;
+  assert.ok(missing.length===1 && missing[0].path.join('.')==='bootId' &&
+    missing[0].code==='invalid_type',
+    'STOP: unexpected ' + label + ' live safety schema: ' + JSON.stringify(missing));
+  const corrected = schema.safeParse({...payload,bootId:'c0ffee123456abcd'});
+  assert.ok(corrected.success,'STOP: corrected ' + label + ' fixture invalid: ' +
+    JSON.stringify(corrected.success ? [] : corrected.error.issues));
+  return true;
+}
+const ackBoot = missingBootIdOnly(contracts.adaptiveAckSchema,ack,'ACK');
+const telemetryBoot = missingBootIdOnly(contracts.adaptiveTelemetrySchema,telemetry,'telemetry');
+const { writeFileSync } = await import('node:fs');
+writeFileSync(process.env.HST_FIXTURE_FLAGS,JSON.stringify({ackBoot,telemetryBoot}));
+console.log('LIVE_ADAPTIVE_FIXTURES_VERIFIED=PASS',JSON.stringify({ackBoot,telemetryBoot}));
 JS
-python3 - "$WORK/packages/contracts/test/adaptive-fertigation.test.mjs" <<'PY'
+python3 - "$WORK/packages/contracts/test/adaptive-fertigation.test.mjs" "$RUN/adaptive-fixture-flags.json" <<'PY'
 from pathlib import Path
 import sys
+import json
 file = Path(sys.argv[1])
+flags = json.loads(Path(sys.argv[2]).read_text())
 data = file.read_text()
 anchor = "commandType:'start',targetEcUs:2500"
 if data.count(anchor) != 1:
@@ -275,6 +316,14 @@ new = "for(const patch of [{bootId:''},{issuedAt:'invalid'},{expiresAt:'invalid'
 if data.count(old) != 1:
     raise SystemExit('STOP: expected invalid-value test assertion missing')
 data = data.replace(old,new,1)
+for key, fragment in (
+    ('ackBoot', "kind:'adaptive_fert_ack',schemaVersion:1,"),
+    ('telemetryBoot', "kind:'adaptive_fert_telemetry',schemaVersion:1,"),
+):
+    if flags.get(key):
+        if data.count(fragment) != 1:
+            raise SystemExit(f'STOP: unexpected fixture anchor for {key}')
+        data = data.replace(fragment, fragment+"bootId:'c0ffee123456abcd',",1)
 file.write_text(data)
 print('ISOLATED_TEST_FIXTURE=UPDATED; live schema remains untouched')
 PY
