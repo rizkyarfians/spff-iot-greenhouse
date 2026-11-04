@@ -82,7 +82,7 @@ class HstWorkflow:
             if p.get("obligation_id") in obligations
         ]
         result.sort(key=lambda p: (p["due_date"], p["obligation_id"]))
-        return {"status": "READY" if result else "NO_SCHEDULE",
+        return {"schemaVersion": 1, "status": "READY" if result else "NO_SCHEDULE",
                 "proposals": result, "can_dispatch": False}
 
     def scan(self, guides, *, now=None):
@@ -269,6 +269,7 @@ class HstWorkflow:
                 "device_recorded_at": device.get("recorded_at"),
             }
             result = {
+                "schemaVersion": 1,
                 "approval_id": approval_id,
                 "obligation_id": obligation_id,
                 "operator_id": actor,
