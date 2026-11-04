@@ -4,6 +4,7 @@ import {
   aiHstApprovalRequestSchema,
   aiHstApprovalResultSchema,
   aiHstProposalsSchema,
+  aiHstExecutionReadinessSchema,
 } from '../dist/index.js';
 
 const obligationId = 'a'.repeat(64);
@@ -75,5 +76,20 @@ test('HST ACC review only accepts SHADOW_BLOCKED without actuator dispatch', () 
   assert.equal(aiHstApprovalResultSchema.safeParse(valid).success, true);
   assert.equal(aiHstApprovalResultSchema.safeParse({
     ...valid, command_created: true,
+  }).success, false);
+});
+
+
+test('HST mode readiness can only report non-dispatching TEST REAL until hardware contract is proven', () => {
+  const blocked = {
+    schemaVersion: 1, runningMode: 'SHADOW_MODE', canDispatch: false,
+    realTest: { ready: false, blockers: ['firmware_contract_unverified'] },
+  };
+  assert.equal(aiHstExecutionReadinessSchema.safeParse(blocked).success, true);
+  assert.equal(aiHstExecutionReadinessSchema.safeParse({
+    ...blocked, canDispatch: true,
+  }).success, false);
+  assert.equal(aiHstExecutionReadinessSchema.safeParse({
+    ...blocked, realTest: { ready: true, blockers: [] },
   }).success, false);
 });
