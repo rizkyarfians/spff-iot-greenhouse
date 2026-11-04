@@ -68,3 +68,16 @@ test('upstream connection failures do not invent zero litres or expose internals
  assert.equal(res.code,503);assert.equal(res.body.data,null);
  assert.ok(!res.body.message.includes('private upstream details'));
 });
+
+test('dashboard supports explicitly guide-bound operational Fuzzy while retaining no dispatch authority',()=>{
+ const sample=payload();
+ sample.operational_profile={status:'GUIDE_BOUND',version:'test-guide-1',program_id:'program-1',
+  activity_id:'row-19',target_water_l:1000,calculation_ready:true,can_dispatch:false,blockers:[]};
+ sample.fuzzy_preview={basis:'OPERATIONAL_PROFILE',config_version:'test-guide-1',
+  input_key:'soil_2_moisture',moisture_pct:19.9,score:0.844445,illustrative_water_l:844.445,
+  model_max_irrigation_l:1000,recorded_at:'2026-11-04T14:45:00Z'};
+ assert.equal(unifiedAiDashboardSchema.safeParse(sample).success,true);
+ sample.operational_profile.can_dispatch=true;
+ assert.equal(unifiedAiDashboardSchema.safeParse(sample).success,false);
+});
+
