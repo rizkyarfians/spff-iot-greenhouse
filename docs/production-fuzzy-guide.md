@@ -122,6 +122,14 @@ Route Node mempertahankan envelope `data.production_fuzzy`.
   kunci perangkat, batas sesi, flowmeter, interlock dan firmware secara terpisah.
   GET tidak membuat ledger/sesi atau mengurangi sisa kebutuhan.
 
+Hold sumber yang hanya menyangkut pelaksanaan (kontrak sesi, verifikasi drip,
+stok/formulasi) tetap ditampilkan dan tetap tidak memberi izin pompa, tetapi
+tidak memblokir hitungan kebutuhan air saja. Hold data seperti perangkat/tanaman,
+populasi, revisi sumber, dan kode hold yang belum dikenal tetap memblokir hitungan.
+Daftar profil kini menyertakan `water_target_eligible` dan alasannya per aktivitas.
+Semprot dan Tabur tidak menjadi kandidat target irigasi. Profil operasional dan
+aktivitas irigasi yang diverifikasi tetap diperlukan sebelum hasil produksi READY.
+
 Contoh: kelembapan 19,9% dengan aturan existing menghasilkan skor sekitar
 0,844445. Jika target Panduan yang diverifikasi 1.000 L, hasilnya sekitar
 844,445 L. 1.000 L pada contoh ini bukan nilai yang dipasang ke perangkat.
@@ -135,7 +143,7 @@ python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({k:d.get(k
 
 ## Verifikasi
 
-Suite Python: 236 tes, 6 skipped (integrasi eksternal opsional), termasuk
+Suite Python: 237 tes, 6 skipped (integrasi eksternal opsional), termasuk
 regresi scope profil, target Panduan, revisi berubah, sensor stale, serta
 penolakan simulator sebagai profil operasional. Tes ini tidak menguji pompa fisik.
 
