@@ -19,7 +19,8 @@ def policy_fingerprint(config, *, capacity_l, height_cm, site_id, device_id, zon
     return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
 
-def evaluate_inventory_target(config, preview, sensor_blockers, tank, *, approval, fingerprint, now, live_source):
+def evaluate_inventory_target(config, preview, sensor_blockers, tank, *, approval, fingerprint, now, live_source,
+                              sensor_expires_at=None):
     blockers = list(sensor_blockers)
     result = {"status": "BLOCKED", "basis": "TANK_INVENTORY_FUZZY",
         "evaluated_at": now.isoformat(), "recorded_at": None, "expires_at": None,
@@ -46,6 +47,8 @@ def evaluate_inventory_target(config, preview, sensor_blockers, tank, *, approva
     else:
         recorded = datetime.fromisoformat(preview["recorded_at"])
         expires = recorded + timedelta(seconds=min(120, config.sensor_data_max_age))
+        if sensor_expires_at is not None:
+            expires = min(expires, sensor_expires_at)
         result.update(recorded_at=recorded.isoformat(), expires_at=expires.isoformat())
         if now > expires or (recorded - now).total_seconds() > 5:
             blockers.append("sensor_snapshot_stale")
