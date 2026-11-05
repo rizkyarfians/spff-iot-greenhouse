@@ -25,6 +25,7 @@ import {readHstRealHardwareProfile,readReusableHstHardwareProfile,saveHstRealHar
  from '../services/hstRealExecutionService.js';
 import {controlAdaptiveSession} from '../services/adaptiveFertigationService.js';
 import {readHstMode,setHstMode} from '../services/hstExecutionModeService.js';
+import {doseVolumeCredits} from '../services/doseVolumeService.js';
 
 export async function getHstProposals(_req: Request, res: Response): Promise<void> {
   res.set('Cache-Control', 'no-store');
@@ -44,7 +45,8 @@ export async function getHstProposals(_req: Request, res: Response): Promise<voi
       res.status(503).json({ success: false, data: null, message: 'Format HST AI tidak valid.' });
       return;
     }
-    res.json({ success: true, data: parsed.data, message: 'Usulan HST SHADOW.' });
+    const proposals=await Promise.all(parsed.data.proposals.map(proposal=>doseVolumeCredits(proposal)));
+    res.json({ success: true, data: {...parsed.data,proposals}, message: 'Usulan HST dengan catatan dosis terverifikasi.' });
   } catch {
     res.status(503).json({ success: false, data: null, message: 'HST AI tidak terjangkau.' });
   }
