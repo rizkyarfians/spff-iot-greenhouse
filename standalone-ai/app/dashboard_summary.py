@@ -13,7 +13,7 @@ from .stock_bindings import resolve_binding
 from .tank_preview import estimate_water_tank, estimate_fertilizer_tank
 from .irrigation_schedule_preview import illustrate_two_day_irrigation
 from .water_carryover import present_carryover
-from .production_profile import resolve_guide_irrigation
+from .production_profile import resolve_guide_irrigation, production_fuzzy_result
 
 
 def _iso(value):
@@ -388,7 +388,9 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         ),
     )
 
-    operational_state["calculation_ready"] = bool(fuzzy_preview and operational_config is not None)
+    production_fuzzy = production_fuzzy_result(operational_profile, guide, fuzzy_preview,
+        fuzzy_preview_blockers, now=now, live_source=live_source)
+    operational_state["calculation_ready"] = production_fuzzy["status"] == "READY"
     # Expose ONLY bounded reason codes, never raw Modbus/DB payload or credentials.
     return {
         "schemaVersion": 1,
@@ -442,6 +444,7 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         "fuzzy_preview": fuzzy_preview,
         "fuzzy_preview_blockers": fuzzy_preview_blockers,
         "operational_profile": operational_state,
+        "production_fuzzy": production_fuzzy,
         "programs": programs,
         "note": "Rencana SHADOW; kebutuhan panduan bukan bukti aplikasi fisik.",
     }
