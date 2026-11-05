@@ -3,6 +3,26 @@ import assert from 'node:assert/strict';
 import {getUnifiedAiDashboard} from '../lib/controllers/unifiedAiDashboardController.js';
 import {unifiedAiDashboardSchema} from '@spff/contracts';
 
+test('available-tank policy transports inventory target and preserves execution limitations',()=>{
+ const sample=payload();
+ sample.operational_profile={status:'TANK_BOUND',version:'tank-inventory-test',program_id:null,
+  activity_id:null,target_water_l:2095,calculation_ready:true,can_dispatch:false,blockers:[]};
+ sample.production_fuzzy={status:'READY',basis:'TANK_INVENTORY_FUZZY',
+  evaluated_at:'2026-11-04T14:45:01Z',recorded_at:'2026-11-04T14:45:00Z',
+  expires_at:'2026-11-04T14:47:00Z',profile_version:'tank-inventory-test',program_id:null,
+  activity_id:null,input_key:'soil_2_moisture',moisture_pct:19.9,
+  memberships:{LOW:1,MEDIUM:0,HIGH:0},dominant_input_classes:['LOW'],rule_outputs:['HIGH'],
+  score:0.844445,max_water_l:2095,target_water_l:2095,irrigation_needed:true,can_dispatch:false,
+  blockers:[],target_policy:'AVAILABLE_TANK',applies_to:'ALL_PROGRAMS',
+  volume_basis:'LINEAR_LEVEL_APPROXIMATION',stop_policy:'DEVICE_LOW_LEVEL_INTERLOCK',
+  execution_blockers:['inventory_volume_not_physically_calibrated','production_water_session_not_commissioned']};
+ const parsed=unifiedAiDashboardSchema.parse(sample);
+ assert.equal(parsed.production_fuzzy.target_water_l,2095);
+ assert.equal(parsed.production_fuzzy.score,0.844445);
+ sample.production_fuzzy.can_dispatch=true;
+ assert.equal(unifiedAiDashboardSchema.safeParse(sample).success,false);
+});
+
 function payload(){
  return {
   schemaVersion:1,mode:'SHADOW_MODE',can_dispatch:false,status:'NO_DECISION',
