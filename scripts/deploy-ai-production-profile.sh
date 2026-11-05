@@ -45,6 +45,13 @@ profile=data["operational_profile"]
 assert profile["can_dispatch"] is False and data["can_dispatch"] is False
 print("OPERATIONAL_PROFILE="+profile["status"])
 print("PROFILE_BLOCKERS="+",".join(profile["blockers"]))
+fuzzy=data["production_fuzzy"]
+assert fuzzy["can_dispatch"] is False
+assert fuzzy["status"] in ("READY", "BLOCKED")
+if fuzzy["status"] == "BLOCKED":
+    assert fuzzy["target_water_l"] is None
+print("PRODUCTION_FUZZY="+fuzzy["status"])
+print("FUZZY_BLOCKERS="+",".join(fuzzy["blockers"]))
 PY
 SUCCESS=1
 echo "PYTHON_PROFILE_PATCH=SUCCESS; DATABASE=UNCHANGED; DISPATCH_FLAGS=UNCHANGED"
