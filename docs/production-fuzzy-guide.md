@@ -1,5 +1,39 @@
 # Fuzzy produksi berbasis Panduan
 
+## Aturan operator terbaru: target isi tandon
+
+Operator meminta target menghabiskan air tersedia di tandon, berlaku untuk semua
+program. Mode `AVAILABLE_TANK` tidak mengambil liter Semprot sebagai target irigasi.
+Fuzzy memakai aturan membership yang sekarang untuk menentukan perlu/tidak siram;
+jika perlu, target adalah `tank_preview.estimated_available_l`, bukan skor dikali
+kapasitas nominal. Jika OFF, target nol. Dosis pupuk dari Panduan tidak diubah.
+
+Target adalah jumlah pada snapshot sebelum sesi, bukan instruksi mengikuti isi
+tandon tanpa batas saat ada pengisian ulang. Eksekutor kelak perlu membekukan
+target saat ACC dan tetap menghentikan pompa pada interlock level rendah.
+Backend saat ini tidak mengirim command dan tidak melewati batas trial firmware.
+
+Aktifkan setelah deployment Node (kontrak baru) lalu patch Python:
+
+```bash
+sudo python3 scripts/configure-tank-inventory.py --actor admin \
+  --reference "Arahan operator: target isi tandon untuk semua program" --apply
+```
+
+Perintah ini menyimpan drop-in khusus kebijakan perhitungan pada service AI,
+merestart AI, dan memeriksa readback. Jika gagal, drop-in lama dipulihkan.
+Flag dispatch pompa dan pengaturan dosis tidak diubah. Tanpa `--apply` hanya
+menampilkan konfigurasi. Fingerprint mengikat aturan Fuzzy, dimensi tandon,
+dan identitas perangkat; perubahannya perlu diperiksa dan disetujui ulang.
+
+`production_fuzzy.basis=TANK_INVENTORY_FUZZY`, `target_policy=AVAILABLE_TANK`,
+dan `applies_to=ALL_PROGRAMS`. Profil hidrolik Panduan tidak dibutuhkan untuk
+perhitungan ini. Status `READY` berarti hitungan tersedia; `can_dispatch=false`
+dan `execution_blockers` tetap menyatakan batas perangkat serta volume yang
+masih berupa estimasi linear. Ini bukan klaim kalibrasi fisik sudah selesai.
+`fuzzy_preview` tetap menampilkan model pembanding; konsumen mode isi tandon
+harus memakai `production_fuzzy.target_water_l`, bukan liter simulasi preview.
+
 Perubahan ini memperbaiki profil dan perhitungan. Tidak mengaktifkan flag dispatch,
 tidak mengirim command, tidak mengubah konsentrasi stok, dan tidak mem-flash ESP32.
 
@@ -143,7 +177,7 @@ python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({k:d.get(k
 
 ## Verifikasi
 
-Suite Python: 237 tes, 6 skipped (integrasi eksternal opsional), termasuk
+Suite Python: 243 tes, 6 skipped (integrasi eksternal opsional), termasuk
 regresi scope profil, target Panduan, revisi berubah, sensor stale, serta
 penolakan simulator sebagai profil operasional. Tes ini tidak menguji pompa fisik.
 
