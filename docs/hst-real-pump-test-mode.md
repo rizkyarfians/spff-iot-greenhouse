@@ -1,5 +1,28 @@
 # SPFF HST → Physical Adaptive Fertigation (1.5.07)
 
+## Guided setup from saved data
+
+The execution card displays product, target/remaining kilograms, reference
+application water, and measured-profile EC from the current Guide program.
+These are read-only; operators do not enter the Guide dose again.
+An exact saved installation profile is reused for its bound activity.
+The stock concentration remains the actual prepared stock concentration,
+not the Guide's final-solution mass divided by application water.
+
+When no binding exists, the read-only preflight may suggest a saved profile
+for the same site, device and single fertilizer product. Suggestions require
+current source program/device/product/row and EC revisions. They do not save
+anything or grant dispatch. An operator explicitly confirms that the stock
+and installation are unchanged, then the existing authenticated/CSRF-protected
+profile PUT binds those values to the current Guide identity and revisions.
+Changed stock requires editing the installation data instead of confirming reuse.
+
+If no suitable profile exists, enter only missing physical installation data;
+meter placement has no assumed default. Session limits are under expandable
+details. If a required Guide EC measurement is missing, the card explains that
+prerequisite rather than opening an unusable stock form. Readiness reasons
+are translated into Indonesian; all server execution guards remain in force.
+
 ## What this feature branch actually implements
 
 Unlike the first SHADOW-preview branch, this branch **does contain an end-to-end
