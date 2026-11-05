@@ -85,9 +85,42 @@ volume air tersendiri dan verifikasi pengukuran, penghentian, restart, serta
 arbitrasi relay. Jalur HST yang ada tetap memerlukan pengikatan stok/hidrolik
 dan uji perangkatnya sendiri. Tidak ada klaim kedua mode sudah commissioned.
 
+## Hasil Fuzzy produksi untuk integrasi backend
+
+`GET /dashboard/summary` (Python 5010) dan route terautentikasi
+`GET /api/unified-ai/dashboard` menyediakan `production_fuzzy`.
+Route Node mempertahankan envelope `data.production_fuzzy`.
+
+- `status=READY`: perhitungan memakai profil operasional yang terikat ke target
+  Panduan, aktivitas jatuh pada hari ini (Asia/Jakarta), dan sensor valid/segar.
+- `dominant_input_classes`, `memberships`, dan `rule_outputs` berasal dari
+  membership/rule profil tersimpan. LOW pada input berarti kelembapan rendah;
+  HIGH pada output berarti kebutuhan air tinggi. Skor bukan probabilitas.
+- `target_water_l` adalah kebutuhan hasil centroid dan batas Panduan, dengan
+  aturan OFF dari profil. Ini bukan sisa dosis, anggaran satu sesi, atau durasi.
+- `expires_at` memakai umur snapshot, maksimum 120 detik atau batas profil yang
+  lebih ketat. Pembaca wajib mengecek ulang waktu saat menggunakan hasil.
+- `status=BLOCKED` mengembalikan `target_water_l=null` dan kode `blockers`.
+  Tidak mengambil hasil simulasi sebagai pengganti. Aktivitas yang selesai
+  manual perlu rekonsiliasi; perubahan tanggal/revisi tidak memakai target lama.
+- `can_dispatch=false` tetap berlaku. Pelaksana wajib memeriksa ACC, idempotensi,
+  kunci perangkat, batas sesi, flowmeter, interlock dan firmware secara terpisah.
+  GET tidak membuat ledger/sesi atau mengurangi sisa kebutuhan.
+
+Contoh: kelembapan 19,9% dengan aturan existing menghasilkan skor sekitar
+0,844445. Jika target Panduan yang diverifikasi 1.000 L, hasilnya sekitar
+844,445 L. 1.000 L pada contoh ini bukan nilai yang dipasang ke perangkat.
+
+Cek keluaran setelah pemasangan dan pengikatan profil:
+
+```bash
+curl -fsS --max-time 20 http://127.0.0.1:5010/dashboard/summary |
+python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({k:d.get(k) for k in ["operational_profile","production_fuzzy"]},indent=2))'
+```
+
 ## Verifikasi
 
-Suite Python: 234 tes, 6 skipped (integrasi eksternal opsional), termasuk
+Suite Python: 236 tes, 6 skipped (integrasi eksternal opsional), termasuk
 regresi scope profil, target Panduan, revisi berubah, sensor stale, serta
 penolakan simulator sebagai profil operasional. Tes ini tidak menguji pompa fisik.
 
