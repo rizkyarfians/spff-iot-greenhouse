@@ -16,6 +16,13 @@ FILES = {
     "configure_guide_irrigation.py": None,
 }
 
+# Previously published profile patch: allow an upgrade from these exact blobs,
+# while continuing to preserve any unrecognized local source edits.
+PREVIOUS = {
+    "dashboard_summary.py": ("5a6d546289baa0d417701b4f192f1abccc4836b5",),
+    "production_profile.py": ("56b6627f7f8232959d3117c2e3b4a7c924525cea",),
+}
+
 
 def blob(path):
     data = path.read_text(encoding="utf-8").encode("utf-8")
@@ -48,7 +55,7 @@ def main():
             candidate, live = checked(source / "app", name), checked(app, name)
             if not candidate.is_file():
                 raise ValueError("Staged AI module missing: " + name)
-            if live.exists() and blob(live) not in (expected, blob(candidate)):
+            if live.exists() and blob(live) not in (expected, blob(candidate), *PREVIOUS.get(name, ())):
                 raise ValueError("Local Python source differs; preserved without edits: " + name)
         check = backup / "check"
         shutil.copytree(app, check / "app", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
@@ -67,7 +74,7 @@ def main():
         (backup / "originals").mkdir()
         for name, expected in FILES.items():
             live = checked(app, name)
-            if live.exists() and blob(live) not in (expected, blob(checked(source / "app", name))):
+            if live.exists() and blob(live) not in (expected, blob(checked(source / "app", name)), *PREVIOUS.get(name, ())):
                 raise ValueError("Concurrent local source edit preserved: " + name)
             previous[name] = live.exists()
             if live.exists():
