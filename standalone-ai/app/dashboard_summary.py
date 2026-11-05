@@ -3,7 +3,7 @@
 No calculations are recreated in the browser, and no synthetic scenario is
 promoted to a plant recommendation. A missing or stale decision stays explicit.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from math import isfinite
 from decimal import Decimal
 
@@ -224,6 +224,7 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
 
     selected_value = _number(telemetry.get(selected_soil)) if selected_soil else None
     selected_health = health.get(selected_soil) if selected_soil else None
+    sensor_expires_at = None
     if selected_soil is None:
         fuzzy_preview_blockers.append("control_source_not_selected")
     elif selected_value is None or selected_value > 100:
@@ -249,6 +250,14 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
         raw_age = selected_health.get("rawAgeMs")
         if not (type(raw_age) is int and 0 <= raw_age <= 60000):
             fuzzy_preview_blockers.append("sensor_raw_age_unverified")
+        else:
+            raw_recorded_at = _iso(telemetry.get("recorded_at"))
+            if raw_recorded_at is not None:
+                elapsed_ms = max(0.0, (now-datetime.fromisoformat(raw_recorded_at)).total_seconds()*1000)
+                effective_age_ms = raw_age + elapsed_ms
+                sensor_expires_at = now + timedelta(milliseconds=60000-effective_age_ms)
+                if effective_age_ms > 60000:
+                    fuzzy_preview_blockers.append("sensor_raw_age_unverified")
 
     if not (
         control.get("acknowledgement_status") == "applied"
@@ -394,14 +403,15 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
     )
 
     production_fuzzy = production_fuzzy_result(operational_profile, guide, fuzzy_preview,
-        fuzzy_preview_blockers, now=now, live_source=live_source)
+        fuzzy_preview_blockers, now=now, live_source=live_source, sensor_expires_at=sensor_expires_at)
     if inventory_selected:
         fingerprint = policy_fingerprint(simulation_config, capacity_l=tank_capacity_l,
             height_cm=tank_height_cm, site_id=inventory_scope[0],
             device_id=inventory_scope[1], zone_id=inventory_scope[2])
         production_fuzzy = evaluate_inventory_target(simulation_config, fuzzy_preview,
             fuzzy_preview_blockers, tank, approval=tank_inventory_approval,
-            fingerprint=fingerprint, now=now, live_source=live_source)
+            fingerprint=fingerprint, now=now, live_source=live_source,
+            sensor_expires_at=sensor_expires_at)
         operational_state = {"status": "TANK_BOUND" if tank_inventory_approval == fingerprint else "REVIEW_REQUIRED",
             "version": production_fuzzy["profile_version"], "program_id": None,
             "activity_id": None, "target_water_l": production_fuzzy["max_water_l"],
