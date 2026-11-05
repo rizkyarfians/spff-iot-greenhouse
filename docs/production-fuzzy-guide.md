@@ -47,6 +47,9 @@ Installer dan CLI profil mengambil direktori aktif dari MainPID service,
 memastikan proses itu memiliki listener 5010, memakai entrypoint Python `-m app`,
 dan memeriksa lokasi import paket. `/opt/spff-ai` tidak lagi diasumsikan sebagai
 direktori yang aktif. Hasil inspeksi hanya berisi lokasi/PID, tanpa environment:
+Interpreter diambil dari command proses dan dicocokkan dengan `/proc/PID/exe`.
+Folder release boleh memakai venv bersama di luar release; path interpreter
+venv dipertahankan sehingga dependensi yang dipakai sama dengan service.
 
 ```bash
 sudo python3 scripts/ai_service_runtime.py
