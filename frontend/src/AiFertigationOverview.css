@@ -12,3 +12,5 @@
 @media(max-width:360px){.afo{margin:12px;padding:13px}.afo-inventory{gap:6px;padding:10px 7px}.afo-inventory strong{font-size:17px}.afo-tank{width:23px;height:41px}.afo-ring{width:90px;height:90px}.afo-dose{gap:10px}.afo-dose-numbers>strong{font-size:17px}.afo-details{margin:0 12px 12px}.afo footer{flex-wrap:wrap}}
 
 .afo-irrigation-note{display:block;margin-top:6px;color:#718576;font-size:10px;line-height:1.4}
+
+.afo-fertilizer-remaining{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 12px;margin:0 0 14px;border:1px solid #bfdbcb;border-radius:11px;background:#e8f5ed;min-width:0}.afo-fertilizer-remaining>div{display:grid;gap:4px;min-width:0}.afo-fertilizer-remaining span{font-size:12px;font-weight:700}.afo-fertilizer-remaining small{font-size:10px;color:#617d6a;overflow-wrap:anywhere}.afo-fertilizer-remaining>strong{font-size:22px;line-height:1.2;text-align:right;overflow-wrap:anywhere;max-width:50%}
