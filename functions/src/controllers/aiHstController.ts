@@ -21,7 +21,7 @@ import { requestActor } from '../middleware/operatorAuth.js';
 import { localAiUrl } from '../services/localAiEndpoint.js';
 import { pool, configuredSiteId as siteId } from '../services/postgresRepository.js';
 import { readGuideEcConversions } from '../services/guideEcConversionService.js';
-import {readHstRealHardwareProfile,saveHstRealHardwareProfile,executeHstReal,hstRealSession,latestHstRealSession}
+import {readHstRealHardwareProfile,readReusableHstHardwareProfile,saveHstRealHardwareProfile,executeHstReal,hstRealSession,latestHstRealSession}
  from '../services/hstRealExecutionService.js';
 import {controlAdaptiveSession} from '../services/adaptiveFertigationService.js';
 import {readHstMode,setHstMode} from '../services/hstExecutionModeService.js';
@@ -246,6 +246,10 @@ export async function getHstRealPreflight(req: Request, res: Response): Promise<
     const canDispatch=blockers.size===0;
     const conversion=cfg.success? (await readGuideEcConversions(proposal.program_id))
       .find(item=>item.activityId===proposal.activity_id):null;
+    const guideActivity=(row?.plan as GuideProgramPlan|undefined)?.activities
+      .find(item=>item.id===proposal.activity_id);
+    const suggestedProfile=!profile&&cfg.success&&cfg.data.deviceId&&proposal.product
+      ?await readReusableHstHardwareProfile(cfg.data.deviceId,proposal.product):null;
     const result = aiHstRealPreflightSchema.parse({
       schemaVersion: 1, obligationId, status: canDispatch?'READY':'BLOCKED',
       reasons: [...blockers].sort(), canDispatch,
@@ -254,6 +258,15 @@ export async function getHstRealPreflight(req: Request, res: Response): Promise<
        ecProfileRevision:conversion?.profile?.revision??null,
        deviceId:cfg.data.deviceId,
        profile:profile??null,
+       suggestedProfile,
+       guide:guideActivity?{
+        method:guideActivity.method,
+        waterL:typeof guideActivity.waterL==='number'&&Number.isFinite(guideActivity.waterL)&&guideActivity.waterL>=0
+          ?guideActivity.waterL:null,
+        targetEcUsCm:conversion?.status==='ready'&&typeof conversion.targetEcMsCm==='number'
+          ?conversion.targetEcMsCm*1000:null,
+        ecReason:conversion?.status==='ready'?null:conversion?.reason??'Profil EC campuran belum tersedia.',
+       }:null,
       }:null,
     });
     res.json({ success: true, data: result, message: 'Pemeriksaan TEST REAL read-only; tidak ada perintah pompa.' });
