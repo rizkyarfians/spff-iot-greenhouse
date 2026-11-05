@@ -14,12 +14,15 @@ FILES = {
     "configure_live.py": "9ac73cada952743591f85512656e02d076b01892",
     "production_profile.py": None,
     "configure_guide_irrigation.py": None,
+    "tank_inventory_policy.py": None,
 }
 
 # Previously published profile patch: allow an upgrade from these exact blobs,
 # while continuing to preserve any unrecognized local source edits.
 PREVIOUS = {
-    "dashboard_summary.py": ("5a6d546289baa0d417701b4f192f1abccc4836b5",),
+    "api.py": ("7debd01b71abbe1ea633f05c198c7780d666e88d",),
+    "dashboard_summary.py": ("5a6d546289baa0d417701b4f192f1abccc4836b5",
+                             "ffeaac49ed04725e979b2f4b29f578476db1977d"),
     "production_profile.py": ("56b6627f7f8232959d3117c2e3b4a7c924525cea",
                               "cbcd919073a6bf3ea1cb67c1eb53bbaeee67f60d"),
     "configure_guide_irrigation.py": ("918d5ddcf7de1bba86eed7e92c40dce53bad610c",),
@@ -65,10 +68,10 @@ def main():
         (check / "tests").mkdir()
         for name in FILES:
             shutil.copy2(checked(source / "app", name), checked(check / "app", name))
-        for name in ("test_production_guide_profile.py", "test_hst_state_separation.py"):
+        for name in ("test_production_guide_profile.py", "test_hst_state_separation.py", "test_tank_inventory_profile.py"):
             shutil.copy2(source / "tests" / name, check / "tests" / name)
         subprocess.run([str(python), "-m", "unittest", "discover", "-s", "tests",
-                        "-p", "test_production_guide_profile.py"], cwd=check, check=True)
+                        "-p", "test_*profile.py"], cwd=check, check=True)
         print("PYTHON_PROFILE_STAGE=PASS; LIVE_FILES=UNCHANGED")
         return
     manifest_path = backup / "files.json"
