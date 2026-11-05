@@ -20,12 +20,15 @@ def listening_inodes(table, port=5010):
 
 def validate_runtime(cwd, command, imported_package):
     root = Path(cwd).resolve()
-    python = root / ".venv/bin/python"
-    if not python.is_file() or not (root / "app/api.py").is_file():
-        raise ValueError("Active AI directory needs app/api.py and .venv/bin/python: " + str(root))
-    if (len(command) != 3 or command[1:] != ["-m", "app"]
-            or Path(command[0]).resolve() != python.resolve()):
+    if len(command) != 3 or command[1:] != ["-m", "app"]:
         raise ValueError("Unsupported AI entrypoint; inspect the service before applying files")
+    # Preserve the executable path used to launch the service: resolving a venv
+    # symlink to /usr/bin/python would lose its site-packages configuration.
+    python = Path(command[0])
+    if not python.is_absolute() or not python.is_file():
+        raise ValueError("Active AI interpreter is not an existing absolute path")
+    if not (root / "app/api.py").is_file():
+        raise ValueError("Active AI directory needs app/api.py: " + str(root))
     if Path(imported_package).resolve() != (root / "app/__init__.py").resolve():
         raise ValueError("AI import directory differs from service cwd; no files changed")
     return root, python
@@ -60,6 +63,8 @@ def discover_runtime(service, proc_root=Path("/proc")):
         raise ValueError("Selected AI MainPID does not own listening port 5010; no files changed")
     # Validate the supported -m app launch before invoking its interpreter.
     root, python = validate_runtime(cwd, command, cwd / "app/__init__.py")
+    if not python.samefile(process / "exe"):
+        raise ValueError("AI command interpreter differs from process executable; no files changed")
     imported = subprocess.check_output([str(python), "-c",
         "import importlib.util; print(importlib.util.find_spec('app').origin)"],
         cwd=root, env=environment, text=True, timeout=10).strip()
@@ -74,7 +79,9 @@ def discover_runtime(service, proc_root=Path("/proc")):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--service", choices=SERVICES, default=SERVICES[0])
-    parser.add_argument("--root-only", action="store_true")
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument("--root-only", action="store_true")
+    output.add_argument("--python-only", action="store_true")
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.error("sudo is required to inspect the AI service")
@@ -87,9 +94,12 @@ def main():
         parser.error("AI process inspection failed (" + type(error).__name__ + ")")
     if args.root_only:
         print(runtime["root"])
+    elif args.python_only:
+        print(runtime["python"])
     else:
         print(json.dumps({"service": args.service, "pid": runtime["pid"],
-            "root": str(runtime["root"]), "port": 5010, "listener_verified": True}))
+            "root": str(runtime["root"]), "python": str(runtime["python"]),
+            "port": 5010, "listener_verified": True}))
 
 
 if __name__ == "__main__":
