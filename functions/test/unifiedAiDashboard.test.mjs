@@ -76,8 +76,18 @@ test('dashboard supports explicitly guide-bound operational Fuzzy while retainin
  sample.fuzzy_preview={basis:'OPERATIONAL_PROFILE',config_version:'test-guide-1',
   input_key:'soil_2_moisture',moisture_pct:19.9,score:0.844445,illustrative_water_l:844.445,
   model_max_irrigation_l:1000,recorded_at:'2026-11-04T14:45:00Z'};
+ sample.production_fuzzy={status:'READY',basis:'VERIFIED_GUIDE_FUZZY',
+  evaluated_at:'2026-11-04T14:45:01Z',recorded_at:'2026-11-04T14:45:00Z',
+  expires_at:'2026-11-04T14:47:00Z',profile_version:'test-guide-1',program_id:'program-1',
+  activity_id:'row-19',input_key:'soil_2_moisture',moisture_pct:19.9,
+  memberships:{LOW:1,MEDIUM:0,HIGH:0},dominant_input_classes:['LOW'],rule_outputs:['HIGH'],
+  score:0.844445,max_water_l:1000,target_water_l:844.445,irrigation_needed:true,
+  can_dispatch:false,blockers:[]};
  assert.equal(unifiedAiDashboardSchema.safeParse(sample).success,true);
  sample.operational_profile.can_dispatch=true;
+ assert.equal(unifiedAiDashboardSchema.safeParse(sample).success,false);
+ sample.operational_profile.can_dispatch=false;
+ sample.production_fuzzy.can_dispatch=true;
  assert.equal(unifiedAiDashboardSchema.safeParse(sample).success,false);
 });
 
