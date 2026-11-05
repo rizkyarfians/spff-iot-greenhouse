@@ -35,6 +35,14 @@ healthy(){
  systemctl is-active --quiet spff-edge-gateway.service &&
  curl -fsS -m 5 http://127.0.0.1:3001/api/health >/dev/null
 }
+wait_healthy(){
+ local deadline=$((SECONDS+30))
+ while (( SECONDS < deadline )); do
+  if healthy 2>/dev/null; then return 0; fi
+  sleep 1
+ done
+ healthy
+}
 # EnvironmentFile can override Environment= in a systemd drop-in.
 # Check the actual live process; never report a physical gate state merely
 # because a drop-in file was successfully written.
@@ -364,7 +372,7 @@ fi
 if [[ "$MODE" == disable ]]; then
  gates false false
  systemctl restart "$WORKER" "$API"
- healthy || fatal "service unhealthy"
+ wait_healthy || fatal "service unhealthy after restart"
  assert_runtime_gate "$API" SPFF_HST_REAL_DISPATCH_ENABLED false
  assert_runtime_gate "$API" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
  assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
@@ -405,7 +413,7 @@ if [[ "$MODE" == enable-dose-volume ]]; then
   ' || fatal "no fresh device with verified water protection or commissioned dose-volume and both pumps OFF"
  gates false false true
  if ! systemctl restart "$WORKER" "$API" ||
-    ! ( healthy &&
+    ! ( wait_healthy &&
         assert_runtime_gate "$API" SPFF_HST_REAL_DISPATCH_ENABLED false &&
         assert_runtime_gate "$API" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false &&
         assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false &&
@@ -431,7 +439,7 @@ read -r -p 'Type ENABLE-HST-PHYSICAL while physically present: ' confirmation
 [[ "$confirmation" == ENABLE-HST-PHYSICAL ]] || fatal 'not armed'
 gates true true
 if ! systemctl restart "$WORKER" "$API" ||
-   ! ( healthy &&
+   ! ( wait_healthy &&
        assert_runtime_gate "$API" SPFF_HST_REAL_DISPATCH_ENABLED true &&
        assert_runtime_gate "$API" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED true &&
        assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED true ); then
