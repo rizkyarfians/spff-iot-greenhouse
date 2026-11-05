@@ -165,6 +165,13 @@ export function HstApprovalPanel() {
         {liquidError&&<p role="status" className="hst-note">{liquidError}</p>}
         {!liquidError&&liquidData&&(waterLitres===null||stockLitres===null)&&<p className="hst-note">Volume tandon menunggu hasil konversi dari sensor yang valid dan terbaru.</p>}
       </section>
+      {!!data?.proposals.length&&<section className="hst-needs" aria-label="Sisa kebutuhan pupuk tanaman">
+        <strong>Sisa kebutuhan tanaman</strong>
+        <div className="hst-needs-list">{data.proposals.map(proposal=><div key={proposal.obligation_id}>
+          <small>{proposal.product??'Pupuk'} · HST {proposal.hst??'—'}</small>
+          <strong>{mass(proposal.status!=='REQUIRES_REVIEW'&&proposal.review_reasons.length===0?proposal.remaining_g:null)}</strong>
+        </div>)}</div>
+      </section>}
       <div className="hst-shadow-mode-row">
         <div className="hst-shadow-mode-label">
           <strong>SHADOW MODE</strong>
@@ -241,8 +248,8 @@ export function HstApprovalPanel() {
               <small>Jadwal {proposal.due_date ?? 'belum tersedia'} · {proposal.activity_id}</small>
               <div className="hst-figures">
                 <div><small>Target</small><strong>{mass(proposal.target_g)}</strong></div>
-                <div><small>Terpenuhi</small><strong>{mass(proposal.delivered_g)}</strong></div>
-                <div><small>Sisa</small><strong>{mass(proposal.remaining_g)}</strong></div>
+                <div><small>Tercatat diberikan</small><strong>{mass(proposal.delivered_g)}</strong></div>
+                <div className="hst-remaining-need"><small>Sisa kebutuhan</small><strong>{mass(proposal.status!=='REQUIRES_REVIEW'&&proposal.review_reasons.length===0?proposal.remaining_g:null)}</strong></div>
               </div>
               <HstRealExecutionCard shadowEnabled={mode === 'SHADOW'}
                 proposal={proposal}
