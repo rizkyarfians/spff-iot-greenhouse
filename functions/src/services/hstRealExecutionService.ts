@@ -62,6 +62,39 @@ export async function saveHstRealHardwareProfile(raw:AiHstHardwareProfile,actor:
  return {profile:input,verifiedAt:record.rows[0].verified_at};
 }
 
+/** Read-only suggestions. Never create a new binding or mark another batch verified.
+ * Operator must confirm unchanged stock/installation and save against current revisions.
+ */
+export async function readReusableHstHardwareProfile(deviceId:string,product:string){
+ const rows=(await pool.query(`SELECT p.* FROM spff.hst_real_profiles p
+  JOIN spff.guide_programs g ON g.site_id=p.site_id AND g.program_id=p.program_id
+  WHERE p.site_id=$1 AND p.device_id=$2 AND p.product=$3
+    AND g.revision=p.program_revision AND g.config->>'deviceId'=p.device_id
+  ORDER BY p.verified_at DESC,p.program_id,p.activity_id,p.source_row LIMIT 5`,
+  [siteId,deviceId,product])).rows;
+ for(const row of rows){
+  const profile=aiHstHardwareProfileSchema.safeParse({
+   programId:row.program_id,activityId:row.activity_id,sourceRow:row.source_row,
+   deviceId:row.device_id,product:row.product,programRevision:row.program_revision,
+   ecProfileRevision:row.ec_profile_revision,stockConcentrationGPerL:row.stock_concentration_g_l,
+   waterMeterPosition:row.water_meter_position,hydraulicsReference:row.hydraulics_reference,
+   ecToleranceUs:row.ec_tolerance_us,maxDurationSec:row.max_duration_sec,flushDurationSec:row.flush_duration_sec,
+  });
+  if(!profile.success||profile.data.deviceId!==deviceId||profile.data.product!==product)continue;
+  const program=(await pool.query('SELECT config,plan,revision FROM spff.guide_programs WHERE site_id=$1 AND program_id=$2',
+    [siteId,profile.data.programId])).rows[0];
+  const config=guideProgramConfigSchema.safeParse(program?.config);
+  const plan=program?.plan as GuideProgramPlan|undefined;
+  const activity=Array.isArray(plan?.activities)?plan.activities.find(a=>a.id===profile.data.activityId):undefined;
+  if(!config.success||config.data.deviceId!==deviceId||program.revision!==profile.data.programRevision||
+     !activity||activity.requirements.length!==1||activity.requirements[0].row!==profile.data.sourceRow||
+     activity.requirements[0].product!==product||!guideEcRecipe(activity))continue;
+  const ec=(await readGuideEcConversions(profile.data.programId)).find(c=>c.activityId===profile.data.activityId);
+  if(ec?.status==='ready'&&ec.profile?.revision===profile.data.ecProfileRevision)return profile.data;
+ }
+ return null;
+}
+
 const toleratedHolds=new Set(['shadow_mode_no_fertigation_dispatch',
  'firmware_external_volume_only_authority_not_implemented','manual_mode_blocks_automatic_start']);
 export async function executeHstReal(raw:AiHstRealExecuteRequest,actor:string){
