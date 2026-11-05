@@ -49,4 +49,17 @@ END $$;
 DROP TRIGGER IF EXISTS guard_server_water_interlock ON spff.device_water_interlock_configs;
 CREATE TRIGGER guard_server_water_interlock BEFORE UPDATE OF enabled ON spff.device_water_interlock_configs
  FOR EACH ROW EXECUTE FUNCTION spff.guard_server_water_interlock();
+DO $$ DECLARE r text; BEGIN
+ FOREACH r IN ARRAY ARRAY['spff_app','spff_api_role'] LOOP
+  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=r) THEN
+   EXECUTE format('GRANT UPDATE (status,reason) ON spff.control_commands TO %I',r);
+  END IF;
+ END LOOP;
+ FOREACH r IN ARRAY ARRAY['spff_mqtt_worker','spff_mqtt_role','spff_worker','spff_worker_role'] LOOP
+  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=r) THEN
+   EXECUTE format('GRANT SELECT (site_id,shadow_enabled) ON spff.hst_execution_modes TO %I',r);
+   EXECUTE format('GRANT SELECT (command_id,status,actual_is_active,acknowledged_at) ON spff.command_ack_events TO %I',r);
+  END IF;
+ END LOOP;
+END $$;
 COMMIT;
