@@ -22,6 +22,27 @@ def summary(sample=None, config=None, approval=None, now=NOW):
 
 
 class TankInventoryProfileTests(unittest.TestCase):
+    def test_transport_delay_counts_towards_sensor_age_even_with_fresh_flags(self):
+        sample = observation()
+        sample['telemetry']['sensor_health']['soil_2_moisture']['rawAgeMs'] = 58173
+        arrival = NOW + timedelta(seconds=9.526877)
+        sample['telemetry']['received_at'] = arrival.isoformat()
+        result = summary(sample, now=arrival)['production_fuzzy']
+        self.assertEqual(result['status'], 'BLOCKED')
+        self.assertIsNone(result['target_water_l'])
+        self.assertIn('sensor_raw_age_unverified', result['blockers'])
+
+    def test_reading_an_unchanged_packet_does_not_extend_raw_sensor_expiry(self):
+        sample = observation()
+        sample['telemetry']['sensor_health']['soil_2_moisture']['rawAgeMs'] = 50000
+        initial = summary(sample, now=NOW+timedelta(seconds=5))['production_fuzzy']
+        repeated = summary(sample, now=NOW+timedelta(seconds=8))['production_fuzzy']
+        self.assertEqual(initial['status'], 'READY')
+        self.assertEqual(initial['expires_at'], (NOW+timedelta(seconds=10)).isoformat())
+        self.assertEqual(repeated['expires_at'], initial['expires_at'])
+        expired = summary(sample, now=NOW+timedelta(seconds=11))['production_fuzzy']
+        self.assertEqual(expired['status'], 'BLOCKED')
+
     def test_target_is_entire_existing_inventory_not_score_times_capacity(self):
         result = summary()
         fuzzy = result['production_fuzzy']
