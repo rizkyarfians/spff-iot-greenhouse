@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {doseVolumeCommandSchema,doseVolumeEventPayloadSchema} from './doseVolume.js';
 const id=z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/),uuid=z.string().uuid(),num=z.number().finite().nonnegative().max(1e9);
 const identity={schemaVersion:z.literal(1),siteId:id,deviceId:id,sessionId:uuid};
 export const adaptiveStateSchema=z.enum(['IDLE','PRECHECK','WATER_PRIME','EC_CONTROL','NUTRIENT_COMPLETE','FLUSHING','COMPLETED','PAUSED','FAULT']);
@@ -21,7 +22,7 @@ export const adaptiveCommandSchema=z.union([adaptiveStartCommandSchema,adaptiveC
 export type AdaptiveCommand=z.infer<typeof adaptiveCommandSchema>;
 // Hardware dispatch refuses unbound preview START, even if it is otherwise a
 // valid calculation. STOP/pause retain the existing firmware contract.
-export const adaptiveDispatchSchema=z.object({kind:z.literal('adaptive_fert_dispatch'),schemaVersion:z.literal(1),siteId:id,deviceId:id,command:z.union([adaptiveFirmware1507StartSchema,adaptiveControlCommandSchema]),expiresAt:z.string().datetime({offset:true})}).strict()
+export const adaptiveDispatchSchema=z.object({kind:z.literal('adaptive_fert_dispatch'),schemaVersion:z.literal(1),siteId:id,deviceId:id,command:z.union([adaptiveFirmware1507StartSchema,adaptiveControlCommandSchema,doseVolumeCommandSchema]),expiresAt:z.string().datetime({offset:true})}).strict()
  .refine(v=>v.siteId===v.command.siteId&&v.deviceId===v.command.deviceId,'Device mismatch')
  .refine(v=>v.command.commandType!=='start'||Date.parse(v.expiresAt)===Date.parse(v.command.expiresAt),'START expiry must match persisted dispatch expiry');
 export type AdaptiveDispatch=z.infer<typeof adaptiveDispatchSchema>;
@@ -40,7 +41,7 @@ export const adaptiveTelemetrySchema=z.object({...identity,kind:z.literal('adapt
  firmwareVersion:z.string().min(1).optional(),
 }).strict();
 export const adaptiveGatewayAckSchema=z.object({...identity,kind:z.literal('adaptive_fert_gateway_ack'),commandId:uuid,status:z.enum(['forwarded','expired','unknown']),timestamp:z.string().datetime(),reason:z.string().max(200)}).strict();
-export const adaptiveEventPayloadSchema=z.union([adaptiveAckSchema,adaptiveTelemetrySchema,adaptiveGatewayAckSchema]);
+export const adaptiveEventPayloadSchema=z.union([adaptiveAckSchema,adaptiveTelemetrySchema,adaptiveGatewayAckSchema,doseVolumeEventPayloadSchema]);
 export const adaptiveEventSchema=z.object({kind:z.literal('adaptive_fert_event'),schemaVersion:z.literal(1),siteId:id,deviceId:id,messageId:z.string().regex(/^[a-f0-9]{64}$/),receivedAt:z.string().datetime(),payload:adaptiveEventPayloadSchema}).strict().refine(v=>v.siteId===v.payload.siteId&&v.deviceId===v.payload.deviceId,'Device mismatch');
 export type AdaptiveEvent=z.infer<typeof adaptiveEventSchema>;
 export const adaptivePersistedSchema=z.object({kind:z.literal('adaptive_fert_persisted_ack'),schemaVersion:z.literal(1),siteId:id,deviceId:id,messageId:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
