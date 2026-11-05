@@ -14,6 +14,7 @@ from .tank_preview import estimate_water_tank, estimate_fertilizer_tank
 from .irrigation_schedule_preview import illustrate_two_day_irrigation
 from .water_carryover import present_carryover
 from .production_profile import resolve_guide_irrigation, production_fuzzy_result
+from .tank_inventory_policy import policy_fingerprint, evaluate_inventory_target
 
 
 def _iso(value):
@@ -52,7 +53,8 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
                              tank_capacity_l=5000.0, tank_height_cm=180.0,
                              water_carryover_state=None,
                              fert_tank_capacity_l=500.0, fert_tank_height_cm=90.0,
-                             operational_profile=None):
+                             operational_profile=None, tank_inventory_approval=None,
+                             inventory_scope=None):
     """Return one schema for Node validation and mobile-first React presentation.
 
     A shadow ledger 'delivered_g' means credited by AI only, not external/manual
@@ -209,12 +211,15 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
     # Only intentionally simulation-only profiles are eligible.
     fuzzy_preview = None
     fuzzy_preview_blockers = []
-    operational_config, operational_state = resolve_guide_irrigation(operational_profile, guide)
+    inventory_selected = tank_inventory_approval is not None
+    operational_config, operational_state = resolve_guide_irrigation(
+        None if inventory_selected else operational_profile, guide)
     fuzzy_config = operational_config or simulation_config
     fuzzy_basis = "OPERATIONAL_PROFILE" if operational_config is not None else "SIMULATION_PROFILE"
     if not selected and not live_source:
         fuzzy_preview_blockers.append("no_source_decision")
-    if operational_config is None and (simulation_config is None or getattr(simulation_config, "simulation_only", False) is not True):
+    if operational_config is None and (simulation_config is None or (
+            not inventory_selected and getattr(simulation_config, "simulation_only", False) is not True)):
         fuzzy_preview_blockers.append("simulation_profile_unavailable")
 
     selected_value = _number(telemetry.get(selected_soil)) if selected_soil else None
@@ -390,6 +395,18 @@ def present_shadow_dashboard(decisions, now=None, simulation_config=None, stock_
 
     production_fuzzy = production_fuzzy_result(operational_profile, guide, fuzzy_preview,
         fuzzy_preview_blockers, now=now, live_source=live_source)
+    if inventory_selected:
+        fingerprint = policy_fingerprint(simulation_config, capacity_l=tank_capacity_l,
+            height_cm=tank_height_cm, site_id=inventory_scope[0],
+            device_id=inventory_scope[1], zone_id=inventory_scope[2])
+        production_fuzzy = evaluate_inventory_target(simulation_config, fuzzy_preview,
+            fuzzy_preview_blockers, tank, approval=tank_inventory_approval,
+            fingerprint=fingerprint, now=now, live_source=live_source)
+        operational_state = {"status": "TANK_BOUND" if tank_inventory_approval == fingerprint else "REVIEW_REQUIRED",
+            "version": production_fuzzy["profile_version"], "program_id": None,
+            "activity_id": None, "target_water_l": production_fuzzy["max_water_l"],
+            "calculation_ready": False, "can_dispatch": False,
+            "blockers": production_fuzzy["blockers"]}
     operational_state["calculation_ready"] = production_fuzzy["status"] == "READY"
     # Expose ONLY bounded reason codes, never raw Modbus/DB payload or credentials.
     return {
