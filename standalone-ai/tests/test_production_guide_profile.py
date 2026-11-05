@@ -52,6 +52,32 @@ def observation():
 
 
 class ProductionGuideProfileTests(unittest.TestCase):
+    def test_execution_only_source_holds_do_not_block_water_calculation(self):
+        from app.production_profile import EXECUTION_ONLY_HOLDS
+        source = guides()
+        source["programs"][0]["hold_reasons"] = sorted(EXECUTION_ONLY_HOLDS)
+        profile = bind_guide_irrigation(base(), source, program_id="program-1", activity_id="row-19",
+            device_id="esp32-s3-01", version="test-calculation", reference="Verified synthetic water target")
+        sample = observation()
+        sample["guide_programs"] = source
+        result = present_shadow_dashboard([], NOW, simulation_config=Config(),
+            planning_observation=sample, operational_profile=profile)
+        self.assertEqual(result["production_fuzzy"]["status"], "READY")
+        self.assertFalse(result["production_fuzzy"]["can_dispatch"])
+        self.assertEqual(source["programs"][0]["hold_reasons"], sorted(EXECUTION_ONLY_HOLDS))
+        for hold in ("crop_binding_not_verified", "guide_edits_changed_since_program_was_saved",
+                     "saved_population_mismatch", "unknown_future_hold"):
+            source["programs"][0]["hold_reasons"].append(hold)
+            self.assertIsNone(resolve_guide_irrigation(profile, source)[0])
+            source["programs"][0]["hold_reasons"].pop()
+        for method in ("Semprot", "Tabur"):
+            source["programs"][0]["activities"][0]["method"] = method
+            self.assertIsNone(resolve_guide_irrigation(profile, source)[0])
+            from app.configure_guide_irrigation import candidate_status
+            candidate = candidate_status(source, "program-1", "row-19", "esp32-s3-01")
+            self.assertFalse(candidate["water_target_eligible"])
+            self.assertEqual(candidate["water_target_blockers"], ["guide_route_not_irrigation"])
+
     def test_target_is_taken_from_guide_without_changing_tank_capacity_or_promoting_simulation(self):
         profile = bound()
         self.assertEqual(profile.planning.max_irrigation_l, 1000)
