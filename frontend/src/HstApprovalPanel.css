@@ -1,3 +1,15 @@
+.hst-guide-summary,.hst-installation-summary{display:grid;gap:7px;padding:12px;border:1px solid #d4e6dc;border-radius:10px;background:#f0f8f3;min-width:0}
+.hst-guide-summary>strong,.hst-installation-summary>strong{font-size:13px}
+.hst-guide-summary>div{display:flex;flex-wrap:wrap;gap:12px;font-size:12px}.hst-guide-summary b{display:block;font-size:18px;margin-top:4px}
+.hst-guide-summary small,.hst-installation-summary small{line-height:1.5;color:#5e7568;overflow-wrap:anywhere}
+.hst-installation-summary{background:#fff}.hst-installation-summary>span{font-size:13px}
+.hst-readiness-details{padding:10px 12px;border:1px solid #ead8b4;border-radius:9px;background:#fffaf0;font-size:13px}
+.hst-readiness-details summary,.hst-session-settings summary{cursor:pointer;font-weight:700;min-height:24px}
+.hst-readiness-details ul{padding-left:19px;margin:8px 0 0;line-height:1.6}
+.hst-setup-missing,.hst-setup-hint{margin:0;font-size:13px;line-height:1.5;color:#63756b}
+.hst-real-form>.hst-setup-hint,.hst-real-form>.hst-session-settings,.hst-real-form>.hst-setup-confirm{grid-column:1/-1}
+.hst-session-settings{padding:10px 12px;border:1px solid #dce5df;border-radius:9px}.hst-session-settings label{margin-top:10px}
+.hst-real-form .hst-setup-confirm{flex-direction:row;align-items:flex-start;line-height:1.5}.hst-real-form .hst-setup-confirm input{width:auto;flex:none;margin-top:4px}
 /* Production Guide-page HST card; scoped to the existing SPFF layout. */
 .guide-page > .hst-panel { background: white; border: 1px solid #d3e1d8; border-radius: 14px;
   padding: 22px; margin: 0 0 22px; }
