@@ -105,7 +105,7 @@ class ProductionGuideProfileTests(unittest.TestCase):
         self.assertEqual(production["dominant_input_classes"], ["LOW"])
         self.assertEqual(production["rule_outputs"], ["HIGH"])
         self.assertAlmostEqual(production["target_water_l"], 844.445)
-        self.assertEqual(production["expires_at"], (NOW + timedelta(seconds=120)).isoformat())
+        self.assertEqual(production["expires_at"], (NOW + timedelta(seconds=60)).isoformat())
         self.assertTrue(production["irrigation_needed"])
         self.assertFalse(production["can_dispatch"])
 
