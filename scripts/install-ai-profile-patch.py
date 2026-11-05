@@ -42,12 +42,13 @@ def main():
     parser.add_argument("source", type=Path)
     parser.add_argument("target", type=Path)
     parser.add_argument("backup", type=Path)
+    parser.add_argument("--python", type=Path, help="Verified interpreter from the active AI service")
     args = parser.parse_args()
     source = args.source.resolve() / "standalone-ai"
     target = args.target.resolve()
     backup = args.backup.resolve()
     app = target / "app"
-    python = target / ".venv/bin/python"
+    python = args.python or target / ".venv/bin/python"
     if not python.is_file() or not app.is_dir():
         raise ValueError("Expected installed AI venv and app directory")
     if args.mode == "stage":
