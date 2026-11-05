@@ -127,7 +127,11 @@ export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:
     <svg viewBox="0 0 100 100" aria-hidden="true"><circle className="afo-ring-track" cx="50" cy="50" r="41"/>{percent!==null&&<circle className="afo-ring-value" cx="50" cy="50" r="41" pathLength="100" strokeDasharray={percent+' 100'}/>}</svg>
     <span><strong>{percent===null?'—':Math.round(percent)+'%'}</strong><small>{matched?'Larutan sesi':'Pupuk tercatat'}</small></span>
    </div>
-   <div className="afo-dose-numbers"><span><FlaskConical size={14}/> Progres pemupukan</span><strong>{amount(displayedValue,unit)} <small>/ {amount(displayedTarget,unit)}</small></strong><p>Sisa tercatat HST <b>{amount(credited&&finite(proposal?.remaining_g)?proposal.remaining_g/1000:null,'kg')}</b></p><small>{matched?'Volume laporan perangkat':'Catatan dosis HST'}</small></div>
+   <div className="afo-dose-numbers"><span><FlaskConical size={14}/> Progres pemupukan</span><strong>{amount(displayedValue,unit)} <small>/ {amount(displayedTarget,unit)}</small></strong><small>{matched?'Volume laporan perangkat':'Catatan dosis HST'}</small></div>
+  </div>
+  <div className="afo-fertilizer-remaining" aria-live="polite">
+   <div><span>Sisa kebutuhan tanaman</span><small>{proposal?.product??'Pupuk'} · HST {proposal?.hst??'—'}</small></div>
+   <strong>{credited&&!uncertain&&finite(proposal?.remaining_g)?amount(proposal.remaining_g/1000,'kg'):'Perlu verifikasi'}</strong>
   </div>
   <ol className="afo-pipeline" aria-label="Tahapan eksekusi AI">{stages.map(stage=><li key={stage.name} className={(stage.reached?'is-reached ':'')+(stage.active?'is-active':'')}><span><stage.icon size={17}/></span><small>{stage.name}</small><span className="afo-sr">{stage.active?'berjalan':stage.reached?'tercatat':'menunggu'}</span></li>)}</ol>
   {matched&&<div className="afo-session"><VolumeBar label="Air sesi" value={matched.lastTelemetryAt?matched.waterVolumeL:null} target={matched.commandedWaterL}/><VolumeBar label="Larutan stok sesi" value={matched.lastTelemetryAt?matched.fertVolumeL:null} target={matched.commandedFertL}/><small><Clock3 size={12}/> Laporan sesi {time(matched.lastTelemetryAt)}</small></div>}
