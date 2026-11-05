@@ -11,7 +11,8 @@ curl -fsS --max-time 5 http://127.0.0.1:5010/health >/dev/null
 exec 9>/run/lock/spff-ai-production-profile.lock
 flock -n 9 || { echo 'AI profile patch lock occupied'; exit 1; }
 ROOT="$(python3 "$SRC/scripts/ai_service_runtime.py" --service "$SERVICE" --root-only)"
-echo "AI_ACTIVE_ROOT=$ROOT; PORT=5010; LISTENER=VERIFIED"
+PYTHON="$(python3 "$SRC/scripts/ai_service_runtime.py" --service "$SERVICE" --python-only)"
+echo "AI_ACTIVE_ROOT=$ROOT; PYTHON=$PYTHON; PORT=5010; LISTENER=VERIFIED"
 umask 077
 mkdir -p "$STORE"
 RUN="$(mktemp -d "$STORE/ai-production-profile-XXXXXXXX")"
@@ -21,19 +22,21 @@ finish(){
  code=$?
  trap - EXIT
  if [[ "$APPLIED" == 1 && "$SUCCESS" != 1 ]]; then
-  python3 "$SRC/scripts/install-ai-profile-patch.py" rollback "$SRC" "$ROOT" "$RUN"
+  python3 "$SRC/scripts/install-ai-profile-patch.py" rollback "$SRC" "$ROOT" "$RUN" --python "$PYTHON"
   systemctl restart "$SERVICE"
  fi
  echo "AI_PROFILE_PATCH_EXIT=$code; BACKUP=$RUN"
  exit "$code"
 }
 trap finish EXIT
-python3 "$SRC/scripts/install-ai-profile-patch.py" stage "$SRC" "$ROOT" "$RUN"
+python3 "$SRC/scripts/install-ai-profile-patch.py" stage "$SRC" "$ROOT" "$RUN" --python "$PYTHON"
 # stage never loads or mutates production AI state.
 CURRENT_ROOT="$(python3 "$SRC/scripts/ai_service_runtime.py" --service "$SERVICE" --root-only)"
 [[ "$CURRENT_ROOT" == "$ROOT" ]] || { echo 'AI service directory changed during staging'; exit 1; }
+CURRENT_PYTHON="$(python3 "$SRC/scripts/ai_service_runtime.py" --service "$SERVICE" --python-only)"
+[[ "$CURRENT_PYTHON" == "$PYTHON" ]] || { echo 'AI service interpreter changed during staging'; exit 1; }
 APPLIED=1
-python3 "$SRC/scripts/install-ai-profile-patch.py" apply "$SRC" "$ROOT" "$RUN"
+python3 "$SRC/scripts/install-ai-profile-patch.py" apply "$SRC" "$ROOT" "$RUN" --python "$PYTHON"
 systemctl restart "$SERVICE"
 for attempt in {1..10}; do
  if curl -fsS --max-time 3 http://127.0.0.1:5010/health >/dev/null; then break; fi
