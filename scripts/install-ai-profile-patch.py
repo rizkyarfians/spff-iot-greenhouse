@@ -20,7 +20,9 @@ FILES = {
 # while continuing to preserve any unrecognized local source edits.
 PREVIOUS = {
     "dashboard_summary.py": ("5a6d546289baa0d417701b4f192f1abccc4836b5",),
-    "production_profile.py": ("56b6627f7f8232959d3117c2e3b4a7c924525cea",),
+    "production_profile.py": ("56b6627f7f8232959d3117c2e3b4a7c924525cea",
+                              "cbcd919073a6bf3ea1cb67c1eb53bbaeee67f60d"),
+    "configure_guide_irrigation.py": ("918d5ddcf7de1bba86eed7e92c40dce53bad610c",),
 }
 
 
