@@ -250,6 +250,15 @@ export async function approveDoseVolume(raw:unknown,actor:string){
  }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
 }
 
+export async function listDoseVolumeSessions(){
+ const result=await pool.query(`SELECT s.session_id,s.device_id,s.status,s.reason,s.water_volume_l,s.fert_volume_l,
+  s.last_telemetry_at,b.product,b.credited_g,b.evidence_verified,b.evidence_basis
+  FROM spff.adaptive_fert_sessions s JOIN spff.dose_volume_bindings b USING(site_id,session_id)
+  WHERE s.site_id=$1 AND (s.status NOT IN ('completed','fault') OR s.created_at>now()-interval '1 day')
+  ORDER BY (s.status NOT IN ('completed','fault')) DESC,s.created_at DESC LIMIT 20`,[siteId]);
+ return result.rows;
+}
+
 export async function readDoseVolumeSession(id:string){
  const row=(await pool.query(`SELECT s.session_id,s.device_id,s.status,s.reason,s.water_volume_l,s.fert_volume_l,
   s.last_telemetry_at,s.command_snapshot,b.plan_id,b.obligation_id,b.product,b.target_mass_g,b.credited_g,b.evidence_verified,b.evidence_basis

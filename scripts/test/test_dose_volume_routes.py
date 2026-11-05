@@ -24,10 +24,10 @@ class RouteMergeTests(unittest.TestCase):
         self.base = head + "apiRouter.get('/unified-ai/hst/proposals',requireOperator,getHstProposals);\napiRouter.post('/unified-ai/hst/approvals',requireOperator,requireCsrf,postHstApproval);\napiRouter.get('/private-local',localHandler);\napiRouter.get('/bootstrap',bootstrap);\n"
         self.old.write_text(self.base)
         routes = [f"apiRouter.get('/unified-ai/hst/fixture-{n}',requireOperator,fixture);" for n in range(8)]
-        routes += ["apiRouter.post('/unified-ai/hst/dose-volume/plans',requireOperator,requireCsrf,postDoseVolumePlan);",
+        routes += ["apiRouter.get('/unified-ai/hst/dose-volume/sessions',requireOperator,getDoseVolumeSessions);","apiRouter.post('/unified-ai/hst/dose-volume/plans',requireOperator,requireCsrf,postDoseVolumePlan);",
                    "apiRouter.post('/unified-ai/hst/dose-volume/approvals',requireOperator,requireCsrf,postDoseVolumeApproval);",
                    "apiRouter.post('/unified-ai/hst/dose-volume/sessions/:id/reconcile',requireAdmin,requireCsrf,postDoseVolumeReconcile);"]
-        self.stage.write_text(head + '\n'.join(routes) + '\n')
+        self.stage.write_text("import {getDoseVolumeSessions} from '../controllers/doseVolumeController.js';\n" + head + '\n'.join(routes) + '\n')
 
     def merge(self):
         with patch.object(sys,'argv',['merge',str(self.old),str(self.stage),str(self.dest)]),contextlib.redirect_stdout(io.StringIO()):
@@ -38,6 +38,7 @@ class RouteMergeTests(unittest.TestCase):
         first = self.merge()
         self.assertIn("apiRouter.get('/private-local',localHandler)",first)
         self.assertIn('requireOperator,requireCsrf,postDoseVolumeApproval',first)
+        self.assertIn('requireOperator,getDoseVolumeSessions',first)
         self.assertIn('requireAdmin,requireCsrf,postDoseVolumeReconcile',first)
         self.assertLess(first.index('apiRouter.use(requireAuth)'),first.index("apiRouter.post('/unified-ai/hst/dose-volume"))
         self.old.write_text(first)

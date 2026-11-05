@@ -1008,3 +1008,57 @@ export function fetchAiHstLiquidSummary(signal?:AbortSignal){
  }>('/unified-ai/dashboard',{signal});
 }
 
+
+
+export type AiHstVolumePlan = {
+ planId:string;
+ validUntil:string;
+ calculationReady:boolean;
+ executionReady:boolean;
+ recipe:{
+  mode:'water_only'|'fertigation';
+  product:string|null;
+  sourceMethod:string;
+  routeApprovalRequired:boolean;
+  pastDue:boolean;
+  blockers:string[];
+  recipe:{
+   batchMassG:number;
+   batchVolumeL:number|null;
+   targetWaterL:number|null;
+   targetStockL:number|null;
+   plannedMassG:number|null;
+   remainingAfterSessionG:number|null;
+  };
+ };
+};
+
+export type AiHstVolumeSession = {
+ session_id:string;
+ device_id:string;
+ status:string;
+ reason:string|null;
+ product:string|null;
+ water_volume_l:number;
+ fert_volume_l:number;
+ credited_g:number;
+ evidence_verified:boolean;
+ evidence_basis:string|null;
+};
+
+const aiHstVolumePath='/unified-ai/hst/dose-volume';
+function aiHstVolumePost<T>(path:string,input:unknown){
+ return request<T>(aiHstVolumePath+path,{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input),
+ });
+}
+
+export const fetchAiHstVolumeSessions=(signal?:AbortSignal)=>
+ request<AiHstVolumeSession[]>(aiHstVolumePath+'/sessions',{signal});
+export const executeAiHstVolumePlan=(input:import('@spff/contracts').DoseVolumePlanRequest)=>
+ aiHstVolumePost<AiHstVolumePlan>('/plans',input);
+export const executeAiHstVolumeApproval=(input:{
+ planId:string;approvalId:string;preparedBatchConfirmed:true;confirmApplicationRoute:boolean;confirmPastDue:boolean;
+})=>aiHstVolumePost<AiHstVolumeSession>('/approvals',input);
+export const stopAiHstVolumeSession=(id:string,requestId:string)=>
+ aiHstVolumePost('/sessions/'+encodeURIComponent(id)+'/stop',{requestId});

@@ -15,23 +15,24 @@ SWAPPED=0; SUCCESS=0
 fatal(){ echo "STOP: $*" >&2; exit 1; }
 say(){ echo "=== $* ==="; }
 [[ "$EUID" == 0 ]] || fatal "must use sudo"
-[[ "$MODE" =~ ^(deploy|enable|disable|status|diagnose|dose-volume-status)$ ]] || fatal "Expected deploy|enable|disable|status|diagnose|dose-volume-status"
+[[ "$MODE" =~ ^(deploy|enable|enable-dose-volume|disable|status|diagnose|dose-volume-status)$ ]] || fatal "Expected deploy|enable|enable-dose-volume|disable|status|diagnose|dose-volume-status"
 exec 9>/run/lock/spff-hst-prod-rollout.lock
 flock -n 9 || fatal "SPFF deployment lock occupied"
 # postgres cannot traverse /home/orangepi (0700). Run psql from / instead,
 # and feed migration SQL over stdin as root (the postgres user never opens SRC).
 db(){ ( cd / && runuser -u postgres -- psql -X -qAt -v ON_ERROR_STOP=1 -d spff -c "$1" ); }
 gates(){
+ local volume="${3:-false}"
  install -d -m 755 /etc/systemd/system/spff-api.service.d /etc/systemd/system/spff-mqtt-worker.service.d
- printf '[Service]\nEnvironment=SPFF_HST_REAL_DISPATCH_ENABLED=%s\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\nEnvironment=SPFF_DOSE_VOLUME_DISPATCH_ENABLED=false\n' "$1" "$1" > "$APIGATE"
- printf '[Service]\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\nEnvironment=SPFF_DOSE_VOLUME_DISPATCH_ENABLED=false\n' "$2" > "$WORKERGATE"
+ printf '[Service]\nEnvironment=SPFF_HST_REAL_DISPATCH_ENABLED=%s\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\nEnvironment=SPFF_DOSE_VOLUME_DISPATCH_ENABLED=%s\n' "$1" "$1" "$volume" > "$APIGATE"
+ printf '[Service]\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\nEnvironment=SPFF_DOSE_VOLUME_DISPATCH_ENABLED=%s\n' "$2" "$volume" > "$WORKERGATE"
  chmod 644 "$APIGATE" "$WORKERGATE"
  systemctl daemon-reload
 }
 healthy(){
- systemctl is-active --quiet "$API"
- systemctl is-active --quiet "$WORKER"
- systemctl is-active --quiet spff-edge-gateway.service
+ systemctl is-active --quiet "$API" &&
+ systemctl is-active --quiet "$WORKER" &&
+ systemctl is-active --quiet spff-edge-gateway.service &&
  curl -fsS -m 5 http://127.0.0.1:3001/api/health >/dev/null
 }
 # EnvironmentFile can override Environment= in a systemd drop-in.
@@ -168,8 +169,10 @@ imports=re.findall(pattern,new,re.S)
 existing=re.findall(pattern,live,re.S)
 if len(imports)!=1 or len(existing)!=1: raise SystemExit('STOP: HST route imports not uniquely mergeable')
 live=live.replace(existing[0],imports[0],1)
-volume_import="import {postDoseVolumePlan,postDoseVolumeApproval,getDoseVolumeSession,postDoseVolumeStop,getDoseVolumeReadiness,postDoseVolumeReconcile} from '../controllers/doseVolumeController.js';"
 volume_pattern=r"import\s*\{[^}]*\}\s*from\s*['\"]\.\./controllers/doseVolumeController\.js['\"];"
+volume_imports=re.findall(volume_pattern,new,re.S)
+if len(volume_imports)!=1: raise SystemExit('STOP: staged dose-volume controller import not unique')
+volume_import=volume_imports[0]
 volume_existing=re.findall(volume_pattern,live,re.S)
 if len(volume_existing)>1: raise SystemExit('STOP: duplicate dose-volume imports')
 if volume_existing: live=live.replace(volume_existing[0],volume_import,1)
@@ -219,7 +222,7 @@ PY
  rm -rf "$MERGED/frontend/src"
  cp -a "$PROD/frontend/src" "$MERGED/frontend/src"
  if [[ -d "$PROD/frontend/public" && -d "$MERGED/frontend/public" ]]; then cp -a "$PROD/frontend/public/." "$MERGED/frontend/public/"; fi
- for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts; do
+ for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts; do
    install -m644 "$SRC/frontend/src/$hst_file" "$MERGED/frontend/src/$hst_file"
  done
  python3 - "$MERGED/frontend/src/api.ts" "$SRC/frontend/src/api.ts" "$MERGED/frontend/src/GuidePage.tsx" <<'PY'
@@ -239,7 +242,7 @@ if loc<0:
 else:
  tail=local[loc:]
  exports=re.findall(r'export\s+(?:const|function|type)\s+(\w+)',tail)
- allowed=('fetchAiHst','reviewAiHst','saveAiHst','executeAiHst','stopAiHst','setAiHst')
+ allowed=('fetchAiHst','reviewAiHst','saveAiHst','executeAiHst','stopAiHst','setAiHst','AiHstVolume')
  if any(not name.startswith(allowed) for name in exports):
   raise SystemExit('STOP: unrelated production API exports after HST: '+str(exports))
  local_path.write_text(local[:loc]+'\n'+hst)
@@ -376,6 +379,38 @@ if [[ "$MODE" == status ]]; then
  echo "verified_profiles=$(db 'SELECT count(*) FROM spff.hst_real_profiles')"
  echo "physical_hst_sessions=$(db 'SELECT count(*) FROM spff.hst_real_sessions')"
  systemctl show "$API" "$WORKER" -p Environment | grep -E 'SPFF_(HST_REAL|ADAPTIVE_FERT|DOSE_VOLUME)_DISPATCH_ENABLED' || true
+ exit 0
+fi
+if [[ "$MODE" == enable-dose-volume ]]; then
+ healthy || fatal "production unhealthy"
+ [[ "$(db "SELECT (to_regclass('spff.dose_volume_plans') IS NOT NULL AND to_regclass('spff.dose_volume_bindings') IS NOT NULL AND to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == true ]] || fatal "deploy dose-volume backend first"
+ [[ "$(db "SELECT (count(*) > 0 AND coalesce(bool_and(shadow_enabled),false))::text FROM spff.hst_execution_modes")" == true ]] || fatal "Turn SHADOW MODE ON before enabling the server gate"
+ [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain adaptive session"
+ [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_commands WHERE status IN ('pending','dispatching','unknown')")" == 0 ]] || fatal "pending/unknown adaptive command"
+ db "SELECT coalesce(jsonb_agg(raw_payload),'[]') FROM (SELECT DISTINCT ON (site_id,device_id) raw_payload,recorded_at,online,mode FROM spff.device_status_events ORDER BY site_id,device_id,recorded_at DESC,device_status_id DESC) d WHERE online AND mode='manual' AND recorded_at BETWEEN now()-interval '90 seconds' AND now()+interval '5 seconds'" |
+  node --input-type=module -e '
+   import {readFileSync} from "node:fs";
+   import {doseVolumeCapabilitySchema} from "/opt/spff/packages/contracts/dist/doseVolume.js";
+   const devices=JSON.parse(readFileSync(0,"utf8"));
+   const ready=devices.some(d=>typeof d?.firmwareVersion==="string" && d.firmwareVersion!=="1.5.07-AI-ACC-SESSION" &&
+    /^[a-f0-9]{16}$/i.test(d.pulseBootId??"") && d.pumpReadbackValid===true &&
+    d.pumpWaterActualActive===false && d.pumpFertActualActive===false && d.aiAccSessionActive===false &&
+    d.doseVolumeSessionActive!==true && doseVolumeCapabilitySchema.safeParse(d.doseVolumeV1).success);
+   if(!ready)process.exitCode=1;
+  ' || fatal "no fresh commissioned dose-volume firmware with both pump outputs OFF"
+ gates false false true
+ if ! systemctl restart "$WORKER" "$API" ||
+    ! ( healthy &&
+        assert_runtime_gate "$API" SPFF_HST_REAL_DISPATCH_ENABLED false &&
+        assert_runtime_gate "$API" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false &&
+        assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false &&
+        assert_runtime_gate "$API" SPFF_DOSE_VOLUME_DISPATCH_ENABLED true &&
+        assert_runtime_gate "$WORKER" SPFF_DOSE_VOLUME_DISPATCH_ENABLED true ); then
+  gates false false
+  systemctl restart "$WORKER" "$API" || true
+  fatal "enable dose-volume failed; START gates reverted OFF"
+ fi
+ echo 'DOSE_VOLUME_DISPATCH=ARMED; SHADOW remains ON. To run: SHADOW OFF, review a fresh plan, then ACC.'
  exit 0
 fi
 # Explicit in-person arming only, never enabled by the deploy phase.

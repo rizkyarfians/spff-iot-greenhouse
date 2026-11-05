@@ -2,7 +2,7 @@ import type {Request,Response} from 'express';
 import {z} from 'zod';
 import {doseVolumeStopSchema} from '@spff/contracts';
 import {requestActor} from '../middleware/operatorAuth.js';
-import {createDoseVolumePlan,approveDoseVolume,readDoseVolumeSession,stopDoseVolume,readDoseVolumeReadiness,reconcileDoseVolume} from '../services/doseVolumeService.js';
+import {listDoseVolumeSessions,createDoseVolumePlan,approveDoseVolume,readDoseVolumeSession,stopDoseVolume,readDoseVolumeReadiness,reconcileDoseVolume} from '../services/doseVolumeService.js';
 
 async function handle(res:Response,work:()=>Promise<unknown>){
  res.set('Cache-Control','no-store');
@@ -22,3 +22,5 @@ export async function postDoseVolumeStop(req:Request,res:Response){await handle(
  const id=z.string().uuid().parse(req.params.id),input=doseVolumeStopSchema.parse(req.body);
  return stopDoseVolume(id,input.requestId,requestActor(req));
 });}
+
+export async function getDoseVolumeSessions(_req:Request,res:Response){await handle(res,listDoseVolumeSessions);}

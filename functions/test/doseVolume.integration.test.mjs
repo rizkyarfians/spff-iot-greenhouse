@@ -149,6 +149,8 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
   });
   await t.test('STOP is idempotent, cancels queued START, and does not claim physical OFF',async()=>{
    await fixture();const run=await approve(await makePlan());const requestId=randomUUID();
+   const visible=await service.listDoseVolumeSessions();
+   assert.deepEqual(visible.map(row=>[row.session_id,row.status]),[[run.session_id,'queued']]);
    const stop=await service.stopDoseVolume(run.session_id,requestId,'operator');
    assert.deepEqual(await service.stopDoseVolume(run.session_id,requestId,'operator'),stop);
    assert.equal((await service.readDoseVolumeSession(run.session_id)).evidence_verified,false);

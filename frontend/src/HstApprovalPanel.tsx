@@ -3,9 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { canReviewShadow, type HstOperatorMode } from './hstExecutionMode';
 import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } from 'lucide-react';
 import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/contracts';
-import { fetchAiHstExecutionReadiness, fetchAiHstLiquidSummary, fetchAiHstProposals, fetchAiHstRealPreflight, reviewAiHstApproval, fetchAiHstMode, setAiHstMode } from './api';
+import { fetchAiHstLiquidSummary, fetchAiHstProposals, reviewAiHstApproval, fetchAiHstMode, setAiHstMode } from './api';
 import {useAuth} from './authContext';
-import type { AiHstExecutionReadiness, AiHstRealPreflight } from '@spff/contracts';
+import {HstDoseVolumeCard,HstDoseVolumeSessions,HstWaterVolumeControl} from './HstDoseVolumeCard';
 import { HstRealExecutionCard } from './HstRealExecutionCard';
 import './HstApprovalPanel.css';
 
@@ -39,10 +39,6 @@ export function HstApprovalPanel() {
   const [mode, setMode] = useState<HstOperatorMode>('SHADOW');
   const [modeReady,setModeReady]=useState(false);
   const [modeSaving,setModeSaving]=useState(false);
-  const [readiness, setReadiness] = useState<AiHstExecutionReadiness | null>(null);
-  const [realPreflights, setRealPreflights] = useState<Record<string, AiHstRealPreflight>>({});
-  const [realPreflightErrors, setRealPreflightErrors] = useState<Record<string, string>>({});
-
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
       const next = await fetchAiHstProposals(signal);
@@ -63,9 +59,6 @@ export function HstApprovalPanel() {
     void fetchAiHstMode(controller.signal)
       .then(value=>{if(!controller.signal.aborted){setMode(value.shadowEnabled?'SHADOW':'TEST_REAL');setModeReady(true);}})
       .catch(()=>{if(!controller.signal.aborted){setMode('SHADOW');setModeReady(false);}});
-    void fetchAiHstExecutionReadiness(controller.signal)
-      .then(result => { if (!controller.signal.aborted) setReadiness(result); })
-      .catch(() => { if (!controller.signal.aborted) setReadiness(null); });
     void refresh(controller.signal);
     // Refresh the UI, not the AI decision. Scheduler persists only HST events.
     const interval = setInterval(() => { void refresh(controller.signal); }, 300000);
@@ -92,28 +85,6 @@ export function HstApprovalPanel() {
     const timer=setInterval(()=>void refreshLiquid(),15000);
     return()=>{controller.abort();clearInterval(timer);};
   },[]);
-
-  useEffect(() => {
-    if (mode !== 'TEST_REAL' || !data?.proposals.length) return;
-    const controller = new AbortController();
-    setRealPreflights({});
-    setRealPreflightErrors({});
-    for (const proposal of data.proposals) {
-      void fetchAiHstRealPreflight(proposal.obligation_id, controller.signal)
-        .then(next => {
-          if (!controller.signal.aborted) setRealPreflights(prev => ({
-            ...prev, [proposal.obligation_id]: next,
-          }));
-        }).catch(cause => {
-          if (!controller.signal.aborted) setRealPreflightErrors(prev => ({
-            ...prev,
-            [proposal.obligation_id]: cause instanceof Error
-              ? cause.message : 'Tidak dapat memeriksa kesiapan sesi.',
-          }));
-        });
-    }
-    return () => { controller.abort(); };
-  }, [mode, data]);
 
   async function approve(proposal: AiHstProposal) {
     if (mode !== 'SHADOW' || previewOnly || pendingId || confirmId !== proposal.obligation_id || proposal.status === 'COMPLETED' ||
@@ -191,7 +162,6 @@ export function HstApprovalPanel() {
               setMode(next.shadowEnabled?'SHADOW':'TEST_REAL');
               setConfirmId(null);
               setReview(null);
-              setRealPreflights({});
             }).catch(cause=>{
               setError(cause instanceof Error?cause.message:'Gagal mengubah SHADOW MODE.');
             }).finally(()=>setModeSaving(false));
@@ -204,16 +174,8 @@ export function HstApprovalPanel() {
       </div>
       {!modeReady && <p role="alert" className="hst-review">Mode SHADOW server tidak tersedia: switch terkunci ON demi keamanan.</p>}
       {modeReady&&user.role!=='admin' && <small>Hanya admin dapat mengubah SHADOW MODE.</small>}
-      {mode === 'TEST_REAL' && <div className="hst-real-readiness" role="status">
-        <strong>{readiness?.realTest.ready
-          ? 'SHADOW OFF · ACC fisik tersedia jika preflight lolos'
-          : 'SHADOW OFF · Eksekusi fisik belum diizinkan oleh server'}</strong>
-        <p>Mematikan SHADOW tidak langsung menyalakan pompa. Pompa hanya dapat
-          dijalankan setelah ACC dan pemeriksaan keselamatan perangkat lolos.</p>
-        {readiness?.realTest.blockers.map(blocker =>
-          <small key={blocker}>{blocker.replaceAll('_', ' ')}</small>)}
-        {!readiness && <small>Status kesiapan backend tidak tersedia; default aman: diblokir.</small>}
-      </div>}
+      {!previewOnly && <HstDoseVolumeSessions refreshProposals={refresh}/>}
+      {modeReady && mode === 'TEST_REAL' && !previewOnly && <HstWaterVolumeControl/>}
       <p className="hst-note">
         {mode === 'SHADOW'
           ? 'Usulan dibuat dari jadwal HST. Sensor tandon dan Soil 2 diperiksa setelah ACC. Tidak ada perintah pompa dalam mode SHADOW.'
@@ -251,18 +213,10 @@ export function HstApprovalPanel() {
                 <div><small>Tercatat diberikan</small><strong>{mass(proposal.delivered_g)}</strong></div>
                 <div className="hst-remaining-need"><small>Sisa kebutuhan</small><strong>{mass(proposal.status!=='REQUIRES_REVIEW'&&proposal.review_reasons.length===0?proposal.remaining_g:null)}</strong></div>
               </div>
-              <HstRealExecutionCard shadowEnabled={mode === 'SHADOW'}
-                proposal={proposal}
-                preflight={realPreflights[proposal.obligation_id]??null}
-                preflightError={realPreflightErrors[proposal.obligation_id]??null}
-                refreshPreflight={() => {
-                  void fetchAiHstRealPreflight(proposal.obligation_id)
-                   .then(next=>setRealPreflights(prev=>({...prev,[proposal.obligation_id]:next})))
-                   .catch(cause=>setRealPreflightErrors(prev=>({
-                     ...prev,[proposal.obligation_id]:cause instanceof Error?cause.message:'Gagal cek kesiapan',
-                   })));
-                }}
-              />
+              {modeReady && mode === 'TEST_REAL' && !previewOnly &&
+                <HstDoseVolumeCard proposal={proposal}/>}
+              <HstRealExecutionCard shadowEnabled proposal={proposal}
+                preflight={null} preflightError={null} refreshPreflight={()=>{}}/>
               {proposal.review_reasons.length > 0 &&
                 <p className="hst-review"><ShieldAlert size={16} />
                   Perlu rekonsiliasi: {proposal.review_reasons.join(', ').replaceAll('_', ' ')}
