@@ -100,6 +100,12 @@ export const aiHstRealPreflightSchema=z.object({
   ecProfileRevision:z.number().int().positive().nullable(),
   deviceId:z.string().min(1).nullable(),
   profile:z.lazy(()=>aiHstHardwareProfileSchema).nullable(),
+  suggestedProfile:z.lazy(()=>aiHstHardwareProfileSchema).nullable().optional(),
+  guide:z.object({
+   method:z.string(),waterL:z.number().finite().nonnegative().nullable(),
+   targetEcUsCm:z.number().finite().nonnegative().nullable(),
+   ecReason:z.string().nullable().optional(),
+  }).strict().nullable().optional(),
  }).strict().nullable(),
 }).strict().superRefine((v,ctx)=>{
  if(v.canDispatch!==(v.status==='READY'&&v.reasons.length===0))
