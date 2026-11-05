@@ -1,6 +1,6 @@
-import {createHash} from 'node:crypto';
-import {Pool} from 'pg';
-import {adaptiveEventSchema,adaptiveDispatchSchema,type AdaptiveEvent,type AdaptiveDispatch} from '@spff/contracts';
+import {createHash,randomUUID} from 'node:crypto';
+import {Pool,type PoolClient} from 'pg';
+import {adaptiveEventSchema,adaptiveDispatchSchema,doseVolumeControlSchema,type AdaptiveEvent,type AdaptiveDispatch} from '@spff/contracts';
 import {config} from './config.js';
 import {normalizeDoseVolumeStop,saveDoseVolumeEvidence} from './doseVolumeEvidence.js';
 export class AdaptiveFertigationTransport {
@@ -9,9 +9,53 @@ export class AdaptiveFertigationTransport {
  async installed(){return (await this.pool.query("SELECT to_regclass('spff.adaptive_fert_sessions') IS NOT NULL AS ready")).rows[0]?.ready===true;}
  start(){this.timer=setInterval(()=>{if(this.running)return;this.running=true;void this.dispatch().catch(e=>console.error('[adaptive-dispatch]',e)).finally(()=>{this.running=false;});},1000);this.timer.unref();}
  async stop(){if(this.timer)clearInterval(this.timer);while(this.running)await new Promise(resolve=>setTimeout(resolve,10));await this.pool.end();}
+ private async stopOnEmptyWater(client:PoolClient){
+  const result=await client.query(`SELECT s.site_id,s.device_id,s.session_id,s.command_snapshot,
+    md5('dose-volume-water-empty:'||s.session_id::text)::uuid AS stop_request_id
+   FROM spff.adaptive_fert_sessions s
+   JOIN LATERAL (
+    SELECT t.recorded_at,t.tank_water_level_pct,t.sensor_health
+    FROM spff.telemetry_samples t
+    WHERE t.site_id=s.site_id AND t.device_id=s.device_id
+    ORDER BY t.recorded_at DESC,t.telemetry_id DESC LIMIT 1
+   ) sample ON true
+   WHERE s.command_snapshot->>'kind'='dose_volume_command'
+    AND s.status NOT IN ('completed','fault')
+    AND sample.recorded_at>=s.created_at
+    AND sample.recorded_at BETWEEN now()-interval '60 seconds' AND now()+interval '5 seconds'
+    AND sample.tank_water_level_pct=0
+    AND sample.sensor_health #> '{tank_water_level_pct,valid}'='true'::jsonb
+    AND NOT EXISTS (
+     SELECT 1 FROM spff.adaptive_fert_commands cmd
+     WHERE cmd.site_id=s.site_id AND cmd.session_id=s.session_id
+      AND cmd.payload->>'commandType'='stop'
+      AND (cmd.request_id=md5('dose-volume-water-empty:'||s.session_id::text)::uuid OR cmd.expires_at>now())
+    )
+   FOR UPDATE OF s SKIP LOCKED`);
+  for(const row of result.rows){
+   const now=new Date();
+   const command=doseVolumeControlSchema.safeParse({
+    kind:'dose_volume_command',schemaVersion:1,contract:'spff-dose-volume-v1',
+    siteId:row.site_id,deviceId:row.device_id,sessionId:row.session_id,
+    bootId:row.command_snapshot.bootId,commandId:randomUUID(),commandType:'stop',
+    issuedAt:now.toISOString(),expiresAt:new Date(now.getTime()+15000).toISOString(),
+   });
+   if(!command.success)continue;
+   await client.query(`UPDATE spff.adaptive_fert_commands SET status='cancelled'
+    WHERE site_id=$1 AND session_id=$2 AND status='pending' AND payload->>'commandType'='start'`,[row.site_id,row.session_id]);
+   await client.query(`INSERT INTO spff.adaptive_fert_commands(site_id,command_id,session_id,request_id,payload,expires_at)
+    VALUES($1,$2,$3,$4,$5,$6)`,[
+     row.site_id,command.data.commandId,row.session_id,row.stop_request_id,JSON.stringify(command.data),command.data.expiresAt,
+   ]);
+   await client.query(`UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',
+    reason=CASE WHEN status='reconciliation_required' THEN reason ELSE 'stop_requested_by:tank_water_empty' END
+    WHERE site_id=$1 AND session_id=$2`,[row.site_id,row.session_id]);
+  }
+ }
  async dispatch(){
   const c=await this.pool.connect();let rows;
   try{await c.query('BEGIN');
+   await this.stopOnEmptyWater(c);
    // Claim before network I/O. A process crash becomes uncertain; never replay START automatically.
    await c.query(`UPDATE spff.adaptive_fert_sessions s SET status='reconciliation_required',reason='command_outcome_unknown' WHERE status IN ('queued','running','paused') AND EXISTS(SELECT 1 FROM spff.adaptive_fert_commands cmd WHERE cmd.site_id=s.site_id AND cmd.session_id=s.session_id AND cmd.status IN ('dispatching','unknown') AND cmd.expires_at<now())`);
    await c.query("UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',reason='telemetry_timeout' WHERE status IN ('queued','running','paused') AND COALESCE(last_telemetry_at,created_at)<now()-interval '90 seconds'");

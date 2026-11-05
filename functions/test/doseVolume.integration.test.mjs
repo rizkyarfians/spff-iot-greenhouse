@@ -158,6 +158,27 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    await transport.dispatch();assert.equal(published.length,1);assert.equal(published[0].command.kind,'dose_volume_command');
    assert.equal(published[0].command.commandType,'stop');
   });
+  await t.test('fresh valid zero water queues one STOP with START dispatch disabled',async()=>{
+   await fixture();const run=await approve(await makePlan());
+   await query(`UPDATE spff.telemetry_samples SET recorded_at=now(),tank_water_level_pct=0,
+    sensor_health=jsonb_set(sensor_health,'{tank_water_level_pct,valid}','false')`);
+   delete process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED;
+   await transport.dispatch();
+   assert.equal(published.length,0,'invalid zero is not an empty reading');
+   await query(`UPDATE spff.telemetry_samples SET recorded_at=now()-interval '90 seconds',
+    sensor_health=jsonb_set(sensor_health,'{tank_water_level_pct,valid}','true')`);
+   await transport.dispatch();
+   assert.equal(published.length,0,'stale zero is not an empty reading');
+   await query('UPDATE spff.telemetry_samples SET recorded_at=now()');
+   await transport.dispatch();await transport.dispatch();
+   assert.equal(published.length,1);
+   assert.equal(published[0].command.commandType,'stop');
+   assert.equal(published[0].command.sessionId,run.session_id);
+   const session=await service.readDoseVolumeSession(run.session_id);
+   assert.equal(session.reason,'stop_requested_by:tank_water_empty');
+   assert.equal(session.evidence_verified,false);
+   assert.equal((await query("SELECT status FROM spff.adaptive_fert_commands WHERE payload->>'commandType'='start'")).rows[0].status,'cancelled');
+  });
   await t.test('water-only has no stock target or fertilizer credit',async()=>{
    await fixture();const plan=await service.createDoseVolumePlan({mode:'water_only',programId:pid,activityId:'row-19',requestId:randomUUID()},'operator');
    const run=await service.approveDoseVolume({planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true},'operator');
