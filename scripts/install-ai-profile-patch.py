@@ -19,10 +19,14 @@ FILES = {
 
 # Previously published profile patch: allow an upgrade from these exact blobs,
 # while continuing to preserve any unrecognized local source edits.
+# blob() normalizes newlines. The 1390869 dashboard was published with CRLF;
+# its normalized hash is distinct from GitHub's raw blob SHA. Verified against
+# the exact base64 Git blob, not a guessed local version.
 PREVIOUS = {
     "api.py": ("7debd01b71abbe1ea633f05c198c7780d666e88d",),
     "dashboard_summary.py": ("5a6d546289baa0d417701b4f192f1abccc4836b5",
-                             "ffeaac49ed04725e979b2f4b29f578476db1977d"),
+                             "ffeaac49ed04725e979b2f4b29f578476db1977d",
+                             "85deec5355e11e30ed9eda72751019e458036a10"),
     "production_profile.py": ("56b6627f7f8232959d3117c2e3b4a7c924525cea",
                               "cbcd919073a6bf3ea1cb67c1eb53bbaeee67f60d"),
     "configure_guide_irrigation.py": ("918d5ddcf7de1bba86eed7e92c40dce53bad610c",),
@@ -62,7 +66,8 @@ def main():
             if not candidate.is_file():
                 raise ValueError("Staged AI module missing: " + name)
             if live.exists() and blob(live) not in (expected, blob(candidate), *PREVIOUS.get(name, ())):
-                raise ValueError("Local Python source differs; preserved without edits: " + name)
+                raise ValueError("Local Python source differs; preserved without edits: " + name
+                                 + "; normalized_blob=" + blob(live) + "; root=" + str(target))
         check = backup / "check"
         shutil.copytree(app, check / "app", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         (check / "tests").mkdir()
