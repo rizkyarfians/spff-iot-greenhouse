@@ -109,7 +109,7 @@ if [[ "$MODE" == deploy ]]; then
   fatal "migration 034-036 not verified; no runtime change"
  fi
  [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain adaptive sessions; do not interrupt"
- if [[ "$(db "SELECT to_regclass('spff.hst_execution_modes') IS NOT NULL")" == true ]]; then
+ if [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == true ]]; then
   [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "Turn SHADOW MODE ON before deployment; no build or runtime change performed"
  fi
  for loc in "$PROD/packages/contracts/dist" "$PROD/functions/lib" "$PROD/mqtt-worker/dist" "$PROD/frontend/dist"; do
@@ -311,7 +311,7 @@ SUMMARY_CHECK
    (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/038_hst_shadow_mode.sql"
  fi
  [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == true ]] || fatal "migration 038 missing"
- [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "SHADOW MODE default must be ON at deployment"
+ [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "Turn SHADOW MODE ON in the admin dashboard before deployment"
  say "Migration 039: dose-volume plans and measured delivery ledger"
  volume_tables="$(db "SELECT (to_regclass('spff.dose_volume_plans') IS NOT NULL)::int::text || ',' || (to_regclass('spff.dose_volume_bindings') IS NOT NULL)::int::text")"
  case "$volume_tables" in
