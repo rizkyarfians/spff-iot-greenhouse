@@ -26,7 +26,7 @@ class InstallerTests(unittest.TestCase):
         (self.target/'app/a.py').write_text('old = True\n')
         (self.source/'standalone-ai/app/a.py').write_text('new = True\n')
         (self.source/'standalone-ai/app/b.py').write_text('added = True\n')
-        for name in ('test_production_guide_profile.py', 'test_hst_state_separation.py'):
+        for name in ('test_production_guide_profile.py', 'test_hst_state_separation.py', 'test_tank_inventory_profile.py'):
             (self.source/'standalone-ai/tests'/name).write_text('# fixture only\n')
         self.files = {'a.py': installer.blob(self.target/'app/a.py'), 'b.py': None}
 
