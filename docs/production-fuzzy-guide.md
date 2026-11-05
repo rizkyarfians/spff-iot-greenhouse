@@ -43,6 +43,18 @@ Module lain tetap dipertahankan. Pengujian berjalan pada salinan, sebelum
 pemasangan. Restart/health failure mengembalikan module dari backup.
 Jika unit yang dipakai bernama spff-ai.service, berikan sebagai argumen kedua.
 
+Installer dan CLI profil mengambil direktori aktif dari MainPID service,
+memastikan proses itu memiliki listener 5010, memakai entrypoint Python `-m app`,
+dan memeriksa lokasi import paket. `/opt/spff-ai` tidak lagi diasumsikan sebagai
+direktori yang aktif. Hasil inspeksi hanya berisi lokasi/PID, tanpa environment:
+
+```bash
+sudo python3 scripts/ai_service_runtime.py
+```
+
+Jika target source masih berbeda, hash guard tetap menghentikan pemasangan.
+Jangan menyalin api.py secara paksa atau menghapus pengecekan hash.
+
 Setelah sukses, inspeksi profil dan target Panduan tanpa mencetak DSN:
 
 ```bash
