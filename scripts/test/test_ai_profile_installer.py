@@ -30,8 +30,9 @@ class InstallerTests(unittest.TestCase):
             (self.source/'standalone-ai/tests'/name).write_text('# fixture only\n')
         self.files = {'a.py': installer.blob(self.target/'app/a.py'), 'b.py': None}
 
-    def run_mode(self, mode):
+    def run_mode(self, mode, extra=None):
         argv = [str(SCRIPT), mode, str(self.source), str(self.target), str(self.backup)]
+        argv.extend(extra or [])
         with patch.object(installer, 'FILES', self.files), patch('sys.argv', argv), patch.object(installer.subprocess, 'run'):
             installer.main()
 
@@ -44,6 +45,16 @@ class InstallerTests(unittest.TestCase):
         self.run_mode('rollback')
         self.assertEqual((self.target/'app/a.py').read_text(), 'old = True\n')
         self.assertFalse((self.target/'app/b.py').exists())
+
+    def test_release_can_stage_apply_and_rollback_with_shared_service_interpreter(self):
+        shared = self.target.parent / 'shared-venv'
+        (self.target/'.venv').rename(shared)
+        arguments = ['--python', str(shared/'bin/python')]
+        self.run_mode('stage', arguments)
+        self.run_mode('apply', arguments)
+        self.run_mode('rollback', arguments)
+        self.assertEqual((self.target/'app/a.py').read_text(), 'old = True\n')
+        self.assertFalse((self.target/'.venv').exists())
 
     def test_local_edits_are_not_overwritten(self):
         (self.target/'app/a.py').write_text('local_change = True\n')
