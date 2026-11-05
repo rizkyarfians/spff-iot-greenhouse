@@ -53,6 +53,8 @@ DO $$ DECLARE r text; BEGIN
  FOREACH r IN ARRAY ARRAY['spff_app','spff_api_role'] LOOP
   IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname=r) THEN
    EXECUTE format('GRANT UPDATE (status,reason) ON spff.control_commands TO %I',r);
+   -- SELECT FOR UPDATE at ACC needs UPDATE on one column. The recipe stays immutable.
+   EXECUTE format('GRANT UPDATE (created_at) ON spff.dose_volume_plans TO %I',r);
   END IF;
  END LOOP;
  FOREACH r IN ARRAY ARRAY['spff_mqtt_worker','spff_mqtt_role','spff_worker','spff_worker_role'] LOOP
