@@ -51,6 +51,16 @@ class InstallerTests(unittest.TestCase):
             self.run_mode('stage')
         self.assertEqual((self.target/'app/a.py').read_text(), 'local_change = True\n')
 
+    def test_exact_previous_patch_is_upgradable_and_rollback_keeps_that_version(self):
+        (self.target/'app/a.py').write_text('previous_patch = True\n')
+        previous = {'a.py': (installer.blob(self.target/'app/a.py'),)}
+        with patch.object(installer, 'PREVIOUS', previous):
+            self.run_mode('stage')
+            self.run_mode('apply')
+            self.assertEqual((self.target/'app/a.py').read_text(), 'new = True\n')
+            self.run_mode('rollback')
+        self.assertEqual((self.target/'app/a.py').read_text(), 'previous_patch = True\n')
+
     def test_partial_apply_can_restore_both_old_and_new_files(self):
         self.run_mode('apply')
         (self.target/'app/a.py').write_text('old = True\n')
