@@ -1,0 +1,221 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {randomUUID,createHash} from 'node:crypto';
+import {adaptiveEventPayloadSchema} from '@spff/contracts';
+
+test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol isolation',{
+ skip:!process.env.SPFF_TEST_PGLITE_MODULE,
+},async t=>{
+ process.env.DATABASE_URL='postgresql://isolated:invalid@127.0.0.1:1/isolated';
+ const {PGlite}=await import(pathToFileURL(process.env.SPFF_TEST_PGLITE_MODULE).href);
+ const db=new PGlite();
+ const repo=await import('../lib/services/postgresRepository.js');
+ const service=await import('../lib/services/doseVolumeService.js');
+ const {setHstMode}=await import('../lib/services/hstExecutionModeService.js');
+ const {AdaptiveFertigationTransport}=await import('../../mqtt-worker/dist/adaptiveFertigationTransport.js');
+ const oldQuery=repo.pool.query,oldConnect=repo.pool.connect,oldFetch=globalThis.fetch;
+ // Serialize isolated PGlite connections, matching PostgreSQL transaction ownership.
+ let tail=Promise.resolve();
+ async function acquire(){let release;const prior=tail;tail=new Promise(resolve=>{release=resolve});await prior;return release;}
+ const query=async(sql,params=[])=>{const result=await db.query(sql,params);return {...result,rowCount:result.rows.length||result.affectedRows||0};};
+ const database={query:async(...args)=>{const release=await acquire();try{return await query(...args);}finally{release();}},
+  connect:async()=>{const release=await acquire();return {query,release};},end:async()=>{}};
+ repo.pool.query=database.query;repo.pool.connect=database.connect;
+ const published=[];
+ const transport=new AdaptiveFertigationTransport(async dispatch=>{published.push(dispatch)},database);
+ const pid='11111111-1111-4111-8111-111111111111',obligationId='a'.repeat(64),boot='0123456789abcdef';
+ const limits={contract:'spff-dose-volume-v1',commissioned:true,configVersion:'fixture-1',measuredTotalizers:true,
+  waterMeterPosition:'before_injector',waterStopPct:5,stockStopPct:2,primeWaterL:5,flushWaterL:10,
+  minWaterFlowLpm:1,minStockFlowLpm:0.1,maxDurationSec:600,maxWaterL:5000,maxStockL:500,meterToleranceL:0.01};
+ let now,activity,proposals,summary;
+ async function fixture(){
+  published.length=0;
+  await db.exec('TRUNCATE spff.sites CASCADE');
+  await db.exec("INSERT INTO spff.sites(site_id,name) VALUES('greenhouse-01','Test'); INSERT INTO spff.devices(site_id,device_id,display_name) VALUES('greenhouse-01','esp32-s3-01','Test');");
+  now=new Date().toISOString();
+  const planting=new Date(Date.now()-20*86400000).toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'});
+  activity={id:'row-19',hst:20,title:'Test product',method:'Semprot',waterL:100,warnings:[],
+   requirements:[{row:19,product:'Ultradap',amount:0.4,unit:'kg',waterL:100,warnings:[]}]};
+  const config={cropId:'ubi-jalar',plantingDate:planting,basis:'plants',quantity:100,deviceId:'esp32-s3-01'};
+  const plan={cropName:'Ubi Jalar',plants:100,area:100,activities:[activity]};
+  await query(`INSERT INTO spff.guide_programs(site_id,program_id,revision,config,source_sha256,guide_revision,sheet_snapshot,plan,updated_by)
+   VALUES('greenhouse-01',$1,1,$2,$3,1,'{}',$4,'fixture')`,[pid,JSON.stringify(config),'a'.repeat(64),JSON.stringify(plan)]);
+  await query(`INSERT INTO spff.guide_program_revisions(site_id,program_id,revision,config,source_sha256,guide_revision,sheet_snapshot,plan,actor)
+   VALUES('greenhouse-01',$1,1,$2,$3,1,'{}',$4,'fixture')`,[pid,JSON.stringify(config),'a'.repeat(64),JSON.stringify(plan)]);
+  await db.exec("INSERT INTO spff.hst_execution_modes(site_id,shadow_enabled,changed_by) VALUES('greenhouse-01',false,'fixture');");
+  await db.exec(`INSERT INTO spff.device_automatic_control_configs(site_id,device_id,desired_mode,applied_mode,water_enabled,fertilizer_enabled,acknowledgement_status,acknowledged_revision)
+   VALUES('greenhouse-01','esp32-s3-01','manual','manual',false,false,'applied',1)`);
+  const raw={firmwareVersion:'1.5.08-DOSE-VOLUME',pulseBootId:boot,pumpReadbackValid:true,pumpWaterActualActive:false,
+   pumpFertActualActive:false,aiAccSessionActive:false,doseVolumeV1:limits};
+  await query(`INSERT INTO spff.device_status_events(site_id,device_id,online,mode,recorded_at,raw_payload)
+   VALUES('greenhouse-01','esp32-s3-01',true,'manual',$1,$2)`,[now,JSON.stringify(raw)]);
+  const health=Object.fromEntries(['soil_2_moisture','tank_water_level_pct','tank_fert_level_pct','flow_water_lpm','flow_fert_lpm'].map(key=>[key,{valid:true}]));
+  await query(`INSERT INTO spff.telemetry_samples(site_id,device_id,message_id,sequence,recorded_at,soil_2_moisture,tank_water_level_pct,tank_fert_level_pct,flow_water_lpm,flow_fert_lpm,sensor_health,raw_payload)
+   VALUES('greenhouse-01','esp32-s3-01',$1,1,$2,22.2,50,20,0,0,$3,$4)`,[randomUUID(),now,JSON.stringify(health),JSON.stringify({sensorHealth:{soil_2_moisture:{raw:222,rawAgeMs:0,rawFresh:true,lastPollOk:true,pollBootId:boot}}})]);
+  proposals={schemaVersion:1,status:'READY',can_dispatch:false,proposals:[{
+   obligation_id:obligationId,program_id:pid,activity_id:'row-19',source_row:19,hst:20,due_date:now.slice(0,10),product:'Ultradap',created_at:now,
+   proposed_action:'FERTIGATE',mode:'SHADOW_MODE',target_g:400,delivered_g:0,remaining_g:400,status:'WAITING_APPROVAL',review_reasons:[],approval_count:0,can_dispatch:false,
+  }]};
+  summary={schemaVersion:1,mode:'SHADOW_MODE',can_dispatch:false,status:'NO_DECISION',evaluated_at:null,
+   planning_source:'POSTGRES_READ_ONLY',planning_status:'CURRENT',planning_recorded_at:now,flow_reference:null,
+   tank_preview:{basis:'LINEAR_LEVEL_APPROXIMATION',capacity_l:5000,tank_height_cm:180,reported_level_pct:50,sensor_valid:true,
+    estimated_water_height_cm:90,estimated_available_l:2500,fuzzy_demand_l:null,theoretical_balance_l:null,level_status:'ESTIMATED',comparison_status:'NOT_COMPARABLE',can_dispatch:false},
+   fertilizer_tank_preview:{basis:'LINEAR_LEVEL_APPROXIMATION',capacity_l:500,tank_height_cm:90,reported_level_pct:20,sensor_valid:true,
+    estimated_liquid_height_cm:18,estimated_liquid_volume_l:100,level_status:'ESTIMATED',can_dispatch:false},
+   irrigation_schedule_preview:{status:'GEOMETRY_ONLY',basis:'REPORTED_LIQUID_HEIGHT_UNCALIBRATED',today_date:now.slice(0,10),tomorrow_date:now.slice(0,10),
+    reported_liquid_height_cm:90,illustrative_available_l:2500,fuzzy_demand_l:null,today_absolute_max_l:null,tomorrow_at_least_l:null,reserve_l:null,is_firm_schedule:false,can_dispatch:false},
+   water_carryover:{status:'NO_PLAN',plan_id:null,planning_date:null,next_review_date:null,frozen_fuzzy_target_l:null,device_reported_delivered_l:null,
+    remaining_for_reassessment_l:null,credited_session_count:0,last_device_session_at:null,evidence_basis:'DEVICE_SESSION_UNCALIBRATED',requires_fresh_reassessment:true,can_dispatch:false},
+   decision:{type:null,proposed_action:null,hold_reasons:[],configuration_version:null},
+   feedback:{status:'UNAVAILABLE',reported_off:false,boot_matches:false,water_pump:null,fert_pump:null,reported_at:null},
+   sensors:{recorded_at:now,soil_moisture_pct:null,soil_2_moisture_pct:22.2,soil_1_valid:false,soil_2_valid:true,control_moisture_source:'soil_2_moisture',water_tank_pct:50,stock_tank_pct:20,device_mode:'manual'},
+   calculation:{water_l:null,stock_l:null,fertilizer_mass_g:null,duration_seconds:null,fuzzy_score:null},fuzzy_preview:null,fuzzy_preview_blockers:[],programs:[],note:'Synthetic isolated test',
+   operational_profile:{status:'TANK_BOUND',version:'test-policy',program_id:null,activity_id:null,target_water_l:2500,calculation_ready:true,can_dispatch:false,blockers:[]},
+   production_fuzzy:{status:'READY',basis:'TANK_INVENTORY_FUZZY',evaluated_at:now,recorded_at:now,expires_at:new Date(Date.now()+50000).toISOString(),
+    profile_version:'test-policy',program_id:null,activity_id:null,input_key:'soil_2_moisture',moisture_pct:22.2,memberships:{LOW:1},dominant_input_classes:['LOW'],rule_outputs:['HIGH'],
+    score:0.84,max_water_l:2500,target_water_l:2500,irrigation_needed:true,can_dispatch:false,blockers:[],target_policy:'AVAILABLE_TANK',applies_to:'ALL_PROGRAMS',
+    volume_basis:'LINEAR_LEVEL_APPROXIMATION',stop_policy:'DEVICE_LOW_LEVEL_INTERLOCK',execution_blockers:[]}};
+  globalThis.fetch=async url=>({ok:true,json:async()=>String(url).endsWith('/hst/proposals')?structuredClone(proposals):structuredClone(summary)});
+  process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED='true';
+ }
+ const makePlan=()=>service.createDoseVolumePlan({mode:'fertigation',obligationId,requestId:randomUUID()},'operator');
+ const approve=plan=>service.approveDoseVolume({planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true,confirmApplicationRoute:true},'operator');
+ async function snapshot(id){return (await query('SELECT * FROM spff.adaptive_fert_sessions WHERE session_id=$1',[id])).rows[0];}
+ function telemetry(command,overrides={}){return {kind:'dose_volume_telemetry',schemaVersion:1,contract:'spff-dose-volume-v1',siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:command.sessionId,
+  bootId:boot,commandId:command.commandId,timestamp:new Date().toISOString(),state:'COMPLETED',waterVolumeL:command.targetWaterVolumeL,stockVolumeL:command.targetStockVolumeL,
+  waterFlowLpm:0,stockFlowLpm:0,waterPump:false,fertPump:false,waterPumpKnown:true,fertPumpKnown:true,flowValid:true,volumeEstimated:false,reason:'target_reached',...overrides};}
+ function ack(command,overrides={}){return {kind:'dose_volume_ack',schemaVersion:1,contract:'spff-dose-volume-v1',siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:command.sessionId,
+  bootId:boot,commandId:command.commandId,timestamp:new Date().toISOString(),status:'completed',state:'COMPLETED',reason:'target_reached',...overrides};}
+ async function event(raw){const payload=adaptiveEventPayloadSchema.parse(raw);return transport.saveEvent({kind:'adaptive_fert_event',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',receivedAt:new Date().toISOString(),
+  messageId:createHash('sha256').update(JSON.stringify(payload)).digest('hex'),payload});}
+ try{
+  const dir=resolve(import.meta.dirname,'../../infrastructure/postgres/migrations');
+  for(const name of readdirSync(dir).sort())await db.exec(readFileSync(resolve(dir,name),'utf8'));
+  await t.test('recipe uses Guide remaining mass and tank liters, without EC or manual dose injection',async()=>{
+   await fixture();const plan=await makePlan();assert.equal(plan.recipe.recipe.batchMassG,400);
+   assert.equal(plan.recipe.recipe.batchVolumeL,100);assert.equal(plan.recipe.recipe.targetStockL,90);
+   assert.equal(plan.recipe.recipe.plannedMassG,360);assert.equal(plan.recipe.recipe.remainingAfterSessionG,40);
+   assert.equal(plan.recipe.recipe.targetWaterL,2250);assert.equal(plan.executionReady,true);
+   assert.equal((await query('SELECT count(*)::int n FROM spff.adaptive_fert_commands')).rows[0].n,0);
+   await assert.rejects(service.createDoseVolumePlan({mode:'fertigation',obligationId,requestId:randomUUID(),massG:900},'operator'));
+  });
+  await t.test('legacy firmware and disabled flag stay blocked without a fake EC profile',async()=>{
+   await fixture();await query("UPDATE spff.device_status_events SET raw_payload=jsonb_set(raw_payload,'{firmwareVersion}','\"1.5.07-AI-ACC-SESSION\"')");
+   delete process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED;
+   const plan=await makePlan();assert.equal(plan.executionReady,false);
+   assert.ok(plan.recipe.blockers.includes('commissioned_dose_volume_firmware_required'));
+   assert.equal((await service.readDoseVolumeReadiness('esp32-s3-01')).firmwareReady,false);
+   await assert.rejects(approve(plan),/belum aktif/);
+  });
+  await t.test('concurrent ACC retry creates one durable START and persists the operator preparation',async()=>{
+   await fixture();const plan=await makePlan();const input={planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true,confirmApplicationRoute:true};
+   const [a,b]=await Promise.all([service.approveDoseVolume(input,'operator'),service.approveDoseVolume(input,'operator')]);
+   assert.equal(a.session_id,b.session_id);assert.equal((await query('SELECT count(*)::int n FROM spff.adaptive_fert_commands')).rows[0].n,1);
+   const command=(await snapshot(a.session_id)).command_snapshot;
+   assert.equal(command.kind,'dose_volume_command');assert.equal(command.targetMassG,360);assert.equal(command.targetEcUs,undefined);
+   await assert.rejects(service.approveDoseVolume(input,'other-operator'),/konflik/);
+   await assert.rejects(setHstMode(true,'admin'),/aktif/);
+  });
+  await t.test('route approval and changed Guide revisions are rechecked at ACC',async()=>{
+   await fixture();const plan=await makePlan();
+   await assert.rejects(service.approveDoseVolume({planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true},'operator'),/jalur pompa/);
+   await query('UPDATE spff.guide_programs SET revision=2');
+   await assert.rejects(approve(plan),/Panduan|berubah/);
+   assert.equal((await query('SELECT count(*)::int n FROM spff.adaptive_fert_sessions')).rows[0].n,0);
+  });
+  await t.test('measured terminal telemetry plus matching ACK credit once, in either arrival order',async()=>{
+   for(const order of ['telemetry-first','ack-first']){
+    await fixture();const run=await approve(await makePlan());const command=(await snapshot(run.session_id)).command_snapshot;
+    const a=ack(command),p=telemetry(command);
+    await event(order==='ack-first'?a:p);
+    assert.equal((await service.readDoseVolumeSession(run.session_id)).credited_g,0);
+    await event(order==='ack-first'?p:a);await event(a);await event(p);
+    const result=await service.readDoseVolumeSession(run.session_id);
+    assert.equal(result.credited_g,360);assert.equal(result.evidence_verified,true);assert.equal(result.status,'completed');
+    assert.equal((await service.doseVolumeCredits(proposals.proposals[0])).remaining_g,40);
+    await assert.rejects(service.assertLegacyHstNotVolumeBound(obligationId),/ledger/);
+   }
+  });
+  await t.test('wrong boot, estimated meters and terminal pumps ON never credit plant dose',async()=>{
+   for(const overrides of [{bootId:'ffffffffffffffff'},{volumeEstimated:true},{fertPump:true}]){
+    await fixture();const run=await approve(await makePlan());const command=(await snapshot(run.session_id)).command_snapshot;
+    await event(telemetry(command,overrides));await event(ack(command));
+    const result=await service.readDoseVolumeSession(run.session_id);
+    assert.equal(result.credited_g,0);assert.equal(result.status,'reconciliation_required');
+   }
+  });
+  await t.test('STOP is idempotent, cancels queued START, and does not claim physical OFF',async()=>{
+   await fixture();const run=await approve(await makePlan());const requestId=randomUUID();
+   const stop=await service.stopDoseVolume(run.session_id,requestId,'operator');
+   assert.deepEqual(await service.stopDoseVolume(run.session_id,requestId,'operator'),stop);
+   assert.equal((await service.readDoseVolumeSession(run.session_id)).evidence_verified,false);
+   assert.equal((await query("SELECT status FROM spff.adaptive_fert_commands WHERE payload->>'commandType'='start'")).rows[0].status,'cancelled');
+   await transport.dispatch();assert.equal(published.length,1);assert.equal(published[0].command.kind,'dose_volume_command');
+   assert.equal(published[0].command.commandType,'stop');
+  });
+  await t.test('water-only has no stock target or fertilizer credit',async()=>{
+   await fixture();const plan=await service.createDoseVolumePlan({mode:'water_only',programId:pid,activityId:'row-19',requestId:randomUUID()},'operator');
+   const run=await service.approveDoseVolume({planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true},'operator');
+   const command=(await snapshot(run.session_id)).command_snapshot;
+   assert.equal(command.targetStockVolumeL,0);assert.equal(command.targetMassG,0);
+   await event(ack(command));await event(telemetry(command));
+   assert.equal((await service.readDoseVolumeSession(run.session_id)).credited_g,0);
+  });
+  await t.test('legacy emergency STOP is converted for a volume session with START gates OFF',async()=>{
+   await fixture();const run=await approve(await makePlan());
+   await query("UPDATE spff.adaptive_fert_commands SET status='cancelled'");
+   const commandId=randomUUID();
+   await query(`INSERT INTO spff.adaptive_fert_commands(site_id,command_id,session_id,request_id,payload,expires_at)
+    VALUES('greenhouse-01',$1,$2,$3,$4,now()+interval '15 seconds')`,[commandId,run.session_id,randomUUID(),JSON.stringify({
+    kind:'adaptive_fert_command',schemaVersion:1,siteId:'greenhouse-01',deviceId:'esp32-s3-01',sessionId:run.session_id,commandId,commandType:'stop'})]);
+   delete process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED;delete process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED;
+   await transport.dispatch();assert.equal(published.length,1);
+   assert.equal(published[0].command.kind,'dose_volume_command');assert.equal(published[0].command.bootId,boot);
+   assert.equal(published[0].command.commandType,'stop');
+  });
+  await t.test('worker has an independent volume gate and never republishes an uncertain START',async()=>{
+   await fixture();await approve(await makePlan());
+   delete process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED;
+   await transport.dispatch();assert.equal(published.length,0);
+   process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED='true';
+   await transport.dispatch();await transport.dispatch();
+   assert.equal(published.length,1);assert.equal(published[0].command.kind,'dose_volume_command');
+   assert.equal(published[0].command.targetEcUs,undefined);
+  });
+  await t.test('stale Fuzzy evidence, manual completion and expired plans cannot start pumps',async()=>{
+   await fixture();summary.production_fuzzy.expires_at=new Date(Date.now()-1000).toISOString();
+   await assert.rejects(makePlan(),/Fuzzy/);
+   await fixture();const plan=await makePlan();
+   await query("UPDATE spff.dose_volume_plans SET valid_until=now()-interval '1 second'");
+   await assert.rejects(approve(plan),/kedaluwarsa/);
+   assert.equal((await query('SELECT count(*)::int n FROM spff.adaptive_fert_commands')).rows[0].n,0);
+   await fixture();await query(`INSERT INTO spff.guide_program_completions(site_id,program_id,activity_id,activity_fingerprint,program_revision,activity_snapshot,actor)
+    VALUES('greenhouse-01',$1,'row-19','fixture-completed',1,'{}','fixture')`,[pid]);
+   await assert.rejects(makePlan(),/selesai manual/);
+  });
+  await t.test('counter rollback remains uncertain even after requesting STOP',async()=>{
+   await fixture();const run=await approve(await makePlan());const command=(await snapshot(run.session_id)).command_snapshot;
+   await event(telemetry(command,{state:'INJECTING',waterPump:true,fertPump:true,waterVolumeL:100,stockVolumeL:10}));
+   await event(telemetry(command,{state:'INJECTING',waterPump:true,fertPump:true,waterVolumeL:90,stockVolumeL:9,timestamp:new Date(Date.now()+1).toISOString()}));
+   await service.stopDoseVolume(run.session_id,randomUUID(),'operator');
+   await event(ack(command));await event(telemetry(command));
+   const result=await service.readDoseVolumeSession(run.session_id);
+   assert.equal(result.credited_g,0);assert.equal(result.status,'reconciliation_required');
+  });
+  await t.test('explicit reconciliation credits partial delivery once and preserves the rest of the Guide dose',async()=>{
+   await fixture();const run=await approve(await makePlan());const command=(await snapshot(run.session_id)).command_snapshot;
+   await event(telemetry(command,{volumeEstimated:true}));
+   const input={requestId:randomUUID(),pumpsOffVerified:true,waterVolumeL:100,stockVolumeL:10,reference:'External measured fixture volume and pump OFF check'};
+   await assert.rejects(service.reconcileDoseVolume(run.session_id,input,'admin'),/kedaluwarsa/);
+   await query("UPDATE spff.adaptive_fert_commands SET expires_at=now()-interval '1 second'");
+   const first=await service.reconcileDoseVolume(run.session_id,input,'admin');
+   assert.equal(first.credited_g,40);assert.equal(first.evidence_basis,'OPERATOR_RECONCILED');
+   assert.deepEqual(await service.reconcileDoseVolume(run.session_id,input,'admin'),first);
+   assert.equal((await service.doseVolumeCredits(proposals.proposals[0])).remaining_g,360);
+   await assert.rejects(service.reconcileDoseVolume(run.session_id,{...input,stockVolumeL:11},'admin'),/konflik/);
+  });
+ }finally{globalThis.fetch=oldFetch;repo.pool.query=oldQuery;repo.pool.connect=oldConnect;delete process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED;await repo.pool.end();await db.close();}
+});
