@@ -9,6 +9,7 @@ import {readGuideEcConversions} from './guideEcConversionService.js';
 import {createAdaptiveSession,readAdaptiveSession} from './adaptiveFertigationService.js';
 import {localAiUrl} from './localAiEndpoint.js';
 import {readHstMode} from './hstExecutionModeService.js';
+import {assertLegacyHstNotVolumeBound} from './doseVolumeService.js';
 
 const blocked=(reason:string,status=409):never=>{throw Object.assign(new Error(reason),{status});};
 const bridge=()=>{const k=process.env.AI_HST_BRIDGE_KEY;if(!k||k.length<32)return blocked('Kunci bridge HST tidak dikonfigurasi.',503);return k;};
@@ -113,6 +114,7 @@ export async function executeHstReal(raw:AiHstRealExecuteRequest,actor:string){
   return hstRealSession(existing.session_id);
  }
  const proposal=(await proposals()).find(p=>p.obligation_id===input.obligationId);
+ await assertLegacyHstNotVolumeBound(input.obligationId);
  if(!proposal||!['WAITING_APPROVAL','PARTIAL_WAITING_APPROVAL'].includes(proposal.status)||
    proposal.review_reasons.length||proposal.source_row===null||proposal.remaining_g===null||
    Math.abs(proposal.remaining_g-input.expectedRemainingG)>0.01)return blocked('Kewajiban HST sudah berubah atau tidak dapat dieksekusi.');
