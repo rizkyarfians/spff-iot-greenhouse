@@ -212,6 +212,61 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.equal(result.water_volume_l,120);
    assert.equal(result.credited_g,0);
   });
+  async function serverWaterFixture(){
+   await fixture();
+   await query(`INSERT INTO spff.actuators(site_id,device_id,actuator_key,display_name)
+    VALUES('greenhouse-01','esp32-s3-01','pump_water','Water')`);
+   await query(`INSERT INTO spff.device_water_interlock_configs(site_id,device_id,updated_by,acknowledgement_status,acknowledged_revision,applied_enabled)
+    VALUES('greenhouse-01','esp32-s3-01','fixture','applied',1,true)`);
+   await query('UPDATE spff.device_automatic_control_configs SET water_max_runtime_seconds=600');
+   await query(`UPDATE spff.device_status_events SET raw_payload=(raw_payload-'doseVolumeV1') ||
+    '{"firmwareVersion":"1.5.12-DHT-DOSE-VOLUME-STAGING","waterInterlockConfigCapable":true,
+      "waterInterlockEnabled":true,"aiAccTankGuardHealthy":true,"waterInterlockRevision":1}'::jsonb`);
+   await query(`UPDATE spff.telemetry_samples SET flow_water_total_l=100,
+    sensor_health=sensor_health||'{"flow_water_total_l":{"valid":true}}'::jsonb`);
+  }
+  await t.test('server water uses ordinary pump ON/OFF on 1.5.12 and waits for measured OFF',async()=>{
+   await serverWaterFixture();
+   const plan=await service.createDoseVolumePlan({mode:'water_only',programId:pid,activityId:'row-19',requestId:randomUUID()},'operator');
+   assert.equal(plan.recipe.serverWater,true);
+   assert.equal(plan.executionReady,true);
+   const run=await service.approveDoseVolume({planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true},'operator');
+   const command=(await snapshot(run.session_id)).command_snapshot;
+   assert.equal(command.kind,'server_water_control');
+   const on=(await query('SELECT * FROM spff.control_commands')).rows[0];
+   assert.equal(on.requested_is_active,true);
+   assert.equal(on.actuator_key,'pump_water');
+   await assert.rejects(query('UPDATE spff.device_water_interlock_configs SET enabled=false'),/server_water_session_owns_interlock/);
+   await transport.dispatch();assert.equal(published.length,0,'no firmware-specific message');
+   await query(`UPDATE spff.control_commands SET status='completed',issued_at=now()-interval '30 seconds',
+    expires_at=now()-interval '10 seconds' WHERE command_id=$1`,[on.command_id]);
+   await query('UPDATE spff.telemetry_samples SET tank_water_level_pct=0,flow_water_total_l=125,recorded_at=now()');
+   await transport.dispatch();await transport.dispatch();
+   const off=(await query('SELECT * FROM spff.control_commands WHERE NOT requested_is_active')).rows;
+   assert.equal(off.length,1);
+   assert.equal((await service.readDoseVolumeSession(run.session_id)).evidence_verified,false);
+   await query(`INSERT INTO spff.command_ack_events(command_id,status,actual_is_active,acknowledged_at)
+    VALUES($1,'completed',false,now())`,[off[0].command_id]);
+   await query('UPDATE spff.telemetry_samples SET recorded_at=now(),flow_water_total_l=126');
+   await query('UPDATE spff.device_status_events SET recorded_at=now()');
+   await transport.dispatch();
+   const result=await service.readDoseVolumeSession(run.session_id);
+   assert.equal(result.status,'completed');
+   assert.equal(result.water_volume_l,26);
+   assert.equal(result.evidence_verified,true);
+  });
+  await t.test('server water requests OFF on stale telemetry and cancels unpublished ON',async()=>{
+   await serverWaterFixture();
+   const plan=await service.createDoseVolumePlan({mode:'water_only',programId:pid,activityId:'row-19',requestId:randomUUID()},'operator');
+   const run=await service.approveDoseVolume({planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true},'operator');
+   await query("UPDATE spff.telemetry_samples SET recorded_at=now()-interval '61 seconds'");
+   await transport.dispatch();await transport.dispatch();
+   const commands=(await query('SELECT requested_is_active,status FROM spff.control_commands ORDER BY requested_is_active DESC')).rows;
+   assert.deepEqual(commands,[{requested_is_active:true,status:'failed'},{requested_is_active:false,status:'pending'}]);
+   const session=await service.readDoseVolumeSession(run.session_id);
+   assert.equal(session.reason,'sensor_stale_or_meter_invalid');
+   assert.equal(session.evidence_verified,false);
+  });
   await t.test('legacy emergency STOP is converted for a volume session with START gates OFF',async()=>{
    await fixture();const run=await approve(await makePlan());
    await query("UPDATE spff.adaptive_fert_commands SET status='cancelled'");

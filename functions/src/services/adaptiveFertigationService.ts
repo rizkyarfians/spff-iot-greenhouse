@@ -153,6 +153,7 @@ export async function createAdaptiveSession(input:AdaptiveSessionInput,actor:str
 export async function controlAdaptiveSession(id:string,operation:'pause'|'resume'|'stop',requestId:string){
  if(operation==='resume')return fail('Resume firmware 1.5.00 melewati priming; backend belum mengizinkan operasi ini.');
  const c=await pool.connect();try{await c.query('BEGIN');const s=(await c.query('SELECT * FROM spff.adaptive_fert_sessions WHERE site_id=$1 AND session_id=$2 FOR UPDATE',[siteId,id])).rows[0];if(!s)return fail('Sesi tidak ditemukan.',404);
+ if(s.command_snapshot?.kind==='server_water_control')return fail('Gunakan STOP pada sesi pompa di Panduan.');
  const old=(await c.query('SELECT * FROM spff.adaptive_fert_commands WHERE site_id=$1 AND request_id=$2',[siteId,requestId])).rows[0];if(old){if(old.session_id!==id||old.payload.commandType!==operation)return fail('requestId konflik.');await c.query('COMMIT');return old;}
  if(operation==='pause'&&s.status!=='running')return fail('Pause memerlukan telemetry sesi berjalan.');
  if(['completed','fault'].includes(s.status))return fail('Sesi sudah terminal.');
@@ -163,6 +164,7 @@ export async function controlAdaptiveSession(id:string,operation:'pause'|'resume
 }
 export async function reconcileAdaptiveSession(id:string,observation:{pumpsOffVerified:true;waterVolumeL:number;fertVolumeL:number;note:string},actor:string){
  const c=await pool.connect();try{await c.query('BEGIN');const s=(await c.query('SELECT * FROM spff.adaptive_fert_sessions WHERE site_id=$1 AND session_id=$2 FOR UPDATE',[siteId,id])).rows[0];if(!s)return fail('Sesi tidak ditemukan.',404);
+ if(s.command_snapshot?.kind==='server_water_control')return fail('Gunakan rekonsiliasi sesi air dari Panduan.');
  if(s.status!=='reconciliation_required')return fail('Sesi tidak membutuhkan rekonsiliasi.');
  if(observation.waterVolumeL<s.water_volume_l||observation.fertVolumeL<s.fert_volume_l)return fail('Total terverifikasi tidak boleh mengurangi volume yang sudah tercatat.');
  if((await c.query('SELECT 1 FROM spff.adaptive_fert_commands WHERE site_id=$1 AND session_id=$2 AND expires_at>now() LIMIT 1',[siteId,id])).rows.length)return fail('Tunggu seluruh command kedaluwarsa sebelum rekonsiliasi.');

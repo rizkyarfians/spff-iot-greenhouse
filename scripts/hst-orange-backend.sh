@@ -146,6 +146,7 @@ STAGING_BUILD
  done
  install -m644 "$SRC/mqtt-worker/dist/adaptiveFertigationTransport.js" "$RUN/new/worker/adaptiveFertigationTransport.js"
  install -m644 "$SRC/mqtt-worker/dist/doseVolumeEvidence.js" "$RUN/new/worker/doseVolumeEvidence.js"
+ install -m644 "$SRC/mqtt-worker/dist/serverWaterControl.js" "$RUN/new/worker/serverWaterControl.js"
  [[ -f "$RUN/new/contracts/index.js" ]] || fatal "contracts barrel missing"
  grep -q "aiHst.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing aiHst export"
  grep -q "adaptiveFertigation.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing adaptive export"
@@ -319,6 +320,8 @@ SUMMARY_CHECK
   1,1) say "Migration 039 already installed; skip";;
   *) fatal "migration 039 only partly installed";;
  esac
+ say "Migration 040: server-owned water ON/OFF through normal pump commands"
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/040_server_water_relay.sql"
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"
@@ -397,9 +400,9 @@ if [[ "$MODE" == enable-dose-volume ]]; then
     d.pumpWaterActualActive===false && d.pumpFertActualActive===false && d.aiAccSessionActive===false &&
     d.doseVolumeSessionActive!==true && (doseVolumeCapabilitySchema.safeParse(d.doseVolumeV1).success ||
       (d.waterInterlockEnabled===true && d.aiAccTankGuardHealthy===true &&
-       waterUntilLowCapabilitySchema.safeParse(d.waterUntilLowV1).success)));
+       (d.waterInterlockConfigCapable===true||waterUntilLowCapabilitySchema.safeParse(d.waterUntilLowV1).success))));
    if(!ready)process.exitCode=1;
-  ' || fatal "no fresh commissioned dose-volume firmware with both pump outputs OFF"
+  ' || fatal "no fresh device with verified water protection or commissioned dose-volume and both pumps OFF"
  gates false false true
  if ! systemctl restart "$WORKER" "$API" ||
     ! ( healthy &&

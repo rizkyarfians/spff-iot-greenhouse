@@ -23,7 +23,7 @@ export async function setHstMode(shadowEnabled:boolean,actor:string){
   if(shadowEnabled&&current.shadow_enabled===false){
    const active=(await c.query(`SELECT 1 FROM spff.adaptive_fert_sessions s
     WHERE s.site_id=$1 AND s.status NOT IN ('completed','fault')
-     AND (s.command_snapshot->>'kind'='dose_volume_command' OR EXISTS(
+     AND (s.command_snapshot->>'kind' IN ('dose_volume_command','server_water_control') OR EXISTS(
       SELECT 1 FROM spff.hst_real_sessions h WHERE h.site_id=s.site_id AND h.session_id=s.session_id))
     LIMIT 1`,[siteId])).rows[0];
    if(active)return fail('Sesi pompa masih aktif/meragukan. STOP dan rekonsiliasi sebelum SHADOW ON.');

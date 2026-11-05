@@ -1022,6 +1022,7 @@ export type AiHstVolumePlan = {
   routeApprovalRequired:boolean;
   pastDue:boolean;
   waterUntilLowSeconds?:number|null;
+  serverWater?:boolean;
   blockers:string[];
   recipe:{
    batchMassG:number;

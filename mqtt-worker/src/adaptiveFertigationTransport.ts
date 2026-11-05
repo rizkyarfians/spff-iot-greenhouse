@@ -3,6 +3,7 @@ import {Pool,type PoolClient} from 'pg';
 import {adaptiveEventSchema,adaptiveDispatchSchema,doseVolumeControlSchema,type AdaptiveEvent,type AdaptiveDispatch} from '@spff/contracts';
 import {config} from './config.js';
 import {normalizeDoseVolumeStop,saveDoseVolumeEvidence} from './doseVolumeEvidence.js';
+import {tickServerWater} from './serverWaterControl.js';
 export class AdaptiveFertigationTransport {
  private pool:Pick<Pool,'query'|'connect'|'end'>;private timer:NodeJS.Timeout|null=null;private running=false;
  constructor(private publish:(payload:AdaptiveDispatch)=>Promise<void>,database?:Pick<Pool,'query'|'connect'|'end'>){this.pool=database??new Pool({connectionString:config.database.url,max:3});}
@@ -55,10 +56,11 @@ export class AdaptiveFertigationTransport {
  async dispatch(){
   const c=await this.pool.connect();let rows;
   try{await c.query('BEGIN');
+   await tickServerWater(c,process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED==='true');
    await this.stopOnEmptyWater(c);
    // Claim before network I/O. A process crash becomes uncertain; never replay START automatically.
    await c.query(`UPDATE spff.adaptive_fert_sessions s SET status='reconciliation_required',reason='command_outcome_unknown' WHERE status IN ('queued','running','paused') AND EXISTS(SELECT 1 FROM spff.adaptive_fert_commands cmd WHERE cmd.site_id=s.site_id AND cmd.session_id=s.session_id AND cmd.status IN ('dispatching','unknown') AND cmd.expires_at<now())`);
-   await c.query("UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',reason='telemetry_timeout' WHERE status IN ('queued','running','paused') AND COALESCE(last_telemetry_at,created_at)<now()-interval '90 seconds'");
+   await c.query("UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',reason='telemetry_timeout' WHERE status IN ('queued','running','paused') AND command_snapshot->>'kind' IS DISTINCT FROM 'server_water_control' AND COALESCE(last_telemetry_at,created_at)<now()-interval '90 seconds'");
    await c.query("UPDATE spff.adaptive_fert_commands SET status='expired' WHERE status='pending' AND expires_at<now()");
    await c.query(`UPDATE spff.adaptive_fert_sessions s SET status='fault',reason='start_expired_before_dispatch' WHERE status='queued' AND EXISTS(SELECT 1 FROM spff.adaptive_fert_commands cmd WHERE cmd.site_id=s.site_id AND cmd.session_id=s.session_id AND cmd.payload->>'commandType'='start' AND cmd.status='expired')`);
    rows=(await c.query(`SELECT cmd.*,s.device_id,s.command_snapshot FROM spff.adaptive_fert_commands cmd JOIN spff.adaptive_fert_sessions s USING(site_id,session_id)
@@ -89,6 +91,7 @@ export class AdaptiveFertigationTransport {
    if(!added.rows.length){await c.query('COMMIT');return;}
    // Unsolicited/old-session packets are retained for diagnosis but cannot allocate program dose.
    const row=(await c.query('SELECT * FROM spff.adaptive_fert_sessions WHERE site_id=$1 AND device_id=$2 AND session_id::text=$3 FOR UPDATE',[event.siteId,event.deviceId,payload.sessionId])).rows[0];
+   if(row?.command_snapshot?.kind==='server_water_control'){await c.query('COMMIT');return;}
    if(row?.command_snapshot?.kind==='dose_volume_command'&&payload.kind!=='adaptive_fert_gateway_ack'){
     await c.query("UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',reason='dose_volume_wrong_report_protocol' WHERE site_id=$1 AND session_id=$2",[event.siteId,row.session_id]);
     await c.query('COMMIT');return;
