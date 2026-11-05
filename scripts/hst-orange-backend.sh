@@ -15,7 +15,7 @@ SWAPPED=0; SUCCESS=0
 fatal(){ echo "STOP: $*" >&2; exit 1; }
 say(){ echo "=== $* ==="; }
 [[ "$EUID" == 0 ]] || fatal "must use sudo"
-[[ "$MODE" =~ ^(deploy|enable|disable|status|diagnose)$ ]] || fatal "Expected deploy|enable|disable|status|diagnose"
+[[ "$MODE" =~ ^(deploy|enable|disable|status|diagnose|dose-volume-status)$ ]] || fatal "Expected deploy|enable|disable|status|diagnose|dose-volume-status"
 exec 9>/run/lock/spff-hst-prod-rollout.lock
 flock -n 9 || fatal "SPFF deployment lock occupied"
 # postgres cannot traverse /home/orangepi (0700). Run psql from / instead,
@@ -23,8 +23,8 @@ flock -n 9 || fatal "SPFF deployment lock occupied"
 db(){ ( cd / && runuser -u postgres -- psql -X -qAt -v ON_ERROR_STOP=1 -d spff -c "$1" ); }
 gates(){
  install -d -m 755 /etc/systemd/system/spff-api.service.d /etc/systemd/system/spff-mqtt-worker.service.d
- printf '[Service]\nEnvironment=SPFF_HST_REAL_DISPATCH_ENABLED=%s\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\n' "$1" "$1" > "$APIGATE"
- printf '[Service]\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\n' "$2" > "$WORKERGATE"
+ printf '[Service]\nEnvironment=SPFF_HST_REAL_DISPATCH_ENABLED=%s\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\nEnvironment=SPFF_DOSE_VOLUME_DISPATCH_ENABLED=false\n' "$1" "$1" > "$APIGATE"
+ printf '[Service]\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\nEnvironment=SPFF_DOSE_VOLUME_DISPATCH_ENABLED=false\n' "$2" > "$WORKERGATE"
  chmod 644 "$APIGATE" "$WORKERGATE"
  systemctl daemon-reload
 }
@@ -70,6 +70,7 @@ finish(){
    done
    restore_gates
    systemctl start "$WORKER" "$API" || true
+   systemctl restart spff-edge-gateway.service || true
   fi
   echo "$code" > "$RUN/deploy.exit"
   echo "DEPLOY_EXIT=$code"
@@ -107,6 +108,9 @@ if [[ "$MODE" == deploy ]]; then
   fatal "migration 034-036 not verified; no runtime change"
  fi
  [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain adaptive sessions; do not interrupt"
+ if [[ "$(db "SELECT to_regclass('spff.hst_execution_modes') IS NOT NULL")" == true ]]; then
+  [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "Turn SHADOW MODE ON before deployment; no build or runtime change performed"
+ fi
  for loc in "$PROD/packages/contracts/dist" "$PROD/functions/lib" "$PROD/mqtt-worker/dist" "$PROD/frontend/dist"; do
   [[ -d "$loc" && ! -L "$loc" ]] || fatal "unexpected runtime directory: $loc"
  done
@@ -133,19 +137,23 @@ STAGING_BUILD
  cp -a "$PROD/packages/contracts/dist" "$RUN/new/contracts"
  cp -a "$PROD/functions/lib" "$RUN/new/api"
  cp -a "$PROD/mqtt-worker/dist" "$RUN/new/worker"
- for module in aiHst adaptiveFertigation unifiedAiDashboard; do
+ for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume; do
   install -m644 "$SRC/packages/contracts/dist/$module.js" "$RUN/new/contracts/$module.js"
  done
- for module in controllers/aiHstController controllers/unifiedAiDashboardController services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
+ for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
   install -D -m644 "$SRC/functions/lib/$module.js" "$RUN/new/api/$module.js"
  done
  install -m644 "$SRC/mqtt-worker/dist/adaptiveFertigationTransport.js" "$RUN/new/worker/adaptiveFertigationTransport.js"
+ install -m644 "$SRC/mqtt-worker/dist/doseVolumeEvidence.js" "$RUN/new/worker/doseVolumeEvidence.js"
  [[ -f "$RUN/new/contracts/index.js" ]] || fatal "contracts barrel missing"
  grep -q "aiHst.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing aiHst export"
  grep -q "adaptiveFertigation.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing adaptive export"
  # The production barrel may predate the dashboard summary contract.
  if ! grep -q "unifiedAiDashboard.js" "$RUN/new/contracts/index.js"; then
    printf "\\nexport * from './unifiedAiDashboard.js';\\n" >> "$RUN/new/contracts/index.js"
+ fi
+ if ! grep -q "doseVolume.js" "$RUN/new/contracts/index.js"; then
+   printf "\\nexport * from './doseVolume.js';\\n" >> "$RUN/new/contracts/index.js"
  fi
 
  # Extend HST-specific routes in the compiled production router. Do not lose
@@ -160,6 +168,12 @@ imports=re.findall(pattern,new,re.S)
 existing=re.findall(pattern,live,re.S)
 if len(imports)!=1 or len(existing)!=1: raise SystemExit('STOP: HST route imports not uniquely mergeable')
 live=live.replace(existing[0],imports[0],1)
+volume_import="import {postDoseVolumePlan,postDoseVolumeApproval,getDoseVolumeSession,postDoseVolumeStop,getDoseVolumeReadiness,postDoseVolumeReconcile} from '../controllers/doseVolumeController.js';"
+volume_pattern=r"import\s*\{[^}]*\}\s*from\s*['\"]\.\./controllers/doseVolumeController\.js['\"];"
+volume_existing=re.findall(volume_pattern,live,re.S)
+if len(volume_existing)>1: raise SystemExit('STOP: duplicate dose-volume imports')
+if volume_existing: live=live.replace(volume_existing[0],volume_import,1)
+else: live=volume_import+'\n'+live
 route_pattern=r"^apiRouter\.(?:get|post|put)\('/unified-ai/hst/[^;\n]+;\s*$"
 routes=re.findall(route_pattern,new,re.M)
 oldroutes=re.findall(route_pattern,live,re.M)
@@ -295,12 +309,20 @@ SUMMARY_CHECK
  fi
  [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == true ]] || fatal "migration 038 missing"
  [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "SHADOW MODE default must be ON at deployment"
+ say "Migration 039: dose-volume plans and measured delivery ledger"
+ volume_tables="$(db "SELECT (to_regclass('spff.dose_volume_plans') IS NOT NULL)::int::text || ',' || (to_regclass('spff.dose_volume_bindings') IS NOT NULL)::int::text")"
+ case "$volume_tables" in
+  0,0) (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/039_dose_volume_backend.sql";;
+  1,1) say "Migration 039 already installed; skip";;
+  *) fatal "migration 039 only partly installed";;
+ esac
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"
  SWAPPED=1
  gates false false
  systemctl stop "$API" "$WORKER"
+ [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "session appeared during build; runtime swap cancelled"
  for label in contracts api worker web; do
   case "$label" in
    contracts) live="$PROD/packages/contracts/dist";;
@@ -312,6 +334,9 @@ SUMMARY_CHECK
   mv "$RUN/new/$label" "$live"
  done
  systemctl start "$WORKER" "$API"
+ # Edge keeps the shared contracts in memory. Restart to load the new typed
+ # volume envelopes while retaining its existing serial writer and outbox.
+ systemctl restart spff-edge-gateway.service
  for i in 1 2 3 4 5 6 7 8 9 10; do
   if curl -fsS -m 3 http://127.0.0.1:3001/api/health >/dev/null 2>&1; then break; fi
   sleep 2
@@ -320,6 +345,8 @@ SUMMARY_CHECK
  assert_runtime_gate "$API" SPFF_HST_REAL_DISPATCH_ENABLED false
  assert_runtime_gate "$API" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
  assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
+ assert_runtime_gate "$API" SPFF_DOSE_VOLUME_DISPATCH_ENABLED false
+ assert_runtime_gate "$WORKER" SPFF_DOSE_VOLUME_DISPATCH_ENABLED false
  status="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/unified-ai/hst/execution-readiness)"
  [[ "$status" == 401 ]] || fatal "auth boundary failed, expected 401 got $status"
  SUCCESS=1
@@ -338,11 +365,17 @@ if [[ "$MODE" == disable ]]; then
  echo "NEW_REAL_START=DISABLED. This does NOT shut off an already running pump."
  exit 0
 fi
+if [[ "$MODE" == dose-volume-status ]]; then
+ healthy || fatal "production unhealthy"
+ db "SELECT jsonb_pretty(jsonb_build_object('backend_installed',to_regclass('spff.dose_volume_plans') IS NOT NULL AND to_regclass('spff.dose_volume_bindings') IS NOT NULL,'required_contract','spff-dose-volume-v1','devices',(SELECT jsonb_agg(x) FROM (SELECT DISTINCT ON(site_id,device_id) site_id,device_id,recorded_at,raw_payload->>'firmwareVersion' AS firmware,raw_payload->'doseVolumeV1' AS volume_capability FROM spff.device_status_events ORDER BY site_id,device_id,recorded_at DESC,device_status_id DESC LIMIT 5)x)))"
+ systemctl show "$API" "$WORKER" -p Environment | grep -E 'SPFF_DOSE_VOLUME_DISPATCH_ENABLED' || true
+ exit 0
+fi
 if [[ "$MODE" == status ]]; then
  healthy || fatal "production unhealthy"
  echo "verified_profiles=$(db 'SELECT count(*) FROM spff.hst_real_profiles')"
  echo "physical_hst_sessions=$(db 'SELECT count(*) FROM spff.hst_real_sessions')"
- systemctl show "$API" "$WORKER" -p Environment | grep -E 'SPFF_(HST_REAL|ADAPTIVE_FERT)_DISPATCH_ENABLED' || true
+ systemctl show "$API" "$WORKER" -p Environment | grep -E 'SPFF_(HST_REAL|ADAPTIVE_FERT|DOSE_VOLUME)_DISPATCH_ENABLED' || true
  exit 0
 fi
 # Explicit in-person arming only, never enabled by the deploy phase.
