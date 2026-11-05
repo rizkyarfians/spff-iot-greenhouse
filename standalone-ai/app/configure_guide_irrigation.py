@@ -9,10 +9,18 @@ from pathlib import Path
 
 from .configure_live import save_profile
 from .live_engine import LiveProfile
-from .production_profile import bind_guide_irrigation
+from .production_profile import bind_guide_irrigation, _activity
 from .settings import Settings
 from .source import SPFFSource
 from .store import PostgresStore
+
+
+def candidate_status(guides, program_id, activity_id, device_id):
+    try:
+        _activity(guides, program_id, activity_id, device_id)
+    except ValueError as error:
+        return {"water_target_eligible": False, "water_target_blockers": [str(error)]}
+    return {"water_target_eligible": True, "water_target_blockers": []}
 
 
 def main():
@@ -46,7 +54,8 @@ def main():
                 "crop_name": p.get("crop_name"), "hold_reasons": p.get("hold_reasons"),
                 "activities": [{"activity_id": a.get("activity_id"), "hst": a.get("hst"),
                     "method": a.get("method"), "water_l": a.get("reference_water_l"),
-                    "calendar_status": a.get("calendar_status"), "warnings": a.get("warnings", [])}
+                    "calendar_status": a.get("calendar_status"), "warnings": a.get("warnings", []),
+                    **candidate_status(guides, p.get("program_id"), a.get("activity_id"), settings.device_id)}
                     for a in p.get("activities", [])]}
                 for p in guides.get("programs", [])]}, indent=2))
         return
