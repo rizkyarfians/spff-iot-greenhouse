@@ -79,6 +79,20 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual((self.target/'app/a.py').read_text(), 'old = True\n')
         self.assertFalse((self.target/'app/b.py').exists())
 
+    def test_known_previous_release_accepts_crlf_and_lf_and_preserves_original_bytes(self):
+        import hashlib
+        normalized = b'previous_patch = True\n'
+        expected = hashlib.sha1(b'blob '+str(len(normalized)).encode()+b'\0'+normalized).hexdigest()
+        for original in (normalized, normalized.replace(b'\n', b'\r\n')):
+            (self.target/'app/a.py').write_bytes(original)
+            self.backup = self.backup.parent / ('backup-'+str(len(original)))
+            self.backup.mkdir()
+            with patch.object(installer, 'PREVIOUS', {'a.py': (expected,)}):
+                self.run_mode('stage')
+                self.run_mode('apply')
+                self.run_mode('rollback')
+            self.assertEqual((self.target/'app/a.py').read_bytes(), original)
+
     def test_rollback_before_any_apply_is_a_noop(self):
         self.run_mode('rollback')
         self.assertEqual((self.target/'app/a.py').read_text(), 'old = True\n')
