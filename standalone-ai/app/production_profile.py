@@ -98,7 +98,7 @@ def resolve_guide_irrigation(profile, guides):
     return profile.planning, result
 
 
-def production_fuzzy_result(profile, guides, preview, sensor_blockers, *, now, live_source):
+def production_fuzzy_result(profile, guides, preview, sensor_blockers, *, now, live_source, sensor_expires_at=None):
     """A fresh demand calculation, never a session budget or an actuator command.
 
     Membership labels come from the saved model, without inventing score bands.
@@ -129,6 +129,8 @@ def production_fuzzy_result(profile, guides, preview, sensor_blockers, *, now, l
     elif config is not None:
         recorded = datetime.fromisoformat(preview["recorded_at"])
         expires = recorded + timedelta(seconds=min(120, config.sensor_data_max_age))
+        if sensor_expires_at is not None:
+            expires = min(expires, sensor_expires_at)
         if now > expires or (recorded - now).total_seconds() > 5:
             blockers.append("sensor_snapshot_stale")
         result.update(recorded_at=recorded.isoformat(), expires_at=expires.isoformat())
