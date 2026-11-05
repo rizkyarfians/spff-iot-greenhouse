@@ -187,6 +187,31 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    await event(ack(command));await event(telemetry(command));
    assert.equal((await service.readDoseVolumeSession(run.session_id)).credited_g,0);
   });
+  await t.test('water-only starts from live tank level and completes at low water without a liter target',async()=>{
+   await fixture();
+   await query(`UPDATE spff.device_status_events SET raw_payload=(raw_payload-'doseVolumeV1') ||
+    '{"waterUntilLowV1":{"contract":"spff-water-until-low-v1","maxDurationSec":600},
+      "waterInterlockEnabled":true,"aiAccTankGuardHealthy":true}'::jsonb`);
+   const plan=await service.createDoseVolumePlan({mode:'water_only',programId:pid,activityId:'row-19',requestId:randomUUID()},'operator');
+   assert.equal(plan.executionReady,true);
+   assert.equal(plan.calculationReady,true);
+   assert.equal(plan.recipe.recipe.targetWaterL,null);
+   await query('UPDATE spff.telemetry_samples SET tank_water_level_pct=0');
+   await assert.rejects(service.approveDoseVolume({planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true},'operator'),/sensor|tandon/i);
+   await query('UPDATE spff.telemetry_samples SET tank_water_level_pct=50');
+   const run=await service.approveDoseVolume({planId:plan.planId,approvalId:randomUUID(),preparedBatchConfirmed:true},'operator');
+   const command=(await snapshot(run.session_id)).command_snapshot;
+   assert.equal(command.controlAlgorithm,'water_until_low_v1');
+   assert.equal(command.targetWaterVolumeL,undefined);
+   await transport.dispatch();
+   assert.equal(published[0].command.controlAlgorithm,'water_until_low_v1');
+   await event(ack(command,{reason:'water_low_reached'}));
+   await event(telemetry(command,{reason:'water_low_reached',waterVolumeL:120,stockVolumeL:0}));
+   const result=await service.readDoseVolumeSession(run.session_id);
+   assert.equal(result.status,'completed');
+   assert.equal(result.water_volume_l,120);
+   assert.equal(result.credited_g,0);
+  });
   await t.test('legacy emergency STOP is converted for a volume session with START gates OFF',async()=>{
    await fixture();const run=await approve(await makePlan());
    await query("UPDATE spff.adaptive_fert_commands SET status='cancelled'");

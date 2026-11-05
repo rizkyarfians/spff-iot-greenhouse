@@ -12,6 +12,7 @@ const terminal=(session:AiHstVolumeSession)=>['completed','fault'].includes(sess
 const blockers:Record<string,string>={
  commissioned_dose_volume_firmware_required:'Firmware dosis/volume dan commissioning perangkat belum terkonfirmasi.',
  sensor_boot_not_current:'Menunggu pembacaan sensor dari boot perangkat saat ini.',
+ water_level_not_safe_to_start:'Pembacaan air atau pengaman level belum siap.',
  dose_volume_server_dispatch_disabled:'Izin START dosis/volume di server masih OFF.',
  target_exceeds_commissioned_session_limits:'Target liter melampaui batas sesi perangkat.',
 };
@@ -87,7 +88,9 @@ export function HstDoseVolumeCard(selection:PlanSelection){
    onClick={()=>void prepare()}>{plan?'Hitung ulang rencana':'Hitung rencana pompa'}</button>
   {plan&&recipe&&<section className="hst-guide-summary" aria-label="Rencana volume pompa">
    <span>Perkiraan isi tandon air: <b>{amount(recipe.waterInventoryL,'L')}</b></span>
-   {recipe.targetWaterL===null
+   {plan.recipe.waterUntilLowSeconds
+    ?<small>Pompa air berjalan sampai pengaman level minimum. Meter mencatat liter yang keluar.</small>
+    :recipe.targetWaterL===null
     ?<small>Target pompa menunggu batas perangkat terverifikasi.</small>
     :<span>Target sesi: air {amount(recipe.targetWaterL,'L')}{mode==='fertigation'&&' · stok '+amount(recipe.targetStockL,'L')}</span>}
    {mode==='fertigation'&&<>

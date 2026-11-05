@@ -14,6 +14,10 @@ export const doseVolumeCapabilitySchema=z.object({
  maxStockL:z.number().finite().positive().max(1000),meterToleranceL:z.number().finite().min(0).max(1),
 }).strict();
 export type DoseVolumeCapability=z.infer<typeof doseVolumeCapabilitySchema>;
+export const waterUntilLowCapabilitySchema=z.object({
+ contract:z.literal('spff-water-until-low-v1'),
+ maxDurationSec:z.number().int().min(5).max(7200),
+}).strict();
 
 export const doseVolumePlanRequestSchema=z.discriminatedUnion('mode',[
  z.object({mode:z.literal('water_only'),requestId:z.string().uuid(),programId:z.string().uuid(),activityId:z.string().regex(/^row-\d+$/)}).strict(),
@@ -47,7 +51,12 @@ export const doseVolumeStartSchema=z.object({...commandBase,commandType:z.litera
 });
 export const doseVolumeControlSchema=z.object({...commandBase,commandType:z.literal('stop')}).strict()
  .refine(v=>Date.parse(v.expiresAt)>Date.parse(v.issuedAt)&&Date.parse(v.expiresAt)-Date.parse(v.issuedAt)<=20000,'Invalid STOP expiry');
-export const doseVolumeCommandSchema=z.union([doseVolumeStartSchema,doseVolumeControlSchema]);
+export const waterUntilLowStartSchema=z.object({...commandBase,commandType:z.literal('start'),
+ controlAlgorithm:z.literal('water_until_low_v1'),mode:z.literal('water_only'),planId:z.string().uuid(),
+ maxDurationSec:waterUntilLowCapabilitySchema.shape.maxDurationSec,
+}).strict().refine(v=>Date.parse(v.expiresAt)>Date.parse(v.issuedAt)&&Date.parse(v.expiresAt)-Date.parse(v.issuedAt)<=20000,'Invalid START expiry');
+export const doseVolumeSessionStartSchema=z.union([doseVolumeStartSchema,waterUntilLowStartSchema]);
+export const doseVolumeCommandSchema=z.union([doseVolumeSessionStartSchema,doseVolumeControlSchema]);
 export type DoseVolumeStart=z.infer<typeof doseVolumeStartSchema>;
 
 export const doseVolumeAckSchema=z.object({...identity,kind:z.literal('dose_volume_ack'),

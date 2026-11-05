@@ -1,5 +1,5 @@
 import type {Pool} from 'pg';
-import {doseVolumeStartSchema,doseVolumeControlSchema,type AdaptiveEvent,type DoseVolumeEventPayload} from '@spff/contracts';
+import {doseVolumeSessionStartSchema,doseVolumeControlSchema,type AdaptiveEvent,type DoseVolumeEventPayload} from '@spff/contracts';
 
 /** Convert emergency STOP created by existing DB relay-ownership triggers.
  * Only a claimed pending STOP for a dose-volume session is normalized.
@@ -20,9 +20,11 @@ export async function saveDoseVolumeEvidence(pool:Pick<Pool,'connect'>,event:Ada
   if(!added.rows.length){await c.query('COMMIT');return;}
   const session=(await c.query(`SELECT * FROM spff.adaptive_fert_sessions
    WHERE site_id=$1 AND device_id=$2 AND session_id=$3 FOR UPDATE`,[event.siteId,event.deviceId,payload.sessionId])).rows[0];
-  const parsed=doseVolumeStartSchema.safeParse(session?.command_snapshot);
+  const parsed=doseVolumeSessionStartSchema.safeParse(session?.command_snapshot);
   if(!session||!parsed.success){await c.query('COMMIT');return;}
   const command=parsed.data;
+  const fixed=command.controlAlgorithm==='guide_dose_volume_v1'?command:null;
+  const tolerance=fixed?.limits.meterToleranceL??0;
   const binding=(await c.query('SELECT * FROM spff.dose_volume_bindings WHERE site_id=$1 AND session_id=$2 FOR UPDATE',
    [event.siteId,payload.sessionId])).rows[0];
   if(!binding){await c.query('COMMIT');return;}
@@ -57,11 +59,10 @@ export async function saveDoseVolumeEvidence(pool:Pick<Pool,'connect'>,event:Ada
   }else{
    const current=session.last_telemetry_at instanceof Date?session.last_telemetry_at.getTime():0;
    if(at<current){await c.query('COMMIT');return;}
-   const tolerance=command.limits.meterToleranceL;
    const valid=payload.commandId===command.commandId&&payload.flowValid&&payload.volumeEstimated===false
     &&payload.waterPumpKnown&&payload.fertPumpKnown
     &&payload.waterVolumeL+tolerance>=session.water_volume_l&&payload.stockVolumeL+tolerance>=session.fert_volume_l
-    &&payload.waterVolumeL<=command.targetWaterVolumeL+tolerance&&payload.stockVolumeL<=command.targetStockVolumeL+tolerance
+    &&(!fixed||(payload.waterVolumeL<=fixed.targetWaterVolumeL+tolerance&&payload.stockVolumeL<=fixed.targetStockVolumeL+tolerance))
     &&(command.mode!=='water_only'||(payload.stockVolumeL===0&&payload.fertPump===false));
    if(!valid){
     await c.query("UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',reason='dose_volume_meter_unverified' WHERE site_id=$1 AND session_id=$2",
@@ -93,16 +94,19 @@ export async function saveDoseVolumeEvidence(pool:Pick<Pool,'connect'>,event:Ada
   const mayCredit=uncertain?.status!=='reconciliation_required'||String(uncertain.reason).startsWith('stop_requested_by:');
   if(mayCredit&&ack&&telemetry&&ack.state===telemetry.state&&ack.bootId===command.bootId
     &&telemetry.bootId===command.bootId&&telemetry.waterPump===false&&telemetry.fertPump===false){
-   const mass=telemetry.stockVolumeL*command.nominalConcentrationGPerL;
-   const tooMuch=mass>command.targetMassG+command.limits.meterToleranceL*command.nominalConcentrationGPerL+0.001;
+   const mass=telemetry.stockVolumeL*(fixed?.nominalConcentrationGPerL??0);
+   const tooMuch=!!fixed&&mass>fixed.targetMassG+tolerance*fixed.nominalConcentrationGPerL+0.001;
    if(tooMuch){
     await c.query("UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',reason='dose_volume_mass_overrun' WHERE site_id=$1 AND session_id=$2",[event.siteId,payload.sessionId]);
    }else{
     const credit=Math.min(final.target_mass_g,mass);
     await c.query("UPDATE spff.dose_volume_bindings SET credited_g=$3,evidence_verified=true,evidence_basis='DEVICE_TERMINAL_MEASURED' WHERE site_id=$1 AND session_id=$2",
      [event.siteId,payload.sessionId,credit]);
-    const full=telemetry.state==='COMPLETED'&&telemetry.waterVolumeL+command.limits.meterToleranceL>=command.targetWaterVolumeL
-     &&telemetry.stockVolumeL+command.limits.meterToleranceL>=command.targetStockVolumeL;
+    const full=fixed
+     ?telemetry.state==='COMPLETED'&&telemetry.waterVolumeL+tolerance>=fixed.targetWaterVolumeL
+      &&telemetry.stockVolumeL+tolerance>=fixed.targetStockVolumeL
+     :(telemetry.state==='COMPLETED'&&telemetry.reason==='water_low_reached')||
+      (telemetry.state==='STOPPED'&&uncertain.reason==='stop_requested_by:tank_water_empty');
     await c.query('UPDATE spff.adaptive_fert_sessions SET status=$3,reason=$4 WHERE site_id=$1 AND session_id=$2',
      [event.siteId,payload.sessionId,full?'completed':'fault',full?'dose_volume_terminal_measured_outputs_off':'dose_volume_partial_verified']);
    }

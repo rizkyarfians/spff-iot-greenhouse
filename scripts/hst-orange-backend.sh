@@ -370,7 +370,7 @@ if [[ "$MODE" == disable ]]; then
 fi
 if [[ "$MODE" == dose-volume-status ]]; then
  healthy || fatal "production unhealthy"
- db "SELECT jsonb_pretty(jsonb_build_object('backend_installed',to_regclass('spff.dose_volume_plans') IS NOT NULL AND to_regclass('spff.dose_volume_bindings') IS NOT NULL,'required_contract','spff-dose-volume-v1','devices',(SELECT jsonb_agg(x) FROM (SELECT DISTINCT ON(site_id,device_id) site_id,device_id,recorded_at,raw_payload->>'firmwareVersion' AS firmware,raw_payload->'doseVolumeV1' AS volume_capability FROM spff.device_status_events ORDER BY site_id,device_id,recorded_at DESC,device_status_id DESC LIMIT 5)x)))"
+ db "SELECT jsonb_pretty(jsonb_build_object('backend_installed',to_regclass('spff.dose_volume_plans') IS NOT NULL AND to_regclass('spff.dose_volume_bindings') IS NOT NULL,'required_contract','spff-dose-volume-v1','devices',(SELECT jsonb_agg(x) FROM (SELECT DISTINCT ON(site_id,device_id) site_id,device_id,recorded_at,raw_payload->>'firmwareVersion' AS firmware,raw_payload->'doseVolumeV1' AS volume_capability,raw_payload->'waterUntilLowV1' AS water_until_low_capability,raw_payload->'waterInterlockEnabled' AS water_interlock_enabled FROM spff.device_status_events ORDER BY site_id,device_id,recorded_at DESC,device_status_id DESC LIMIT 5)x)))"
  systemctl show "$API" "$WORKER" -p Environment | grep -E 'SPFF_DOSE_VOLUME_DISPATCH_ENABLED' || true
  exit 0
 fi
@@ -390,12 +390,14 @@ if [[ "$MODE" == enable-dose-volume ]]; then
  db "SELECT coalesce(jsonb_agg(raw_payload),'[]') FROM (SELECT DISTINCT ON (site_id,device_id) raw_payload,recorded_at,online,mode FROM spff.device_status_events ORDER BY site_id,device_id,recorded_at DESC,device_status_id DESC) d WHERE online AND mode='manual' AND recorded_at BETWEEN now()-interval '90 seconds' AND now()+interval '5 seconds'" |
   node --input-type=module -e '
    import {readFileSync} from "node:fs";
-   import {doseVolumeCapabilitySchema} from "/opt/spff/packages/contracts/dist/doseVolume.js";
+   import {doseVolumeCapabilitySchema,waterUntilLowCapabilitySchema} from "/opt/spff/packages/contracts/dist/doseVolume.js";
    const devices=JSON.parse(readFileSync(0,"utf8"));
    const ready=devices.some(d=>typeof d?.firmwareVersion==="string" && d.firmwareVersion!=="1.5.07-AI-ACC-SESSION" &&
     /^[a-f0-9]{16}$/i.test(d.pulseBootId??"") && d.pumpReadbackValid===true &&
     d.pumpWaterActualActive===false && d.pumpFertActualActive===false && d.aiAccSessionActive===false &&
-    d.doseVolumeSessionActive!==true && doseVolumeCapabilitySchema.safeParse(d.doseVolumeV1).success);
+    d.doseVolumeSessionActive!==true && (doseVolumeCapabilitySchema.safeParse(d.doseVolumeV1).success ||
+      (d.waterInterlockEnabled===true && d.aiAccTankGuardHealthy===true &&
+       waterUntilLowCapabilitySchema.safeParse(d.waterUntilLowV1).success)));
    if(!ready)process.exitCode=1;
   ' || fatal "no fresh commissioned dose-volume firmware with both pump outputs OFF"
  gates false false true
