@@ -1,4 +1,5 @@
 import {getUnifiedAiDashboard} from '../controllers/unifiedAiDashboardController.js';
+import {postDoseVolumePlan,postDoseVolumeApproval,getDoseVolumeSession,postDoseVolumeStop,getDoseVolumeReadiness,postDoseVolumeReconcile} from '../controllers/doseVolumeController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
 import {getGuidePrograms,postGuideProgramPreview,postGuideProgram,putGuideProgram,postGuideProgramCompletion,getGuideProgramHistory,getGuideEcConversions,putGuideEcProfile} from '../controllers/guideProgramController.js';
 import {getProtocolGuide,getProtocolGuideHistory,putProtocolGuide} from '../controllers/protocolGuideController.js';
@@ -172,6 +173,12 @@ apiRouter.post(
 
 apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);
 apiRouter.get('/unified-ai/hst/proposals', requireOperator, getHstProposals);
+apiRouter.post('/unified-ai/hst/dose-volume/plans',requireOperator,requireCsrf,postDoseVolumePlan);
+apiRouter.get('/unified-ai/hst/dose-volume/readiness',requireOperator,getDoseVolumeReadiness);
+apiRouter.post('/unified-ai/hst/dose-volume/approvals',requireOperator,requireCsrf,postDoseVolumeApproval);
+apiRouter.get('/unified-ai/hst/dose-volume/sessions/:id',requireOperator,getDoseVolumeSession);
+apiRouter.post('/unified-ai/hst/dose-volume/sessions/:id/stop',requireOperator,requireCsrf,postDoseVolumeStop);
+apiRouter.post('/unified-ai/hst/dose-volume/sessions/:id/reconcile',requireAdmin,requireCsrf,postDoseVolumeReconcile);
 apiRouter.get('/unified-ai/hst/mode',requireOperator,getHstMode);
 apiRouter.put('/unified-ai/hst/mode',requireAdmin,requireCsrf,putHstMode);
 apiRouter.get('/unified-ai/hst/execution-readiness', requireOperator, getHstExecutionReadiness);
