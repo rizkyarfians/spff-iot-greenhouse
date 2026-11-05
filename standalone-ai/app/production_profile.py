@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import copy
 import math
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
 def _positive(value):
@@ -84,3 +86,54 @@ def resolve_guide_irrigation(profile, guides):
         return None, result
     result.update(status="GUIDE_BOUND", target_water_l=binding.water_l, blockers=[])
     return profile.planning, result
+
+
+def production_fuzzy_result(profile, guides, preview, sensor_blockers, *, now, live_source):
+    """A fresh demand calculation, never a session budget or an actuator command.
+
+    Membership labels come from the saved model, without inventing score bands.
+    No outstanding dose is credited and no plan is created by reading this result.
+    """
+    config, state = resolve_guide_irrigation(profile, guides)
+    blockers = list(state["blockers"])
+    if not live_source:
+        blockers.append("live_source_required")
+    blockers.extend(sensor_blockers)
+    result = {"status": "BLOCKED", "basis": "VERIFIED_GUIDE_FUZZY",
+        "evaluated_at": now.isoformat(), "recorded_at": None, "expires_at": None,
+        "profile_version": state["version"], "program_id": state["program_id"],
+        "activity_id": state["activity_id"], "input_key": None, "moisture_pct": None,
+        "memberships": {}, "dominant_input_classes": [], "rule_outputs": [],
+        "score": None, "max_water_l": state["target_water_l"], "target_water_l": None,
+        "irrigation_needed": None, "can_dispatch": False, "blockers": []}
+    if config is not None:
+        _, activity = _activity(guides, state["program_id"], state["activity_id"],
+                                profile.irrigation_guide.device_id)
+        today = now.astimezone(ZoneInfo(config.timezone)).date().isoformat()
+        if activity.get("application_date") != today or activity.get("calendar_status") != "DUE_TODAY":
+            blockers.append("guide_activity_not_due_today")
+        if activity.get("manual_completion_records") or activity.get("manually_completed"):
+            blockers.append("guide_activity_completion_requires_reconciliation")
+    if config is None or preview is None or preview.get("basis") != "OPERATIONAL_PROFILE":
+        blockers.append("operational_fuzzy_unavailable")
+    elif config is not None:
+        recorded = datetime.fromisoformat(preview["recorded_at"])
+        expires = recorded + timedelta(seconds=min(120, config.sensor_data_max_age))
+        if now > expires or (recorded - now).total_seconds() > 5:
+            blockers.append("sensor_snapshot_stale")
+        result.update(recorded_at=recorded.isoformat(), expires_at=expires.isoformat())
+    result["blockers"] = sorted(set(blockers))
+    if result["blockers"]:
+        return result
+    from .calculations import fuzzy_volume
+    projected = fuzzy_volume(preview["moisture_pct"], config)
+    memberships = projected["memberships"]
+    maximum = max(memberships.values())
+    dominant = sorted(name for name, value in memberships.items() if abs(value - maximum) < 1e-9)
+    result.update(status="READY", input_key=preview["input_key"],
+        moisture_pct=preview["moisture_pct"], memberships=memberships,
+        dominant_input_classes=dominant,
+        rule_outputs=sorted(set(config.fuzzy_rules[name] for name in dominant)),
+        score=projected["score"], target_water_l=projected["water_l"],
+        irrigation_needed=projected["water_l"] > 0)
+    return result
