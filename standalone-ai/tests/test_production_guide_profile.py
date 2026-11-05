@@ -74,6 +74,53 @@ class ProductionGuideProfileTests(unittest.TestCase):
         self.assertFalse(result["can_dispatch"])
         self.assertFalse(result["operational_profile"]["can_dispatch"])
         self.assertIsNone(result["calculation"]["water_l"])
+        production = result["production_fuzzy"]
+        self.assertEqual(production["status"], "READY")
+        self.assertEqual(production["dominant_input_classes"], ["LOW"])
+        self.assertEqual(production["rule_outputs"], ["HIGH"])
+        self.assertAlmostEqual(production["target_water_l"], 844.445)
+        self.assertEqual(production["expires_at"], (NOW + timedelta(seconds=120)).isoformat())
+        self.assertTrue(production["irrigation_needed"])
+        self.assertFalse(production["can_dispatch"])
+
+    def test_production_never_falls_back_to_simulation_or_completed_or_other_day_targets(self):
+        for condition in ("missing", "future", "completed", "date_rollover", "stale_guide"):
+            sample = observation()
+            profile = bound()
+            now = NOW
+            activity = sample["guide_programs"]["programs"][0]["activities"][0]
+            if condition == "missing": profile = None
+            if condition == "future": activity["calendar_status"] = "FUTURE"
+            if condition == "completed": activity["manual_completion_records"] = [{"program_revision": 2}]
+            if condition == "stale_guide": sample["guide_programs"]["programs"][0]["revision"] += 1
+            if condition == "date_rollover":
+                now = NOW + timedelta(days=1)
+                sample["telemetry"]["recorded_at"] = now.isoformat()
+            with self.subTest(condition=condition):
+                result = present_shadow_dashboard([], now, simulation_config=Config(),
+                    planning_observation=sample, operational_profile=profile)
+                self.assertEqual(result["production_fuzzy"]["status"], "BLOCKED")
+                self.assertIsNone(result["production_fuzzy"]["target_water_l"])
+                self.assertFalse(result["operational_profile"]["calculation_ready"])
+
+    def test_production_uses_saved_rules_for_wet_soil_and_stricter_freshness(self):
+        sample = observation()
+        sample["telemetry"]["soil_2_moisture"] = 90
+        sample["telemetry"]["sensor_health"]["soil_2_moisture"]["raw"] = 900
+        result = present_shadow_dashboard([], NOW, simulation_config=Config(),
+            planning_observation=sample, operational_profile=bound())["production_fuzzy"]
+        self.assertEqual(result["status"], "READY")
+        self.assertEqual(result["dominant_input_classes"], ["HIGH"])
+        self.assertEqual(result["rule_outputs"], ["OFF"])
+        self.assertEqual(result["target_water_l"], 0)
+        self.assertFalse(result["irrigation_needed"])
+        profile = bound()
+        profile.planning.sensor_data_max_age = 30
+        sample["telemetry"]["recorded_at"] = (NOW - timedelta(seconds=31)).isoformat()
+        result = present_shadow_dashboard([], NOW, simulation_config=Config(),
+            planning_observation=sample, operational_profile=profile)["production_fuzzy"]
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertIn("sensor_snapshot_stale", result["blockers"])
 
     def test_stale_guide_bindings_and_wrong_routes_require_review(self):
         for change in ("revision", "water", "device", "method", "planting", "source"):
@@ -96,6 +143,7 @@ class ProductionGuideProfileTests(unittest.TestCase):
             planning_observation=sample, operational_profile=bound())
         self.assertIsNone(result["fuzzy_preview"])
         self.assertFalse(result["operational_profile"]["calculation_ready"])
+        self.assertIsNone(result["production_fuzzy"]["target_water_l"])
 
     def test_hst_review_reads_profile_from_original_scope_without_reading_legacy_state(self):
         FakePostgresStore.instances = []
