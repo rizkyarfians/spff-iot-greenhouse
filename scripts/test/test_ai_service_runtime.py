@@ -22,6 +22,7 @@ class RuntimeTests(unittest.TestCase):
         for name in ("app/api.py", "app/__init__.py", ".venv/bin/python"):
             (self.root / name).write_text("# isolated fixture\n")
         self.command = [str(self.root / ".venv/bin/python"), "-m", "app"]
+        (self.process / "exe").hardlink_to(self.root / ".venv/bin/python")
         (self.process / "cmdline").write_bytes(b"\0".join(v.encode() for v in self.command) + b"\0")
         (self.process / "environ").write_bytes(b"AI_TEST_SECRET=private-test-value\0")
         (self.process / "fd").mkdir()
@@ -41,6 +42,22 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(actual["root"], self.root.resolve())
         self.assertEqual(actual["pid"], 123)
         self.assertEqual(actual["environment"]["AI_TEST_SECRET"], "private-test-value")
+
+    def test_release_directory_can_use_shared_interpreter_outside_release(self):
+        shared = Path(self.temporary.name) / "shared-venv"
+        (self.root / ".venv").rename(shared)
+        self.command[0] = str(shared / "bin/python")
+        (self.process / "cmdline").write_bytes(b"\0".join(v.encode() for v in self.command) + b"\0")
+        actual = self.discover()
+        self.assertEqual(actual["root"], self.root.resolve())
+        self.assertEqual(actual["python"], shared / "bin/python")
+        self.assertFalse((self.root / ".venv").exists())
+
+    def test_interpreter_must_match_running_executable(self):
+        (self.process / "exe").unlink()
+        (self.process / "exe").write_text("unrelated executable")
+        with self.assertRaisesRegex(ValueError, "differs from process executable"):
+            self.discover()
 
     def test_process_must_own_the_5010_listener(self):
         with self.assertRaisesRegex(ValueError, "does not own"):
