@@ -6,6 +6,14 @@ import math
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+# Source previews always retain these actuator holds. They must not prevent a
+# read-only crop-water calculation; this module still never grants dispatch.
+EXECUTION_ONLY_HOLDS = frozenset({
+    "volume_session_and_safety_contract_not_verified",
+    "application_route_not_verified_for_drip",
+    "stock_batch_not_configured", "drip_formulation_not_verified",
+})
+
 
 def _positive(value):
     return (isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -19,7 +27,9 @@ def _activity(guides, program_id, activity_id, device_id):
     if len(programs) != 1:
         raise ValueError("guide_program_not_unique")
     program = programs[0]
-    if program.get("status") != "PREVIEW_ONLY" or program.get("hold_reasons"):
+    holds = program.get("hold_reasons")
+    if (program.get("status") != "PREVIEW_ONLY" or not isinstance(holds, list)
+            or any(not isinstance(reason, str) or reason not in EXECUTION_ONLY_HOLDS for reason in holds)):
         raise ValueError("guide_program_requires_review")
     config = program.get("config") or {}
     if config.get("deviceId") != device_id:
