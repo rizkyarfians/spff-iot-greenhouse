@@ -3,6 +3,7 @@ import hmac
 import json
 import logging
 import math
+import os
 from typing import Literal
 from uuid import UUID
 from contextlib import asynccontextmanager
@@ -165,6 +166,9 @@ def create_app(settings=None, config=None, store=None):
             return present_shadow_dashboard(
                 saved.values(), simulation_config=config,
                 operational_profile=profile,
+                tank_inventory_approval=(os.getenv("AI_TANK_POLICY_APPROVAL", "")
+                    if os.getenv("AI_IRRIGATION_TARGET_POLICY") == "AVAILABLE_TANK" else None),
+                inventory_scope=(settings.site_id, settings.device_id, settings.zone_id),
                 planning_observation=planning_observation,
                 stock_bindings=state.get('guide_stock_bindings', {}),
                 tank_capacity_l=settings.tank_capacity_l,
