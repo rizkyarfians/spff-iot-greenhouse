@@ -86,10 +86,13 @@ export function HstDoseVolumeCard(selection:PlanSelection){
   <button type="button" className="hst-refresh" disabled={pending||(mode==='fertigation'&&cannotFertigate)}
    onClick={()=>void prepare()}>{plan?'Hitung ulang rencana':'Hitung rencana pompa'}</button>
   {plan&&recipe&&<section className="hst-guide-summary" aria-label="Rencana volume pompa">
-   <span>Air {amount(recipe.targetWaterL,'L')} · Stok {amount(recipe.targetStockL,'L')}</span>
+   <span>Perkiraan isi tandon air: <b>{amount(recipe.waterInventoryL,'L')}</b></span>
+   {recipe.targetWaterL===null
+    ?<small>Target pompa menunggu batas perangkat terverifikasi.</small>
+    :<span>Target sesi: air {amount(recipe.targetWaterL,'L')}{mode==='fertigation'&&' · stok '+amount(recipe.targetStockL,'L')}</span>}
    {mode==='fertigation'&&<>
     <span>Batch {plan.recipe.product} · {amount(recipe.batchMassG/1000,'kg')} dalam {amount(recipe.batchVolumeL,'L')}</span>
-    <small>Dosis sesi {amount(recipe.plannedMassG===null?null:recipe.plannedMassG/1000,'kg')} · Sisa perkiraan {amount(recipe.remainingAfterSessionG===null?null:recipe.remainingAfterSessionG/1000,'kg')}</small>
+    {recipe.plannedMassG!==null&&<small>Dosis sesi {amount(recipe.plannedMassG/1000,'kg')} · Sisa perkiraan {amount(recipe.remainingAfterSessionG===null?null:recipe.remainingAfterSessionG/1000,'kg')}</small>}
    </>}
    {plan.recipe.blockers.map(blocker=><small key={blocker}>{blockers[blocker]??blocker}</small>)}
    {expired&&<small>Rencana kedaluwarsa. Hitung ulang sebelum ACC.</small>}

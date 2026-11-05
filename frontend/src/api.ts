@@ -1025,6 +1025,7 @@ export type AiHstVolumePlan = {
   recipe:{
    batchMassG:number;
    batchVolumeL:number|null;
+   waterInventoryL:number;
    targetWaterL:number|null;
    targetStockL:number|null;
    plannedMassG:number|null;
