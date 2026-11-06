@@ -5,7 +5,7 @@ import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } 
 import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/contracts';
 import { fetchAiHstLiquidSummary, fetchAiHstProposals, reviewAiHstApproval, fetchAiHstMode, setAiHstMode } from './api';
 import {useAuth} from './authContext';
-import {HstDoseVolumeCard,HstDoseVolumeSessions,HstWaterVolumeControl} from './HstDoseVolumeCard';
+import {HstDoseVolumeSessions,HstFuzzyVolumeControl} from './HstDoseVolumeCard';
 import { HstRealExecutionCard } from './HstRealExecutionCard';
 import './HstApprovalPanel.css';
 
@@ -175,11 +175,11 @@ export function HstApprovalPanel() {
       {!modeReady && <p role="alert" className="hst-review">Mode SHADOW server tidak tersedia: switch terkunci ON demi keamanan.</p>}
       {modeReady&&user.role!=='admin' && <small>Hanya admin dapat mengubah SHADOW MODE.</small>}
       {!previewOnly && <HstDoseVolumeSessions refreshProposals={refresh}/>}
-      {modeReady && mode === 'TEST_REAL' && !previewOnly && <HstWaterVolumeControl/>}
+      {modeReady && mode === 'TEST_REAL' && !previewOnly && <HstFuzzyVolumeControl proposals={data?.proposals??[]}/>}
       <p className="hst-note">
         {mode === 'SHADOW'
           ? 'Usulan dibuat dari jadwal HST. Sensor tandon dan Soil 2 diperiksa setelah ACC. Tidak ada perintah pompa dalam mode SHADOW.'
-          : 'SHADOW OFF: ACC menjalankan sesi fertigasi fisik sesuai hasil AI HST apabila semua syarat perangkat terpenuhi.'}
+          : 'SHADOW OFF: ACC mengikuti kebutuhan air dari Fuzzy Tanah 2. Dosis batch yang dipilih mengikuti Panduan HST.'}
       </p>
       {previewOnly && <p className="hst-review" role="note">
         <ShieldAlert size={16} /> Mode preview tidak memiliki login operator; ACC HST hanya tersedia
@@ -213,8 +213,6 @@ export function HstApprovalPanel() {
                 <div><small>Tercatat diberikan</small><strong>{mass(proposal.delivered_g)}</strong></div>
                 <div className="hst-remaining-need"><small>Sisa kebutuhan</small><strong>{mass(proposal.status!=='REQUIRES_REVIEW'&&proposal.review_reasons.length===0?proposal.remaining_g:null)}</strong></div>
               </div>
-              {modeReady && mode === 'TEST_REAL' && !previewOnly &&
-                <HstDoseVolumeCard proposal={proposal}/>}
               <HstRealExecutionCard shadowEnabled proposal={proposal}
                 preflight={null} preflightError={null} refreshPreflight={()=>{}}/>
               {proposal.review_reasons.length > 0 &&

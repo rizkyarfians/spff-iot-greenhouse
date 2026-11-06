@@ -129,10 +129,11 @@ export function HstDoseVolumeCard(selection:PlanSelection){
  </div>;
 }
 
-export function HstWaterVolumeControl(){
+export function HstFuzzyVolumeControl({proposals}:{proposals:readonly AiHstProposal[]}){
  const [programs,setPrograms]=useState<GuideProgram[]>([]);
  const [programId,setProgramId]=useState('');
  const [activityId,setActivityId]=useState('');
+ const [batchId,setBatchId]=useState('');
  const [error,setError]=useState('');
  useEffect(()=>{
   let active=true;
@@ -142,23 +143,43 @@ export function HstWaterVolumeControl(){
   return()=>{active=false};
  },[]);
  const program=programs.find(row=>row.programId===programId);
- return <details className="hst-real-control">
-  <summary>Jalankan pompa air saja</summary>
+ const eligible=proposals.filter(proposal=>proposal.program_id===programId&&
+  proposal.status!=='COMPLETED'&&proposal.status!=='REQUIRES_REVIEW'&&
+  proposal.review_reasons.length===0&&(proposal.remaining_g??0)>0);
+ const batch=eligible.find(proposal=>proposal.obligation_id===batchId);
+ const batchUnavailable=!!batchId&&!batch;
+ const activity=program?.plan.activities.find(row=>row.id===activityId);
+ return <section className="hst-real-control" aria-label="ACC Fuzzy Tanah 2">
+  <strong>ACC Fuzzy Tanah 2</strong>
+  <small>ACC tersedia saat Fuzzy menyatakan perlu menyiram. Pilih batch HST hanya jika sudah siap.</small>
   {error&&<small role="alert">{error}</small>}
   <label>Program{' '}
-   <select value={programId} onChange={event=>{setProgramId(event.target.value);setActivityId('')}}>
+   <select value={programId} onChange={event=>{setProgramId(event.target.value);setActivityId('');setBatchId('')}}>
     <option value="">Pilih program</option>
     {programs.map(row=><option value={row.programId} key={row.programId}>{row.plan.cropName} · {row.config.deviceId} · {row.config.plantingDate}</option>)}
    </select>
   </label>
-  {program&&<label>Kegiatan Panduan{' '}
+  {program&&<label>Batch pupuk siap{' '}
+   <select value={batchId} onChange={event=>setBatchId(event.target.value)}>
+    <option value="">Air saja</option>
+    {batchUnavailable&&<option value={batchId} disabled>Batch sebelumnya tidak tersedia</option>}
+    {eligible.map(proposal=><option value={proposal.obligation_id} key={proposal.obligation_id}>
+     {proposal.product} · HST {proposal.hst??'—'} · sisa {amount((proposal.remaining_g??0)/1000,'kg')}
+    </option>)}
+   </select>
+  </label>}
+  {batchUnavailable&&<small role="alert">Pilih batch lain atau Air saja sebelum melanjutkan.</small>}
+  {program&&!batchId&&<label>Kegiatan Panduan{' '}
    <select value={activityId} onChange={event=>setActivityId(event.target.value)}>
     <option value="">Pilih kegiatan</option>
     {program.plan.activities.map(activity=><option value={activity.id} key={activity.id}>{activity.title} · HST {activity.hst??'—'}</option>)}
    </select>
   </label>}
-  {program&&activityId&&<HstDoseVolumeCard key={programId+':'+activityId} programId={programId} activityId={activityId}/>}
- </details>;
+  {program&&!batchUnavailable&&<small>Mode perangkat untuk ACC ini: <b>{batch?'Otomatis':'Manual'}</b>.</small>}
+  {batch
+   ?<HstDoseVolumeCard key={batch.obligation_id} proposal={batch}/>
+   :!batchId&&program&&activity&&<HstDoseVolumeCard key={programId+':'+activity.id} programId={programId} activityId={activity.id}/>}
+ </section>;
 }
 
 export function HstDoseVolumeSessions({refreshProposals}:{refreshProposals:()=>Promise<void>}){
