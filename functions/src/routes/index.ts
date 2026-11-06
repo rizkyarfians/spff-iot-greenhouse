@@ -67,6 +67,7 @@ import {
   updateSmartSoilReference,
   updateSmartSoilSelection,
   updateSettings,
+  updateSensorEnabled,
 } from '../controllers/dashboardController.js';
 import {
   registerController,
@@ -243,6 +244,7 @@ apiRouter.get(
 // Simulation is advisory-only and never publishes commands to MQTT.
 apiRouter.get('/settings/water-interlock', getWaterInterlock);
 apiRouter.put('/settings/water-interlock', requireAdmin, requireCsrf, putWaterInterlock);
+apiRouter.put('/settings/sensors/:sensorKey', requireAdmin, requireCsrf, updateSensorEnabled);
 apiRouter.post('/adaptive-fertigation/sessions/:id/reconcile',requireAdmin,requireCsrf,adaptiveReconcile);
 apiRouter.get('/adaptive-fertigation/sessions/:id',adaptiveSession);
 apiRouter.post('/adaptive-fertigation/preview',requireOperator,requireCsrf,adaptivePreview);

@@ -517,6 +517,18 @@ export const getSettings = run(async (_req, res) => {
   return ok(res, await repository.settings(), 'Pengaturan site berhasil dimuat.');
 });
 
+export const updateSensorEnabled = run(async (req, res) => {
+  const sensorKey = req.params.sensorKey;
+  const enabled = req.body?.enabled;
+  if (typeof sensorKey !== 'string' || !/^[a-z0-9_]{1,80}$/.test(sensorKey) ||
+      sensorKey.startsWith('soil_1_') || typeof enabled !== 'boolean') {
+    return res.status(400).json({ success: false, message: 'Pengaturan sensor tidak valid.' });
+  }
+  const sensor = await repository.setSensorEnabled(sensorKey, enabled);
+  if (!sensor) return res.status(404).json({ success: false, message: 'Sensor tidak ditemukan.' });
+  return ok(res, { sensorKey, enabled: sensor.enabled }, 'Pengaturan sensor tersimpan.');
+});
+
 export const updateSettings = run(async (req, res) => {
   const input: SiteSettingsInput = {
     greenhouseName: String(req.body?.greenhouseName ?? '').trim(),

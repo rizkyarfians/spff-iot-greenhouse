@@ -1392,7 +1392,7 @@ function App() {
 
 
   const heroSensors =
-    heroSensorKeys.map(
+    heroSensorKeys.filter(key => backendData?.sensorDefinitions.find(definition => definition.sensorKey === key)?.enabled !== false).map(
       (key) =>
         mergedSensorData.find(
           (sensor) =>
@@ -1405,7 +1405,7 @@ function App() {
     backendData
       ?.sensorDefinitions
       ?.length
-      ? backendData.sensorDefinitions.map(
+      ? backendData.sensorDefinitions.filter(definition => definition.enabled && !definition.sensorKey.startsWith('soil_1_')).map(
           (definition) => ({
             key:
               definition.sensorKey,

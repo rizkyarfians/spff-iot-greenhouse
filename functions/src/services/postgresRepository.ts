@@ -236,12 +236,13 @@ async function site() {
   return row ? { siteId: row.site_id, name: row.name, timezone: row.timezone } : null;
 }
 
-async function sensorDefinitions() {
+async function sensorDefinitions(includeDisabled = false) {
   const result = await pool.query(
     `SELECT sensor_key, group_name, display_name, value_type, unit, sort_order, enabled
      FROM spff.sensor_definitions
-     WHERE enabled = true
+     WHERE $1::boolean OR enabled
      ORDER BY sort_order`,
+    [includeDisabled],
   );
   return result.rows.map((row) => ({
     sensorKey: row.sensor_key as string,
@@ -252,6 +253,14 @@ async function sensorDefinitions() {
     sortOrder: Number(row.sort_order),
     enabled: Boolean(row.enabled),
   }));
+}
+
+async function setSensorEnabled(sensorKey: string, enabled: boolean) {
+  const result = await pool.query(
+    'UPDATE spff.sensor_definitions SET enabled=$2 WHERE sensor_key=$1 RETURNING enabled',
+    [sensorKey, enabled],
+  );
+  return result.rows[0] ?? null;
 }
 
 async function latestTelemetry() {
@@ -1725,7 +1734,7 @@ async function bootstrap(): Promise<BootstrapData> {
     automaticControlData,
   ] = await Promise.all([
     site(),
-    sensorDefinitions(),
+    sensorDefinitions(true),
     sensors(),
     pumps(),
     alarms(),
@@ -1744,7 +1753,7 @@ async function bootstrap(): Promise<BootstrapData> {
     site: siteData,
     sensors: sensorData,
     sensorDefinitions: definitions,
-    latestTelemetry: mapLatestTelemetry(definitions, latest),
+    latestTelemetry: mapLatestTelemetry(definitions.filter(definition => definition.enabled), latest),
     actuators: pumpData,
     alarms: alarmData,
     devices: deviceData,
@@ -1808,4 +1817,5 @@ export const repository = {
   updateSettings,
   automaticControl,
   updateAutomaticControl,
+  setSensorEnabled,
 };

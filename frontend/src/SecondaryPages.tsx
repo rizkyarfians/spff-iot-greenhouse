@@ -4,6 +4,7 @@ import {mergeAutomaticDraft} from './automaticDraftState'
 import {isAutomaticControlConfig} from '@spff/contracts'
 import { WaterInterlockSettings } from './WaterInterlockSettings'
 import { SoilEcExecutionSettings } from './SoilEcExecutionSettings'
+import { SensorSettings } from './SensorSettings'
 import { FertigationPage } from './FertigationPage'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
@@ -2227,7 +2228,14 @@ function LogsPage({
     exportController.current = null
   }, [])
 
-  const [chartSensor, setChartSensor] = useState('soil_1_moisture')
+  const [chartSensor, setChartSensor] = useState('soil_2_moisture')
+  const catalog = data?.sensorDefinitions
+  useEffect(() => {
+    const available = catalog?.filter(sensor => sensor.enabled && !sensor.sensorKey.startsWith('soil_1_'))
+    if (available?.length && !available.some(sensor => sensor.sensorKey === chartSensor)) {
+      setChartSensor(available[0].sensorKey)
+    }
+  }, [catalog, chartSensor])
   const [chartSeries, setChartSeries] = useState<ApiHistorySeries | null>(null)
   const [chartLoading, setChartLoading] = useState(false)
   const chartSvg = useRef<SVGSVGElement | null>(null)
@@ -2261,6 +2269,7 @@ function LogsPage({
             ?.sensorDefinitions
             ?? []
         ) {
+          if (!definition.enabled || definition.sensorKey.startsWith('soil_1_')) continue
           const chartGroupName = isEnergySensor(definition.sensorKey) ? 'Energi' : definition.groupName
           const definitions =
             groups.get(
@@ -3072,11 +3081,12 @@ function LogsPage({
             <span>Kelompok Grafik</span>
             <select value={isEnergySensor(chartSensor) ? 'energy' : 'greenhouse'} onChange={event => {
               const energy = event.target.value === 'energy'
-              const first = data?.sensorDefinitions.find(definition => isEnergySensor(definition.sensorKey) === energy)
+              const first = data?.sensorDefinitions.find(definition => definition.enabled &&
+                !definition.sensorKey.startsWith('soil_1_') && isEnergySensor(definition.sensorKey) === energy)
               if (first) setChartSensor(first.sensorKey)
             }}>
               <option value="greenhouse">Greenhouse</option>
-              <option value="energy" disabled={!data?.sensorDefinitions.some(definition => isEnergySensor(definition.sensorKey))}>Energi</option>
+              <option value="energy" disabled={!data?.sensorDefinitions.some(definition => definition.enabled && isEnergySensor(definition.sensorKey))}>Energi</option>
             </select>
           </label>
           <div className="datalog-chart-select">
@@ -4504,6 +4514,8 @@ function SettingsPage({
       className="secondary-page"
       aria-label="Pengaturan sistem"
     >
+      <SensorSettings sensors={data?.sensorDefinitions ?? []}
+        editable={isAdmin && connectionState === 'connected'} onRefresh={onRefresh} />
       <form
         className="settings-form"
         onSubmit={save}

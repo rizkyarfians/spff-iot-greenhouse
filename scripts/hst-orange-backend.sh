@@ -149,7 +149,7 @@ STAGING_BUILD
  for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume hstDosePulse; do
   install -m644 "$SRC/packages/contracts/dist/$module.js" "$RUN/new/contracts/$module.js"
  done
- for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
+ for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController controllers/dashboardController services/postgresRepository services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
   install -D -m644 "$SRC/functions/lib/$module.js" "$RUN/new/api/$module.js"
  done
  install -m644 "$SRC/mqtt-worker/dist/adaptiveFertigationTransport.js" "$RUN/new/worker/adaptiveFertigationTransport.js"
@@ -212,6 +212,10 @@ if summary_routes:
         raise SystemExit('STOP: dashboard route uses an unexpected handler')
 else:
     routes.append("apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);")
+sensor_route="apiRouter.put('/settings/sensors/:sensorKey', requireAdmin, requireCsrf, updateSensorEnabled);"
+if sensor_route not in live:
+    live="import { updateSensorEnabled } from '../controllers/dashboardController.js';\n"+live
+    routes.append(sensor_route)
 anchor="apiRouter.get('/unified-ai/hst/proposals'"
 pos=live.find("apiRouter.get(\n  '/bootstrap'")
 if pos<0: pos=live.find("apiRouter.get('/bootstrap'")
@@ -235,7 +239,7 @@ PY
  rm -rf "$MERGED/frontend/src"
  cp -a "$PROD/frontend/src" "$MERGED/frontend/src"
  if [[ -d "$PROD/frontend/public" && -d "$MERGED/frontend/public" ]]; then cp -a "$PROD/frontend/public/." "$MERGED/frontend/public/"; fi
- for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts; do
+ for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx; do
    install -m644 "$SRC/frontend/src/$hst_file" "$MERGED/frontend/src/$hst_file"
  done
  python3 - "$MERGED/frontend/src/api.ts" "$SRC/frontend/src/api.ts" "$MERGED/frontend/src/GuidePage.tsx" <<'PY'
@@ -260,6 +264,11 @@ else:
   raise SystemExit('STOP: unrelated production API exports after HST: '+str(exports))
  local_path.write_text(local[:loc]+'\n'+hst)
 guide=guide_path.read_text()
+sensor_fn=re.search(r'^export function saveSensorEnabled\(.*?^}',stage,re.M|re.S)
+if not sensor_fn: raise SystemExit('STOP: sensor settings API missing from source')
+api=local_path.read_text()
+if 'export function saveSensorEnabled(' not in api:
+ local_path.write_text(sensor_fn[0]+'\n\n'+api)
 if 'HstApprovalPanel' not in guide:
  i="import './GuidePage.css'"
  c="    <AutomationMethodNote/>"
@@ -336,6 +345,8 @@ SUMMARY_CHECK
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/040_server_water_relay.sql"
  say "Migration 041: HST dose pulse outbox"
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/041_hst_dose_pulse_outbox.sql"
+ say "Migration 042: sensor display settings"
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/042_sensor_settings.sql"
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"
