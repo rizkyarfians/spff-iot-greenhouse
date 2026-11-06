@@ -147,17 +147,14 @@ export function HstApprovalPanel() {
           <div><small>Isi tandon pupuk</small><strong>{liquidLitres(stockLitres)}</strong></div>
           <div><small>{irrigation.label}</small><strong>{liquidLitres(irrigation.valueL)}</strong></div>
         </div>
-        <small>{irrigation.note}</small>
-        {liquidData?.planning_recorded_at&&<p className="hst-note">Data tandon: {new Date(liquidData.planning_recorded_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB</p>}
-        {liquidError&&<p role="status" className="hst-note">{liquidError}</p>}
-        {!liquidError&&liquidData&&(waterLitres===null||stockLitres===null)&&<p className="hst-note">Volume tandon menunggu hasil konversi dari sensor yang valid dan terbaru.</p>}
+        {irrigation.valueL!==null&&<small>{irrigation.note}</small>}
+        {modeReady&&liquidError&&<small role="status" title={liquidError}>Data tandon belum tersedia.</small>}
       </section>
       <div className="hst-shadow-mode-row">
         <div className="hst-shadow-mode-label">
           <strong>SHADOW MODE</strong>
-          <small>{mode === 'SHADOW'
-            ? 'ON · AI menghitung, ACC tidak menjalankan pompa'
-            : 'OFF · ACC dapat menjalankan sesi pompa real jika perangkat siap'}</small>
+          <small>{!modeReady ? 'Kontrol pompa belum tersedia.'
+            : mode === 'SHADOW' ? 'Simulasi saja' : 'ACC dapat menjalankan pompa'}</small>
         </div>
         <button type="button" role="switch" aria-label="SHADOW MODE"
           aria-checked={mode === 'SHADOW'}
@@ -181,14 +178,12 @@ export function HstApprovalPanel() {
           <strong>{mode === 'SHADOW' ? 'ON' : 'OFF'}</strong>
         </button>
       </div>
-      {!modeReady && <p role="alert" className="hst-review">Mode SHADOW server tidak tersedia: switch terkunci ON demi keamanan.</p>}
-      {modeReady&&user.role!=='admin' && <small>Hanya admin dapat mengubah SHADOW MODE.</small>}
-      {!previewOnly && <HstDoseVolumeSessions refreshProposals={refresh}/>}
+      {!previewOnly && <HstDoseVolumeSessions refreshProposals={refresh} showPollError={modeReady}/>}
       <section id="guide-watering" className="hst-guide-section" hidden={openSection!=='watering'} aria-labelledby="guide-watering-title">
         <h4 id="guide-watering-title">Penyiraman air baku</h4>
         {modeReady && mode === 'TEST_REAL' && !previewOnly
           ? <HstFuzzyVolumeControl/>
-          : <p className="hst-note">Fuzzy Tanah 2 menilai kebutuhan air. Kontrol pompa tersedia saat SHADOW OFF.</p>}
+          : <p className="hst-note">{modeReady?'Tersedia saat SHADOW OFF.':'Penyiraman belum tersedia.'}</p>}
       </section>
       {previewOnly && <p className="hst-review" role="note">
         <ShieldAlert size={16} /> Mode preview tidak memiliki login operator; ACC HST hanya tersedia
@@ -196,14 +191,15 @@ export function HstApprovalPanel() {
       </p>}
       <section id="guide-fertilizer" className="hst-guide-section" hidden={openSection!=='fertilizer'} aria-labelledby="guide-fertilizer-title">
       <div className="hst-guide-section-heading">
-        <div><h4 id="guide-fertilizer-title">Pemupukan HST</h4>
-          <p className="hst-note">Lihat sisa kebutuhan setiap produk dan tinjau batch sebelum menjalankan pemupukan.</p></div>
+        <h4 id="guide-fertilizer-title">Pemupukan HST</h4>
         <button className="hst-refresh" type="button" onClick={() => { setLoading(true); void refresh(); }}>
           <RefreshCw size={15} /> Perbarui
         </button>
       </div>
       {loading && !data && <p role="status">Memuat kewajiban HST…</p>}
-      {error && <p role="alert" className="ain-acc-error">{error}</p>}
+      {error && <p role="alert" className="ain-acc-error" title={error}>
+        {error.includes('Endpoint ') ? 'Data pemupukan belum tersedia.' : error}
+      </p>}
       {data?.proposals.length === 0 && <p className="hst-empty">
         Tidak ada pemupukan jatuh tempo atau kewajiban yang sedang dicatat oleh AI HST.
       </p>}

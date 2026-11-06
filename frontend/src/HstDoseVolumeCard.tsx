@@ -166,7 +166,9 @@ export function HstFuzzyVolumeControl(){
  </section>;
 }
 
-export function HstDoseVolumeSessions({refreshProposals}:{refreshProposals:()=>Promise<void>}){
+export function HstDoseVolumeSessions({refreshProposals,showPollError=true}:{
+ refreshProposals:()=>Promise<void>;showPollError?:boolean;
+}){
  const [sessions,setSessions]=useState<AiHstVolumeSession[]>([]);
  const [pollError,setPollError]=useState('');
  const [stopError,setStopError]=useState('');
@@ -205,7 +207,7 @@ export function HstDoseVolumeSessions({refreshProposals}:{refreshProposals:()=>P
   }catch(cause){setStopError(errorText(cause,'STOP belum terkonfirmasi. Periksa perangkat.'))}
   finally{busy.current=false;setStopping(null);}
  }
- if(!sessions.length&&!pollError)return null;
+ if(!sessions.length&&!(pollError&&showPollError))return null;
  const activeSessions=sessions.filter(session=>!terminal(session));
  const history=sessions.filter(terminal);
  const renderSession=(session:AiHstVolumeSession)=><div className="hst-guide-summary" key={session.session_id}>
@@ -218,7 +220,7 @@ export function HstDoseVolumeSessions({refreshProposals}:{refreshProposals:()=>P
    onClick={()=>void stop(session)}>{stopping===session.session_id?'Mengirim STOP…':'STOP Pompa'}</button>}
  </div>;
  return <section className="hst-real-control" aria-label="Sesi pompa">
-  {pollError&&<small role="alert">{pollError}</small>}
+  {pollError&&showPollError&&<small role="alert" title={pollError}>Status sesi pompa belum tersedia.</small>}
   {activeSessions.length>0&&<strong>Sesi pompa yang perlu dipantau</strong>}
   {activeSessions.map(renderSession)}
   {stopError&&<small role="alert">{stopError}</small>}
