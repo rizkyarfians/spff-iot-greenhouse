@@ -45,6 +45,7 @@ export function HstApprovalPanel() {
   const [mode, setMode] = useState<HstOperatorMode>('SHADOW');
   const [modeReady,setModeReady]=useState(false);
   const [modeSaving,setModeSaving]=useState(false);
+  const [openSection,setOpenSection]=useState<'watering'|'fertilizer'|null>(null);
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
       const next = await fetchAiHstProposals(signal);
@@ -131,15 +132,14 @@ export function HstApprovalPanel() {
         <h3><CalendarCheck2 size={18} /> Penyiraman dan Pemupukan</h3>
       </div>
       <nav className="hst-guide-nav" aria-label="Bagian Panduan">
-        {[
-          ['guide-watering', 'Penyiraman'],
-          ['guide-fertilizer', 'Pemupukan HST'],
-          ['guide-table-heading', 'Jadwal'],
-        ].map(([id,label])=><button key={id} type="button" className="hst-refresh" onClick={()=>{
-          const section=document.getElementById(id);
-          section?.focus({preventScroll:true});
-          section?.scrollIntoView({block:'start'});
-        }}>{label}</button>)}
+        {(['watering','fertilizer'] as const).map(section=><button key={section} type="button"
+          className={openSection===section?'hst-approve':'hst-refresh'}
+          aria-expanded={openSection===section} aria-controls={'guide-'+section}
+          onClick={()=>setOpenSection(current=>current===section?null:section)}>
+          {section==='watering'?'Penyiraman':'Pemupukan HST'}
+        </button>)}
+        <button type="button" className="hst-refresh" onClick={()=>
+          document.getElementById('guide-table-heading')?.scrollIntoView({block:'start'})}>Jadwal</button>
       </nav>
       <section className="hst-inventory" aria-label="Isi tandon dan kebutuhan air">
         <div className="hst-figures" aria-live="polite">
@@ -184,7 +184,7 @@ export function HstApprovalPanel() {
       {!modeReady && <p role="alert" className="hst-review">Mode SHADOW server tidak tersedia: switch terkunci ON demi keamanan.</p>}
       {modeReady&&user.role!=='admin' && <small>Hanya admin dapat mengubah SHADOW MODE.</small>}
       {!previewOnly && <HstDoseVolumeSessions refreshProposals={refresh}/>}
-      <section id="guide-watering" className="hst-guide-section" tabIndex={-1} aria-labelledby="guide-watering-title">
+      <section id="guide-watering" className="hst-guide-section" hidden={openSection!=='watering'} aria-labelledby="guide-watering-title">
         <h4 id="guide-watering-title">Penyiraman air baku</h4>
         {modeReady && mode === 'TEST_REAL' && !previewOnly
           ? <HstFuzzyVolumeControl/>
@@ -194,7 +194,7 @@ export function HstApprovalPanel() {
         <ShieldAlert size={16} /> Mode preview tidak memiliki login operator; ACC HST hanya tersedia
         melalui API operasional yang menerapkan autentikasi dan CSRF.
       </p>}
-      <section id="guide-fertilizer" className="hst-guide-section" tabIndex={-1} aria-labelledby="guide-fertilizer-title">
+      <section id="guide-fertilizer" className="hst-guide-section" hidden={openSection!=='fertilizer'} aria-labelledby="guide-fertilizer-title">
       <div className="hst-guide-section-heading">
         <div><h4 id="guide-fertilizer-title">Pemupukan HST</h4>
           <p className="hst-note">Lihat sisa kebutuhan setiap produk dan tinjau batch sebelum menjalankan pemupukan.</p></div>
