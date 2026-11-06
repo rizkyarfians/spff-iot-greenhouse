@@ -3,7 +3,12 @@
 set -Eeuo pipefail
 umask 022
 [[ "$EUID" == 0 ]] || { echo "STOP: run with sudo"; exit 1; }
-exec 9>/run/lock/spff-hst-prod-rollout.lock
+if [[ "${1:-}" == '--lock-held' ]]; then
+ [[ "$(readlink /proc/self/fd/9)" == /run/lock/spff-hst-prod-rollout.lock ]] ||
+  { echo "STOP: deployment lock descriptor missing"; exit 1; }
+else
+ exec 9>/run/lock/spff-hst-prod-rollout.lock
+fi
 flock -n 9 || { echo "STOP: SPFF deployment lock occupied"; exit 1; }
 
 store=/mnt/spff-data/backups
