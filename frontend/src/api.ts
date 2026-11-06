@@ -1023,6 +1023,7 @@ export type AiHstVolumePlan = {
   pastDue:boolean;
   waterUntilLowSeconds?:number|null;
   serverWater?:boolean;
+  hstPulse?:{onDurationMs:number};
   blockers:string[];
   recipe:{
    batchMassG:number;

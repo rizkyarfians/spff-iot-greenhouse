@@ -16,6 +16,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
  const service=await import('../lib/services/doseVolumeService.js');
  const {setHstMode}=await import('../lib/services/hstExecutionModeService.js');
  const {AdaptiveFertigationTransport}=await import('../../mqtt-worker/dist/adaptiveFertigationTransport.js');
+ const {SoilEcPulseTransport}=await import('../../mqtt-worker/dist/soilEcPulseTransport.js');
  const oldQuery=repo.pool.query,oldConnect=repo.pool.connect,oldFetch=globalThis.fetch;
  // Serialize isolated PGlite connections, matching PostgreSQL transaction ownership.
  let tail=Promise.resolve();
@@ -94,6 +95,52 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
  try{
   const dir=resolve(import.meta.dirname,'../../infrastructure/postgres/migrations');
   for(const name of readdirSync(dir).sort())await db.exec(readFileSync(resolve(dir,name),'utf8'));
+  await t.test('HST ACC publishes one combined pulse and credits only the confirmed meter delta',async()=>{
+   await fixture();
+   const env={SPFF_HST_DOSE_PULSES_ENABLED:'true',SPFF_HST_MAX_STOCK_FLOW_LPM:'25',SPFF_HST_MIN_WATER_FLOW_LPM:'5'};
+   Object.assign(process.env,env);
+   try{
+    await db.exec(`UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',applied_mode='automatic',water_enabled=true,
+     water_moisture_low_pct=10,water_moisture_target_pct=30,water_max_runtime_seconds=120,water_cooldown_seconds=60,water_min_flow_lpm=5;
+     UPDATE spff.device_status_events SET mode='automatic',raw_payload=(raw_payload-'doseVolumeV1')||
+       '{"serverPulseCapable":true,"serverPulseOwner":false,"waterInterlockEnabled":true,"aiAccTankGuardHealthy":true}'::jsonb;
+     UPDATE spff.telemetry_samples SET flow_water_total_l=100,flow_fert_total_l=20,
+       sensor_health=sensor_health||'{"flow_water_total_l":{"valid":true},"flow_fert_total_l":{"valid":true}}'::jsonb;`);
+    const plan=await makePlan();
+    assert.equal(plan.executionReady,true);
+    const run=await approve(plan), messages=[];
+    const pulseTransport=new SoilEcPulseTransport(async command=>{messages.push(command)},database);
+    await pulseTransport.dispatch();
+    assert.deepEqual(messages.map(p=>p.kind),['fertigation_pulse']);
+    assert.equal(messages[0].params.waterWithPulse,true);
+    const confirm=async command=>pulseTransport.saveAck({kind:'fertigation_pulse_ack',schemaVersion:1,
+     siteId:command.siteId,deviceId:command.deviceId,sessionId:command.sessionId,commandId:command.commandId,
+     cycle:command.cycle,status:'completed',acknowledgedAt:new Date().toISOString(),pumpsOff:true,reason:'confirmed_off'});
+    await confirm(messages[0]);
+    await db.exec("UPDATE spff.hst_dose_pulse_commands SET expires_at=now()-interval '1 second' WHERE operation='pulse'");
+    await pulseTransport.dispatch();
+    assert.equal(messages[1].kind,'fertigation_pulse_stop');
+    await confirm(messages[1]);
+    assert.equal((await service.readDoseVolumeSession(run.session_id)).evidence_verified,false);
+    for(const sequence of [2,3]){
+     await query(`INSERT INTO spff.telemetry_samples(site_id,device_id,message_id,sequence,recorded_at,received_at,
+        flow_water_total_l,flow_fert_total_l,sensor_health,raw_payload)
+       SELECT site_id,device_id,$1,$2::bigint,now()+$2::bigint*interval '1 millisecond',now(),110,22,sensor_health,raw_payload
+       FROM spff.telemetry_samples WHERE sequence=1`,[randomUUID(),sequence]);
+    }
+    await new Promise(resolve=>setTimeout(resolve,15));
+    await pulseTransport.dispatch();
+    assert.equal(messages[2].kind,'fertigation_pulse_release');
+    await confirm(messages[2]);
+    await pulseTransport.dispatch();
+    const final=await service.readDoseVolumeSession(run.session_id);
+    assert.equal(final.status,'completed');
+    assert.equal(final.fert_volume_l,2);
+    assert.equal(final.credited_g,8);
+    const progress=await service.doseVolumeCredits(proposals.proposals[0]);
+    assert.equal(progress.remaining_g,392);
+   }finally{for(const key of Object.keys(env))delete process.env[key];}
+  });
   await t.test('recipe uses Guide remaining mass and tank liters, without EC or manual dose injection',async()=>{
    await fixture();const plan=await makePlan();assert.equal(plan.recipe.recipe.batchMassG,400);
    assert.equal(plan.recipe.recipe.batchVolumeL,100);assert.equal(plan.recipe.recipe.targetStockL,90);

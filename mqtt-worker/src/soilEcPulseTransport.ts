@@ -1,6 +1,80 @@
 import { Pool } from 'pg';
-import { fertigationPulseCommandSchema, fertigationPulseAckSchema, type FertigationPulseAck, type FertigationPulseCommand } from '@spff/contracts';
+import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
+import { fertigationPulseCommandSchema, fertigationPulseAckSchema, measureHstDosePulse, type FertigationPulseAck, type FertigationPulseCommand } from '@spff/contracts';
 import { config } from './config.js';
+
+async function settleHstPulses(client:PoolClient) {
+  const sessions=(await client.query(`SELECT s.*,p.ack AS pulse_ack,p.status AS pulse_status,p.expires_at,p.payload,
+      stop.ack AS stop_ack,release.ack AS release_ack,release.created_at AS release_queued_at
+    FROM spff.adaptive_fert_sessions s JOIN spff.hst_dose_pulse_commands p USING(site_id,session_id)
+    LEFT JOIN spff.hst_dose_pulse_commands stop ON stop.site_id=s.site_id AND stop.session_id=s.session_id AND stop.operation='stop'
+    LEFT JOIN spff.hst_dose_pulse_commands release ON release.site_id=s.site_id AND release.session_id=s.session_id AND release.operation='release'
+    WHERE s.command_snapshot->>'kind'='hst_dose_pulse' AND s.status NOT IN ('completed','fault')
+      AND p.operation='pulse' FOR UPDATE OF s SKIP LOCKED`)).rows;
+  for(const s of sessions){
+    const snapshot=s.command_snapshot;
+    const stopAt=Date.parse(s.stop_ack?.acknowledgedAt??'');
+    const expiresAt=s.expires_at.getTime();
+    const pulseDone=s.pulse_status==='completed'&&s.pulse_ack?.pumpsOff===true;
+    const needsStop=!pulseDone&&(s.status==='reconciliation_required'||
+      ['fault','rejected'].includes(s.pulse_status)||Date.now()>expiresAt+s.payload.params.onDurationMs+10000);
+    async function queue(operation:'stop'|'release'){
+      const now=new Date(),expires=new Date(now.getTime()+15000),commandId=randomUUID();
+      const payload=fertigationPulseCommandSchema.parse({
+        kind:operation==='stop'?'fertigation_pulse_stop':'fertigation_pulse_release',
+        schemaVersion:1,siteId:s.site_id,deviceId:s.device_id,sessionId:s.session_id,cycle:1,commandId,
+        issuedAt:now.toISOString(),expiresAt:expires.toISOString(),
+        ...(operation==='release'?{resumeAutomatic:true}:{}),
+      });
+      await client.query(`INSERT INTO spff.hst_dose_pulse_commands
+        (site_id,session_id,cycle,command_id,operation,payload,expires_at) VALUES($1,$2,1,$3,$4,$5,$6)
+        ON CONFLICT (site_id,session_id,cycle,operation) DO UPDATE SET
+          command_id=EXCLUDED.command_id,payload=EXCLUDED.payload,expires_at=EXCLUDED.expires_at,
+          status='pending',last_published_at=NULL,finished_at=NULL,ack=NULL
+        WHERE hst_dose_pulse_commands.expires_at<=now() AND (hst_dose_pulse_commands.status<>'completed'
+          OR ($4='stop' AND (hst_dose_pulse_commands.ack->>'acknowledgedAt')::timestamptz<$7))`,
+      [s.site_id,s.session_id,commandId,operation,JSON.stringify(payload),expires,s.expires_at]);
+    }
+    if(needsStop){
+      await client.query(`UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',
+        reason=coalesce(reason,'pulse_outcome_unconfirmed') WHERE site_id=$1 AND session_id=$2`,[s.site_id,s.session_id]);
+      if(Date.now()>=expiresAt&&!(stopAt>=expiresAt&&s.stop_ack?.pumpsOff===true))await queue('stop');
+      continue;
+    }
+    if(!pulseDone)continue;
+    if(!(stopAt>=expiresAt&&s.stop_ack?.pumpsOff===true)){
+      if(Date.now()>=expiresAt)await queue('stop');
+      continue;
+    }
+    const samples=(await client.query(`SELECT recorded_at,flow_fert_total_l,flow_water_total_l,sensor_health,
+      raw_payload #>> '{sensorHealth,soil_2_moisture,pollBootId}' AS boot
+      FROM spff.telemetry_samples WHERE site_id=$1 AND device_id=$2 AND recorded_at>$3
+        AND ($4::timestamptz IS NULL OR (recorded_at<$4 AND received_at<$4))
+      ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 2`,[s.site_id,s.device_id,new Date(stopAt),s.release_queued_at])).rows.reverse();
+    if(samples.length!==2)continue;
+    const stockReading=(sample:typeof samples[number])=>({recordedAtMs:sample.recorded_at.getTime(),bootId:sample.boot,
+      totalL:sample.flow_fert_total_l,valid:sample.sensor_health?.flow_fert_total_l?.valid===true});
+    const measured=measureHstDosePulse({
+      before:{recordedAtMs:Date.parse(snapshot.baselineAt),bootId:snapshot.bootId,totalL:snapshot.baselineStockL,valid:true},
+      startedAtMs:Date.parse(s.payload.issuedAt),pumpsOffAtMs:stopAt,concentrationGPerL:snapshot.concentrationGPerL,
+      after:[stockReading(samples[0]),stockReading(samples[1])],
+    });
+    const final=samples[1],waterL=final.flow_water_total_l-snapshot.baselineWaterL;
+    if(!measured||final.sensor_health?.flow_water_total_l?.valid!==true||
+      !Number.isFinite(final.flow_water_total_l)||!Number.isFinite(waterL)||waterL<0)continue;
+    if(s.release_ack?.status!=='completed'||s.release_ack.pumpsOff!==true){
+      await queue('release');
+      continue;
+    }
+    await client.query(`UPDATE spff.dose_volume_bindings SET credited_g=least(target_mass_g,$3),
+      evidence_verified=true,evidence_basis='DEVICE_TERMINAL_MEASURED' WHERE site_id=$1 AND session_id=$2`,
+    [s.site_id,s.session_id,measured.deliveredG]);
+    await client.query(`UPDATE spff.adaptive_fert_sessions SET status='completed',reason='hst_pulse_measured',
+      water_volume_l=$3,fert_volume_l=$4,last_telemetry_at=$5 WHERE site_id=$1 AND session_id=$2`,
+    [s.site_id,s.session_id,waterL,measured.stockL,final.recorded_at]);
+  }
+}
 
 export class SoilEcPulseTransport {
   private readonly pool: Pick<Pool, 'query'|'connect'|'end'>;
@@ -33,6 +107,7 @@ export class SoilEcPulseTransport {
           AND (pc.last_published_at IS NULL OR pc.last_published_at<now()-interval '2 seconds')
         ORDER BY (pc.operation='stop') DESC,pc.created_at FOR UPDATE OF pc SKIP LOCKED LIMIT 10`,[process.env.SPFF_SOIL_EC_PULSES_ENABLED==='true']);
       const hstInstalled=(await c.query("SELECT to_regclass('spff.hst_dose_pulse_commands') IS NOT NULL AS ready")).rows[0]?.ready===true;
+      if(hstInstalled)await settleHstPulses(c);
       const hst=hstInstalled?await c.query(`
         SELECT pc.*,s.device_id FROM spff.hst_dose_pulse_commands pc
         JOIN spff.adaptive_fert_sessions s USING(site_id,session_id)
@@ -41,6 +116,13 @@ export class SoilEcPulseTransport {
           AND (pc.last_published_at IS NULL OR pc.last_published_at<now()-interval '2 seconds')
           AND (pc.operation<>'pulse' OR ($1::boolean AND s.status IN ('queued','running')
             AND EXISTS (SELECT 1 FROM spff.hst_execution_modes m WHERE m.site_id=pc.site_id AND NOT m.shadow_enabled)
+            AND EXISTS (SELECT 1 FROM LATERAL (
+              SELECT online,mode,recorded_at,raw_payload FROM spff.device_status_events
+              WHERE site_id=s.site_id AND device_id=s.device_id
+              ORDER BY recorded_at DESC,device_status_id DESC LIMIT 1
+            ) h WHERE h.online AND h.mode='automatic' AND h.recorded_at BETWEEN now()-interval '90 seconds' AND now()+interval '5 seconds'
+              AND h.raw_payload->>'pulseBootId'=s.command_snapshot->>'bootId'
+              AND h.raw_payload @> '{"serverPulseCapable":true,"waterInterlockEnabled":true,"aiAccTankGuardHealthy":true}'::jsonb)
             AND NOT EXISTS (SELECT 1 FROM spff.device_soil_ec_execution_configs ec
               WHERE ec.site_id=s.site_id AND ec.device_id=s.device_id AND ec.enabled)))
         ORDER BY (pc.operation='stop') DESC,pc.created_at FOR UPDATE OF pc SKIP LOCKED LIMIT 10`,

@@ -146,7 +146,7 @@ STAGING_BUILD
  cp -a "$PROD/packages/contracts/dist" "$RUN/new/contracts"
  cp -a "$PROD/functions/lib" "$RUN/new/api"
  cp -a "$PROD/mqtt-worker/dist" "$RUN/new/worker"
- for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume; do
+ for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume hstDosePulse; do
   install -m644 "$SRC/packages/contracts/dist/$module.js" "$RUN/new/contracts/$module.js"
  done
  for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
@@ -155,6 +155,7 @@ STAGING_BUILD
  install -m644 "$SRC/mqtt-worker/dist/adaptiveFertigationTransport.js" "$RUN/new/worker/adaptiveFertigationTransport.js"
  install -m644 "$SRC/mqtt-worker/dist/doseVolumeEvidence.js" "$RUN/new/worker/doseVolumeEvidence.js"
  install -m644 "$SRC/mqtt-worker/dist/serverWaterControl.js" "$RUN/new/worker/serverWaterControl.js"
+ install -m644 "$SRC/mqtt-worker/dist/soilEcPulseTransport.js" "$RUN/new/worker/soilEcPulseTransport.js"
  [[ -f "$RUN/new/contracts/index.js" ]] || fatal "contracts barrel missing"
  grep -q "aiHst.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing aiHst export"
  grep -q "adaptiveFertigation.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing adaptive export"
@@ -164,6 +165,9 @@ STAGING_BUILD
  fi
  if ! grep -q "doseVolume.js" "$RUN/new/contracts/index.js"; then
    printf "\\nexport * from './doseVolume.js';\\n" >> "$RUN/new/contracts/index.js"
+ fi
+ if ! grep -q "hstDosePulse.js" "$RUN/new/contracts/index.js"; then
+   printf "\\nexport * from './hstDosePulse.js';\\n" >> "$RUN/new/contracts/index.js"
  fi
 
  # Extend HST-specific routes in the compiled production router. Do not lose
@@ -330,6 +334,8 @@ SUMMARY_CHECK
  esac
  say "Migration 040: server-owned water ON/OFF through normal pump commands"
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/040_server_water_relay.sql"
+ say "Migration 041: HST dose pulse outbox"
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/041_hst_dose_pulse_outbox.sql"
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"

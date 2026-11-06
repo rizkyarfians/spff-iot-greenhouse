@@ -2,7 +2,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {calculateDoseVolume,doseVolumeApproveSchema,doseVolumeCapabilitySchema,doseVolumeControlSchema,
  doseVolumePlanRequestSchema,doseVolumeSessionStartSchema,doseVolumeReconcileSchema,waterUntilLowCapabilitySchema,guideProgramConfigSchema,guideProgramHst,
  unifiedAiDashboardSchema,aiHstProposalsSchema,type DoseVolumePlanRequest,type DoseVolumeCapability,type GuideProgramPlan,
- type AiHstProposal} from '@spff/contracts';
+ fertigationPulseSchema,fertigationPulseStopSchema,planHstDosePulse,type AiHstProposal} from '@spff/contracts';
 import {pool,configuredSiteId as siteId} from './postgresRepository.js';
 import {localAiUrl} from './localAiEndpoint.js';
 import {requireHstRealMode} from './hstExecutionModeService.js';
@@ -71,6 +71,7 @@ type PlanSnapshot={
  recipe:ReturnType<typeof calculateDoseVolume>;limits:DoseVolumeCapability|null;blockers:string[];
  waterUntilLowSeconds?:number|null;
  serverWater?:boolean;
+ hstPulse?:{maxStockFlowLpm:number;minWaterFlowLpm:number;onDurationMs:number};
  validUntil:string;volumeBasis:'LINEAR_LEVEL_APPROXIMATION';
 };
 
@@ -143,7 +144,8 @@ async function current(input:DoseVolumePlanRequest,database:Database=pool):Promi
   ?waterCapability.data.maxDurationSec:null;
  const limits=!serverWater&&!waterUntilLowSeconds&&capability.success?capability.data:null;
  const blockers:string[]=[];
- if(!recent(status?.recorded_at,90000)||(!limits&&!waterUntilLowSeconds&&!serverWater)||typeof status?.raw_payload?.firmwareVersion!=='string'
+ const pulseSelected=input.mode==='fertigation'&&!limits&&process.env.SPFF_HST_DOSE_PULSES_ENABLED==='true';
+ if(!recent(status?.recorded_at,90000)||(!limits&&!waterUntilLowSeconds&&!serverWater&&!pulseSelected)||typeof status?.raw_payload?.firmwareVersion!=='string'
    ||status.raw_payload.firmwareVersion==='1.5.07-AI-ACC-SESSION')
   blockers.push('commissioned_dose_volume_firmware_required');
  if((serverWater||waterUntilLowSeconds)&&(status.raw_payload.waterInterlockEnabled!==true||status.raw_payload.aiAccTankGuardHealthy!==true||
@@ -161,6 +163,18 @@ async function current(input:DoseVolumePlanRequest,database:Database=pool):Promi
  const recipe=calculateDoseVolume({mode:input.mode,remainingG:remaining,
   waterAvailableL:source.tank_preview.estimated_available_l,waterCapacityL:source.tank_preview.capacity_l,
   stockAvailableL:source.fertilizer_tank_preview.estimated_liquid_volume_l,stockCapacityL:source.fertilizer_tank_preview.capacity_l,limits});
+ let hstPulse:PlanSnapshot['hstPulse'];
+ if(pulseSelected){
+  const maxStockFlowLpm=Number(process.env.SPFF_HST_MAX_STOCK_FLOW_LPM);
+  const minWaterFlowLpm=Number(process.env.SPFF_HST_MIN_WATER_FLOW_LPM);
+  const duration=Number.isFinite(maxStockFlowLpm)&&maxStockFlowLpm>0
+   ?planHstDosePulse(remaining,recipe.nominalConcentrationGPerL,maxStockFlowLpm):null;
+  if(!duration||!Number.isFinite(minWaterFlowLpm)||minWaterFlowLpm<=0||minWaterFlowLpm>10000)
+   blockers.push('hst_pulse_flow_bound_or_dose_required');
+  else hstPulse={maxStockFlowLpm,minWaterFlowLpm,onDurationMs:duration.onDurationMs};
+  if(status?.raw_payload?.serverPulseCapable!==true||status.raw_payload.waterInterlockEnabled!==true||
+     status.raw_payload.aiAccTankGuardHealthy!==true)blockers.push('hst_pulse_device_not_ready');
+ }
  if(limits&&(recipe.targetWaterL!<limits.primeWaterL+limits.flushWaterL||recipe.targetWaterL!>limits.maxWaterL
    ||recipe.targetStockL!>limits.maxStockL||(input.mode==='fertigation'&&recipe.targetStockL!<=0)))
   blockers.push('target_exceeds_commissioned_session_limits');
@@ -169,7 +183,7 @@ async function current(input:DoseVolumePlanRequest,database:Database=pool):Promi
   obligationId:obligation?.obligation_id??null,sourceRow:obligation?.source_row??null,product:obligation?.product??null,
   sourceMethod:activity.method,sourceTargetG:target,remainingG:remaining,pastDue:!!obligation&&activity.hst!<today,
   routeApprovalRequired:input.mode==='fertigation'&&!['kocor','irigasi','fertigasi','tetes','drip'].includes(activity.method.toLowerCase().trim()),
-  sourceHash,policyVersion:fuzzy.profile_version!,recipe,limits,waterUntilLowSeconds,serverWater,blockers,validUntil:fuzzy.expires_at,
+  sourceHash,policyVersion:fuzzy.profile_version!,recipe,limits,waterUntilLowSeconds,serverWater,hstPulse,blockers,validUntil:fuzzy.expires_at,
   volumeBasis:'LINEAR_LEVEL_APPROXIMATION'};
 }
 
@@ -189,7 +203,7 @@ export async function createDoseVolumePlan(raw:unknown,actor:string){
 function present(row:{plan_id:string;snapshot:PlanSnapshot;valid_until:Date;fingerprint:string}){
  return {planId:row.plan_id,fingerprint:row.fingerprint,recipe:row.snapshot,
   validUntil:row.valid_until.toISOString(),recipeReady:true,
-  calculationReady:!!row.snapshot.serverWater||!!row.snapshot.waterUntilLowSeconds||
+  calculationReady:!!row.snapshot.serverWater||!!row.snapshot.waterUntilLowSeconds||!!row.snapshot.hstPulse||
    (row.snapshot.recipe.targetWaterL!==null&&row.snapshot.recipe.plannedMassG!==null),canDispatch:false,
   executionReady:row.snapshot.blockers.length===0&&row.valid_until.getTime()>Date.now(),
   preparation:row.snapshot.mode==='fertigation'?'Siapkan batch satu produk dengan total massa dan volume akhir sesuai rencana; konfirmasi sebelum ACC.':'Air saja; pompa pupuk tetap OFF.'};
@@ -217,7 +231,9 @@ export async function approveDoseVolume(raw:unknown,actor:string){
   const fresh=await current(old.request,c);
   const waterUntilLow=fresh.waterUntilLowSeconds??null;
   const serverWater=fresh.serverWater===true;
-  if(fresh.blockers.length||(!fresh.limits&&!waterUntilLow&&!serverWater)||hash(fresh.limits)!==hash(old.limits)||
+  const pulse=fresh.hstPulse;
+  if(fresh.blockers.length||(!fresh.limits&&!waterUntilLow&&!serverWater&&!pulse)||hash(fresh.limits)!==hash(old.limits)||
+     hash(pulse)!==hash(old.hstPulse)||
      serverWater!==(old.serverWater===true)||
      waterUntilLow!==(old.waterUntilLowSeconds??null))return fail('Firmware/batas perangkat belum siap atau berubah.');
   if(fresh.sourceHash!==old.sourceHash||fresh.policyVersion!==old.policyVersion||Math.abs(fresh.remainingG-old.remainingG)>0.001)
@@ -231,12 +247,14 @@ export async function approveDoseVolume(raw:unknown,actor:string){
     WHERE site_id=c.site_id AND device_id=c.device_id ORDER BY recorded_at DESC,device_status_id DESC LIMIT 1)s ON true
    WHERE c.site_id=$1 AND c.device_id=$2 FOR SHARE OF c`,[siteId,old.deviceId])).rows[0];
   const status=equipment?.raw_payload;
-  if(!equipment?.online||!recent(equipment.recorded_at,90000)||equipment.mode!=='manual'
-    ||equipment.desired_mode!=='manual'||equipment.applied_mode!=='manual'||equipment.acknowledgement_status!=='applied'
-    ||String(equipment.revision)!==String(equipment.acknowledged_revision)||equipment.water_enabled||equipment.fertilizer_enabled
+  const requiredMode=pulse?'automatic':'manual';
+  if(!equipment?.online||!recent(equipment.recorded_at,90000)||equipment.mode!==requiredMode
+    ||equipment.desired_mode!==requiredMode||equipment.applied_mode!==requiredMode||equipment.acknowledgement_status!=='applied'
+    ||String(equipment.revision)!==String(equipment.acknowledged_revision)||(!pulse&&equipment.water_enabled)||equipment.fertilizer_enabled
     ||status?.pumpReadbackValid!==true||status.pumpWaterActualActive!==false||status.pumpFertActualActive!==false
     ||status.aiAccSessionActive!==false||status.doseVolumeSessionActive===true||
-    (serverWater
+    (pulse?status.serverPulseCapable!==true||status.serverPulseOwner!==false||
+      status.waterInterlockEnabled!==true||status.aiAccTankGuardHealthy!==true:serverWater
       ?status.waterInterlockConfigCapable!==true||status.waterInterlockEnabled!==true||status.aiAccTankGuardHealthy!==true
       :waterUntilLow
       ?status.waterInterlockEnabled!==true||status.aiAccTankGuardHealthy!==true||
@@ -257,7 +275,7 @@ export async function approveDoseVolume(raw:unknown,actor:string){
   const keys=old.mode==='water_only'?['tank_water_level_pct','flow_water_lpm']:['tank_water_level_pct','tank_fert_level_pct','flow_water_lpm','flow_fert_lpm'];
   if(!recent(sample?.recorded_at,60000)||keys.some(key=>!Number.isFinite(sample[key])||sample[key]<0||sample.sensor_health?.[key]?.valid!==true)
    ||sample.tank_water_level_pct<=(fresh.limits?.waterStopPct??0)
-   ||(old.mode==='fertigation'&&sample.tank_fert_level_pct<=fresh.limits!.stockStopPct))return fail('Data tandon/aliran tidak valid atau level minimum tercapai.');
+   ||(old.mode==='fertigation'&&sample.tank_fert_level_pct<=(fresh.limits?.stockStopPct??0)))return fail('Data tandon/aliran tidak valid atau level minimum tercapai.');
   const busy=(await c.query(`SELECT 1 FROM spff.adaptive_fert_sessions WHERE site_id=$1 AND device_id=$2 AND status NOT IN ('completed','fault')
    UNION ALL SELECT 1 FROM spff.actuator_schedules WHERE site_id=$1 AND device_id=$2 AND enabled AND actuator_key IN ('pump_water','pump_fert')
    UNION ALL SELECT 1 FROM spff.device_soil_ec_execution_configs WHERE site_id=$1 AND device_id=$2 AND enabled
@@ -275,7 +293,19 @@ export async function approveDoseVolume(raw:unknown,actor:string){
   const expires=new Date(Math.min(issued.getTime()+15000,stored.valid_until.getTime(),Date.parse(fresh.validUntil),
    serverWater?issued.getTime()+runtime*1000:Infinity));
   if(expires.getTime()<=issued.getTime())return fail('Bukti sensor/rencana kedaluwarsa saat ACC; tinjau ulang.');
-  const command=serverWater?{
+  if(pulse&&(!['flow_water_total_l','flow_fert_total_l'].every(key=>Number.isFinite(sample[key])&&sample[key]>=0&&sample.sensor_health?.[key]?.valid===true)||
+    sample.raw_payload?.sensorHealth?.soil_2_moisture?.pollBootId!==status.pulseBootId))
+   return fail('Totalizer air/pupuk atau boot sensor belum valid.');
+  const pulseCommand=pulse?fertigationPulseSchema.parse({
+   kind:'fertigation_pulse',schemaVersion:1,siteId,deviceId:old.deviceId,sessionId,commandId,cycle:1,bootId:status.pulseBootId,
+   targetId:'pump_fert',issuedAt:issued.toISOString(),expiresAt:expires.toISOString(),
+   params:{onDurationMs:pulse.onDurationMs,waterWithPulse:true,flowSensorKey:'flow_water_lpm',minFlowLpm:pulse.minWaterFlowLpm},
+  }):null;
+  const command=pulseCommand?{
+   kind:'hst_dose_pulse' as const,controlAlgorithm:'hst_metered_pulse',bootId:status.pulseBootId,
+   baselineStockL:sample.flow_fert_total_l,baselineWaterL:sample.flow_water_total_l,baselineAt:sample.recorded_at.toISOString(),
+   concentrationGPerL:old.recipe.nominalConcentrationGPerL,
+  }:serverWater?{
    kind:'server_water_control' as const,controlAlgorithm:'server_fuzzy_water_on_off',bootId:status.pulseBootId,
    startCommandId:commandId,baselineWaterL:sample.flow_water_total_l,
    deadline:new Date(issued.getTime()+runtime*1000).toISOString(),expiresAt:expires.toISOString(),
@@ -294,7 +324,9 @@ export async function approveDoseVolume(raw:unknown,actor:string){
   await c.query(`INSERT INTO spff.dose_volume_bindings(site_id,session_id,plan_id,approval_id,actor,approval,obligation_id,
    program_id,program_revision,activity_id,source_row,product,target_mass_g) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
    [siteId,sessionId,input.planId,input.approvalId,actor,JSON.stringify(input),old.obligationId,old.programId,old.programRevision,old.activityId,old.sourceRow,old.product,old.remainingG]);
-  if(serverWater)await c.query(`INSERT INTO spff.control_commands(command_id,site_id,device_id,actuator_key,
+  if(pulseCommand)await c.query(`INSERT INTO spff.hst_dose_pulse_commands(site_id,session_id,command_id,cycle,operation,payload,expires_at)
+   VALUES($1,$2,$3,1,'pulse',$4,$5)`,[siteId,sessionId,commandId,JSON.stringify(pulseCommand),pulseCommand.expiresAt]);
+  else if(serverWater)await c.query(`INSERT INTO spff.control_commands(command_id,site_id,device_id,actuator_key,
    requested_is_active,requested_by,issued_at,expires_at,request_payload)
    VALUES($1,$2,$3,'pump_water',true,$4,$5,$6,jsonb_build_object('source','spff-server-fuzzy-water','sessionId',$7::text))`,
    [commandId,siteId,old.deviceId,actor,issued,expires,sessionId]);
@@ -356,12 +388,39 @@ export async function reconcileDoseVolume(id:string,raw:unknown,actor:string){
 export async function stopDoseVolume(id:string,requestId:string,actor:string){
  const c=await pool.connect();try{
   await c.query('BEGIN');
+  // Serialize a stop with pulse publication so a queued ON cannot overtake it.
+  await c.query("SELECT pg_advisory_xact_lock(hashtextextended('soil-ec-dispatch',0))");
   const replay=(await c.query('SELECT payload FROM spff.adaptive_fert_commands WHERE site_id=$1 AND request_id=$2',[siteId,requestId])).rows[0];
   if(replay){if(replay.payload.sessionId!==id||replay.payload.commandType!=='stop')return fail('Request STOP konflik.');await c.query('COMMIT');return replay.payload;}
   const row=(await c.query(`SELECT s.* FROM spff.adaptive_fert_sessions s JOIN spff.dose_volume_bindings b USING(site_id,session_id)
    WHERE s.site_id=$1 AND s.session_id=$2 FOR UPDATE OF s`,[siteId,id])).rows[0];
   if(!row)return fail('Sesi tidak ditemukan.',404);
   if(['completed','fault'].includes(row.status))return fail('Sesi sudah terminal.');
+  if(row.command_snapshot?.kind==='hst_dose_pulse'){
+   const latest=(await c.query(`SELECT cycle FROM spff.hst_dose_pulse_commands
+    WHERE site_id=$1 AND session_id=$2 AND operation='pulse' ORDER BY cycle DESC LIMIT 1`,[siteId,id])).rows[0];
+   const cycle=latest?.cycle??1;
+   const issued=new Date();
+   const stop=fertigationPulseStopSchema.parse({
+    kind:'fertigation_pulse_stop',schemaVersion:1,siteId,deviceId:row.device_id,sessionId:id,
+    commandId:requestId,cycle,issuedAt:issued.toISOString(),expiresAt:new Date(issued.getTime()+15000).toISOString(),
+   });
+   await c.query(`UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',
+    reason=CASE WHEN status='reconciliation_required' THEN reason ELSE $3 END
+    WHERE site_id=$1 AND session_id=$2`,[siteId,id,'stop_requested_by:'+actor]);
+   await c.query(`INSERT INTO spff.hst_dose_pulse_commands
+    (site_id,session_id,command_id,cycle,operation,payload,expires_at)
+    VALUES($1,$2,$3,$4,'stop',$5,$6)
+    ON CONFLICT (site_id,session_id,cycle,operation) DO UPDATE
+      SET command_id=EXCLUDED.command_id,payload=EXCLUDED.payload,expires_at=EXCLUDED.expires_at,
+          status='pending',ack=NULL,finished_at=NULL,last_published_at=NULL
+      WHERE hst_dose_pulse_commands.expires_at<=now()
+        AND hst_dose_pulse_commands.status<>'completed'
+        AND hst_dose_pulse_commands.command_id<>EXCLUDED.command_id`,
+   [siteId,id,stop.commandId,cycle,JSON.stringify(stop),stop.expiresAt]);
+   await c.query('COMMIT');
+   return {sessionId:id,status:'stop_requested'};
+  }
   if(row.command_snapshot?.kind==='server_water_control'){
    await c.query(`UPDATE spff.control_commands SET status='failed',reason='server_water_stop'
     WHERE command_id=$1 AND status='pending'`,[row.command_snapshot.startCommandId]);

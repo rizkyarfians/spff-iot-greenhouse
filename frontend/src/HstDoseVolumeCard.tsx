@@ -14,6 +14,8 @@ const blockers:Record<string,string>={
  sensor_boot_not_current:'Menunggu pembacaan sensor dari boot perangkat saat ini.',
  water_level_not_safe_to_start:'Pembacaan air atau pengaman level belum siap.',
  server_water_runtime_required:'Isi Batas waktu menyala di pengaturan pompa air dan pertahankan mode Manual.',
+ hst_pulse_flow_bound_or_dose_required:'Batas debit terverifikasi belum diisi atau sisa dosis terlalu kecil untuk satu pulsa.',
+ hst_pulse_device_not_ready:'Pulsa pupuk dan proteksi tandon belum dikonfirmasi perangkat.',
  dose_volume_server_dispatch_disabled:'Izin START dosis/volume di server masih OFF.',
  target_exceeds_commissioned_session_limits:'Target liter melampaui batas sesi perangkat.',
 };
@@ -89,7 +91,9 @@ export function HstDoseVolumeCard(selection:PlanSelection){
    onClick={()=>void prepare()}>{plan?'Hitung ulang rencana':'Hitung rencana pompa'}</button>
   {plan&&recipe&&<section className="hst-guide-summary" aria-label="Rencana volume pompa">
    <span>Perkiraan isi tandon air: <b>{amount(recipe.waterInventoryL,'L')}</b></span>
-   {plan.recipe.serverWater
+   {plan.recipe.hstPulse
+    ?<small>Satu pulsa air + pupuk hingga {formatter.format(plan.recipe.hstPulse.onDurationMs/1000)} detik. Dosis dicatat setelah pompa OFF dan totalizer stabil.</small>
+    :plan.recipe.serverWater
     ?<small>Server mengirim ON/OFF berdasarkan level tandon. Awasi pompa selama sesi berjalan.</small>
     :plan.recipe.waterUntilLowSeconds
     ?<small>Pompa air berjalan sampai pengaman level minimum. Meter mencatat liter yang keluar.</small>
