@@ -40,17 +40,19 @@ async function settleHstPulses(client:PoolClient) {
           OR ($4='stop' AND (hst_dose_pulse_commands.ack->>'acknowledgedAt')::timestamptz<$7))`,
       [s.site_id,s.session_id,commandId,operation,JSON.stringify(payload),expires,s.expires_at]);
     }
-    async function manualOffConfirmed(){
+    async function manualOffConfirmed(releasedAfter?:Date){
       const heartbeat=(await client.query(`SELECT online,mode,recorded_at,raw_payload
         FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2
         ORDER BY recorded_at DESC,device_status_id DESC LIMIT 1`,[s.site_id,s.device_id])).rows[0];
       const age=Date.now()-(heartbeat?.recorded_at?.getTime()??0), raw=heartbeat?.raw_payload;
       return heartbeat?.online===true&&heartbeat.mode==='manual'&&age>=-5000&&age<=90000&&
         raw?.pulseBootId===snapshot.bootId&&raw.pumpReadbackValid===true&&
-        raw.pumpWaterActualActive===false&&raw.pumpFertActualActive===false;
+        raw.pumpWaterActualActive===false&&raw.pumpFertActualActive===false&&
+        (!releasedAfter||(raw.serverPulseOwner===false&&heartbeat.recorded_at>=releasedAfter));
     }
     if(unknownStopped){
-      if(s.release_ack?.status==='completed'&&s.release_ack.pumpsOff===true){
+      if((s.release_ack?.status==='completed'&&s.release_ack.pumpsOff===true)||
+        (s.release_queued_at instanceof Date&&await manualOffConfirmed(s.release_queued_at))){
         await client.query(`UPDATE spff.adaptive_fert_sessions SET status='fault',
           reason='hst_pulse_released_dose_unverified' WHERE site_id=$1 AND session_id=$2`,[s.site_id,s.session_id]);
       }else if(await manualOffConfirmed())await queue('release');
