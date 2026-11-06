@@ -10,8 +10,9 @@ test('available groups cover every non-soil-1 sensor once',()=>{
  assert.equal(new Set(rows.map(r=>r.key)).size,expected.length)
  assert.ok(rows.every(r=>r.value===null))
 })
-test('soil 1 stays inaccessible even when explicitly requested',()=>{
+test('soil 1 is hidden until enabled in the sensor catalog',()=>{
  assert.deepEqual(dashboardSensorsFor(sensors,'soil1'),[])
+ assert.deepEqual(dashboardSensorsFor(sensors,'soil1',[{sensorKey:'soil_1_moisture',enabled:true}]).map(s=>s.key),['soil_1_moisture'])
  assert.ok(['soil2','water','environment','energy'].every(group=>dashboardSensorsFor(sensors,group).every(s=>!s.key.startsWith('soil_1_'))))
 })
 test('water and environment parameters are separated and disabled sensors are honored',()=>{

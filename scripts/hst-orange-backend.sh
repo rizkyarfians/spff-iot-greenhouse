@@ -347,6 +347,8 @@ SUMMARY_CHECK
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/041_hst_dose_pulse_outbox.sql"
  say "Migration 042: sensor display settings"
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/042_sensor_settings.sql"
+ say "Migration 043: sensor display groups"
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/043_sensor_display_groups.sql"
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"

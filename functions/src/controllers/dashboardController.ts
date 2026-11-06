@@ -518,15 +518,15 @@ export const getSettings = run(async (_req, res) => {
 });
 
 export const updateSensorEnabled = run(async (req, res) => {
-  const sensorKey = req.params.sensorKey;
+  const group = req.params.sensorKey;
   const enabled = req.body?.enabled;
-  if (typeof sensorKey !== 'string' || !/^[a-z0-9_]{1,80}$/.test(sensorKey) ||
-      sensorKey.startsWith('soil_1_') || typeof enabled !== 'boolean') {
+  if (typeof group !== 'string' || !['soil1','soil2','water','environment','energy'].includes(group) ||
+      typeof enabled !== 'boolean') {
     return res.status(400).json({ success: false, message: 'Pengaturan sensor tidak valid.' });
   }
-  const sensor = await repository.setSensorEnabled(sensorKey, enabled);
-  if (!sensor) return res.status(404).json({ success: false, message: 'Sensor tidak ditemukan.' });
-  return ok(res, { sensorKey, enabled: sensor.enabled }, 'Pengaturan sensor tersimpan.');
+  const updated = await repository.setSensorGroupEnabled(group, enabled);
+  if (!updated) return res.status(404).json({ success: false, message: 'Kelompok sensor tidak ditemukan.' });
+  return ok(res, { group, enabled }, 'Pengaturan kelompok sensor tersimpan.');
 });
 
 export const updateSettings = run(async (req, res) => {

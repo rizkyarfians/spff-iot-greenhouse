@@ -1405,7 +1405,7 @@ function App() {
     backendData
       ?.sensorDefinitions
       ?.length
-      ? backendData.sensorDefinitions.filter(definition => definition.enabled && !definition.sensorKey.startsWith('soil_1_')).map(
+      ? backendData.sensorDefinitions.filter(definition => definition.enabled).map(
           (definition) => ({
             key:
               definition.sensorKey,
@@ -1427,7 +1427,7 @@ function App() {
             group: isEnergySensor(definition.key) ? 'Energi' : definition.ideal,
           }),
         )
-  ).filter(option=>!option.key.startsWith('soil_1_'))
+  ).filter(option=>backendData || !option.key.startsWith('soil_1_'))
 const soilNpkGroups =
   [
     {
@@ -2601,7 +2601,7 @@ const soilNpkGroups =
                               setChartHour('')
                             }}
                           >
-                            <option value="soil1" disabled>Tanah 1</option>
+                            <option value="soil1" disabled={!dashboardSensorsFor(mergedSensorData,'soil1',backendData?.sensorDefinitions??[]).length}>Tanah 1</option>
                             <option value="soil2">Tanah 2</option>
                             <option value="water">Air</option>
                             <option value="environment">Lingkungan</option>

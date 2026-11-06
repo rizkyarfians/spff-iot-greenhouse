@@ -2231,7 +2231,7 @@ function LogsPage({
   const [chartSensor, setChartSensor] = useState('soil_2_moisture')
   const catalog = data?.sensorDefinitions
   useEffect(() => {
-    const available = catalog?.filter(sensor => sensor.enabled && !sensor.sensorKey.startsWith('soil_1_'))
+    const available = catalog?.filter(sensor => sensor.enabled)
     if (available?.length && !available.some(sensor => sensor.sensorKey === chartSensor)) {
       setChartSensor(available[0].sensorKey)
     }
@@ -2269,7 +2269,7 @@ function LogsPage({
             ?.sensorDefinitions
             ?? []
         ) {
-          if (!definition.enabled || definition.sensorKey.startsWith('soil_1_')) continue
+          if (!definition.enabled) continue
           const chartGroupName = isEnergySensor(definition.sensorKey) ? 'Energi' : definition.groupName
           const definitions =
             groups.get(
@@ -3081,8 +3081,7 @@ function LogsPage({
             <span>Kelompok Grafik</span>
             <select value={isEnergySensor(chartSensor) ? 'energy' : 'greenhouse'} onChange={event => {
               const energy = event.target.value === 'energy'
-              const first = data?.sensorDefinitions.find(definition => definition.enabled &&
-                !definition.sensorKey.startsWith('soil_1_') && isEnergySensor(definition.sensorKey) === energy)
+              const first = data?.sensorDefinitions.find(definition => definition.enabled && isEnergySensor(definition.sensorKey) === energy)
               if (first) setChartSensor(first.sensorKey)
             }}>
               <option value="greenhouse">Greenhouse</option>

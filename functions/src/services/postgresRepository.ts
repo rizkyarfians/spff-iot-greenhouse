@@ -255,12 +255,12 @@ async function sensorDefinitions(includeDisabled = false) {
   }));
 }
 
-async function setSensorEnabled(sensorKey: string, enabled: boolean) {
+async function setSensorGroupEnabled(group: string, enabled: boolean) {
   const result = await pool.query(
-    'UPDATE spff.sensor_definitions SET enabled=$2 WHERE sensor_key=$1 RETURNING enabled',
-    [sensorKey, enabled],
+    'SELECT spff.set_sensor_display_group($1, $2) AS updated',
+    [group, enabled],
   );
-  return result.rows[0] ?? null;
+  return Number(result.rows[0]?.updated ?? 0);
 }
 
 async function latestTelemetry() {
@@ -1817,5 +1817,5 @@ export const repository = {
   updateSettings,
   automaticControl,
   updateAutomaticControl,
-  setSensorEnabled,
+  setSensorGroupEnabled,
 };

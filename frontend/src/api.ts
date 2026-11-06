@@ -831,9 +831,9 @@ export function deleteSchedule(
 }
 
 
-export function saveSensorEnabled(sensorKey: string, enabled: boolean) {
-  return request<{ sensorKey: string; enabled: boolean }>(
-    '/settings/sensors/' + encodeURIComponent(sensorKey),
+export function saveSensorEnabled(group: string, enabled: boolean) {
+  return request<{ group: string; enabled: boolean }>(
+    '/settings/sensors/' + encodeURIComponent(group),
     { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) },
   )
 }
