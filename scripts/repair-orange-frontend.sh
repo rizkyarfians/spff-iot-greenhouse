@@ -44,8 +44,19 @@ cleanup(){
  if (( result != 0 )) && [[ -f "$repair/App-before.tsx" ]]; then
   cp -a "$repair/App-before.tsx" "$frontend/src/App.tsx"
  fi
+ if (( result != 0 )) && [[ -d "$repair/guide-before" ]]; then
+  cp -a "$repair/guide-before/." "$frontend/src/"
+ fi
 }
 trap cleanup EXIT
+if [[ "${1:-}" == '--guide' ]]; then
+ repo="$(cd "$(dirname "$0")/.." && pwd)"
+ mkdir "$repair/guide-before"
+ for file in HstApprovalPanel.tsx HstApprovalPanel.css HstDoseVolumeCard.tsx; do
+  cp -a "$frontend/src/$file" "$repair/guide-before/$file"
+  install -m 644 "$repo/frontend/src/$file" "$frontend/src/$file"
+ done
+fi
 if [[ "${1:-}" == '--controller-status' ]]; then
  cp -a "$frontend/src/App.tsx" "$repair/App-before.tsx"
  python3 - "$frontend/src/App.tsx" <<'PY'

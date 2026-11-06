@@ -18,6 +18,16 @@
 .hst-panel-heading h3 { display:flex; gap:8px; align-items:center; margin:0; font-size:18px; }
 .hst-panel-heading span { font-size:12px; font-weight:700; color:#177c61; }
 .hst-panel { min-width: 0; }
+.hst-guide-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.hst-inventory { padding: 14px; border: 1px solid #d4e6dc; border-radius: 10px; background: #f0f8f3; }
+.hst-inventory > small { display: block; margin-top: 8px; }
+.hst-inventory .hst-note { margin: 6px 0 0; }
+.hst-guide-section { border-top: 1px solid #dce4e0; padding-top: 14px; scroll-margin-top: 80px; }
+.hst-guide-section h4 { margin: 0; font-size: 16px; }
+.hst-guide-section > p, .hst-guide-section-heading p { margin: 5px 0; }
+.hst-guide-section-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.hst-session-history summary, .hst-guide-summary details summary { cursor: pointer; }
+.hst-session-history-list { display: grid; gap: 8px; margin-top: 8px; }
 .hst-note { color: var(--text-secondary, #657078); line-height: 1.55; }
 .hst-refresh,
 .hst-approve { display: inline-flex; align-items: center; justify-content: center;

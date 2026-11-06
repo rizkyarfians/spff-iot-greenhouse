@@ -14,6 +14,12 @@ const previewOnly = import.meta.env.DEV && import.meta.env.VITE_SPFF_AI_PREVIEW 
 const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
 const mass = (n: number | null): string =>
   n === null || !Number.isFinite(n) ? 'Perlu verifikasi' : number.format(n / 1000) + ' kg';
+const proposalStatus: Record<AiHstProposal['status'], string> = {
+  WAITING_APPROVAL: 'Menunggu ACC',
+  PARTIAL_WAITING_APPROVAL: 'Dosis sebagian tercatat',
+  COMPLETED: 'Selesai',
+  REQUIRES_REVIEW: 'Perlu diperiksa',
+};
 
 function newApprovalId(): string {
   // No Math.random fallback for an idempotency identifier.
@@ -120,29 +126,32 @@ export function HstApprovalPanel() {
   const irrigation=hstIrrigationDisplay(liquidData);
 
   return (
-    <article className="ain-panel hst-panel" aria-label="Usulan pemupukan berbasis HST">
+    <article className="ain-panel hst-panel" aria-label="Penyiraman dan pemupukan">
       <div className="ain-panel-heading">
-        <h3><CalendarCheck2 size={18} /> Usulan Pemupukan HST</h3>
-        <span>{mode === 'SHADOW' ? 'SHADOW MODE ON' : 'SHADOW MODE OFF'}</span>
+        <h3><CalendarCheck2 size={18} /> Penyiraman dan Pemupukan</h3>
       </div>
-      <section aria-label="Sisa larutan dalam liter">
+      <nav className="hst-guide-nav" aria-label="Bagian Panduan">
+        {[
+          ['guide-watering', 'Penyiraman'],
+          ['guide-fertilizer', 'Pemupukan HST'],
+          ['guide-table-heading', 'Jadwal'],
+        ].map(([id,label])=><button key={id} type="button" className="hst-refresh" onClick={()=>{
+          const section=document.getElementById(id);
+          section?.focus({preventScroll:true});
+          section?.scrollIntoView({block:'start'});
+        }}>{label}</button>)}
+      </nav>
+      <section className="hst-inventory" aria-label="Isi tandon dan kebutuhan air">
         <div className="hst-figures" aria-live="polite">
-          <div><small>Sisa air di tandon</small><strong>{liquidLitres(waterLitres)}</strong></div>
-          <div><small>Sisa larutan di tandon pupuk</small><strong>{liquidLitres(stockLitres)}</strong></div>
+          <div><small>Isi tandon air</small><strong>{liquidLitres(waterLitres)}</strong></div>
+          <div><small>Isi tandon pupuk</small><strong>{liquidLitres(stockLitres)}</strong></div>
           <div><small>{irrigation.label}</small><strong>{liquidLitres(irrigation.valueL)}</strong></div>
         </div>
-        <small>Volume tandon memakai hasil konversi AI yang sudah tersedia. {irrigation.note}</small>
+        <small>{irrigation.note}</small>
         {liquidData?.planning_recorded_at&&<p className="hst-note">Data tandon: {new Date(liquidData.planning_recorded_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})} WIB</p>}
         {liquidError&&<p role="status" className="hst-note">{liquidError}</p>}
         {!liquidError&&liquidData&&(waterLitres===null||stockLitres===null)&&<p className="hst-note">Volume tandon menunggu hasil konversi dari sensor yang valid dan terbaru.</p>}
       </section>
-      {!!data?.proposals.length&&<section className="hst-needs" aria-label="Sisa kebutuhan pupuk tanaman">
-        <strong>Sisa kebutuhan tanaman</strong>
-        <div className="hst-needs-list">{data.proposals.map(proposal=><div key={proposal.obligation_id}>
-          <small>{proposal.product??'Pupuk'} · HST {proposal.hst??'—'}</small>
-          <strong>{mass(proposal.status!=='REQUIRES_REVIEW'&&proposal.review_reasons.length===0?proposal.remaining_g:null)}</strong>
-        </div>)}</div>
-      </section>}
       <div className="hst-shadow-mode-row">
         <div className="hst-shadow-mode-label">
           <strong>SHADOW MODE</strong>
@@ -175,19 +184,24 @@ export function HstApprovalPanel() {
       {!modeReady && <p role="alert" className="hst-review">Mode SHADOW server tidak tersedia: switch terkunci ON demi keamanan.</p>}
       {modeReady&&user.role!=='admin' && <small>Hanya admin dapat mengubah SHADOW MODE.</small>}
       {!previewOnly && <HstDoseVolumeSessions refreshProposals={refresh}/>}
-      {modeReady && mode === 'TEST_REAL' && !previewOnly && <HstFuzzyVolumeControl/>}
-      <p className="hst-note">
-        {mode === 'SHADOW'
-          ? 'Usulan dibuat dari jadwal HST. Sensor tandon dan Soil 2 diperiksa setelah ACC. Tidak ada perintah pompa dalam mode SHADOW.'
-          : 'SHADOW OFF: Fuzzy Tanah 2 untuk penyiraman air baku. Pemupukan ditinjau terpisah di kartu HST.'}
-      </p>
+      <section id="guide-watering" className="hst-guide-section" tabIndex={-1} aria-labelledby="guide-watering-title">
+        <h4 id="guide-watering-title">Penyiraman air baku</h4>
+        {modeReady && mode === 'TEST_REAL' && !previewOnly
+          ? <HstFuzzyVolumeControl/>
+          : <p className="hst-note">Fuzzy Tanah 2 menilai kebutuhan air. Kontrol pompa tersedia saat SHADOW OFF.</p>}
+      </section>
       {previewOnly && <p className="hst-review" role="note">
         <ShieldAlert size={16} /> Mode preview tidak memiliki login operator; ACC HST hanya tersedia
         melalui API operasional yang menerapkan autentikasi dan CSRF.
       </p>}
-      <button className="hst-refresh" type="button" onClick={() => { setLoading(true); void refresh(); }}>
-        <RefreshCw size={15} /> Perbarui usulan
-      </button>
+      <section id="guide-fertilizer" className="hst-guide-section" tabIndex={-1} aria-labelledby="guide-fertilizer-title">
+      <div className="hst-guide-section-heading">
+        <div><h4 id="guide-fertilizer-title">Pemupukan HST</h4>
+          <p className="hst-note">Lihat sisa kebutuhan setiap produk dan tinjau batch sebelum menjalankan pemupukan.</p></div>
+        <button className="hst-refresh" type="button" onClick={() => { setLoading(true); void refresh(); }}>
+          <RefreshCw size={15} /> Perbarui
+        </button>
+      </div>
       {loading && !data && <p role="status">Memuat kewajiban HST…</p>}
       {error && <p role="alert" className="ain-acc-error">{error}</p>}
       {data?.proposals.length === 0 && <p className="hst-empty">
@@ -205,13 +219,13 @@ export function HstApprovalPanel() {
             <section key={proposal.obligation_id} className="hst-card">
               <div className="hst-card-title">
                 <strong>{proposal.product ?? 'Produk belum terverifikasi'} · HST {proposal.hst ?? '—'}</strong>
-                <span>{proposal.status.replaceAll('_', ' ')}</span>
+                <span>{proposalStatus[proposal.status]}</span>
               </div>
-              <small>Jadwal {proposal.due_date ?? 'belum tersedia'} · {proposal.activity_id}</small>
+              <small>Jadwal {proposal.due_date ?? 'belum tersedia'}</small>
               <div className="hst-figures">
-                <div><small>Target</small><strong>{mass(proposal.target_g)}</strong></div>
-                <div><small>Tercatat diberikan</small><strong>{mass(proposal.delivered_g)}</strong></div>
                 <div className="hst-remaining-need"><small>Sisa kebutuhan</small><strong>{mass(proposal.status!=='REQUIRES_REVIEW'&&proposal.review_reasons.length===0?proposal.remaining_g:null)}</strong></div>
+                <div><small>Target</small><strong>{mass(proposal.target_g)}</strong></div>
+                <div><small>Sudah diberikan</small><strong>{mass(proposal.delivered_g)}</strong></div>
               </div>
               <HstRealExecutionCard shadowEnabled proposal={proposal}
                 preflight={null} preflightError={null} refreshPreflight={()=>{}}/>
@@ -234,7 +248,7 @@ export function HstApprovalPanel() {
                 <ClipboardCheck size={16} />
                 {pendingId === proposal.obligation_id ? 'Memeriksa sensor…' : 'ACC & Periksa Sesi (SHADOW)'}
               </button>}
-              <small>Review tercatat: {proposal.approval_count} · Belum ada bukti dosis dari ACC saja.</small>
+              {proposal.approval_count>0&&<small>{proposal.approval_count} pemeriksaan ACC tercatat</small>}
             </section>
           );
         })}
@@ -244,6 +258,7 @@ export function HstApprovalPanel() {
         <p>Sensor diperiksa pada saat ACC. Pompa tidak dinyalakan dan dosis belum dikreditkan.</p>
         <p>Alasan: {review.hold_reasons.join(', ').replaceAll('_', ' ')}</p>
       </div>}
+      </section>
     </article>
   );
 }

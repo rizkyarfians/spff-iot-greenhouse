@@ -206,19 +206,26 @@ export function HstDoseVolumeSessions({refreshProposals}:{refreshProposals:()=>P
   finally{busy.current=false;setStopping(null);}
  }
  if(!sessions.length&&!pollError)return null;
+ const activeSessions=sessions.filter(session=>!terminal(session));
+ const history=sessions.filter(terminal);
+ const renderSession=(session:AiHstVolumeSession)=><div className="hst-guide-summary" key={session.session_id}>
+  <strong>{session.product??'Air saja'} · {states[session.status]??session.status}</strong>
+  <span>{session.device_id} · Air {amount(session.water_volume_l,'L')} · Larutan pupuk {amount(session.fert_volume_l,'L')}</span>
+  {session.evidence_basis==='DEVICE_TERMINAL_MEASURED'&&session.evidence_verified&&
+   <small>Perangkat mengonfirmasi kedua pompa OFF.</small>}
+  {session.reason&&<details><summary>Detail sesi</summary><small>{session.reason.replaceAll('_',' ')}</small></details>}
+  {!terminal(session)&&<button type="button" className="hst-refresh" disabled={stopping!==null}
+   onClick={()=>void stop(session)}>{stopping===session.session_id?'Mengirim STOP…':'STOP Pompa'}</button>}
+ </div>;
  return <section className="hst-real-control" aria-label="Sesi pompa">
-  <strong>Sesi pompa · dosis/volume</strong>
   {pollError&&<small role="alert">{pollError}</small>}
-  {sessions.map(session=><div className="hst-guide-summary" key={session.session_id}>
-   <strong>{session.product??'Air saja'} · {states[session.status]??session.status}</strong>
-   <span>{session.device_id} · Air {amount(session.water_volume_l,'L')} · Stok {amount(session.fert_volume_l,'L')}</span>
-   {session.evidence_basis==='DEVICE_TERMINAL_MEASURED'&&session.evidence_verified&&
-    <small>Perangkat mengonfirmasi kedua pompa OFF.</small>}
-   {session.reason&&<small>{session.reason.replaceAll('_',' ')}</small>}
-   {!terminal(session)&&<button type="button" className="hst-refresh" disabled={stopping!==null}
-    onClick={()=>void stop(session)}>{stopping===session.session_id?'Mengirim STOP…':'STOP Pompa'}</button>}
-  </div>)}
+  {activeSessions.length>0&&<strong>Sesi pompa yang perlu dipantau</strong>}
+  {activeSessions.map(renderSession)}
   {stopError&&<small role="alert">{stopError}</small>}
   {stopNotice&&<small role="status">{stopNotice}</small>}
+  {history.length>0&&<details className="hst-session-history">
+   <summary>Riwayat pompa ({history.length})</summary>
+   <div className="hst-session-history-list">{history.map(renderSession)}</div>
+  </details>}
  </section>;
 }
