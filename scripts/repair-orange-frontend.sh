@@ -38,7 +38,43 @@ repair="$store/frontend-repair-$stamp"
 mkdir -m 700 "$repair"
 config="$frontend/.repair-vite-$stamp.mjs"
 temp_entry="$live/.index-$stamp"
-trap 'rm -f -- "$config" "$temp_entry"' EXIT
+cleanup(){
+ local result=$?
+ rm -f -- "$config" "$temp_entry"
+ if (( result != 0 )) && [[ -f "$repair/App-before.tsx" ]]; then
+  cp -a "$repair/App-before.tsx" "$frontend/src/App.tsx"
+ fi
+}
+trap cleanup EXIT
+if [[ "${1:-}" == '--controller-status' ]]; then
+ cp -a "$frontend/src/App.tsx" "$repair/App-before.tsx"
+ python3 - "$frontend/src/App.tsx" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text(encoding='utf-8')
+start = source.index('<div className="drawer-device-card"')
+end = source.index('className="drawer-profile"', start)
+card = source[start:end]
+if 'Status alat telat' not in card:
+    for old, new, required in (
+        ('Data Terlambat', 'Status alat telat', True),
+        ('Data masuk ${telemetryAgeLabel', 'Sensor diperbarui ${telemetryAgeLabel', True),
+        ('Data terlambat ·', 'Data sensor terlambat ·', False),
+        ('Menunggu data baru ·', 'Menunggu data sensor ·', False),
+    ):
+        if card.count(old) > 1 or (required and old not in card):
+            raise SystemExit('STOP: controller status label changed: ' + old)
+        card = card.replace(old, new, 1)
+    marker = card.index('</small>') + len('</small>')
+    card = card[:marker] + """
+          {connectionState === 'connected' && primaryDevice?.connectionStatus === 'stale' &&
+            <small>Status alat terakhir {formatTelemetryAge(primaryDevice.recordedAt, clock.getTime()) ?? 'belum diketahui'}</small>}
+""" + card[marker:]
+    path.write_text(source[:start] + card + source[end:], encoding='utf-8')
+PY
+fi
 cat > "$config" <<CONFIG
 import {defineConfig,mergeConfig} from 'vite';
 import original from './vite.config.ts';

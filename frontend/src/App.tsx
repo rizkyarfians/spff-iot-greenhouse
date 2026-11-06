@@ -1921,7 +1921,7 @@ const soilNpkGroups =
 
                       : primaryDevice
                         ?.connectionStatus === 'stale'
-                        ? 'Data Terlambat'
+                        ? 'Status alat telat'
 
                         : 'Tidak Tersambung'
               }
@@ -1934,11 +1934,11 @@ const soilNpkGroups =
               connectionState === 'connected'
                 ? (
                     telemetryFreshness === 'fresh'
-                      ? `Data masuk ${telemetryAgeLabel ?? 'baru saja'}`
+                      ? `Sensor diperbarui ${telemetryAgeLabel ?? 'baru saja'}`
                       : telemetryFreshness === 'stale'
-                        ? `Data terlambat · ${telemetryAgeLabel ?? '-'}`
+                        ? `Data sensor terlambat · ${telemetryAgeLabel ?? '-'}`
                         : telemetryFreshness === 'expired'
-                          ? `Menunggu data baru · terakhir ${telemetryAgeLabel ?? '-'}`
+                          ? `Menunggu data sensor · terakhir ${telemetryAgeLabel ?? '-'}`
                           : `${
                           backendData
                             ?.sensorDefinitions
@@ -1950,6 +1950,8 @@ const soilNpkGroups =
                 : 'Sistem belum tersambung'
             }
           </small>
+          {connectionState === 'connected' && primaryDevice?.connectionStatus === 'stale' &&
+            <small>Status alat terakhir {formatTelemetryAge(primaryDevice.recordedAt, clock.getTime()) ?? 'belum diketahui'}</small>}
         </div>
 
 
