@@ -32,8 +32,31 @@ export class SoilEcPulseTransport {
           AND (pc.operation<>'pulse' OR ($1::boolean AND s.status='in_flight' AND ${executionGate}))
           AND (pc.last_published_at IS NULL OR pc.last_published_at<now()-interval '2 seconds')
         ORDER BY (pc.operation='stop') DESC,pc.created_at FOR UPDATE OF pc SKIP LOCKED LIMIT 10`,[process.env.SPFF_SOIL_EC_PULSES_ENABLED==='true']);
-      for(const row of r.rows){
+      const hstInstalled=(await c.query("SELECT to_regclass('spff.hst_dose_pulse_commands') IS NOT NULL AS ready")).rows[0]?.ready===true;
+      const hst=hstInstalled?await c.query(`
+        SELECT pc.*,s.device_id FROM spff.hst_dose_pulse_commands pc
+        JOIN spff.adaptive_fert_sessions s USING(site_id,session_id)
+        WHERE pc.status IN ('pending','published','accepted') AND pc.expires_at>now()
+          AND s.command_snapshot->>'kind'='hst_dose_pulse'
+          AND (pc.last_published_at IS NULL OR pc.last_published_at<now()-interval '2 seconds')
+          AND (pc.operation<>'pulse' OR ($1::boolean AND s.status IN ('queued','running')
+            AND EXISTS (SELECT 1 FROM spff.hst_execution_modes m WHERE m.site_id=pc.site_id AND NOT m.shadow_enabled)
+            AND NOT EXISTS (SELECT 1 FROM spff.device_soil_ec_execution_configs ec
+              WHERE ec.site_id=s.site_id AND ec.device_id=s.device_id AND ec.enabled)))
+        ORDER BY (pc.operation='stop') DESC,pc.created_at FOR UPDATE OF pc SKIP LOCKED LIMIT 10`,
+      [process.env.SPFF_HST_DOSE_PULSES_ENABLED==='true' && process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED==='true']):null;
+      const commands=[
+        ...r.rows.map(row=>({row,table:'spff.soil_ec_pulse_commands' as const})),
+        ...(hst?.rows??[]).map(row=>({row,table:'spff.hst_dose_pulse_commands' as const})),
+      ];
+      for(const {row,table} of commands){
         const payload=fertigationPulseCommandSchema.parse(row.payload);
+        if(table==='spff.hst_dose_pulse_commands' &&
+          (payload.siteId!==row.site_id || payload.deviceId!==row.device_id || payload.sessionId!==row.session_id ||
+           payload.commandId!==row.command_id || payload.cycle!==row.cycle ||
+           payload.kind!==({pulse:'fertigation_pulse',stop:'fertigation_pulse_stop',release:'fertigation_pulse_release'} as const)[row.operation as 'pulse'|'stop'|'release'] ||
+           Date.parse(payload.expiresAt)!==row.expires_at.getTime()))
+          throw new Error('HST pulse outbox identity mismatch');
         // Publish while holding the command row lock; ACK updates wait for this transaction.
         // A lost QoS acknowledgement must not hold the OFF switch lock forever.
         // Timeout means outcome unknown, not unsent; IDs and local expiry stay unchanged.
@@ -43,7 +66,7 @@ export class SoilEcPulseTransport {
             timeout=setTimeout(()=>reject(new Error('Pulse MQTT publish acknowledgement timed out')),5000);
           })]);
         }finally{if(timeout)clearTimeout(timeout);}
-        await c.query(`UPDATE spff.soil_ec_pulse_commands SET status=CASE WHEN status='pending' THEN 'published' ELSE status END,
+        await c.query(`UPDATE ${table} SET status=CASE WHEN status='pending' THEN 'published' ELSE status END,
           last_published_at=now() WHERE command_id=$1`,[row.command_id]);
       }
       await c.query('COMMIT');
@@ -55,15 +78,19 @@ export class SoilEcPulseTransport {
     try{await c.query('BEGIN');
       const r=await c.query(`SELECT pc.*,s.site_id,s.device_id FROM spff.soil_ec_pulse_commands pc
         JOIN spff.soil_ec_pulse_sessions s USING(session_id) WHERE pc.command_id=$1 FOR UPDATE OF pc`,[ack.commandId]);
-      const row=r.rows[0];
+      const hstInstalled=!r.rows.length&&(await c.query("SELECT to_regclass('spff.hst_dose_pulse_commands') IS NOT NULL AS ready")).rows[0]?.ready===true;
+      const hst=hstInstalled?(await c.query(`SELECT pc.*,s.device_id FROM spff.hst_dose_pulse_commands pc
+        JOIN spff.adaptive_fert_sessions s USING(site_id,session_id) WHERE pc.command_id=$1 FOR UPDATE OF pc`,[ack.commandId])).rows[0]:null;
+      const row=r.rows[0]??hst;
       if(!row || row.site_id!==ack.siteId || row.device_id!==ack.deviceId || row.session_id!==ack.sessionId || row.cycle!==ack.cycle)
         throw new Error('Pulse ACK identity mismatch');
       // A stale accepted ACK must never regress a terminal state.
       if(!['completed','rejected','fault'].includes(row.status)){
-        await c.query(`UPDATE spff.soil_ec_pulse_commands SET status=$2,ack=$3,
+        const table=hst?'spff.hst_dose_pulse_commands':'spff.soil_ec_pulse_commands';
+        await c.query(`UPDATE ${table} SET status=$2,ack=$3,
           finished_at=CASE WHEN $2='accepted' THEN NULL ELSE now() END WHERE command_id=$1`,[ack.commandId,ack.status,JSON.stringify(ack)]);
       }
-      await c.query(`INSERT INTO spff.soil_ec_pulse_ack_events(command_id,payload,status) VALUES($1,$2,$3)
+      if(!hst)await c.query(`INSERT INTO spff.soil_ec_pulse_ack_events(command_id,payload,status) VALUES($1,$2,$3)
         ON CONFLICT(command_id,status) DO NOTHING`,[ack.commandId,JSON.stringify(ack),ack.status]);
       await c.query('COMMIT');
     }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
