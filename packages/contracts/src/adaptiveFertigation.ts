@@ -41,7 +41,13 @@ export const adaptiveTelemetrySchema=z.object({...identity,kind:z.literal('adapt
  firmwareVersion:z.string().min(1).optional(),
 }).strict();
 export const adaptiveGatewayAckSchema=z.object({...identity,kind:z.literal('adaptive_fert_gateway_ack'),commandId:uuid,status:z.enum(['forwarded','expired','unknown']),timestamp:z.string().datetime(),reason:z.string().max(200)}).strict();
-export const adaptiveEventPayloadSchema=z.union([adaptiveAckSchema,adaptiveTelemetrySchema,adaptiveGatewayAckSchema,doseVolumeEventPayloadSchema]);
+export const waterFirstCompletionSchema=z.object({...identity,kind:z.literal('water_first_fertigation_completed'),
+ bootId:z.string().regex(/^[a-fA-F0-9]{16}$/),timestamp:z.string().datetime({offset:true}),
+ waterPump:z.object({active:z.literal(false),onDurationMs:z.number().int().nonnegative().safe()}).strict(),
+ fertilizerPump:z.object({active:z.literal(false),onDurationMs:z.number().int().nonnegative().safe()}).strict(),
+ reason:z.string().trim().min(1).max(200),
+}).strict();
+export const adaptiveEventPayloadSchema=z.union([adaptiveAckSchema,adaptiveTelemetrySchema,adaptiveGatewayAckSchema,doseVolumeEventPayloadSchema,waterFirstCompletionSchema]);
 export const adaptiveEventSchema=z.object({kind:z.literal('adaptive_fert_event'),schemaVersion:z.literal(1),siteId:id,deviceId:id,messageId:z.string().regex(/^[a-f0-9]{64}$/),receivedAt:z.string().datetime(),payload:adaptiveEventPayloadSchema}).strict().refine(v=>v.siteId===v.payload.siteId&&v.deviceId===v.payload.deviceId,'Device mismatch');
 export type AdaptiveEvent=z.infer<typeof adaptiveEventSchema>;
 export const adaptivePersistedSchema=z.object({kind:z.literal('adaptive_fert_persisted_ack'),schemaVersion:z.literal(1),siteId:id,deviceId:id,messageId:z.string().regex(/^[a-f0-9]{64}$/)}).strict();

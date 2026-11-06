@@ -71,6 +71,7 @@ type PlanSnapshot={
  recipe:ReturnType<typeof calculateDoseVolume>;limits:DoseVolumeCapability|null;blockers:string[];
  waterUntilLowSeconds?:number|null;
  serverWater?:boolean;
+ waterFirst?:boolean;
  hstPulse?:{maxStockFlowLpm:number;minWaterFlowLpm:number;onDurationMs:number};
  validUntil:string;volumeBasis:'LINEAR_LEVEL_APPROXIMATION';
 };
@@ -116,6 +117,32 @@ async function current(input:DoseVolumePlanRequest,database:Database=pool):Promi
   return fail('Kegiatan sudah ditandai selesai manual; periksa dosis sebelum membuat sesi baru.');
  const source=unifiedAiDashboardSchema.parse(await ai('/dashboard/summary'));
  const fuzzy=source.production_fuzzy;
+ const waterFirst=input.mode==='fertigation'&&input.execution==='water_first';
+ if(waterFirst){
+  const sample=(await database.query(`SELECT * FROM spff.telemetry_samples
+   WHERE site_id=$1 AND device_id=$2 AND recorded_at=$3 ORDER BY telemetry_id DESC LIMIT 1`,
+  [siteId,cfg.data.deviceId,source.planning_recorded_at])).rows[0];
+  if(source.planning_source!=='POSTGRES_READ_ONLY'||!recent(sample?.recorded_at,60000)||
+     !['tank_water_level_pct','tank_fert_level_pct'].every(key=>sample.sensor_health?.[key]?.valid===true&&
+      Number.isFinite(sample[key])&&sample[key]>0))return fail('Data level air dan pupuk terbaru belum valid.');
+  const water=source.tank_preview,stock=source.fertilizer_tank_preview;
+  if(water.level_status!=='ESTIMATED'||stock.level_status!=='ESTIMATED'||
+     water.estimated_available_l===null||stock.estimated_liquid_volume_l===null||
+     Math.abs(sample.tank_water_level_pct-(water.reported_level_pct??-100))>0.01||
+     Math.abs(sample.tank_fert_level_pct-(stock.reported_level_pct??-100))>0.01)
+   return fail('Estimasi isi kedua tandon belum cocok dengan data alat.');
+  const recipe=calculateDoseVolume({mode:'fertigation',remainingG:obligation!.remaining_g!,
+   waterAvailableL:water.estimated_available_l,waterCapacityL:water.capacity_l,
+   stockAvailableL:stock.estimated_liquid_volume_l,stockCapacityL:stock.capacity_l,limits:null});
+  return {mode:input.mode,programId,programRevision:row.revision,activityId,deviceId:cfg.data.deviceId,
+   obligationId:obligation!.obligation_id,sourceRow:obligation!.source_row,product:obligation!.product,
+   sourceMethod:activity.method,sourceTargetG:target,remainingG:obligation!.remaining_g!,pastDue:activity.hst!<today,
+   routeApprovalRequired:!['kocor','irigasi','fertigasi','tetes','drip'].includes(activity.method.toLowerCase().trim()),
+   sourceHash:hash({config:row.config,activity,revision:row.revision,source:row.source_sha256,guideRevision:row.guide_revision}),
+   policyVersion:'operator-water-first-preview',recipe,limits:null,waterFirst:true,
+   blockers:['water_first_dispatch_pending'],
+   validUntil:new Date(sample.recorded_at.getTime()+60000).toISOString(),volumeBasis:'LINEAR_LEVEL_APPROXIMATION'};
+ }
  if(source.planning_source!=='POSTGRES_READ_ONLY'||source.planning_status!=='CURRENT'
    ||!fuzzy||fuzzy.basis!=='TANK_INVENTORY_FUZZY'||fuzzy.status!=='READY'||fuzzy.irrigation_needed!==true
    ||!fuzzy.expires_at||Date.parse(fuzzy.expires_at)<=Date.now())return fail('Fuzzy dan sensor terbaru belum mengizinkan penyiraman.');
@@ -225,6 +252,7 @@ export async function approveDoseVolume(raw:unknown,actor:string){
   if((await c.query('SELECT 1 FROM spff.dose_volume_bindings WHERE site_id=$1 AND plan_id=$2 LIMIT 1',[siteId,input.planId])).rows.length)
    return fail('Rencana ini sudah dipakai; buat rencana baru untuk sesi berikutnya.');
   const old=stored.snapshot as PlanSnapshot&{request:DoseVolumePlanRequest};
+  if(old.waterFirst)return fail('Eksekusi air dulu belum tersedia. Rencana ini hanya untuk peninjauan.');
   await c.query('SELECT program_id FROM spff.guide_programs WHERE site_id=$1 AND program_id=$2 FOR SHARE',[siteId,old.programId]);
   await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`soil-ec:${siteId}:${old.deviceId}`]);
   if(old.obligationId)await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['hst-real:'+siteId+':'+old.obligationId]);

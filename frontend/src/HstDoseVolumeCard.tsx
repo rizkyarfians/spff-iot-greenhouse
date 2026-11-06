@@ -16,6 +16,7 @@ const blockers:Record<string,string>={
  server_water_runtime_required:'Isi Batas waktu menyala di pengaturan pompa air dan pertahankan mode Manual.',
  hst_pulse_flow_bound_or_dose_required:'Batas debit terverifikasi belum diisi atau sisa dosis terlalu kecil untuk satu pulsa.',
  hst_pulse_device_not_ready:'Pulsa pupuk dan proteksi tandon belum dikonfirmasi perangkat.',
+ water_first_dispatch_pending:'Pratinjau saja. Eksekusi air dulu menunggu dukungan firmware dan kontrol sesi.',
  dose_volume_server_dispatch_disabled:'Izin START dosis/volume di server masih OFF.',
  target_exceeds_commissioned_session_limits:'Target liter melampaui batas sesi perangkat.',
 };
@@ -64,7 +65,7 @@ export function HstDoseVolumeCard(selection:PlanSelection){
   try{
    const id=requestId();
    setPlan(await executeAiHstVolumePlan('proposal' in selection
-    ?{mode:'fertigation',requestId:id,obligationId:selection.proposal.obligation_id}
+    ?{mode:'fertigation',execution:'water_first',requestId:id,obligationId:selection.proposal.obligation_id}
     :{mode:'water_only',requestId:id,programId:selection.programId,activityId:selection.activityId}));
   }catch(cause){setError(errorText(cause,'Rencana pompa belum tersedia.'))}
   finally{busy.current=false;setPending(false);}
@@ -91,7 +92,9 @@ export function HstDoseVolumeCard(selection:PlanSelection){
    onClick={()=>void prepare()}>{plan?'Hitung ulang rencana':'Hitung rencana pompa'}</button>
   {plan&&recipe&&<section className="hst-guide-summary" aria-label="Rencana volume pompa">
    <span>Perkiraan isi tandon air: <b>{amount(recipe.waterInventoryL,'L')}</b></span>
-   {plan.recipe.hstPulse
+   {plan.recipe.waterFirst
+    ?<small>Urutan rencana: pompa air ON, konfirmasi aliran air, lalu pompa pupuk ON.</small>
+    :plan.recipe.hstPulse
     ?<small>Satu pulsa air + pupuk hingga {formatter.format(plan.recipe.hstPulse.onDurationMs/1000)} detik. Dosis dicatat setelah pompa OFF dan totalizer stabil.</small>
     :plan.recipe.serverWater
     ?<small>Server mengirim ON/OFF berdasarkan level tandon. Awasi pompa selama sesi berjalan.</small>
@@ -129,11 +132,10 @@ export function HstDoseVolumeCard(selection:PlanSelection){
  </div>;
 }
 
-export function HstFuzzyVolumeControl({proposals}:{proposals:readonly AiHstProposal[]}){
+export function HstFuzzyVolumeControl(){
  const [programs,setPrograms]=useState<GuideProgram[]>([]);
  const [programId,setProgramId]=useState('');
  const [activityId,setActivityId]=useState('');
- const [batchId,setBatchId]=useState('');
  const [error,setError]=useState('');
  useEffect(()=>{
   let active=true;
@@ -143,42 +145,24 @@ export function HstFuzzyVolumeControl({proposals}:{proposals:readonly AiHstPropo
   return()=>{active=false};
  },[]);
  const program=programs.find(row=>row.programId===programId);
- const eligible=proposals.filter(proposal=>proposal.program_id===programId&&
-  proposal.status!=='COMPLETED'&&proposal.status!=='REQUIRES_REVIEW'&&
-  proposal.review_reasons.length===0&&(proposal.remaining_g??0)>0);
- const batch=eligible.find(proposal=>proposal.obligation_id===batchId);
- const batchUnavailable=!!batchId&&!batch;
  const activity=program?.plan.activities.find(row=>row.id===activityId);
  return <section className="hst-real-control" aria-label="ACC Fuzzy Tanah 2">
   <strong>ACC Fuzzy Tanah 2</strong>
-  <small>ACC tersedia saat Fuzzy menyatakan perlu menyiram. Pilih batch HST hanya jika sudah siap.</small>
+  <small>Penyiraman air baku. ACC tersedia saat Fuzzy menyatakan perlu menyiram. Gunakan mode Manual.</small>
   {error&&<small role="alert">{error}</small>}
   <label>Program{' '}
-   <select value={programId} onChange={event=>{setProgramId(event.target.value);setActivityId('');setBatchId('')}}>
+   <select value={programId} onChange={event=>{setProgramId(event.target.value);setActivityId('')}}>
     <option value="">Pilih program</option>
     {programs.map(row=><option value={row.programId} key={row.programId}>{row.plan.cropName} · {row.config.deviceId} · {row.config.plantingDate}</option>)}
    </select>
   </label>
-  {program&&<label>Batch pupuk siap{' '}
-   <select value={batchId} onChange={event=>setBatchId(event.target.value)}>
-    <option value="">Air saja</option>
-    {batchUnavailable&&<option value={batchId} disabled>Batch sebelumnya tidak tersedia</option>}
-    {eligible.map(proposal=><option value={proposal.obligation_id} key={proposal.obligation_id}>
-     {proposal.product} · HST {proposal.hst??'—'} · sisa {amount((proposal.remaining_g??0)/1000,'kg')}
-    </option>)}
-   </select>
-  </label>}
-  {batchUnavailable&&<small role="alert">Pilih batch lain atau Air saja sebelum melanjutkan.</small>}
-  {program&&!batchId&&<label>Kegiatan Panduan{' '}
+  {program&&<label>Kegiatan Panduan{' '}
    <select value={activityId} onChange={event=>setActivityId(event.target.value)}>
     <option value="">Pilih kegiatan</option>
     {program.plan.activities.map(activity=><option value={activity.id} key={activity.id}>{activity.title} · HST {activity.hst??'—'}</option>)}
    </select>
   </label>}
-  {program&&!batchUnavailable&&<small>Mode perangkat untuk ACC ini: <b>{batch?'Otomatis':'Manual'}</b>.</small>}
-  {batch
-   ?<HstDoseVolumeCard key={batch.obligation_id} proposal={batch}/>
-   :!batchId&&program&&activity&&<HstDoseVolumeCard key={programId+':'+activity.id} programId={programId} activityId={activity.id}/>}
+  {program&&activity&&<HstDoseVolumeCard key={programId+':'+activity.id} programId={programId} activityId={activity.id}/>}
  </section>;
 }
 

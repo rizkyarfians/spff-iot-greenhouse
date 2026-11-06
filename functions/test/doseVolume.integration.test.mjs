@@ -95,6 +95,39 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
  try{
   const dir=resolve(import.meta.dirname,'../../infrastructure/postgres/migrations');
   for(const name of readdirSync(dir).sort())await db.exec(readFileSync(resolve(dir,name),'utf8'));
+  await t.test('water-first terminal report records OFF and per-pump durations without crediting dose',async()=>{
+   await fixture();
+   const run=await approve(await makePlan());
+   await query(`UPDATE spff.adaptive_fert_sessions
+    SET command_snapshot=jsonb_build_object('kind','server_water_first_fertigation','bootId',$2::text)
+    WHERE session_id=$1`,[run.session_id,boot]);
+   const report={kind:'water_first_fertigation_completed',schemaVersion:1,siteId:'greenhouse-01',
+    deviceId:'esp32-s3-01',sessionId:run.session_id,bootId:boot,timestamp:new Date().toISOString(),
+    waterPump:{active:false,onDurationMs:30000},fertilizerPump:{active:false,onDurationMs:22000},
+    reason:'local_stop'};
+   assert.equal(adaptiveEventPayloadSchema.safeParse({...report,waterPump:{active:true,onDurationMs:30000}}).success,false);
+   await event({...report,bootId:'abcdef0123456789'});
+   assert.equal((await snapshot(run.session_id)).last_telemetry,null);
+   await event(report);
+   await event(report);
+   const stored=await snapshot(run.session_id);
+   assert.equal(stored.status,'reconciliation_required');
+   assert.equal(stored.reason,'water_first_pumps_off_awaiting_dose_evidence');
+   assert.deepEqual(stored.last_telemetry,report);
+   assert.equal((await service.readDoseVolumeSession(run.session_id)).evidence_verified,false);
+  });
+  await t.test('water-first review uses live tank data without Fuzzy and cannot enqueue START',async()=>{
+   await fixture();
+   summary.production_fuzzy.irrigation_needed=false;
+   const plan=await service.createDoseVolumePlan({mode:'fertigation',execution:'water_first',
+    obligationId,requestId:randomUUID()},'operator');
+   assert.equal(plan.recipe.waterFirst,true);
+   assert.equal(plan.executionReady,false);
+   assert.deepEqual(plan.recipe.blockers,['water_first_dispatch_pending']);
+   await assert.rejects(approve(plan),/hanya untuk peninjauan/);
+   assert.equal((await query('SELECT 1 FROM spff.control_commands')).rows.length,0);
+   assert.equal((await query('SELECT 1 FROM spff.hst_dose_pulse_commands')).rows.length,0);
+  });
   await t.test('HST ACC publishes one combined pulse and credits only the confirmed meter delta',async()=>{
    await fixture();
    const env={SPFF_HST_DOSE_PULSES_ENABLED:'true',SPFF_HST_MAX_STOCK_FLOW_LPM:'25',SPFF_HST_MIN_WATER_FLOW_LPM:'5'};

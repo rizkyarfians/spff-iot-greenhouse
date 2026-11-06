@@ -21,7 +21,8 @@ export const waterUntilLowCapabilitySchema=z.object({
 
 export const doseVolumePlanRequestSchema=z.discriminatedUnion('mode',[
  z.object({mode:z.literal('water_only'),requestId:z.string().uuid(),programId:z.string().uuid(),activityId:z.string().regex(/^row-\d+$/)}).strict(),
- z.object({mode:z.literal('fertigation'),requestId:z.string().uuid(),obligationId:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),
+ z.object({mode:z.literal('fertigation'),requestId:z.string().uuid(),obligationId:z.string().regex(/^[a-f0-9]{64}$/),
+  execution:z.literal('water_first').optional()}).strict(),
 ]);
 export type DoseVolumePlanRequest=z.infer<typeof doseVolumePlanRequestSchema>;
 export const doseVolumeApproveSchema=z.object({

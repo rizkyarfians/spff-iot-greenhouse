@@ -92,6 +92,18 @@ export class AdaptiveFertigationTransport {
    if(!added.rows.length){await c.query('COMMIT');return;}
    // Unsolicited/old-session packets are retained for diagnosis but cannot allocate program dose.
    const row=(await c.query('SELECT * FROM spff.adaptive_fert_sessions WHERE site_id=$1 AND device_id=$2 AND session_id::text=$3 FOR UPDATE',[event.siteId,event.deviceId,payload.sessionId])).rows[0];
+   if(payload.kind==='water_first_fertigation_completed'){
+    const at=Date.parse(payload.timestamp);
+    if(row?.command_snapshot?.kind==='server_water_first_fertigation'&&payload.bootId===row.command_snapshot.bootId&&
+      !['completed','fault'].includes(row.status)&&row.last_telemetry?.kind!==payload.kind&&
+      at>=row.created_at.getTime()&&at<=Date.now()+5000){
+     await c.query(`UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',
+      reason='water_first_pumps_off_awaiting_dose_evidence',last_telemetry_at=$3,last_telemetry=$4
+      WHERE site_id=$1 AND session_id=$2`,[event.siteId,row.session_id,new Date(at),JSON.stringify(payload)]);
+    }
+    await c.query('COMMIT');return;
+   }
+   if(row?.command_snapshot?.kind==='server_water_first_fertigation'){await c.query('COMMIT');return;}
    if(row?.command_snapshot?.kind==='server_water_control'){await c.query('COMMIT');return;}
    if(row?.command_snapshot?.kind==='dose_volume_command'&&payload.kind!=='adaptive_fert_gateway_ack'){
     await c.query("UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',reason='dose_volume_wrong_report_protocol' WHERE site_id=$1 AND session_id=$2",[event.siteId,row.session_id]);

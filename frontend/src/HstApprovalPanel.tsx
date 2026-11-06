@@ -5,7 +5,7 @@ import { CalendarCheck2, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } 
 import type { AiHstApprovalResult, AiHstProposal, AiHstProposals } from '@spff/contracts';
 import { fetchAiHstLiquidSummary, fetchAiHstProposals, reviewAiHstApproval, fetchAiHstMode, setAiHstMode } from './api';
 import {useAuth} from './authContext';
-import {HstDoseVolumeSessions,HstFuzzyVolumeControl} from './HstDoseVolumeCard';
+import {HstDoseVolumeCard,HstDoseVolumeSessions,HstFuzzyVolumeControl} from './HstDoseVolumeCard';
 import { HstRealExecutionCard } from './HstRealExecutionCard';
 import './HstApprovalPanel.css';
 
@@ -175,11 +175,11 @@ export function HstApprovalPanel() {
       {!modeReady && <p role="alert" className="hst-review">Mode SHADOW server tidak tersedia: switch terkunci ON demi keamanan.</p>}
       {modeReady&&user.role!=='admin' && <small>Hanya admin dapat mengubah SHADOW MODE.</small>}
       {!previewOnly && <HstDoseVolumeSessions refreshProposals={refresh}/>}
-      {modeReady && mode === 'TEST_REAL' && !previewOnly && <HstFuzzyVolumeControl proposals={data?.proposals??[]}/>}
+      {modeReady && mode === 'TEST_REAL' && !previewOnly && <HstFuzzyVolumeControl/>}
       <p className="hst-note">
         {mode === 'SHADOW'
           ? 'Usulan dibuat dari jadwal HST. Sensor tandon dan Soil 2 diperiksa setelah ACC. Tidak ada perintah pompa dalam mode SHADOW.'
-          : 'SHADOW OFF: ACC mengikuti kebutuhan air dari Fuzzy Tanah 2. Dosis batch yang dipilih mengikuti Panduan HST.'}
+          : 'SHADOW OFF: Fuzzy Tanah 2 untuk penyiraman air baku. Pemupukan ditinjau terpisah di kartu HST.'}
       </p>
       {previewOnly && <p className="hst-review" role="note">
         <ShieldAlert size={16} /> Mode preview tidak memiliki login operator; ACC HST hanya tersedia
@@ -215,6 +215,7 @@ export function HstApprovalPanel() {
               </div>
               <HstRealExecutionCard shadowEnabled proposal={proposal}
                 preflight={null} preflightError={null} refreshPreflight={()=>{}}/>
+              {modeReady && mode === 'TEST_REAL' && !previewOnly && <HstDoseVolumeCard proposal={proposal}/>}
               {proposal.review_reasons.length > 0 &&
                 <p className="hst-review"><ShieldAlert size={16} />
                   Perlu rekonsiliasi: {proposal.review_reasons.join(', ').replaceAll('_', ' ')}
