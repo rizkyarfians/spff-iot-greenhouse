@@ -19,6 +19,8 @@ async function settleHstPulses(client:PoolClient) {
     const pulseDone=s.pulse_status==='completed'&&s.pulse_ack?.pumpsOff===true;
     const faultStopped=s.pulse_status==='fault'&&s.pulse_ack?.pumpsOff===true&&
       stopAt>=expiresAt&&s.stop_ack?.pumpsOff===true;
+    const unknownStopped=!pulseDone&&!faultStopped&&s.status==='reconciliation_required'&&
+      stopAt>=expiresAt&&s.stop_ack?.status==='completed'&&s.stop_ack.pumpsOff===true;
     const needsStop=!pulseDone&&(s.status==='reconciliation_required'||
       ['fault','rejected'].includes(s.pulse_status)||Date.now()>expiresAt+s.payload.params.onDurationMs+10000);
     async function queue(operation:'stop'|'release'){
@@ -27,7 +29,7 @@ async function settleHstPulses(client:PoolClient) {
         kind:operation==='stop'?'fertigation_pulse_stop':'fertigation_pulse_release',
         schemaVersion:1,siteId:s.site_id,deviceId:s.device_id,sessionId:s.session_id,cycle:1,commandId,
         issuedAt:now.toISOString(),expiresAt:expires.toISOString(),
-        ...(operation==='release'&&!faultStopped?{resumeAutomatic:true}:{}),
+        ...(operation==='release'&&!faultStopped&&!unknownStopped?{resumeAutomatic:true}:{}),
       });
       await client.query(`INSERT INTO spff.hst_dose_pulse_commands
         (site_id,session_id,cycle,command_id,operation,payload,expires_at) VALUES($1,$2,1,$3,$4,$5,$6)
@@ -37,6 +39,22 @@ async function settleHstPulses(client:PoolClient) {
         WHERE hst_dose_pulse_commands.expires_at<=now() AND (hst_dose_pulse_commands.status<>'completed'
           OR ($4='stop' AND (hst_dose_pulse_commands.ack->>'acknowledgedAt')::timestamptz<$7))`,
       [s.site_id,s.session_id,commandId,operation,JSON.stringify(payload),expires,s.expires_at]);
+    }
+    async function manualOffConfirmed(){
+      const heartbeat=(await client.query(`SELECT online,mode,recorded_at,raw_payload
+        FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2
+        ORDER BY recorded_at DESC,device_status_id DESC LIMIT 1`,[s.site_id,s.device_id])).rows[0];
+      const age=Date.now()-(heartbeat?.recorded_at?.getTime()??0), raw=heartbeat?.raw_payload;
+      return heartbeat?.online===true&&heartbeat.mode==='manual'&&age>=-5000&&age<=90000&&
+        raw?.pulseBootId===snapshot.bootId&&raw.pumpReadbackValid===true&&
+        raw.pumpWaterActualActive===false&&raw.pumpFertActualActive===false;
+    }
+    if(unknownStopped){
+      if(s.release_ack?.status==='completed'&&s.release_ack.pumpsOff===true){
+        await client.query(`UPDATE spff.adaptive_fert_sessions SET status='fault',
+          reason='hst_pulse_released_dose_unverified' WHERE site_id=$1 AND session_id=$2`,[s.site_id,s.session_id]);
+      }else if(await manualOffConfirmed())await queue('release');
+      continue;
     }
     if(needsStop){
       await client.query(`UPDATE spff.adaptive_fert_sessions SET status='reconciliation_required',
@@ -66,15 +84,7 @@ async function settleHstPulses(client:PoolClient) {
     if(!measured||final.sensor_health?.flow_water_total_l?.valid!==true||
       !Number.isFinite(final.flow_water_total_l)||!Number.isFinite(waterL)||waterL<0)continue;
     if(s.release_ack?.status!=='completed'||s.release_ack.pumpsOff!==true){
-      if(faultStopped){
-        const heartbeat=(await client.query(`SELECT online,mode,recorded_at,raw_payload
-          FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2
-          ORDER BY recorded_at DESC,device_status_id DESC LIMIT 1`,[s.site_id,s.device_id])).rows[0];
-        const age=Date.now()-(heartbeat?.recorded_at?.getTime()??0), raw=heartbeat?.raw_payload;
-        if(!heartbeat?.online||heartbeat.mode!=='manual'||age< -5000||age>90000||
-          raw?.pulseBootId!==snapshot.bootId||raw.pumpReadbackValid!==true||
-          raw.pumpWaterActualActive!==false||raw.pumpFertActualActive!==false)continue;
-      }
+      if(faultStopped&&!await manualOffConfirmed())continue;
       await queue('release');
       continue;
     }
