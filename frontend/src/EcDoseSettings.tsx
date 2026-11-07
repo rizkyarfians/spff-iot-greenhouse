@@ -1,6 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
 import type {ApiDevice,EcDoseSettings as Settings} from '@spff/contracts';
 import {fetchEcDoseSettings,saveEcDoseSettings} from './api';
+import {Check, ChevronDown, FlaskConical, Save, SlidersHorizontal} from 'lucide-react';
+import './EcDoseSettings.css';
 
 export function EcDoseSettings({devices,editable}:{devices:ApiDevice[];editable:boolean}) {
   const [selected,setSelected]=useState('');
@@ -40,29 +42,43 @@ export function EcDoseSettings({devices,editable}:{devices:ApiDevice[];editable:
     }catch(e){if(generation.current===current)setError(e instanceof Error?e.message:'Gagal menyimpan kalibrasi.');}
     finally{saving.current=false;setBusy(false);}
   }
-  return <article className="page-card" aria-label="Estimasi gram pupuk berbasis EC">
-    <h3>Estimasi gram pupuk dari EC</h3>
-    <p>EC air, EC campuran, flow, dan waktu dari sensor. Target gram dan jumlah tanaman dari program HST.</p>
-    <form className="settings-form" onSubmit={e=>void save(e)}>
+  return <article className="page-card ecd-card" aria-label="Estimasi gram pupuk berbasis EC">
+    <header className="ecd-header">
+      <span className="ecd-icon"><FlaskConical size={23}/></span>
+      <div><h3>Kalibrasi dosis pupuk</h3><p>Estimasi gram dari EC dan aliran sensor.</p></div>
+      <span className={`ecd-badge ${data?.profile?.validated?'is-verified':''}`}>
+        {loading?'Memuat…':data?.profile?.validated?'Terverifikasi':'Estimasi'}
+      </span>
+    </header>
+    <form className="ecd-form" onSubmit={e=>void save(e)}>
       <fieldset disabled={busy||!editable}>
+        <legend className="ecd-sr-only">Profil kalibrasi EC</legend>
+        <div className="ecd-grid">
         <label>Perangkat<select value={device} onChange={e=>setSelected(e.target.value)}>
           {devices.map(d=><option key={d.deviceId} value={d.deviceId}>{d.deviceId}</option>)}
         </select></label>
         <label>Formulasi pupuk<select value={product} onChange={e=>setProduct(e.target.value)}>
           <option>Phonska</option><option>Phonska plus</option>
         </select></label>
-        <label>Koefisien K — (µS/cm)/(g/L)<input type="number" min="0.000001" step="any" required
-          disabled={loading} placeholder="Contoh eksperimen dokumen: 6400" value={coefficient} onChange={e=>setCoefficient(e.target.value)}/></label>
-        <label>Referensi kalibrasi<input maxLength={500} disabled={loading} value={reference} onChange={e=>setReference(e.target.value)}/></label>
-        <label><input type="checkbox" checked={validated} disabled={loading} onChange={e=>setValidated(e.target.checked)}/>
-          Kalibrasi formulasi ini sudah diverifikasi; estimasi boleh menentukan fase terpenuhi.</label>
+        <label>Koefisien K<input type="number" min="0.000001" step="any" required
+          disabled={loading} placeholder="Contoh: 6400" value={coefficient} onChange={e=>setCoefficient(e.target.value)}/><small>(µS/cm)/(g/L) · sesuai hasil kalibrasi</small></label>
+        <label>Referensi kalibrasi<input maxLength={500} disabled={loading} placeholder="Dokumen atau catatan pengujian" value={reference} onChange={e=>setReference(e.target.value)}/></label>
+        </div>
+        <label className="ecd-verification">
+          <span><strong>Kalibrasi terverifikasi</strong><small>Izinkan estimasi menentukan fase pupuk terpenuhi.</small></span>
+          <input className="ecd-toggle" type="checkbox" role="switch" checked={validated} disabled={loading} onChange={e=>setValidated(e.target.checked)}/>
+        </label>
       </fieldset>
-      <small>K 6400 di dokumen masih contoh satu titik. Tanpa verifikasi, hasil ditampilkan sebagai estimasi.</small>
-      <p>Baseline otomatis membutuhkan 3 pembacaan EC stabil saat air mengalir dan pupuk OFF sebelum sesi.</p>
-      {data?.baseline&&<p>Baseline sesi terakhir: {data.baseline.ecUsCm.toLocaleString('id-ID')} µS/cm · {new Date(data.baseline.recordedAt).toLocaleString('id-ID')}</p>}
-      <small>K dibekukan saat estimasi fase dimulai. Perubahan K berlaku fase berikutnya; verifikasi K yang sama bisa diterapkan pada fase berjalan.</small>
-      {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-      {editable&&<button type="submit" disabled={busy||loading||!data}>{busy?'Menyimpan…':'Simpan kalibrasi EC'}</button>}
+      {data?.baseline&&<div className="ecd-baseline"><span>Baseline EC terakhir</span><strong>{data.baseline.ecUsCm.toLocaleString('id-ID')} <small>µS/cm</small></strong><time>{new Date(data.baseline.recordedAt).toLocaleString('id-ID')}</time></div>}
+      <details className="ecd-details"><summary><SlidersHorizontal size={16}/> Cara perhitungan <ChevronDown size={16}/></summary>
+        <div><p>EC, flow, dan waktu dari sensor. Target gram dan jumlah tanaman dari program HST.</p>
+        <p>Baseline memakai 3 pembacaan EC stabil saat air mengalir dan pupuk OFF sebelum sesi.</p>
+        <p>K 6400 pada dokumen adalah contoh satu titik. Gunakan hasil kalibrasi yang sesuai; tanpa verifikasi, hasil hanya estimasi.</p>
+        <p>Perubahan K berlaku untuk fase berikutnya. Verifikasi K yang sama dapat diterapkan pada fase berjalan.</p></div>
+      </details>
+      {error&&<p className="ecd-message is-error" role="alert">{error}</p>}{notice&&<p className="ecd-message" role="status"><Check size={16}/>{notice}</p>}
+      <footer className="ecd-footer"><span>{!editable?'Hanya admin dapat mengubah kalibrasi.':'Disimpan per perangkat dan formulasi pupuk.'}</span>
+      {editable&&<button className="ecd-save" type="submit" disabled={busy||loading||!data}><Save size={17}/>{busy?'Menyimpan…':'Simpan kalibrasi'}</button>}</footer>
     </form>
   </article>;
 }

@@ -40,6 +40,9 @@ mkdir -m 700 "$repair"
 config="$frontend/.repair-vite-$stamp.mjs"
 cleanup(){
  local result=$?
+ if (( result != 0 )) && [[ -d "$repair/ec-settings-before" ]]; then
+  cp -a "$repair/ec-settings-before/." "$frontend/src/"
+ fi
  rm -f -- "$config"
  if (( result != 0 )) && [[ -f "$repair/App-before.tsx" ]]; then
   cp -a "$repair/App-before.tsx" "$frontend/src/App.tsx"
@@ -55,6 +58,13 @@ cleanup(){
  fi
 }
 trap cleanup EXIT
+if [[ "${1:-}" == '--ec-settings' ]]; then
+ mkdir "$repair/ec-settings-before"
+ for file in EcDoseSettings.tsx EcDoseSettings.css; do
+  if [[ -f "$frontend/src/$file" ]]; then cp -a "$frontend/src/$file" "$repair/ec-settings-before/$file"; fi
+  install -m 644 "$repo/frontend/src/$file" "$frontend/src/$file"
+ done
+fi
 if [[ "${1:-}" == '--hst-card' ]]; then
  mkdir "$repair/hst-card-before"
  for file in HstFertilizationNotice.tsx HstFertilizationNotice.css; do

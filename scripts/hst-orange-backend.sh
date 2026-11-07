@@ -287,7 +287,7 @@ PY
  rm -rf "$MERGED/frontend/src"
  cp -a "$PROD/frontend/src" "$MERGED/frontend/src"
  if [[ -d "$PROD/frontend/public" && -d "$MERGED/frontend/public" ]]; then cp -a "$PROD/frontend/public/." "$MERGED/frontend/public/"; fi
- for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx pageConfig.ts HstFertilizationNotice.tsx HstFertilizationNotice.css SoilEcPulsePanel.tsx SoilEcExecutionSettings.tsx EcDoseSettings.tsx; do
+ for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx pageConfig.ts HstFertilizationNotice.tsx HstFertilizationNotice.css SoilEcPulsePanel.tsx SoilEcExecutionSettings.tsx EcDoseSettings.tsx EcDoseSettings.css; do
    install -m644 "$SRC/frontend/src/$hst_file" "$MERGED/frontend/src/$hst_file"
  done
  python3 - "$MERGED/frontend/src/api.ts" "$SRC/frontend/src/api.ts" "$MERGED/frontend/src/GuidePage.tsx" <<'PY'
