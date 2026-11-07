@@ -116,6 +116,8 @@ if [[ "$MODE" == deploy ]]; then
  say "Check current production and staging"
  [[ -d "$SRC/.git" && -d "$PROD/.git" ]] || fatal "missing source checkout"
  healthy || fatal "production API/worker/edge unhealthy"
+ node "$SRC/scripts/verify-api-runtime.mjs" api "$PROD/functions/lib" || fatal "compiled API damaged; run scripts/repair-orange-api.sh first"
+ node "$SRC/scripts/verify-api-runtime.mjs" contracts "$PROD/packages/contracts/dist" || fatal "compiled contracts damaged; run scripts/repair-orange-api.sh first"
  [[ -z "$(GIT_OPTIONAL_LOCKS=0 git -C "$SRC" -c core.fsmonitor=false status --porcelain --untracked-files=no)" ]] || fatal "staging has local edits"
  git -C "$SRC" log -1 --oneline
  GIT_OPTIONAL_LOCKS=0 git -c safe.directory="$PROD" -C "$PROD" -c core.fsmonitor=false status --short --untracked-files=no > "$RUN/prod-source-edits.txt" || true
@@ -147,6 +149,8 @@ npm run test --workspace @spff/edge-gateway
 # Never export real DATABASE_URL or connect to the production PostgreSQL.
 DATABASE_URL='postgresql://spff_test:invalid@127.0.0.1:1/spff_test' npm run test --workspace @spff/mqtt-worker
 STAGING_BUILD
+ node "$SRC/scripts/verify-api-runtime.mjs" api "$SRC/functions/lib"
+ node "$SRC/scripts/verify-api-runtime.mjs" contracts "$SRC/packages/contracts/dist"
  say "Prepare surgical merged runtime with original production files"
  mkdir -p "$RUN/new" "$RUN/old"
  cp -a "$PROD/packages/contracts/dist" "$RUN/new/contracts"
