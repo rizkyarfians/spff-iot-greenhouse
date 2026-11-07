@@ -288,14 +288,24 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
 
   async pendingCommands(limit: number): Promise<PendingControlCommand[]> {
     const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
-    const hstInstalled = (await this.pool.query(
-      "SELECT to_regclass('spff.hst_fertilization_starts') IS NOT NULL AS ready",
+    const installed = (await this.pool.query(
+      "SELECT to_regclass('spff.automatic_cycle_states') IS NOT NULL AS ready",
     )).rows[0]?.ready === true;
-    const hstCommand = hstInstalled && process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED === 'true' ? `EXISTS (
+    const automaticGate = installed && process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED === 'true';
+    const hstCommand = automaticGate ? `EXISTS (
       SELECT 1 FROM spff.hst_fertilization_starts h
+      JOIN spff.hst_fertilization_phases p ON p.phase_id=h.phase_id
+      JOIN spff.automatic_cycle_states cycle ON cycle.site_id=h.site_id AND cycle.device_id=h.device_id
       WHERE h.site_id=spff.control_commands.site_id AND h.device_id=spff.control_commands.device_id
-        AND h.status='queued'
+        AND h.status='queued' AND NOT p.fulfilled AND cycle.phase_id=p.phase_id AND cycle.mode='fertilization'
+        AND cycle.dispatch_enabled
         AND spff.control_commands.command_id IN (h.water_command_id,h.fertilizer_command_id)
+    )` : 'false';
+    const fuzzyCommand = automaticGate ? `EXISTS (
+      SELECT 1 FROM spff.fuzzy_water_runs r
+      JOIN spff.automatic_cycle_states cycle USING(site_id,device_id)
+      WHERE r.start_command_id=spff.control_commands.command_id AND r.status='queued'
+        AND cycle.mode='watering' AND cycle.dispatch_enabled
     )` : 'false';
     const result = await this.pool.query<{
       command_id: string;
@@ -331,8 +341,9 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
               AND mode_config.acknowledged_revision = mode_config.revision
               AND mode_config.applied_mode = mode_config.desired_mode
               AND (
-                (requested_by <> 'hst-fertilization' AND mode_config.desired_mode = 'manual')
+                (requested_by NOT IN ('hst-fertilization','hst-fuzzy-water') AND mode_config.desired_mode = 'manual')
                 OR (requested_by = 'hst-fertilization' AND mode_config.desired_mode = 'automatic' AND ${hstCommand})
+                OR (requested_by = 'hst-fuzzy-water' AND mode_config.desired_mode = 'automatic' AND ${fuzzyCommand})
               )
           )))
         ORDER BY issued_at ASC, created_at ASC

@@ -838,6 +838,11 @@ export function saveSensorEnabled(group: string, enabled: boolean) {
   )
 }
 
+export function fetchAutomaticCycleStatus(deviceId: string, signal: AbortSignal) {
+  return request<import('@spff/contracts').AutomaticCycleStatus>(
+    '/fertigation/automatic-cycle?deviceId=' + encodeURIComponent(deviceId), { signal })
+}
+
 export function fetchHstFertilizationStarts(deviceId: string, signal: AbortSignal) {
   return request<{
     start_id: string; device_id: string; hst: number; product: string; method: string;

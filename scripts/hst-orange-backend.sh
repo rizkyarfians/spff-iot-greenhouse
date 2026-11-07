@@ -30,6 +30,12 @@ gates(){
  chmod 644 "$APIGATE" "$WORKERGATE"
  systemctl daemon-reload
 }
+automatic_idle(){
+ if [[ "$(db "SELECT (to_regclass('spff.fuzzy_water_runs') IS NOT NULL)::text")" == true ]]; then
+  [[ "$(db "SELECT count(*) FROM spff.fuzzy_water_runs WHERE status<>'completed'")" == 0 ]] || fatal "automatic water run still active; stop it and wait for OFF before deployment"
+ fi
+ [[ "$(db "SELECT count(*) FROM spff.control_commands WHERE requested_by IN ('hst-fertilization','hst-fuzzy-water') AND status IN ('pending','published','accepted') AND expires_at>now()")" == 0 ]] || fatal "automatic pump command still in flight"
+}
 healthy(){
  systemctl is-active --quiet "$API" &&
  systemctl is-active --quiet "$WORKER" &&
@@ -66,7 +72,8 @@ finish(){
   if [[ "$SWAPPED" == 1 && "$SUCCESS" != 1 ]]; then
    say "ROLLBACK: restore old compiled runtime"
    systemctl stop "$API" "$WORKER" || true
-   for label in contracts api worker web; do
+   automatic_idle
+ for label in contracts api worker web; do
     case "$label" in
      contracts) live="$PROD/packages/contracts/dist";;
      api) live="$PROD/functions/lib";;
@@ -121,6 +128,7 @@ if [[ "$MODE" == deploy ]]; then
  for loc in "$PROD/packages/contracts/dist" "$PROD/functions/lib" "$PROD/mqtt-worker/dist" "$PROD/frontend/dist"; do
   [[ -d "$loc" && ! -L "$loc" ]] || fatal "unexpected runtime directory: $loc"
  done
+ automatic_idle
  say "Build and test staged source as its non-root owner; production remains live"
  STAGING_USER="$(stat -c '%U' "$SRC")"
  [[ "$STAGING_USER" != root && "$STAGING_USER" != UNKNOWN ]] || fatal "staging must be owned by a non-root user"
@@ -144,7 +152,7 @@ STAGING_BUILD
  cp -a "$PROD/packages/contracts/dist" "$RUN/new/contracts"
  cp -a "$PROD/functions/lib" "$RUN/new/api"
  cp -a "$PROD/mqtt-worker/dist" "$RUN/new/worker"
- for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume hstDosePulse; do
+ for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume hstDosePulse automaticCycle; do
   install -m644 "$SRC/packages/contracts/dist/$module.js" "$RUN/new/contracts/$module.js"
  done
  for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController controllers/dashboardController middleware/advisoryAi services/soilEcPulseService services/postgresRepository services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
@@ -157,6 +165,10 @@ STAGING_BUILD
  install -m644 "$SRC/mqtt-worker/dist/hstFertilizationSchedule.js" "$RUN/new/worker/hstFertilizationSchedule.js"
  install -m644 "$SRC/mqtt-worker/dist/repository.js" "$RUN/new/worker/repository.js"
  install -m644 "$SRC/mqtt-worker/dist/index.js" "$RUN/new/worker/index.js"
+ for module in automaticCycle automaticFuzzyWater fertilizerDelivery; do
+  install -m644 "$SRC/mqtt-worker/dist/$module.js" "$RUN/new/worker/$module.js"
+ done
+ grep -q "automaticCycle.js" "$RUN/new/contracts/index.js" || printf "\nexport * from './automaticCycle.js';\n" >> "$RUN/new/contracts/index.js"
  [[ -f "$RUN/new/contracts/index.js" ]] || fatal "contracts barrel missing"
  grep -q "aiHst.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing aiHst export"
  grep -q "adaptiveFertigation.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing adaptive export"
@@ -234,6 +246,9 @@ hst_status_route="apiRouter.get('/fertigation/hst-starts', guideHstStartStatus);
 if not re.search(r"""apiRouter\.get\(\s*['"]/fertigation/hst-starts['"]""",live):
     live="import { getHstFertilizationStarts as guideHstStartStatus } from '../controllers/dashboardController.js';\n"+live
     routes.append(hst_status_route)
+if not re.search(r"""apiRouter\.get\(\s*['"]/fertigation/automatic-cycle['"]""",live):
+    live="import { getAutomaticCycleStatus as guideAutomaticCycle } from '../controllers/dashboardController.js';\n"+live
+    routes.append("apiRouter.get('/fertigation/automatic-cycle', guideAutomaticCycle);")
 anchor="apiRouter.get('/unified-ai/hst/proposals'"
 pos=live.find("apiRouter.get(\n  '/bootstrap'")
 if pos<0: pos=live.find("apiRouter.get('/bootstrap'")
@@ -297,6 +312,11 @@ if not status_fn: raise SystemExit('STOP: HST status API source missing')
 api=local_path.read_text()
 if 'export function fetchHstFertilizationStarts(' not in api:
  local_path.write_text(status_fn[0]+'\n\n'+api)
+cycle_fn=re.search(r'^export function fetchAutomaticCycleStatus\(.*?^}',stage,re.M|re.S)
+if not cycle_fn: raise SystemExit('STOP: automatic cycle API source missing')
+api=local_path.read_text()
+if 'export function fetchAutomaticCycleStatus(' not in api:
+ local_path.write_text(cycle_fn[0]+'\n\n'+api)
 if 'HstApprovalPanel' not in guide:
  i="import './GuidePage.css'"
  c="    <AutomationMethodNote/>"
@@ -378,6 +398,7 @@ SUMMARY_CHECK
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/043_sensor_display_groups.sql"
  say "Migration 044: HST fertilization start tracking"
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/044_hst_fertilization_starts.sql"
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/045_automatic_fertilization_phases.sql"
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"
@@ -420,7 +441,7 @@ SUMMARY_CHECK
 fi
 if [[ "$MODE" == enable-hst-schedule ]]; then
  healthy || fatal "production unhealthy"
- [[ "$(db "SELECT (to_regclass('spff.hst_fertilization_starts') IS NOT NULL)::text")" == true ]] || fatal "deploy migration 044 first"
+ [[ "$(db "SELECT (to_regclass('spff.hst_fertilization_phases') IS NOT NULL AND to_regclass('spff.fuzzy_water_runs') IS NOT NULL)::text")" == true ]] || fatal "deploy migration 045 first"
  [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain session"
  gates false false false true
  if ! systemctl restart "$API" "$WORKER" || ! wait_healthy; then
@@ -429,7 +450,7 @@ if [[ "$MODE" == enable-hst-schedule ]]; then
   fatal "HST schedule enable failed; dispatch disabled"
  fi
  assert_runtime_gate "$WORKER" SPFF_HST_SCHEDULE_DISPATCH_ENABLED true
- echo 'HST_SCHEDULE=ENABLED; matching Phonska/Tabur/HST can send both pump ON commands immediately'
+ echo 'AUTOMATIC_CYCLE=ENABLED; due fertilizer phase can start both pumps; outside phase production Fuzzy controls water'
  exit 0
 fi
 if [[ "$MODE" == disable ]]; then

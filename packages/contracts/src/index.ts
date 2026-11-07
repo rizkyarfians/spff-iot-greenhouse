@@ -1035,3 +1035,5 @@ export * from './aiHst.js';
 export * from './unifiedAiDashboard.js';
 export * from './doseVolume.js';
 export * from './hstDosePulse.js';
+
+export * from './automaticCycle.js';

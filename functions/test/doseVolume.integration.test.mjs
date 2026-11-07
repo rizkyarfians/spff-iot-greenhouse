@@ -111,6 +111,10 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
           ('greenhouse-01','esp32-s3-01','pump_fert','Fertilizer')`);
    await tickHstFertilization({query},false);
    assert.equal((await query('SELECT 1 FROM spff.control_commands')).rows.length,0);
+   await db.exec(`UPDATE spff.device_status_events SET mode='automatic';
+    UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',applied_mode='automatic',
+    water_enabled=true,water_moisture_low_pct=10,water_moisture_target_pct=30,
+    water_max_runtime_seconds=120,water_cooldown_seconds=60,water_min_flow_lpm=5`);
    for(let i=0;i<2;i++){
     await db.exec('BEGIN');
     await tickHstFertilization({query},true);
@@ -123,6 +127,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.equal((await query('SELECT status FROM spff.hst_fertilization_starts')).rows[0].status,'queued');
    const {PostgresIngestionRepository}=await import('../../mqtt-worker/dist/repository.js');
    const dispatchRepository=new PostgresIngestionRepository(database);
+   await db.exec("UPDATE spff.device_automatic_control_configs SET desired_mode='manual',applied_mode='manual'");
    assert.equal((await dispatchRepository.pendingCommands(20)).length,0,'HST ON is not dispatched in Manual');
    await db.exec(`UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',applied_mode='automatic',
     water_enabled=true,water_moisture_low_pct=10,water_moisture_target_pct=30,
@@ -138,6 +143,81 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    }
    await tickHstFertilization({query},false);
    assert.equal((await query('SELECT status FROM spff.hst_fertilization_starts')).rows[0].status,'started');
+  });
+  await t.test('phase formula gates completion, prevents repeated fertilizer ON and returns water to Fuzzy',async()=>{
+   await fixture();
+   const {tickAutomaticCycles}=await import('../../mqtt-worker/dist/automaticCycle.js');
+   const plan={activities:[{...activity,title:'Pemupukan ke-2',method:'Tabur',
+    requirements:[{...activity.requirements[0],product:'Phonska',amount:0.4,unit:'kg'}]}]};
+   await query('UPDATE spff.guide_programs SET plan=$1',[JSON.stringify(plan)]);
+   await db.exec(`INSERT INTO spff.actuators(site_id,device_id,actuator_key,display_name)
+    VALUES('greenhouse-01','esp32-s3-01','pump_water','Water'),('greenhouse-01','esp32-s3-01','pump_fert','Fertilizer');
+    UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',applied_mode='automatic',
+     water_enabled=true,water_moisture_low_pct=10,water_moisture_target_pct=30,water_max_runtime_seconds=120,
+     water_cooldown_seconds=60,water_min_flow_lpm=5;
+    UPDATE spff.device_status_events SET mode='automatic',raw_payload=raw_payload||
+     '{"waterInterlockEnabled":true,"aiAccTankGuardHealthy":true}'::jsonb;
+    UPDATE spff.telemetry_samples SET flow_water_total_l=0,sensor_health=sensor_health||
+     '{"flow_water_total_l":{"valid":true}}'::jsonb`);
+   const at=new Date(),decision={site:'greenhouse-01',device:'esp32-s3-01',recordedAt:new Date(now),
+    expiresAt:new Date(at.getTime()+60000),needed:true,targetL:50};
+   async function tick(formula=()=>null){
+    await db.exec('BEGIN');try{await tickAutomaticCycles({query},true,at,decision,formula);await db.exec('COMMIT');}
+    catch(error){await db.exec('ROLLBACK');throw error;}
+   }
+   await tick();await tick();
+   assert.equal((await query('SELECT * FROM spff.control_commands')).rows.length,2);
+   assert.equal((await query('SELECT * FROM spff.fuzzy_water_runs')).rows.length,0,'Fuzzy held during HST');
+   let status=await repo.repository.automaticCycleStatus('esp32-s3-01');
+   assert.equal(status.mode,'fertilization');assert.equal(status.phase.targetG,400);
+   assert.equal(status.phase.remainingG,null,'no invented conversion before formula');
+   await tick(()=>100);
+   status=await repo.repository.automaticCycleStatus('esp32-s3-01');
+   assert.equal(status.phase.remainingG,300);
+   await tick(()=>50);
+   assert.equal((await repo.repository.automaticCycleStatus('esp32-s3-01')).phase.deliveredG,100,'formula rollback cannot reduce progress');
+   await query(`UPDATE spff.device_status_events SET raw_payload=raw_payload||'{"pumpWaterActualActive":true,"pumpFertActualActive":true}'::jsonb`);
+   await tick(()=>400);
+   status=await repo.repository.automaticCycleStatus('esp32-s3-01');
+   assert.equal(status.mode,'waiting_off');assert.equal(status.phase.fulfilled,true);assert.equal(status.phase.remainingG,0);
+   assert.equal((await query("SELECT 1 FROM spff.control_commands WHERE status='pending' AND requested_is_active")).rows.length,0);
+   await db.exec(`UPDATE spff.control_commands SET issued_at=now()-interval '2 seconds',expires_at=now()-interval '1 second';
+    UPDATE spff.device_status_events SET recorded_at=now(),raw_payload=raw_payload||
+     '{"pumpWaterActualActive":false,"pumpFertActualActive":false}'::jsonb`);
+   await tick(()=>400);
+   status=await repo.repository.automaticCycleStatus('esp32-s3-01');
+   assert.equal(status.mode,'watering');
+   const runs=(await query('SELECT * FROM spff.fuzzy_water_runs')).rows;
+   assert.equal(runs.length,1,'only water gets a new Fuzzy run');
+   const on=(await query("SELECT actuator_key,requested_by FROM spff.control_commands WHERE status='pending' AND requested_is_active")).rows;
+   assert.deepEqual(on,[{actuator_key:'pump_water',requested_by:'hst-fuzzy-water'}]);
+   const {PostgresIngestionRepository}=await import('../../mqtt-worker/dist/repository.js');
+   const outbox=new PostgresIngestionRepository(database);
+   process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED='true';
+   try{
+    assert.equal((await outbox.pendingCommands(20)).length,1);
+    await db.exec("UPDATE spff.automatic_cycle_states SET mode='fertilization'");
+    assert.equal((await outbox.pendingCommands(20)).length,0,'queued Fuzzy ON cannot cross a fertilizer boundary');
+    await db.exec("UPDATE spff.automatic_cycle_states SET mode='watering'");
+   }finally{delete process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED;}
+
+   await tick(()=>400);
+   assert.equal((await query('SELECT 1 FROM spff.hst_fertilization_starts')).rows.length,1,'fulfilled phase is never started again');
+   await db.exec(`UPDATE spff.control_commands SET status='completed' WHERE requested_by='hst-fuzzy-water';
+    UPDATE spff.fuzzy_water_runs SET status='running';
+    UPDATE spff.device_status_events SET raw_payload=raw_payload||'{"pumpWaterActualActive":true}'::jsonb;
+    UPDATE spff.telemetry_samples SET flow_water_total_l=50`);
+   await tick(()=>400);
+   assert.equal((await query('SELECT status FROM spff.fuzzy_water_runs')).rows[0].status,'stopping');
+   assert.equal((await query("SELECT 1 FROM spff.control_commands WHERE requested_by='hst-fuzzy-water-stop' AND NOT requested_is_active")).rows.length,1);
+   plan.activities.push({...plan.activities[0],id:'next-phase',title:'Pemupukan ke-3'});
+   await query('UPDATE spff.guide_programs SET plan=$1',[JSON.stringify(plan)]);
+   await db.exec("UPDATE spff.fuzzy_water_runs SET status='running',reason=NULL,target_l=100");
+   await tick();
+   assert.equal((await repo.repository.automaticCycleStatus('esp32-s3-01')).mode,'fertilization');
+   assert.equal((await query('SELECT reason FROM spff.fuzzy_water_runs')).rows[0].reason,'fertilization_priority');
+   assert.equal((await query('SELECT 1 FROM spff.hst_fertilization_starts')).rows.length,1,'next fertilizer phase waits for Fuzzy water OFF');
+
   });
   await t.test('water-first terminal report records OFF and per-pump durations without crediting dose',async()=>{
    await fixture();

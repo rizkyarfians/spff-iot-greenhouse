@@ -263,6 +263,25 @@ async function setSensorGroupEnabled(group: string, enabled: boolean) {
   return Number(result.rows[0]?.updated ?? 0);
 }
 
+async function automaticCycleStatus(deviceId: string): Promise<import('@spff/contracts').AutomaticCycleStatus> {
+  const empty: import('@spff/contracts').AutomaticCycleStatus = { deviceId,mode:'unavailable',reason:'cycle_not_evaluated',
+    dispatchEnabled:false,updatedAt:null,phase:null,nextHst:null,waterStatus:null };
+  if (!(await pool.query("SELECT to_regclass('spff.automatic_cycle_states') IS NOT NULL AS ready")).rows[0]?.ready) return empty;
+  const row=(await pool.query(`SELECT c.*,p.phase_number,p.title,p.hst,p.product,p.method,p.target_g,p.delivered_g,
+    p.formula_status,p.fulfilled,p.activity_id,
+    (SELECT status FROM spff.fuzzy_water_runs r WHERE r.site_id=c.site_id AND r.device_id=c.device_id
+      ORDER BY created_at DESC LIMIT 1) AS water_status
+    FROM spff.automatic_cycle_states c LEFT JOIN spff.hst_fertilization_phases p USING(phase_id)
+    WHERE c.site_id=$1 AND c.device_id=$2`,[siteId,deviceId])).rows[0];
+  if (!row) return empty;
+  return {deviceId,mode:row.mode,reason:row.reason,dispatchEnabled:row.dispatch_enabled,updatedAt:row.updated_at.toISOString(),
+    nextHst:row.next_hst,waterStatus:row.water_status,
+    phase:row.phase_id?{activityId:row.activity_id,phaseNumber:row.phase_number,title:row.title,hst:row.hst,
+      product:row.product,method:row.method,targetG:row.target_g,deliveredG:row.delivered_g,
+      remainingG:row.target_g!==null&&row.delivered_g!==null?Math.max(0,row.target_g-row.delivered_g):null,
+      formulaStatus:row.formula_status,fulfilled:row.fulfilled}:null};
+}
+
 async function hstFertilizationStarts(deviceId: string) {
   const installed = (await pool.query("SELECT to_regclass('spff.hst_fertilization_starts') IS NOT NULL AS ready")).rows[0]?.ready;
   if (!installed) return [];
@@ -1828,4 +1847,5 @@ export const repository = {
   updateAutomaticControl,
   setSensorGroupEnabled,
   hstFertilizationStarts,
+  automaticCycleStatus,
 };

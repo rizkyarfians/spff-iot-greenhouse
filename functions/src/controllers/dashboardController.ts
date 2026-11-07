@@ -517,6 +517,14 @@ export const getSettings = run(async (_req, res) => {
   return ok(res, await repository.settings(), 'Pengaturan site berhasil dimuat.');
 });
 
+export const getAutomaticCycleStatus = run(async (req, res) => {
+  const deviceId=req.query.deviceId;
+  if(typeof deviceId!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(deviceId))
+    return res.status(400).json({success:false,message:'Pilih perangkat yang valid.'});
+  res.set('Cache-Control','no-store');
+  return ok(res,await repository.automaticCycleStatus(deviceId),'Status fase pemupukan dan penyiraman.');
+});
+
 export const getHstFertilizationStarts = run(async (req, res) => {
   const deviceId = req.query.deviceId;
   if (typeof deviceId !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(deviceId)) {

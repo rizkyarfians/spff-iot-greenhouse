@@ -70,6 +70,7 @@ import {
   updateSettings,
   updateSensorEnabled,
   getHstFertilizationStarts,
+  getAutomaticCycleStatus,
 } from '../controllers/dashboardController.js';
 import {
   registerController,
@@ -249,6 +250,7 @@ apiRouter.get('/settings/water-interlock', getWaterInterlock);
 apiRouter.put('/settings/water-interlock', requireAdmin, requireCsrf, putWaterInterlock);
 apiRouter.put('/settings/sensors/:sensorKey', requireAdmin, requireCsrf, updateSensorEnabled);
 apiRouter.get('/fertigation/hst-starts', getHstFertilizationStarts);
+apiRouter.get('/fertigation/automatic-cycle', getAutomaticCycleStatus);
 apiRouter.post('/adaptive-fertigation/sessions/:id/reconcile',requireAdmin,requireCsrf,adaptiveReconcile);
 apiRouter.get('/adaptive-fertigation/sessions/:id',adaptiveSession);
 apiRouter.post('/adaptive-fertigation/preview',requireOperator,requireCsrf,adaptivePreview);
