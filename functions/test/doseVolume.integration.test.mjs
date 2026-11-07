@@ -118,6 +118,9 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
   });
   await t.test('water-first review uses live tank data without Fuzzy and cannot enqueue START',async()=>{
    await fixture();
+   const previous=await approve(await makePlan());
+   await query("UPDATE spff.adaptive_fert_sessions SET status='fault' WHERE session_id=$1",[previous.session_id]);
+   await assert.rejects(makePlan(),/belum direkonsiliasi/);
    summary.production_fuzzy.irrigation_needed=false;
    const plan=await service.createDoseVolumePlan({mode:'fertigation',execution:'water_first',
     obligationId,requestId:randomUUID()},'operator');
@@ -127,6 +130,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    await assert.rejects(approve(plan),/hanya untuk peninjauan/);
    assert.equal((await query('SELECT 1 FROM spff.control_commands')).rows.length,0);
    assert.equal((await query('SELECT 1 FROM spff.hst_dose_pulse_commands')).rows.length,0);
+   assert.equal((await service.readDoseVolumeSession(previous.session_id)).evidence_verified,false);
   });
   await t.test('HST ACC publishes one combined pulse and credits only the confirmed meter delta',async()=>{
    await fixture();

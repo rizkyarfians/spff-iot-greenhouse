@@ -77,6 +77,7 @@ type PlanSnapshot={
 };
 
 async function current(input:DoseVolumePlanRequest,database:Database=pool):Promise<PlanSnapshot>{
+ const waterFirst=input.mode==='fertigation'&&input.execution==='water_first';
  let obligation:AiHstProposal|null=null;
  if(input.mode==='fertigation'){
   const proposals=aiHstProposalsSchema.parse(await ai('/hst/proposals')).proposals;
@@ -106,18 +107,16 @@ async function current(input:DoseVolumePlanRequest,database:Database=pool):Promi
  if(obligation&&Math.abs(target-(obligation.target_g??-1))>0.01)return fail('Target Panduan berubah; periksa ulang kewajiban HST.');
  const today=guideProgramHst(cfg.data.plantingDate);
  if(obligation&&(activity.hst===null||activity.hst>today))return fail('Kegiatan HST belum jatuh tempo.');
- const previous=(await database.query(`SELECT 1 FROM spff.dose_volume_bindings b
+ if(!waterFirst&&(await database.query(`SELECT 1 FROM spff.dose_volume_bindings b
   JOIN spff.adaptive_fert_sessions s USING(site_id,session_id)
   WHERE b.site_id=$1 AND b.program_id=$2 AND b.activity_id=$3
   AND (s.status='reconciliation_required' OR (s.status IN ('completed','fault') AND NOT b.evidence_verified)) LIMIT 1`,
-  [siteId,programId,activityId])).rows;
- if(previous.length)return fail('Hasil sesi volume sebelumnya belum direkonsiliasi.');
+  [siteId,programId,activityId])).rows.length)return fail('Hasil sesi volume sebelumnya belum direkonsiliasi.');
  if((await database.query(`SELECT 1 FROM spff.guide_program_completions
   WHERE site_id=$1 AND program_id=$2 AND activity_id=$3 LIMIT 1`,[siteId,programId,activityId])).rows.length)
   return fail('Kegiatan sudah ditandai selesai manual; periksa dosis sebelum membuat sesi baru.');
  const source=unifiedAiDashboardSchema.parse(await ai('/dashboard/summary'));
  const fuzzy=source.production_fuzzy;
- const waterFirst=input.mode==='fertigation'&&input.execution==='water_first';
  if(waterFirst){
   const sample=(await database.query(`SELECT * FROM spff.telemetry_samples
    WHERE site_id=$1 AND device_id=$2 AND recorded_at=$3 ORDER BY telemetry_id DESC LIMIT 1`,
