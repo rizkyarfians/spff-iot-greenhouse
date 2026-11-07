@@ -14,7 +14,7 @@ flock -n 9 || { echo "STOP: SPFF deployment lock occupied"; exit 1; }
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 store=/mnt/spff-data/backups
 live=/opt/spff/frontend/dist
-[[ -d "$live/assets" && -f "$live/index.html" && ! -L "$live" ]] ||
+[[ -d "$live/assets" && ! -L "$live" ]] ||
  { echo "STOP: active frontend layout unexpected"; exit 1; }
 
 latest=''
@@ -139,8 +139,7 @@ console.log('FRONTEND_MANIFEST=PASS; files='+files.size);
 VERIFY
 
 chmod -R a+rX "$repair/dist"
-cp -a "$live/index.html" "$repair/index-before.html"
 # Keep old tabs' assets; restore conflicting bytes from the verified build with backups.
 node "$repo/scripts/publish-orange-frontend.mjs" "$repair/dist" "$live" "$repair"
 
-echo "FRONTEND_REPAIR=SUCCESS; BACKUP=$repair/index-before.html"
+echo "FRONTEND_REPAIR=SUCCESS; BACKUP=$repair"

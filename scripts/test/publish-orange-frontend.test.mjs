@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,symlinkSync,lstatSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,join,resolve,sep} from 'node:path';
 import {publishFrontendBuild} from '../publish-orange-frontend.mjs';
@@ -47,4 +47,25 @@ test('HTML without a module and paths outside the build are refused',t=>{
   writeFileSync(join(build,'index.html'),'<script type="module" src="/assets/new.js"></script>');
   writeFileSync(join(build,'.vite','manifest.json'),JSON.stringify({'index.html':{isEntry:true,file:'assets/new.js',assets:['../escape.png']}}));
   assert.throws(()=>publishFrontendBuild(build,live,backup),/escapes build root/);
+});
+
+for(const kind of ['empty','missing'])test('a '+kind+' live HTML entry can be recovered',t=>{
+  const {build,live,backup}=fixture(t);
+  if(kind==='empty')writeFileSync(join(live,'index.html'),'');
+  else rmSync(join(live,'index.html'));
+  const result=publishFrontendBuild(build,live,backup);
+  assert.equal(result.previousEntry,kind);
+  assert.equal(readFileSync(join(live,'index.html'),'utf8'),readFileSync(join(build,'index.html'),'utf8'));
+  assert.equal(JSON.parse(readFileSync(join(backup,'index-before-state.json'),'utf8')).kind,kind);
+  if(kind==='empty')assert.equal(readFileSync(join(backup,'index-before.html')).length,0);
+});
+
+test('HTML symlink is backed up and replaced without changing its target',t=>{
+  const {build,live,backup}=fixture(t),target=join(live,'old-entry.html');
+  writeFileSync(target,'original linked html');rmSync(join(live,'index.html'));
+  try{symlinkSync(target,join(live,'index.html'));}catch(error){if(error.code==='EPERM'){t.skip('Host disallows symlinks');return;}throw error;}
+  const result=publishFrontendBuild(build,live,backup);
+  assert.equal(result.previousEntry,'symlink');assert.equal(lstatSync(join(live,'index.html')).isSymbolicLink(),false);
+  assert.equal(readFileSync(target,'utf8'),'original linked html');
+  assert.equal(readFileSync(join(backup,'index-before.html'),'utf8'),'original linked html');
 });

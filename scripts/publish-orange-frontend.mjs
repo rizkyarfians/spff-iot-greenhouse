@@ -1,4 +1,4 @@
-import {constants,copyFileSync,existsSync,lstatSync,mkdirSync,readFileSync,readdirSync,realpathSync,renameSync,rmSync,chmodSync} from 'node:fs';
+import {constants,copyFileSync,existsSync,lstatSync,mkdirSync,readFileSync,readdirSync,readlinkSync,realpathSync,renameSync,rmSync,chmodSync,statSync,writeFileSync} from 'node:fs';
 import {dirname,isAbsolute,join,relative,resolve,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
@@ -62,9 +62,23 @@ export function publishFrontendBuild(buildPath,livePath,backupPath) {
   mkdirSync(backupResolved,{recursive:true,mode:0o700});
   const backup=realpathSync(backupResolved);
   if(backup===live||backup.startsWith(live+sep))throw Error('Backup resolves inside the live frontend');
-  regular(join(live,'index.html'));
+  const liveIndex=join(live,'index.html');
+  let previous={kind:'missing'};
+  try {
+    const info=lstatSync(liveIndex);
+    if(info.isSymbolicLink())previous={kind:'symlink',target:readlinkSync(liveIndex)};
+    else if(info.isFile())previous={kind:info.size===0?'empty':'file',size:info.size};
+    else throw Error('Unexpected live HTML entry: '+liveIndex);
+  }catch(error){if(error.code!=='ENOENT')throw error;}
+  const stateBackup=join(backup,'index-before-state.json');
+  if(!existsSync(stateBackup))writeFileSync(stateBackup,JSON.stringify(previous,null,2),{flag:'wx',mode:0o600});
   const indexBackup=join(backup,'index-before.html');
-  if(!existsSync(indexBackup))copyFileSync(join(live,'index.html'),indexBackup,constants.COPYFILE_EXCL);
+  // The old entry may be exactly what is broken. Its contents are not a prerequisite
+  // for restoring the staged, independently verified module entry.
+  let savedIndexExists=false;
+  try{lstatSync(indexBackup);savedIndexExists=true;}catch(error){if(error.code!=='ENOENT')throw error;}
+  if(!savedIndexExists&&existsSync(liveIndex)&&statSync(liveIndex).isFile())
+    copyFileSync(liveIndex,indexBackup,constants.COPYFILE_EXCL);
   let replaced=0,added=0;
   for(const name of files) {
     const source=inside(build,name),target=inside(live,name);
@@ -83,7 +97,7 @@ export function publishFrontendBuild(buildPath,livePath,backupPath) {
   for(const name of files)if(!readFileSync(inside(build,name)).equals(readFileSync(inside(live,name))))throw Error('Asset verification failed: '+name);
   atomicCopy(join(build,'index.html'),join(live,'index.html'));
   if(!readFileSync(join(build,'index.html')).equals(readFileSync(join(live,'index.html'))))throw Error('HTML verification failed');
-  return {files:files.length,replaced,added,backup};
+  return {files:files.length,replaced,added,previousEntry:previous.kind,backup};
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
