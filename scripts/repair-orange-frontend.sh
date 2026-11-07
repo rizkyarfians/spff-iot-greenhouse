@@ -11,6 +11,7 @@ else
 fi
 flock -n 9 || { echo "STOP: SPFF deployment lock occupied"; exit 1; }
 
+repo="$(cd "$(dirname "$0")/.." && pwd)"
 store=/mnt/spff-data/backups
 live=/opt/spff/frontend/dist
 [[ -d "$live/assets" && -f "$live/index.html" && ! -L "$live" ]] ||
@@ -37,10 +38,9 @@ stamp="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 repair="$store/frontend-repair-$stamp"
 mkdir -m 700 "$repair"
 config="$frontend/.repair-vite-$stamp.mjs"
-temp_entry="$live/.index-$stamp"
 cleanup(){
  local result=$?
- rm -f -- "$config" "$temp_entry"
+ rm -f -- "$config"
  if (( result != 0 )) && [[ -f "$repair/App-before.tsx" ]]; then
   cp -a "$repair/App-before.tsx" "$frontend/src/App.tsx"
  fi
@@ -140,12 +140,7 @@ VERIFY
 
 chmod -R a+rX "$repair/dist"
 cp -a "$live/index.html" "$repair/index-before.html"
-# Publish dependencies before the entry. Old browser tabs keep access to their existing assets.
-cp -an "$repair/dist/assets/." "$live/assets/"
-while IFS= read -r -d '' file; do
- cmp -s "$file" "$live/assets/${file#"$repair/dist/assets/"}" ||
-  { echo "STOP: asset verification failed for $file"; exit 1; }
-done < <(find "$repair/dist/assets" -type f -print0)
-install -m644 "$repair/dist/index.html" "$temp_entry"
-mv -fT "$temp_entry" "$live/index.html"
+# Keep old tabs' assets; restore conflicting bytes from the verified build with backups.
+node "$repo/scripts/publish-orange-frontend.mjs" "$repair/dist" "$live" "$repair"
+
 echo "FRONTEND_REPAIR=SUCCESS; BACKUP=$repair/index-before.html"
