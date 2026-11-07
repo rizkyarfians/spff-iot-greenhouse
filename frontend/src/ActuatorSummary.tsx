@@ -5,13 +5,14 @@ import { Droplets, FlaskConical } from 'lucide-react'
 import { updateActuator } from './api'
 import './ActuatorSummary.css'
 
-export function ActuatorSummary({ actuators, devices, connected, automatic, configuration, onUpdated }: {
+export function ActuatorSummary({ actuators, devices, connected, automatic, configuration, onUpdated, onOpenControls }: {
   actuators: ApiActuator[]
   devices: ApiDevice[]
   connected: boolean
   automatic: boolean
   configuration: ApiAutomaticControl | null
   onUpdated: (actuator: ApiActuator) => void
+  onOpenControls: () => void
 }) {
   const inFlight = useRef(new Set<string>())
   const [sending, setSending] = useState<string[]>([])
@@ -52,12 +53,11 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, conf
           const modeRejected = config && config.acknowledgedRevision === config.revision
             && config.acknowledgementStatus === 'rejected'
           const pending = sending.includes(id) || ['pending', 'published', 'accepted'].includes(pump.commandStatus ?? '')
-          const label = !pump ? 'Belum ada data'
-            : !available ? 'Koneksi terputus'
+          const label = !available ? 'Koneksi terputus'
             : pump.state === 'fault' ? 'Bermasalah'
             : pump.state === 'offline' ? 'Belum ada laporan'
             : pending || pump.state === 'processing' ? 'Menunggu konfirmasi'
-            : pump.isActive ? 'Menyala' : 'Mati'
+            : null
           const tone = available && pump && !pending && pump.state !== 'processing'
             ? pump.state === 'fault' ? 'fault'
               : pump.state === 'active' ? 'on' : 'neutral'
@@ -75,17 +75,22 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, conf
                 {pending && <small>Menunggu konfirmasi alat</small>}
                 {failed && <small>Perintah terakhir gagal</small>}
               </span>
-                <span className={`actuator-summary-status is-${tone}`}>{label}</span>
+              {label&&<span className={`actuator-summary-status is-${tone}`}>{label}</span>}
               <ToggleButtons type="button" role="switch" aria-checked={pump.isActive}
                 className={`actuator-summary-switch${pump.isActive ? ' is-on' : ''}`}
                 aria-label={`${pump.isActive ? 'Matikan' : 'Nyalakan'} ${pump.name}`}
-                disabled={!available || pending || pump.state === 'processing'
-                  || (!pump.isActive && (automatic || pump.state === 'offline' || pump.state === 'fault'))}
+                disabled={!available || pending || pump.state === 'processing'}
+                disabledOn={automatic || pump.state === 'offline' || pump.state === 'fault'}
+                title={automatic?'ON manual tersedia setelah mode Manual diterapkan.':undefined}
                 onClick={() => void toggle(pump)}><span /></ToggleButtons>
             </div>
           )
         })}
       </div>
+      {automatic&&actuators.length>0&&<div className="actuator-summary-mode-hint">
+        <span>Mode Otomatis mengatur pompa. Untuk menyalakan langsung, ubah ke Manual di Kontrol Perangkat.</span>
+        <button type="button" className="secondary-button" onClick={onOpenControls}>Buka kontrol manual</button>
+      </div>}
       <div className="actuator-summary-note" role="status" aria-live="polite">{notice}</div>
     </section>
   )

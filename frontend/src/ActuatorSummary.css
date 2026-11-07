@@ -45,6 +45,9 @@
 .actuator-summary-switch:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
 .actuator-summary-note { font-size: var(--font-size-label); color: #536560; margin: 10px 0 0; }
 .actuator-summary-note:empty { display: none; }
+.actuator-summary-mode-hint { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.6; }
+.actuator-summary-mode-hint button { flex-shrink:0; min-height:36px; padding:7px 12px; font-size:12px; }
+@media(max-width:640px) { .actuator-summary-mode-hint { align-items:flex-start; flex-direction:column; gap:10px; } }
 .actuator-summary-item > svg { flex-shrink: 0; color: #00876b; }
 .actuator-summary-copy { flex: 1; min-width: 0; }
 .actuator-summary-name { font-weight: 700; }
