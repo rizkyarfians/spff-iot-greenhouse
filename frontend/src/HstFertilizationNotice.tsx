@@ -5,8 +5,8 @@ import { fetchHstFertilizationStarts, fetchAutomaticCycleStatus } from './api'
 import './HstFertilizationNotice.css'
 
 const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 })
-function Quantity({ value }: { value: number | null }) {
-  return <strong className="hfp-value">{value === null ? '—' : number.format(value)}{value !== null && <span>g</span>}</strong>
+function Quantity({ value, unit = 'g' }: { value: number | null; unit?: string }) {
+  return <strong className="hfp-value">{value === null ? '—' : number.format(value)}{value !== null && <span>{unit}</span>}</strong>
 }
 
 export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
@@ -33,9 +33,9 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
     </header>
     {phase ? <>
       <div className="hfp-metrics">
-        <div className="hfp-metric"><span>Target fase</span><Quantity value={phase.targetG} /></div>
-        <div className="hfp-metric"><span>{phase.estimated ? 'Tercatat · estimasi EC' : 'Tercatat diberikan'}</span><Quantity value={recorded} /></div>
-        <div className="hfp-metric hfp-metric--remaining"><span>Sisa target tercatat</span><Quantity value={remaining} /></div>
+        <div className="hfp-metric"><span>Dosis per tanaman</span><Quantity value={phase.targetGPerPlant ?? null} unit="g/tanaman" /></div>
+        <div className="hfp-metric"><span>{phase.estimated ? 'Total tercatat · estimasi EC' : 'Total tercatat diberikan'}</span><Quantity value={recorded} /></div>
+        <div className="hfp-metric hfp-metric--remaining"><span>Sisa total fase</span><Quantity value={remaining} /></div>
       </div>
       <div className="hfp-progress-heading"><span>Progres pemupukan</span><strong>{percent === null ? '—' : number.format(percent) + '%'}</strong></div>
       <progress className="hfp-progress" value={percent ?? 0} max={100} aria-label="Progres pemupukan berdasarkan gram tercatat" />

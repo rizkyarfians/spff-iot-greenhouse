@@ -297,6 +297,7 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
         row.current_coefficient!==row.profile_snapshot.coefficient?'calibration_changed':row.current_validated!==true?'estimate_only':
         row.unmeasured_intervals>0?'unmeasured_intervals':row.estimate_reason,
       unmeasuredIntervals:row.unmeasured_intervals??0,
+      targetGPerPlant:row.target_g!==null&&Number(row.plant_count)>0?row.target_g/Number(row.plant_count):null,
       gPerPlant:row.delivered_g!==null&&Number(row.plant_count)>0?row.delivered_g/Number(row.plant_count):null,
       coefficient:row.profile_snapshot?.coefficient??null,baselineEcUs:row.baseline_ec??null,
       completionEligible:row.current_validated===true&&row.current_coefficient===row.profile_snapshot?.coefficient,history}:null};
