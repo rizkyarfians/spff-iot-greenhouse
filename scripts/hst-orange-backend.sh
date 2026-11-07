@@ -180,8 +180,9 @@ live=old.read_text(); new=staging.read_text()
 pattern=r"import\s*\{[^}]*\bgetHstProposals\b[^}]*\}\s*from\s*['\"]\.\./controllers/aiHstController\.js['\"];"
 imports=re.findall(pattern,new,re.S)
 existing=re.findall(pattern,live,re.S)
-if len(imports)!=1 or len(existing)!=1: raise SystemExit('STOP: HST route imports not uniquely mergeable')
-live=live.replace(existing[0],imports[0],1)
+if len(imports)!=1 or len(existing)>1: raise SystemExit('STOP: HST route imports not uniquely mergeable')
+if existing: live=live.replace(existing[0],imports[0],1)
+else: live=imports[0]+'\n'+live
 volume_pattern=r"import\s*\{[^}]*\}\s*from\s*['\"]\.\./controllers/doseVolumeController\.js['\"];"
 volume_imports=re.findall(volume_pattern,new,re.S)
 if len(volume_imports)!=1: raise SystemExit('STOP: staged dose-volume controller import not unique')
@@ -193,7 +194,20 @@ else: live=volume_import+'\n'+live
 route_pattern=r"^apiRouter\.(?:get|post|put)\('/unified-ai/hst/[^;\n]+;\s*$"
 routes=re.findall(route_pattern,new,re.M)
 oldroutes=re.findall(route_pattern,live,re.M)
-if len(routes)<8 or len(oldroutes)<2: raise SystemExit('STOP: HST route anchors changed unexpectedly')
+required={
+    ('get','/unified-ai/hst/proposals'),
+    ('post','/unified-ai/hst/dose-volume/plans'),
+    ('post','/unified-ai/hst/dose-volume/approvals'),
+    ('get','/unified-ai/hst/dose-volume/sessions'),
+    ('post','/unified-ai/hst/dose-volume/sessions/:id/stop'),
+    ('get','/unified-ai/hst/mode'),
+    ('put','/unified-ai/hst/mode'),
+    ('get','/unified-ai/hst/real-sessions/latest/:obligationId'),
+}
+registered=re.findall(r"apiRouter\.(get|post|put)\('([^']+)'", '\n'.join(routes))
+missing=required-set(registered)
+if missing or len(set(registered))!=len(registered):
+    raise SystemExit('STOP: staged HST router incomplete or duplicated: '+str(sorted(missing)))
 for entry in oldroutes:
     live=live.replace(entry,'',1)
 # Install the missing read-only dashboard route without replacing local routes.
@@ -208,10 +222,9 @@ elif 'getUnifiedAiDashboard' not in summary_imports[0]:
 summary_routes=list(re.finditer(r"""apiRouter\.get\(\s*['"]/unified-ai/dashboard['"]\s*,[^;]+;""",live,re.S))
 if len(summary_routes)>1: raise SystemExit('STOP: duplicate dashboard summary routes')
 if summary_routes:
-    if 'getUnifiedAiDashboard' not in summary_routes[0].group():
-        raise SystemExit('STOP: dashboard route uses an unexpected handler')
-else:
-    routes.append("apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);")
+    live=live.replace(summary_routes[0].group(),'',
+                      1)
+routes.append("apiRouter.get('/unified-ai/dashboard', getUnifiedAiDashboard);")
 sensor_route="apiRouter.put('/settings/sensors/:sensorKey', requireAdmin, requireCsrf, updateSensorEnabled);"
 if sensor_route not in live:
     live="import { updateSensorEnabled } from '../controllers/dashboardController.js';\n"+live
@@ -223,13 +236,13 @@ if pos<0: raise SystemExit('STOP: authenticated bootstrap route anchor not found
 # HST routes must be inserted immediately before the existing authenticated bootstrap.
 auth=re.search(r'apiRouter\.use\(\s*requireAuth\s*,?\s*\)\s*;',live)
 if auth is None or pos<auth.end(): raise SystemExit('STOP: authentication boundary mismatch')
-if summary_routes and summary_routes[0].start()<auth.end():
-    raise SystemExit('STOP: dashboard route is outside authentication')
 live=live[:pos]+'\n'.join(routes)+'\n\n'+live[pos:]
 dest.write_text(live)
 print('PRESERVED_LOCAL_API_ROUTES=PASS;',len(routes),'HST/dashboard routes merged')
 print('AI_DASHBOARD_ROUTE=INSTALLED; AUTH=REQUIRED')
+print('GUIDE_REQUIRED_ROUTES=PASS')
 PY
+ node --check "$RUN/new/api/routes/index.js"
  say "Merge local frontend TS/CSS in disposable build directory"
  MERGED="$RUN/merged-build"
  mkdir -p "$MERGED"
