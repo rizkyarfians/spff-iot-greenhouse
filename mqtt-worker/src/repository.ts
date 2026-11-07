@@ -1,4 +1,5 @@
 import { deriveTankLevels } from "./tankLevels.js";
+import {nativeHstSchedules, type NativeHstSchedule} from './nativeHstSchedule.js';
 import type {
   AutomaticControlAckMessage,
   AutomaticControlSyncMessage,
@@ -296,9 +297,15 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       SELECT 1 FROM spff.hst_fertilization_starts h
       JOIN spff.hst_fertilization_phases p ON p.phase_id=h.phase_id
       JOIN spff.automatic_cycle_states cycle ON cycle.site_id=h.site_id AND cycle.device_id=h.device_id
+      JOIN spff.device_schedule_sync_state sync ON sync.site_id=h.site_id AND sync.device_id=h.device_id
       WHERE h.site_id=spff.control_commands.site_id AND h.device_id=spff.control_commands.device_id
         AND h.status='queued' AND NOT p.fulfilled AND cycle.phase_id=p.phase_id AND cycle.mode='fertilization'
         AND cycle.dispatch_enabled
+        AND spff.control_commands.request_payload->>'nativeHstSchedule'='true'
+        AND spff.control_commands.request_payload->>'startId'=h.start_id::text
+        AND sync.published_authority='server' AND sync.published_revision=sync.revision
+        AND sync.acknowledgement_status='applied' AND sync.acknowledged_revision=sync.revision
+        AND sync.revision >= (spff.control_commands.request_payload->>'scheduleRevision')::bigint
         AND spff.control_commands.command_id IN (h.water_command_id,h.fertilizer_command_id)
     )` : 'false';
     const fuzzyCommand = automaticGate ? `EXISTS (
@@ -324,7 +331,10 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           device_id,
           actuator_key,
           requested_is_active,
-          requested_by,
+          CASE WHEN requested_is_active AND requested_by='hst-fertilization' AND request_payload->>'nativeHstSchedule'='true'
+            THEN 'schedule:hst-' || (request_payload->>'startId') ||
+              CASE WHEN actuator_key='pump_water' THEN '-water:on' ELSE '-fert:on' END
+            ELSE requested_by END AS requested_by,
           issued_at,
           expires_at
         FROM spff.control_commands
@@ -599,6 +609,16 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
 
     const generatedAt = new Date().toISOString();
 
+    let hstRows:NativeHstSchedule[]=[];
+    if(authority==='server' && process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED==='true' &&
+      (await this.pool.query("SELECT to_regclass('spff.hst_fertilization_starts') IS NOT NULL AS ready")).rows[0]?.ready) {
+      hstRows=(await this.pool.query<NativeHstSchedule>(`SELECT h.site_id,h.device_id,h.start_id,h.application_day::text AS run_date
+        FROM spff.hst_fertilization_starts h JOIN spff.control_commands c ON c.command_id=h.water_command_id
+        JOIN spff.hst_fertilization_phases p ON p.phase_id=h.phase_id
+        WHERE h.status IN ('queued','started') AND NOT p.fulfilled
+          AND c.request_payload->>'nativeHstSchedule'='true'`)).rows;
+    }
+
     return syncResult.rows.map((sync) => {
       const deviceSchedules = schedules
         .filter(
@@ -618,6 +638,8 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           timezone: schedule.timezone,
           enabled: true,
         }));
+
+      deviceSchedules.push(...nativeHstSchedules(hstRows,authority,sync.site_id,sync.device_id));
 
       if (deviceSchedules.length > 64) {
         throw new Error(

@@ -4,14 +4,15 @@ import { fertilizationPhases, guideProgramHst, type GuideProgramConfig, type Gui
 import { fertilizerProgress, type FertilizerDeliveryInput } from './fertilizerDelivery.js';
 import { recordEcFertilizerDelivery } from './ecDoseEstimator.js';
 import { tickFuzzyWater, type FuzzyWaterDecision } from './automaticFuzzyWater.js';
+import {retryableModeRejection} from './nativeHstSchedule.js';
 
 export async function enqueueAutomaticPump(client: PoolClient, site: string, device: string,
-  actuator: string, on: boolean, source: string, metadata: Record<string, unknown>) {
+  actuator: string, on: boolean, source: string, metadata: Record<string, unknown>, expirySeconds=30) {
   const id = randomUUID();
   await client.query(`INSERT INTO spff.control_commands(command_id,site_id,device_id,actuator_key,
     requested_is_active,requested_by,issued_at,expires_at,request_payload)
-    VALUES($1,$2,$3,$4,$5,$6,now(),now()+interval '30 seconds',$7)`,
-  [id,site,device,actuator,on,source,JSON.stringify({source,...metadata})]);
+    VALUES($1,$2,$3,$4,$5,$6,now(),now()+make_interval(secs=>$8),$7)`,
+  [id,site,device,actuator,on,source,JSON.stringify({source,...metadata}),expirySeconds]);
   return id;
 }
 
@@ -123,7 +124,16 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
     if (!phase || !enabled || !automatic || !off || raw?.serverPulseOwner===true ||
       raw?.aiAccSessionActive===true || raw?.doseVolumeSessionActive===true) continue;
     if ((await client.query(`SELECT 1 FROM spff.fuzzy_water_runs WHERE site_id=$1 AND device_id=$2 AND status<>'completed'`,[site,device])).rows.length) continue;
-    if ((await client.query('SELECT 1 FROM spff.hst_fertilization_starts WHERE phase_id=$1',[phase.phase_id])).rows.length) continue;
+    if ((process.env.SCHEDULE_EXECUTION_MODE??'server') !== 'server') continue;
+    const previous=(await client.query(`SELECT h.*,w.status AS water_status,f.status AS fert_status,
+      w.reason AS water_reason,f.reason AS fert_reason,w.expires_at AS water_expires,f.expires_at AS fert_expires,
+      coalesce((w.request_payload->>'modeRejectionRetry')::boolean,false) AS retried,
+      EXISTS(SELECT 1 FROM spff.command_ack_events a WHERE a.command_id IN (h.water_command_id,h.fertilizer_command_id)
+        AND a.actual_is_active) AS had_on
+      FROM spff.hst_fertilization_starts h JOIN spff.control_commands w ON w.command_id=h.water_command_id
+      JOIN spff.control_commands f ON f.command_id=h.fertilizer_command_id WHERE h.phase_id=$1 FOR UPDATE OF h`,[phase.phase_id])).rows[0]??null;
+    if(previous && (!retryableModeRejection(previous,heartbeat.recorded_at) || previous.had_on ||
+      Number(phase.delivered_g??0)>0)) continue;
     if ((await client.query(`SELECT 1 FROM spff.control_commands WHERE site_id=$1 AND device_id=$2
       AND status IN ('pending','published','accepted') AND expires_at>now()
       UNION ALL SELECT 1 FROM spff.actuator_schedules WHERE site_id=$1 AND device_id=$2
@@ -132,10 +142,20 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
       AND actuator_key IN ('pump_water','pump_fert')`,[site,device])).rows.length!==2) continue;
     await client.query('SAVEPOINT phase_start');
     try {
-      const startId=randomUUID(),metadata={startId,phaseId:phase.phase_id,programId:phase.program_id,activityId:phase.activity_id,hst:phase.hst};
-      const water=await enqueueAutomaticPump(client,site,device,'pump_water',true,'hst-fertilization',metadata);
-      const fertilizer=await enqueueAutomaticPump(client,site,device,'pump_fert',true,'hst-fertilization',metadata);
-      await client.query(`INSERT INTO spff.hst_fertilization_starts(start_id,site_id,device_id,program_id,activity_id,hst,
+      const sync=(await client.query(`UPDATE spff.device_schedule_sync_state SET revision=revision+1,updated_at=now()
+        WHERE site_id=$1 AND device_id=$2 RETURNING revision`,[site,device])).rows[0];
+      if(!sync) throw Error('Schedule sync state missing for HST device');
+      const startId=previous?.start_id??randomUUID(),metadata={startId,phaseId:phase.phase_id,programId:phase.program_id,
+        activityId:phase.activity_id,hst:phase.hst,nativeHstSchedule:true,scheduleRevision:String(sync.revision),
+        ...(previous?{modeRejectionRetry:true,previousWaterCommandId:previous.water_command_id,
+          previousFertilizerCommandId:previous.fertilizer_command_id}:{} )};
+      // Allow time for native schedule synchronization before the dispatcher sends ON.
+      const water=await enqueueAutomaticPump(client,site,device,'pump_water',true,'hst-fertilization',metadata,90);
+      const fertilizer=await enqueueAutomaticPump(client,site,device,'pump_fert',true,'hst-fertilization',metadata,90);
+      if(previous) await client.query(`UPDATE spff.hst_fertilization_starts SET water_command_id=$2,fertilizer_command_id=$3,
+        status='queued',started_at=NULL,created_at=now(),application_day=(now() AT TIME ZONE 'Asia/Jakarta')::date
+        WHERE start_id=$1`,[startId,water,fertilizer]);
+      else await client.query(`INSERT INTO spff.hst_fertilization_starts(start_id,site_id,device_id,program_id,activity_id,hst,
         application_day,product,method,water_command_id,fertilizer_command_id,phase_id)
         VALUES($1,$2,$3,$4,$5,$6,(now() AT TIME ZONE 'Asia/Jakarta')::date,$7,$8,$9,$10,$11)`,
       [startId,site,device,phase.program_id,phase.activity_id,phase.hst,phase.product,phase.method,water,fertilizer,phase.phase_id]);
