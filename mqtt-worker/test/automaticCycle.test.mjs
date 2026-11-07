@@ -4,7 +4,7 @@ import { fertilizationPhases } from '@spff/contracts';
 import { calculateDeliveredFertilizerGrams, fertilizerProgress } from '../dist/fertilizerDelivery.js';
 import { readProductionFuzzy } from '../dist/automaticFuzzyWater.js';
 
-test('fertilizer formula hook has no fabricated default and rejects unknown completion',()=>{
+test('fertilizer formula needs baseline and calibration and rejects unknown completion',()=>{
   assert.equal(calculateDeliveredFertilizerGrams({targetG:400}),null);
   for(const value of [null,NaN,Infinity,-1]) assert.equal(fertilizerProgress(400,value).fulfilled,false);
   assert.deepEqual(fertilizerProgress(400,125),{remainingG:275,fulfilled:false});

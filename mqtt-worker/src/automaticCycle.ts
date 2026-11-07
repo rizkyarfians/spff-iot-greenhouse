@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { fertilizationPhases, guideProgramHst, type GuideProgramConfig, type GuideProgramPlan } from '@spff/contracts';
-import { calculateDeliveredFertilizerGrams, fertilizerProgress, type FertilizerDeliveryInput } from './fertilizerDelivery.js';
+import { fertilizerProgress, type FertilizerDeliveryInput } from './fertilizerDelivery.js';
+import { recordEcFertilizerDelivery } from './ecDoseEstimator.js';
 import { tickFuzzyWater, type FuzzyWaterDecision } from './automaticFuzzyWater.js';
 
 export async function enqueueAutomaticPump(client: PoolClient, site: string, device: string,
@@ -19,7 +20,7 @@ export const recentSample = (date: unknown, now: Date, age = 120000): boolean =>
 
 export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, now = new Date(),
   decision: FuzzyWaterDecision | null = null,
-  formula: (input: FertilizerDeliveryInput) => number | null = calculateDeliveredFertilizerGrams) {
+  formula?: (input: FertilizerDeliveryInput) => number | null) {
   if (!(await client.query("SELECT to_regclass('spff.automatic_cycle_states') IS NOT NULL AS ready")).rows[0]?.ready) return;
   // One current saved program owns a device. Historical saved copies cannot each start it.
   const programs = (await client.query(`SELECT DISTINCT ON (p.site_id,p.config->>'deviceId') p.*
@@ -60,14 +61,19 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
         definition.hst,definition.product,definition.method,definition.targetG]);
       const row = (await client.query(`SELECT * FROM spff.hst_fertilization_phases
         WHERE site_id=$1 AND program_id=$2 AND activity_id=$3 FOR UPDATE`,[site,program.program_id,definition.activityId])).rows[0];
+      if(row.fulfilled) { last=row;continue; }
       let measured: number | null = null;
-      try { measured = row.started_at ? formula({phaseId:row.phase_id,programId:program.program_id,
+      let completionAllowed=false;
+      try { if(row.started_at && !formula) {
+        const estimate=await recordEcFertilizerDelivery(client,row,now);measured=estimate.grams;completionAllowed=estimate.completionAllowed;
+      } else { completionAllowed=!!formula;measured = row.started_at && formula ? formula({phaseId:row.phase_id,programId:program.program_id,
         activityId:row.activity_id,hst:row.hst,product:row.product,targetG:row.target_g,startedAt:row.started_at,
-        previousDeliveredG:row.delivered_g,baseline:row.baseline,telemetry:sample ?? null,deviceStatus:heartbeat ?? null}) : null;
+        previousDeliveredG:row.delivered_g,baseline:row.baseline,telemetry:sample ?? null,deviceStatus:heartbeat ?? null}) : null; }
       } catch(error) { console.error('[fertilizer-formula]',row.phase_id,error); }
       if (measured !== null && Number.isFinite(measured) && measured >= 0 &&
         (row.delivered_g === null || measured >= row.delivered_g)) {
         const progress = fertilizerProgress(row.target_g,measured);
+        progress.fulfilled=progress.fulfilled&&completionAllowed;
         await client.query(`UPDATE spff.hst_fertilization_phases SET delivered_g=$2,formula_status='ready',fulfilled=$3,
           fulfilled_at=CASE WHEN $3 THEN coalesce(fulfilled_at,now()) ELSE NULL END,updated_at=now() WHERE phase_id=$1`,
         [row.phase_id,measured,progress.fulfilled]);

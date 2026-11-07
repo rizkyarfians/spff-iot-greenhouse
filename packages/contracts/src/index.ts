@@ -1037,3 +1037,5 @@ export * from './doseVolume.js';
 export * from './hstDosePulse.js';
 
 export * from './automaticCycle.js';
+
+export * from './ecDose.js';

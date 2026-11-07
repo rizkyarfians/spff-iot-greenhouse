@@ -27,7 +27,9 @@ export type AutomaticCycleStatus = {
   dispatchEnabled: boolean;
   updatedAt: string | null;
   phase: (FertilizationPhase & { deliveredG: number | null; remainingG: number | null;
-    formulaStatus: 'pending' | 'ready'; fulfilled: boolean }) | null;
+    formulaStatus: 'pending' | 'ready'; fulfilled: boolean;
+    estimated?: boolean; estimationReason?: string; unmeasuredIntervals?: number;
+    gPerPlant?: number|null; coefficient?: number|null; baselineEcUs?: number|null; completionEligible?: boolean }) | null;
   nextHst: number | null;
   waterStatus: string | null;
 };

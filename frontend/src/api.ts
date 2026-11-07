@@ -838,6 +838,14 @@ export function saveSensorEnabled(group: string, enabled: boolean) {
   )
 }
 
+export function fetchEcDoseSettings(deviceId:string,product:string,signal:AbortSignal) {
+  return request<import('@spff/contracts').EcDoseSettings>('/settings/ec-dose/'+encodeURIComponent(deviceId)+'?product='+encodeURIComponent(product),{signal})
+}
+export function saveEcDoseSettings(deviceId:string,input:import('@spff/contracts').EcDoseProfileInput) {
+  return request<import('@spff/contracts').EcDoseSettings>('/settings/ec-dose/'+encodeURIComponent(deviceId),{
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)})
+}
+
 export function fetchAutomaticCycleStatus(deviceId: string, signal: AbortSignal) {
   return request<import('@spff/contracts').AutomaticCycleStatus>(
     '/fertigation/automatic-cycle?deviceId=' + encodeURIComponent(deviceId), { signal })

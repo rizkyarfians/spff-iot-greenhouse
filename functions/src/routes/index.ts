@@ -1,3 +1,4 @@
+import { getEcDoseSettings,putEcDoseSettings } from '../controllers/ecDoseController.js';
 import {getUnifiedAiDashboard} from '../controllers/unifiedAiDashboardController.js';
 import {postDoseVolumePlan,postDoseVolumeApproval,getDoseVolumeSessions,getDoseVolumeSession,postDoseVolumeStop,getDoseVolumeReadiness,postDoseVolumeReconcile} from '../controllers/doseVolumeController.js';
 import {adaptivePreview,adaptiveStart,adaptiveGetProgress,adaptiveControl,adaptiveReconcile,adaptiveSession} from '../controllers/adaptiveFertigationController.js';
@@ -249,6 +250,8 @@ apiRouter.get(
 apiRouter.get('/settings/water-interlock', getWaterInterlock);
 apiRouter.put('/settings/water-interlock', requireAdmin, requireCsrf, putWaterInterlock);
 apiRouter.put('/settings/sensors/:sensorKey', requireAdmin, requireCsrf, updateSensorEnabled);
+apiRouter.get('/settings/ec-dose/:deviceId',requireOperator,getEcDoseSettings);
+apiRouter.put('/settings/ec-dose/:deviceId',requireAdmin,requireCsrf,putEcDoseSettings);
 apiRouter.get('/fertigation/hst-starts', getHstFertilizationStarts);
 apiRouter.get('/fertigation/automatic-cycle', getAutomaticCycleStatus);
 apiRouter.post('/adaptive-fertigation/sessions/:id/reconcile',requireAdmin,requireCsrf,adaptiveReconcile);

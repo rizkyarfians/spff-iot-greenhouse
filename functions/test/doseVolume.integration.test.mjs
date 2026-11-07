@@ -219,6 +219,76 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.equal((await query('SELECT 1 FROM spff.hst_fertilization_starts')).rows.length,1,'next fertilizer phase waits for Fuzzy water OFF');
 
   });
+  await t.test('EC formula persists per-sample estimates, captures automatic baseline and freezes K',async()=>{
+   await fixture();
+   const {recordEcFertilizerDelivery}=await import('../../mqtt-worker/dist/ecDoseEstimator.js');
+   const {readEcDoseSettings,saveEcDoseSettings}=await import('../lib/services/ecDoseService.js');
+   await saveEcDoseSettings('esp32-s3-01',{product:'Phonska',coefficient:6400,expectedRevision:0},'admin');
+   assert.equal((await readEcDoseSettings('esp32-s3-01','Phonska')).profile.validated,false);
+   await assert.rejects(saveEcDoseSettings('esp32-s3-01',{product:'Phonska',coefficient:1,expectedRevision:0},'admin'),/berubah/);
+   await db.exec('DELETE FROM spff.telemetry_samples; DELETE FROM spff.device_status_events;');
+   const start=Date.now()-30*60000,phaseId=randomUUID();
+   const phase=(await query(`INSERT INTO spff.hst_fertilization_phases(phase_id,site_id,device_id,program_id,activity_id,
+    phase_number,title,hst,product,method,target_g,started_at)
+    VALUES($1,'greenhouse-01','esp32-s3-01',$2,'row-19',2,'Pemupukan ke-2',20,'Phonska','Tabur',5000,$3) RETURNING *`,
+    [phaseId,pid,new Date(start+90000)])).rows[0];
+   async function sample(seconds,injection,total,ec=3000,healthOverride={}){
+    const at=new Date(start+seconds*1000);
+    const health={liquid_ec_us_cm:{valid:true},flow_water_lpm:{valid:true},flow_fert_lpm:{valid:true},flow_water_total_l:{valid:true},...healthOverride};
+    await query(`INSERT INTO spff.device_status_events(site_id,device_id,online,mode,recorded_at,raw_payload)
+     VALUES('greenhouse-01','esp32-s3-01',true,'automatic',$1,$2)`,[at,JSON.stringify({pulseBootId:boot,
+     pumpReadbackValid:true,pumpWaterActualActive:true,pumpFertActualActive:injection})]);
+    await query(`INSERT INTO spff.telemetry_samples(site_id,device_id,message_id,sequence,recorded_at,liquid_ec_us_cm,
+     flow_water_lpm,flow_water_total_l,flow_fert_lpm,sensor_health,raw_payload)
+     VALUES('greenhouse-01','esp32-s3-01',$1,$2,$3,$4,200,$5,$6,$7,$8)`,[randomUUID(),seconds,at,ec,total,injection?7:0,
+     JSON.stringify(health),JSON.stringify({sensorHealth:{soil_2_moisture:{pollBootId:boot}}})]);
+   }
+   for(const seconds of [0,30,60])await sample(seconds,false,seconds*200/60,200);
+   for(let i=0;i<=30;i++)await sample(120+i*30,true,400+i*100);
+   async function record(){await db.exec('BEGIN');try{const result=await recordEcFertilizerDelivery({query},phase);await db.exec('COMMIT');return result;}
+    catch(e){await db.exec('ROLLBACK');throw e;}}
+   const first=await record();assert.equal(first.grams,1312.5);assert.equal(first.completionAllowed,false);
+   const count=(await query('SELECT count(*)::int n FROM spff.ec_dose_intervals')).rows[0].n;
+   assert.equal((await record()).grams,1312.5,'worker retry and restart cannot recount intervals');
+   assert.equal((await query('SELECT count(*)::int n FROM spff.ec_dose_intervals')).rows[0].n,count);
+   const baseline=(await readEcDoseSettings('esp32-s3-01','Phonska')).baseline;
+   assert.equal(baseline.ecUsCm,200);
+   await saveEcDoseSettings('esp32-s3-01',{product:'Phonska',coefficient:6400,expectedRevision:1,validated:true,
+    calibrationReference:'Uji timbangan 01'},'admin');
+   assert.equal((await record()).completionAllowed,true,'verified same coefficient can authorize existing estimate');
+   await saveEcDoseSettings('esp32-s3-01',{product:'Phonska',coefficient:7000,expectedRevision:2,validated:true,
+    calibrationReference:'Formulasi berikutnya'},'admin');
+   assert.equal((await record()).completionAllowed,false,'changed K cannot silently reinterpret current phase');
+   assert.equal((await record()).grams,1312.5);
+   await sample(1050,true,3500,3000,{liquid_ec_us_cm:{valid:false}});
+   const invalid=await record();assert.equal(invalid.grams,1312.5);
+   assert.equal((await query('SELECT unmeasured_intervals FROM spff.ec_dose_estimates')).rows[0].unmeasured_intervals,1);
+   await sample(1080,true,3600);
+   assert.equal((await record()).grams,1312.5,'cannot bridge an invalid EC interval');
+   await sample(1110,true,3700);
+   assert.equal((await record()).grams,1356.25);
+   await saveEcDoseSettings('esp32-s3-01',{product:'Phonska',coefficient:6400,expectedRevision:3,validated:true,
+    calibrationReference:'Kalibrasi fase berjalan'},'admin');
+   await query('UPDATE spff.hst_fertilization_phases SET target_g=1000 WHERE phase_id=$1',[phaseId]);
+   await query('UPDATE spff.guide_programs SET plan=$1',[JSON.stringify({plants:2000,activities:[{...activity,method:'Tabur',
+    requirements:[{...activity.requirements[0],product:'Phonska',amount:1,unit:'kg'}]}]})]);
+   const {tickAutomaticCycles}=await import('../../mqtt-worker/dist/automaticCycle.js');
+   await db.exec('BEGIN');await tickAutomaticCycles({query},false);await db.exec('COMMIT');
+   const progress=await repo.repository.automaticCycleStatus('esp32-s3-01');
+   assert.equal(progress.phase.fulfilled,true,'verified accumulated valid grams can complete the phase');
+   assert.equal(progress.phase.deliveredG,1356.25);assert.equal(progress.phase.gPerPlant,0.678125);
+   assert.equal(progress.phase.unmeasuredIntervals,1,'skipped invalid intervals remain visible and receive no credit');
+   assert.equal((await query('SELECT 1 FROM spff.control_commands')).rows.length,0);
+
+   for(const seconds of [1200,1230,1260])await sample(seconds,false,4200+(seconds-1200)*200/60,200);
+   const nextPhase=(await query(`INSERT INTO spff.hst_fertilization_phases(phase_id,site_id,device_id,program_id,activity_id,
+    phase_number,title,hst,product,method,target_g,started_at)
+    VALUES($1,'greenhouse-01','esp32-s3-01',$2,'new-baseline',3,'Pemupukan ke-3',40,'Phonska','Tabur',100,$3) RETURNING *`,
+    [randomUUID(),pid,new Date(start-60000)])).rows[0];
+   await db.exec('BEGIN');const recovered=await recordEcFertilizerDelivery({query},nextPhase);await db.exec('COMMIT');
+   assert.equal(recovered.grams,0,'new water-only baseline never fills earlier unmeasured grams');
+   assert.equal((await query('SELECT baseline_at FROM spff.ec_dose_estimates WHERE phase_id=$1',[nextPhase.phase_id])).rows[0].baseline_at.getTime(),start+1260000);
+  });
   await t.test('water-first terminal report records OFF and per-pump durations without crediting dose',async()=>{
    await fixture();
    const run=await approve(await makePlan());

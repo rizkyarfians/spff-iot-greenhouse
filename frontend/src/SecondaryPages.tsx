@@ -1,3 +1,4 @@
+import { EcDoseSettings } from './EcDoseSettings'
 import {userFacingMessage} from './userFacingMessage'
 import {ScheduleTimeRange} from './ScheduleTimeRange'
 import {mergeAutomaticDraft} from './automaticDraftState'
@@ -4515,6 +4516,7 @@ function SettingsPage({
     >
       <SensorSettings sensors={data?.sensorDefinitions ?? []}
         editable={isAdmin && connectionState === 'connected'} onRefresh={onRefresh} />
+      <EcDoseSettings devices={data?.devices ?? []} editable={isAdmin && connectionState === 'connected'} />
       <form
         className="settings-form"
         onSubmit={save}

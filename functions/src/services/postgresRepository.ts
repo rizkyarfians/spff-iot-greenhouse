@@ -268,10 +268,15 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
     dispatchEnabled:false,updatedAt:null,phase:null,nextHst:null,waterStatus:null };
   if (!(await pool.query("SELECT to_regclass('spff.automatic_cycle_states') IS NOT NULL AS ready")).rows[0]?.ready) return empty;
   const row=(await pool.query(`SELECT c.*,p.phase_number,p.title,p.hst,p.product,p.method,p.target_g,p.delivered_g,
-    p.formula_status,p.fulfilled,p.activity_id,
+    p.formula_status,p.fulfilled,p.activity_id,e.phase_id AS estimate_id,e.profile_snapshot,e.baseline_ec,
+    e.unmeasured_intervals,e.reason AS estimate_reason,cal.coefficient AS current_coefficient,cal.validated AS current_validated,
+    g.plan->>'plants' AS plant_count,
     (SELECT status FROM spff.fuzzy_water_runs r WHERE r.site_id=c.site_id AND r.device_id=c.device_id
       ORDER BY created_at DESC LIMIT 1) AS water_status
     FROM spff.automatic_cycle_states c LEFT JOIN spff.hst_fertilization_phases p USING(phase_id)
+    LEFT JOIN spff.ec_dose_estimates e ON e.phase_id=p.phase_id
+    LEFT JOIN spff.ec_dose_profiles cal ON cal.site_id=p.site_id AND cal.device_id=p.device_id AND cal.product_key=lower(p.product)
+    LEFT JOIN spff.guide_programs g ON g.site_id=p.site_id AND g.program_id=p.program_id
     WHERE c.site_id=$1 AND c.device_id=$2`,[siteId,deviceId])).rows[0];
   if (!row) return empty;
   return {deviceId,mode:row.mode,reason:row.reason,dispatchEnabled:row.dispatch_enabled,updatedAt:row.updated_at.toISOString(),
@@ -279,7 +284,14 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
     phase:row.phase_id?{activityId:row.activity_id,phaseNumber:row.phase_number,title:row.title,hst:row.hst,
       product:row.product,method:row.method,targetG:row.target_g,deliveredG:row.delivered_g,
       remainingG:row.target_g!==null&&row.delivered_g!==null?Math.max(0,row.target_g-row.delivered_g):null,
-      formulaStatus:row.formula_status,fulfilled:row.fulfilled}:null};
+      formulaStatus:row.formula_status,fulfilled:row.fulfilled,estimated:!!row.estimate_id,
+      estimationReason:!row.estimate_id?(row.current_coefficient===null?'coefficient_missing':'baseline_unavailable'):
+        row.current_coefficient!==row.profile_snapshot.coefficient?'calibration_changed':row.current_validated!==true?'estimate_only':
+        row.unmeasured_intervals>0?'unmeasured_intervals':row.estimate_reason,
+      unmeasuredIntervals:row.unmeasured_intervals??0,
+      gPerPlant:row.delivered_g!==null&&Number(row.plant_count)>0?row.delivered_g/Number(row.plant_count):null,
+      coefficient:row.profile_snapshot?.coefficient??null,baselineEcUs:row.baseline_ec??null,
+      completionEligible:row.current_validated===true&&row.current_coefficient===row.profile_snapshot?.coefficient}:null};
 }
 
 async function hstFertilizationStarts(deviceId: string) {

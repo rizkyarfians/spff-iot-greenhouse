@@ -54,7 +54,7 @@ export function HstFertilizationNotice({ deviceId }: { deviceId: string }) {
 
   if (error) return <p role="status">{error}</p>
 
-  const grams=(value:number|null)=>value===null?'Menunggu formula':new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(value)+' g'
+  const grams=(value:number|null)=>value===null?'Menunggu data':new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(value)+' g'
 
   const phase=cycle?.phase
 
@@ -70,12 +70,21 @@ export function HstFertilizationNotice({ deviceId }: { deviceId: string }) {
 
           <div><small>Target</small><strong>{grams(phase.targetG)}</strong></div>
 
-          <div><small>Sudah diberikan</small><strong>{grams(phase.deliveredG)}</strong></div>
+          <div><small>{phase.estimated?'Estimasi diberikan':'Sudah diberikan'}</small><strong>{grams(phase.deliveredG)}</strong></div>
 
-          <div><small>Sisa kebutuhan</small><strong>{grams(phase.remainingG)}</strong></div>
+          <div><small>{phase.estimated?'Sisa estimasi':'Sisa kebutuhan'}</small><strong>{grams(phase.remainingG)}</strong></div>
 
         </div></>}
 
+      {phase&&<>
+        {phase.gPerPlant!=null&&<p>Rata-rata: {phase.gPerPlant.toLocaleString('id-ID',{maximumFractionDigits:5})} g/tanaman</p>}
+        {phase.coefficient!=null&&<small>K: {phase.coefficient} · Baseline: {phase.baselineEcUs} µS/cm</small>}
+        {phase.estimationReason==='coefficient_missing'&&<p>Isi koefisien K untuk formulasi ini di Pengaturan.</p>}
+        {phase.estimationReason==='baseline_unavailable'&&<p>Baseline EC air sebelum sesi belum tersedia. Air perlu mengalir stabil dengan pupuk OFF.</p>}
+        {phase.estimationReason==='estimate_only'&&<p>Estimasi eksperimen; kalibrasi belum diverifikasi untuk progres fase.</p>}
+        {phase.estimationReason==='calibration_changed'&&<p>Koefisien fase berbeda dari kalibrasi terbaru. Periksa pengaturan EC.</p>}
+        {phase.unmeasuredIntervals!=null&&phase.unmeasuredIntervals>0&&<p>{phase.unmeasuredIntervals} interval belum terukur dan tidak ditambahkan ke estimasi.</p>}
+      </>}
       <small>{cycle.mode==='fertilization'?'Fuzzy air ditahan selama fase pemupukan.':cycle.mode==='watering'?'Fuzzy mengendalikan pompa air dalam mode Otomatis.':'Menunggu konfirmasi perangkat.'}</small>
 
       {!cycle.dispatchEnabled&&<p>Otomasi server belum diaktifkan.</p>}

@@ -152,10 +152,10 @@ STAGING_BUILD
  cp -a "$PROD/packages/contracts/dist" "$RUN/new/contracts"
  cp -a "$PROD/functions/lib" "$RUN/new/api"
  cp -a "$PROD/mqtt-worker/dist" "$RUN/new/worker"
- for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume hstDosePulse automaticCycle; do
+ for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume hstDosePulse automaticCycle ecDose; do
   install -m644 "$SRC/packages/contracts/dist/$module.js" "$RUN/new/contracts/$module.js"
  done
- for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController controllers/dashboardController middleware/advisoryAi services/soilEcPulseService services/postgresRepository services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
+ for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController controllers/dashboardController controllers/ecDoseController services/ecDoseService middleware/advisoryAi services/soilEcPulseService services/postgresRepository services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
   install -D -m644 "$SRC/functions/lib/$module.js" "$RUN/new/api/$module.js"
  done
  install -m644 "$SRC/mqtt-worker/dist/adaptiveFertigationTransport.js" "$RUN/new/worker/adaptiveFertigationTransport.js"
@@ -165,10 +165,11 @@ STAGING_BUILD
  install -m644 "$SRC/mqtt-worker/dist/hstFertilizationSchedule.js" "$RUN/new/worker/hstFertilizationSchedule.js"
  install -m644 "$SRC/mqtt-worker/dist/repository.js" "$RUN/new/worker/repository.js"
  install -m644 "$SRC/mqtt-worker/dist/index.js" "$RUN/new/worker/index.js"
- for module in automaticCycle automaticFuzzyWater fertilizerDelivery; do
+ for module in automaticCycle automaticFuzzyWater fertilizerDelivery ecDoseEstimator; do
   install -m644 "$SRC/mqtt-worker/dist/$module.js" "$RUN/new/worker/$module.js"
  done
  grep -q "automaticCycle.js" "$RUN/new/contracts/index.js" || printf "\nexport * from './automaticCycle.js';\n" >> "$RUN/new/contracts/index.js"
+ grep -q "ecDose.js" "$RUN/new/contracts/index.js" || printf "\nexport * from './ecDose.js';\n" >> "$RUN/new/contracts/index.js"
  [[ -f "$RUN/new/contracts/index.js" ]] || fatal "contracts barrel missing"
  grep -q "aiHst.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing aiHst export"
  grep -q "adaptiveFertigation.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing adaptive export"
@@ -249,6 +250,12 @@ if not re.search(r"""apiRouter\.get\(\s*['"]/fertigation/hst-starts['"]""",live)
 if not re.search(r"""apiRouter\.get\(\s*['"]/fertigation/automatic-cycle['"]""",live):
     live="import { getAutomaticCycleStatus as guideAutomaticCycle } from '../controllers/dashboardController.js';\n"+live
     routes.append("apiRouter.get('/fertigation/automatic-cycle', guideAutomaticCycle);")
+for method,handler in [('get','getEcDoseSettings'),('put','putEcDoseSettings')]:
+    if not re.search(r"apiRouter\."+method+r"\(\s*['\"]/settings/ec-dose/:deviceId['\"]",live):
+        alias='guideEcDose'+method.title()
+        live="import { "+handler+" as "+alias+" } from '../controllers/ecDoseController.js';\n"+live
+        guards='requireOperator, ' if method=='get' else 'requireAdmin, requireCsrf, '
+        routes.append("apiRouter."+method+"('/settings/ec-dose/:deviceId', "+guards+alias+");")
 anchor="apiRouter.get('/unified-ai/hst/proposals'"
 pos=live.find("apiRouter.get(\n  '/bootstrap'")
 if pos<0: pos=live.find("apiRouter.get('/bootstrap'")
@@ -276,7 +283,7 @@ PY
  rm -rf "$MERGED/frontend/src"
  cp -a "$PROD/frontend/src" "$MERGED/frontend/src"
  if [[ -d "$PROD/frontend/public" && -d "$MERGED/frontend/public" ]]; then cp -a "$PROD/frontend/public/." "$MERGED/frontend/public/"; fi
- for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx pageConfig.ts HstFertilizationNotice.tsx SoilEcPulsePanel.tsx SoilEcExecutionSettings.tsx; do
+ for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx pageConfig.ts HstFertilizationNotice.tsx SoilEcPulsePanel.tsx SoilEcExecutionSettings.tsx EcDoseSettings.tsx; do
    install -m644 "$SRC/frontend/src/$hst_file" "$MERGED/frontend/src/$hst_file"
  done
  python3 - "$MERGED/frontend/src/api.ts" "$SRC/frontend/src/api.ts" "$MERGED/frontend/src/GuidePage.tsx" <<'PY'
@@ -317,6 +324,12 @@ if not cycle_fn: raise SystemExit('STOP: automatic cycle API source missing')
 api=local_path.read_text()
 if 'export function fetchAutomaticCycleStatus(' not in api:
  local_path.write_text(cycle_fn[0]+'\n\n'+api)
+for name in ['fetchEcDoseSettings','saveEcDoseSettings']:
+ fn=re.search(r'^export function '+name+r'\(.*?^}',stage,re.M|re.S)
+ if not fn: raise SystemExit('STOP: EC dose API helper missing: '+name)
+ api=local_path.read_text()
+ if 'export function '+name+'(' not in api:
+  local_path.write_text(fn[0]+'\n\n'+api)
 if 'HstApprovalPanel' not in guide:
  i="import './GuidePage.css'"
  c="    <AutomationMethodNote/>"
@@ -399,6 +412,7 @@ SUMMARY_CHECK
  say "Migration 044: HST fertilization start tracking"
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/044_hst_fertilization_starts.sql"
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/045_automatic_fertilization_phases.sql"
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/046_ec_fertilizer_estimates.sql"
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"
@@ -441,7 +455,7 @@ SUMMARY_CHECK
 fi
 if [[ "$MODE" == enable-hst-schedule ]]; then
  healthy || fatal "production unhealthy"
- [[ "$(db "SELECT (to_regclass('spff.hst_fertilization_phases') IS NOT NULL AND to_regclass('spff.fuzzy_water_runs') IS NOT NULL)::text")" == true ]] || fatal "deploy migration 045 first"
+ [[ "$(db "SELECT (to_regclass('spff.hst_fertilization_phases') IS NOT NULL AND to_regclass('spff.fuzzy_water_runs') IS NOT NULL AND to_regclass('spff.ec_dose_profiles') IS NOT NULL)::text")" == true ]] || fatal "deploy migration 046 first"
  [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain session"
  gates false false false true
  if ! systemctl restart "$API" "$WORKER" || ! wait_healthy; then
