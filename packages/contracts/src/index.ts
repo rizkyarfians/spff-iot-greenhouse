@@ -97,6 +97,7 @@ export interface PumpCommandMessage extends MessageIdentity {
   targetId: string;
   params: {
     isActive: boolean;
+    operatorOverride?: boolean;
   };
 }
 
@@ -180,6 +181,7 @@ export interface AutomaticControlConfig {
 }
 
 export interface AutomaticControlSyncMessage extends MessageIdentity {
+  releaseOperatorOverride?: boolean;
   kind: 'automatic_control_sync';
   revision: number;
   generatedAt: string;
@@ -373,7 +375,8 @@ export function isPumpCommandMessage(value: unknown): value is PumpCommandMessag
     Date.parse(value.expiresAt as string) > Date.parse(value.issuedAt as string) &&
     typeof value.requestedBy === 'string' &&
     typeof value.targetId === 'string' &&
-    typeof value.params.isActive === 'boolean'
+    typeof value.params.isActive === 'boolean' &&
+    (value.params.operatorOverride === undefined || typeof value.params.operatorOverride === 'boolean')
   );
 }
 
@@ -590,7 +593,8 @@ export function isAutomaticControlConfig(value: unknown): value is AutomaticCont
 export function isAutomaticControlSyncMessage(value: unknown): value is AutomaticControlSyncMessage {
   return isRecord(value) && hasIdentity(value) && value.kind === 'automatic_control_sync' &&
     Number.isSafeInteger(value.revision) && (value.revision as number) >= 1 &&
-    isIsoDate(value.generatedAt) && isAutomaticControlConfig(value.config);
+    isIsoDate(value.generatedAt) && isAutomaticControlConfig(value.config) &&
+    (value.releaseOperatorOverride === undefined || typeof value.releaseOperatorOverride === 'boolean');
 }
 
 export function isAutomaticControlAckMessage(value: unknown): value is AutomaticControlAckMessage {
@@ -851,6 +855,7 @@ export interface ApiSettings {
 }
 
 export interface ApiAutomaticControl extends AutomaticControlConfig {
+  operatorOverrideActive?: boolean;
   siteId: string;
   deviceId: string;
   revision: number;
@@ -916,6 +921,7 @@ export interface BootstrapData {
 }
 
 export interface ApiPumpCommandRequest {
+  operatorOverride?: boolean;
   commandId: string;
   isActive: boolean;
 }

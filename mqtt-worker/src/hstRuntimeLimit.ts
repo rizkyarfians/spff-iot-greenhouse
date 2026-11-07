@@ -21,6 +21,7 @@ export async function enforceHstRuntimeLimit(client:PoolClient,now=new Date()) {
     JOIN spff.control_commands f ON f.command_id=h.fertilizer_command_id
     LEFT JOIN spff.device_automatic_control_configs cfg ON cfg.site_id=h.site_id AND cfg.device_id=h.device_id
     WHERE h.status='started' AND w.request_payload->>'hstRuntimeCompletedAt' IS NULL
+      AND NOT coalesce(cfg.operator_override_active,false)
     FOR UPDATE OF h SKIP LOCKED`)).rows;
   for(const row of rows) {
     const at=row.runtime_start instanceof Date?row.runtime_start:new Date(row.runtime_start);

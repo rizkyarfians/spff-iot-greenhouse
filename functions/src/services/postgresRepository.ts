@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
+import {beginOperatorPumpOverride,resumePumpAutomation} from './operatorPumpOverride.js';
 import {
   compareSmartSoilReference,
   cropIdSchema,
@@ -676,10 +677,12 @@ async function pumps() {
   });
 }
 
-async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: string, commandId: string) {
+async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: string, commandId: string, operatorOverride=false) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const owner=(await client.query('SELECT device_id FROM spff.actuators WHERE site_id=$1 AND actuator_key=$2 AND enabled LIMIT 1',[siteId,actuatorKey])).rows[0];
+    if(owner)await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`soil-ec:${siteId}:${owner.device_id}`]);
     const actuatorResult = await client.query(
       `SELECT a.device_id, a.display_name, a.actuator_type, a.max_runtime_seconds,
               state.is_active, state.state, state.recorded_at
@@ -700,7 +703,7 @@ async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: s
 
     const existingCommand = await client.query(
       `SELECT command_id, site_id, device_id, actuator_key, requested_is_active,
-              status, issued_at, expires_at
+              status, issued_at, expires_at, request_payload
        FROM spff.control_commands
        WHERE command_id = $1
        FOR UPDATE`,
@@ -712,7 +715,8 @@ async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: s
         existing.site_id !== siteId ||
         existing.device_id !== actuator.device_id ||
         existing.actuator_key !== actuatorKey ||
-        existing.requested_is_active !== isActive
+        existing.requested_is_active !== isActive ||
+        (existing.request_payload?.operatorOverride === true) !== operatorOverride
       ) {
         throw new CommandIdConflictError(commandId);
       }
@@ -738,7 +742,8 @@ async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: s
       };
     }
 
-    if (isActive) {
+    if(operatorOverride) await beginOperatorPumpOverride(client,siteId,String(actuator.device_id),commandId,isActive);
+    if (isActive && !operatorOverride) {
       const automaticMode = await client.query(
         `SELECT 1
          FROM spff.device_automatic_control_configs
@@ -761,7 +766,7 @@ async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: s
        LIMIT 1`,
       [siteId, actuator.device_id, actuatorKey],
     );
-    if (inFlight.rows[0]) throw new ActuatorBusyError(String(inFlight.rows[0].command_id));
+    if (inFlight.rows[0] && isActive) throw new ActuatorBusyError(String(inFlight.rows[0].command_id));
 
     const commandResult = await client.query(
       `INSERT INTO spff.control_commands (
@@ -777,7 +782,7 @@ async function updatePump(actuatorKey: string, isActive: boolean, requestedBy: s
         actuatorKey,
         isActive,
         requestedBy,
-        { source: 'spff-rest-api' },
+        { source: 'spff-rest-api', ...(operatorOverride?{operatorOverride:true}:{}) },
       ],
     );
     await client.query('COMMIT');
@@ -1449,6 +1454,7 @@ const automaticControlSelect = `
 `;
 
 const mapAutomaticControl = (row: Record<string, unknown>): ApiAutomaticControl => ({
+  operatorOverrideActive: row.operator_override_active === true,
   siteId: String(row.site_id),
   deviceId: String(row.device_id),
   revision: Number(row.revision),
@@ -1493,13 +1499,14 @@ const mapAutomaticControl = (row: Record<string, unknown>): ApiAutomaticControl 
   updatedAt: toRequiredIso(row.updated_at as Date | string, 'automatic control updated_at'),
 });
 
-async function automaticControl(): Promise<ApiAutomaticControl | null> {
+async function automaticControl(deviceId?:string): Promise<ApiAutomaticControl | null> {
   const result = await pool.query(
     `${automaticControlSelect}
      WHERE config.site_id = $1
+       AND ($2::text IS NULL OR config.device_id=$2)
      ORDER BY config.device_id
      LIMIT 1`,
-    [siteId],
+    [siteId,deviceId??null],
   );
   return result.rows[0] ? mapAutomaticControl(result.rows[0]) : null;
 }
@@ -1554,6 +1561,9 @@ async function updateAutomaticControl(
      )
      ON CONFLICT (site_id, device_id) DO UPDATE SET
        revision = spff.device_automatic_control_configs.revision + 1,
+       operator_override_active = CASE WHEN EXCLUDED.desired_mode='manual' THEN false ELSE spff.device_automatic_control_configs.operator_override_active END,
+       operator_override_command_id = CASE WHEN EXCLUDED.desired_mode='manual' THEN NULL ELSE spff.device_automatic_control_configs.operator_override_command_id END,
+       operator_override_started_at = CASE WHEN EXCLUDED.desired_mode='manual' THEN NULL ELSE spff.device_automatic_control_configs.operator_override_started_at END,
        desired_mode = EXCLUDED.desired_mode,
        water_enabled = EXCLUDED.water_enabled,
        water_sensor_key = EXCLUDED.water_sensor_key,
@@ -1859,6 +1869,12 @@ async function dashboard() {
 }
 
 export const repository = {
+  async resumeAutomation(deviceId:string,actor:string) {
+    const c=await pool.connect();
+    try{await c.query('BEGIN');await resumePumpAutomation(c,siteId,deviceId,actor);await c.query('COMMIT');}
+    catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
+    return automaticControl(deviceId);
+  },
   readiness,
   bootstrap,
   dashboard,

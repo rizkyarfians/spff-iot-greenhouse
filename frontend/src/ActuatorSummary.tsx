@@ -2,10 +2,10 @@ import { ToggleButtons } from './ToggleButtons'
 import type { ApiActuator, ApiAutomaticControl, ApiDevice } from '@spff/contracts'
 import { useRef, useState } from 'react'
 import { Droplets, FlaskConical } from 'lucide-react'
-import { updateActuator } from './api'
+import { updateActuator, resumePumpAutomation } from './api'
 import './ActuatorSummary.css'
 
-export function ActuatorSummary({ actuators, devices, connected, automatic, configuration, onUpdated, onOpenControls }: {
+export function ActuatorSummary({ actuators, devices, connected, automatic, configuration, onUpdated, onOpenControls, onControlUpdated }: {
   actuators: ApiActuator[]
   devices: ApiDevice[]
   connected: boolean
@@ -13,20 +13,21 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, conf
   configuration: ApiAutomaticControl | null
   onUpdated: (actuator: ApiActuator) => void
   onOpenControls: () => void
+  onControlUpdated: (config:ApiAutomaticControl|null)=>void
 }) {
   const inFlight = useRef(new Set<string>())
   const [sending, setSending] = useState<string[]>([])
   const [notice, setNotice] = useState('')
-  async function toggle(pump: ApiActuator) {
+  async function setPump(pump: ApiActuator,active:boolean) {
     if (inFlight.current.has(pump.id) || !connected
-      || (automatic && !pump.isActive)
-      || ['pending', 'published', 'accepted'].includes(pump.commandStatus ?? '')) return
+      || (active&&['pending', 'published', 'accepted'].includes(pump.commandStatus ?? ''))) return
     inFlight.current.add(pump.id)
     setSending([...inFlight.current])
     setNotice('')
     try {
-      const updated = await updateActuator(pump.id, !pump.isActive)
+      const updated = await updateActuator(pump.id, active,undefined,automatic)
       onUpdated(updated)
+      if(automatic&&configuration)onControlUpdated({...configuration,operatorOverrideActive:true})
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Perintah gagal dikirim.')
     } finally {
@@ -79,17 +80,20 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, conf
               <ToggleButtons type="button" role="switch" aria-checked={pump.isActive}
                 className={`actuator-summary-switch${pump.isActive ? ' is-on' : ''}`}
                 aria-label={`${pump.isActive ? 'Matikan' : 'Nyalakan'} ${pump.name}`}
-                disabled={!available || pending || pump.state === 'processing'}
-                disabledOn={automatic || pump.state === 'offline' || pump.state === 'fault'}
-                title={automatic?'ON manual tersedia setelah mode Manual diterapkan.':undefined}
-                onClick={() => void toggle(pump)}><span /></ToggleButtons>
+                disabled={!available || sending.includes(id)}
+                disabledOn={pending || pump.state==='processing' || pump.state === 'offline' || pump.state === 'fault'}
+                allowOff={pending || pump.state==='processing'}
+                title={automatic?'Perintah operator menjeda otomasi sampai dilanjutkan kembali.':undefined}
+                onValueChange={active=>void setPump(pump,active)}><span /></ToggleButtons>
             </div>
           )
         })}
       </div>
       {automatic&&actuators.length>0&&<div className="actuator-summary-mode-hint">
-        <span>Mode Otomatis mengatur pompa. Untuk menyalakan langsung, ubah ke Manual di Kontrol Perangkat.</span>
-        <button type="button" className="secondary-button" onClick={onOpenControls}>Buka kontrol manual</button>
+        <span>{configuration?.operatorOverrideActive?'Override operator aktif. Otomasi dijeda; matikan kedua pompa sebelum melanjutkan.':'ON/OFF di sini mengambil kendali operator dan menjeda otomasi.'}</span>
+        {configuration?.operatorOverrideActive?<button type="button" className="secondary-button" disabled={!connected||sending.length>0}
+          onClick={()=>{if(!configuration)return;void resumePumpAutomation(configuration.deviceId).then(next=>{onControlUpdated(next);setNotice('Menunggu konfirmasi perangkat untuk melanjutkan otomasi.')}).catch(error=>setNotice(error instanceof Error?error.message:'Gagal melanjutkan otomasi.'))}}>Lanjutkan otomatis</button>
+          :<button type="button" className="secondary-button" onClick={onOpenControls}>Kontrol Perangkat</button>}
       </div>}
       <div className="actuator-summary-note" role="status" aria-live="polite">{notice}</div>
     </section>

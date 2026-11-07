@@ -121,6 +121,7 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
       mode=EXCLUDED.mode,reason=EXCLUDED.reason,next_hst=EXCLUDED.next_hst,dispatch_enabled=EXCLUDED.dispatch_enabled,updated_at=now()`,
     [site,device,(phase??last)?.phase_id??null,mode,reason,definitions.find(p => p.hst>hst)?.hst??null,enabled]);
     // This call stops an existing Fuzzy run before a fertilizer ON can be enqueued.
+    if(control?.operator_override_active) continue;
     await tickFuzzyWater(client,{site,device,enabled:enabled&&automatic,mode,heartbeat,sample,decision,now});
     if (!phase || !enabled || !automatic || !off || raw?.serverPulseOwner===true ||
       raw?.aiAccSessionActive===true || raw?.doseVolumeSessionActive===true) continue;
@@ -182,6 +183,7 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
       ON d.site_id=p.site_id AND d.device_id=p.config->>'deviceId' WHERE d.enabled
       AND p.site_id=r.site_id AND p.config->>'deviceId'=r.device_id)`)).rows;
   for(const orphan of orphans) {
+    if((await client.query('SELECT 1 FROM spff.device_automatic_control_configs WHERE site_id=$1 AND device_id=$2 AND operator_override_active',[orphan.site_id,orphan.device_id])).rows.length)continue;
     if(!(await client.query('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS acquired',
       [`soil-ec:${orphan.site_id}:${orphan.device_id}`])).rows[0]?.acquired) continue;
     const heartbeat=(await client.query(`SELECT * FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2

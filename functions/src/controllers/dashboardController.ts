@@ -6,6 +6,7 @@ import {
   smartSoilReferenceInputSchema,
 } from '@spff/contracts';
 import { requestActor } from '../middleware/operatorAuth.js';
+import {OperatorOverrideError} from '../services/operatorPumpOverride.js';
 import {
   ActuatorBusyError,
   AutomaticModeConflictError,
@@ -255,6 +256,13 @@ export const getPumps = run(async (_req, res) => {
   return ok(res, await repository.pumps(), 'Data aktuator berhasil dimuat.');
 });
 
+export const resumeAutomation = run(async(req,res)=>{
+  if(typeof req.body?.deviceId!=='string'||!req.body.deviceId.trim())
+    return res.status(400).json({success:false,message:'deviceId wajib diisi.',errors:['deviceId']});
+  try{return ok(res,await repository.resumeAutomation(req.body.deviceId,requestActor(req)),'Menunggu konfirmasi perangkat untuk melanjutkan otomasi.');}
+  catch(error){if(error instanceof OperatorOverrideError)return res.status(409).json({success:false,message:error.message,errors:['operatorOverride']});throw error;}
+});
+
 export const getSmartSoil = run(async (_req, res) => {
   res.set('Cache-Control', 'no-store');
   return ok(res, await repository.smartSoil(), 'Snapshot Smart Soil berhasil dimuat.');
@@ -293,6 +301,8 @@ export const updateSmartSoilReference = run(async (req, res) => {
 });
 
 export const updatePump = run(async (req, res) => {
+  if(req.body?.operatorOverride!==undefined&&typeof req.body.operatorOverride!=='boolean')
+    return res.status(400).json({success:false,message:'operatorOverride harus boolean.',errors:['operatorOverride']});
   if (typeof req.body?.isActive !== 'boolean') {
     return res.status(400).json({
       success: false,
@@ -314,6 +324,7 @@ export const updatePump = run(async (req, res) => {
       req.body.isActive,
       requestActor(req),
       commandId,
+      req.body.operatorOverride===true,
     );
     if (!pump) {
       return res.status(404).json({
@@ -324,6 +335,7 @@ export const updatePump = run(async (req, res) => {
     }
     return ok(res, pump, `${pump.name} masuk antrean command dan menunggu ACK aktual.`);
   } catch (error) {
+    if(error instanceof OperatorOverrideError)return res.status(409).json({success:false,message:error.message,errors:['operatorOverride']});
     if (error instanceof AutomaticModeConflictError) {
       return res.status(409).json({
         success: false,

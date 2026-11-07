@@ -620,11 +620,13 @@ export function updateActuator(
   isActive: boolean,
   commandId =
     `web-${createClientUuid()}`,
+  operatorOverride = false,
 ) {
 
   const body = {
     isActive,
     commandId,
+    ...(operatorOverride?{operatorOverride:true}:{}),
   } satisfies ApiPumpCommandRequest
 
 
@@ -895,6 +897,10 @@ export function saveAutomaticControl(
     },
   )
 }
+
+export const resumePumpAutomation = (deviceId:string) => request<ApiAutomaticControl>('/automatic-control/resume',{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId}),
+})
 
 
 // Uses the existing session cookie, CSRF token and API error handling.

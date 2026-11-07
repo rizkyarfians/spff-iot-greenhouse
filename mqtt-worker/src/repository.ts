@@ -33,6 +33,7 @@ export interface IngestionRepository {
 }
 
 export interface PendingControlCommand {
+  operatorOverride?: boolean;
   commandId: string;
   siteId: string;
   deviceId: string;
@@ -44,6 +45,7 @@ export interface PendingControlCommand {
 }
 
 export interface CommandDispatchRepository {
+  publishPendingCommand?(commandId:string,publish:(current:PendingControlCommand)=>Promise<void>):Promise<boolean>;
   expireCommands(): Promise<number>;
   pendingCommands(limit: number): Promise<PendingControlCommand[]>;
   markCommandPublished(commandId: string, publishedAt: string): Promise<void>;
@@ -287,9 +289,9 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
     return result.rowCount ?? 0;
   }
 
-  async pendingCommands(limit: number): Promise<PendingControlCommand[]> {
+  async pendingCommands(limit: number, database:Pick<Pool,'query'>=this.pool): Promise<PendingControlCommand[]> {
     const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
-    const installed = (await this.pool.query(
+    const installed = (await database.query(
       "SELECT to_regclass('spff.automatic_cycle_states') IS NOT NULL AS ready",
     )).rows[0]?.ready === true;
     const automaticGate = installed && process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED === 'true';
@@ -314,13 +316,14 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       WHERE r.start_command_id=spff.control_commands.command_id AND r.status='queued'
         AND cycle.mode='watering' AND cycle.dispatch_enabled
     )` : 'false';
-    const result = await this.pool.query<{
+    const result = await database.query<{
       command_id: string;
       site_id: string;
       device_id: string;
       actuator_key: string;
       requested_is_active: boolean;
       requested_by: string;
+      operator_override: boolean;
       issued_at: Date | string;
       expires_at: Date | string;
     }>(
@@ -331,6 +334,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           device_id,
           actuator_key,
           requested_is_active,
+          coalesce((request_payload->>'operatorOverride')::boolean,false) AS operator_override,
           CASE WHEN requested_is_active AND requested_by='hst-fertilization' AND request_payload->>'nativeHstSchedule'='true'
             THEN 'schedule:hst-' || (request_payload->>'startId') ||
               CASE WHEN actuator_key='pump_water' THEN '-water:on' ELSE '-fert:on' END
@@ -341,6 +345,11 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         WHERE status = 'pending'
           AND issued_at <= now()
           AND expires_at > now()
+          AND NOT (EXISTS(SELECT 1 FROM spff.device_automatic_control_configs ov
+            WHERE ov.site_id=spff.control_commands.site_id AND ov.device_id=spff.control_commands.device_id AND ov.operator_override_active)
+            AND coalesce(request_payload->>'operatorOverride','false')<>'true'
+            AND coalesce(request_payload->>'source','')<>'spff-rest-api'
+            AND (requested_by LIKE 'hst-%' OR requested_by LIKE 'schedule:%' OR coalesce(request_payload->>'source','')='spff-server-fuzzy-water'))
           AND (requested_is_active = false OR (
             coalesce(request_payload->>'source','') <> 'spff-server-fuzzy-water'
             AND requested_by NOT LIKE 'schedule:%' AND EXISTS (
@@ -351,9 +360,10 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
               AND mode_config.acknowledged_revision = mode_config.revision
               AND mode_config.applied_mode = mode_config.desired_mode
               AND (
-                (requested_by NOT IN ('hst-fertilization','hst-fuzzy-water') AND mode_config.desired_mode = 'manual')
-                OR (requested_by = 'hst-fertilization' AND mode_config.desired_mode = 'automatic' AND ${hstCommand})
-                OR (requested_by = 'hst-fuzzy-water' AND mode_config.desired_mode = 'automatic' AND ${fuzzyCommand})
+                (requested_by NOT IN ('hst-fertilization','hst-fuzzy-water') AND mode_config.desired_mode = 'manual' AND coalesce(request_payload->>'operatorOverride','false')<>'true')
+                OR (request_payload->>'operatorOverride'='true' AND mode_config.operator_override_active AND mode_config.desired_mode='automatic')
+                OR (NOT mode_config.operator_override_active AND requested_by = 'hst-fertilization' AND mode_config.desired_mode = 'automatic' AND ${hstCommand})
+                OR (NOT mode_config.operator_override_active AND requested_by = 'hst-fuzzy-water' AND mode_config.desired_mode = 'automatic' AND ${fuzzyCommand})
               )
           )))
         ORDER BY issued_at ASC, created_at ASC
@@ -372,9 +382,26 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       actuatorKey: row.actuator_key,
       requestedIsActive: row.requested_is_active,
       requestedBy: row.requested_by,
+      ...(row.operator_override?{operatorOverride:true}:{}),
       issuedAt: iso(row.issued_at),
       expiresAt: iso(row.expires_at),
     }));
+  }
+
+  async publishPendingCommand(commandId:string,publish:(current:PendingControlCommand)=>Promise<void>):Promise<boolean> {
+    const c=await this.pool.connect();
+    try {
+      await c.query('BEGIN');
+      const row=(await c.query('SELECT site_id,device_id FROM spff.control_commands WHERE command_id=$1',[commandId])).rows[0];
+      if(!row){await c.query('ROLLBACK');return false;}
+      await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`soil-ec:${row.site_id}:${row.device_id}`]);
+      const locked=(await c.query("SELECT 1 FROM spff.control_commands WHERE command_id=$1 AND status='pending' AND expires_at>now() FOR UPDATE",[commandId])).rows.length>0;
+      const current=locked?(await this.pendingCommands(100,c)).find(item=>item.commandId===commandId):null;
+      if(!current){await c.query('ROLLBACK');return false;}
+      await publish(current);
+      await c.query("UPDATE spff.control_commands SET status='published',published_at=now(),updated_at=now() WHERE command_id=$1 AND status='pending'",[commandId]);
+      await c.query('COMMIT');return true;
+    }catch(error){await c.query('ROLLBACK');throw error;}finally{c.release();}
   }
 
   async markCommandPublished(
@@ -420,6 +447,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
            AND automatic_control.device_id = actuator.device_id
           WHERE actuator.enabled = true
             AND automatic_control.desired_mode = 'automatic'
+            AND ($1 = false OR NOT automatic_control.operator_override_active)
             AND ($1 = false OR (
               automatic_control.applied_mode = 'automatic'
               AND automatic_control.acknowledgement_status = 'applied'
@@ -591,14 +619,17 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
       THEN 'server' ELSE $1 END`;
     await this.pool.query(`UPDATE spff.device_schedule_sync_state s SET revision=revision+1,updated_at=now()
       WHERE published_revision=revision AND published_authority IS NOT NULL
+        AND NOT EXISTS(SELECT 1 FROM spff.device_automatic_control_configs ov WHERE ov.site_id=s.site_id AND ov.device_id=s.device_id AND ov.operator_override_active)
         AND published_authority IS DISTINCT FROM (${desiredAuthority})`,[authority,nativeDevices]);
     // Separate SELECT observes the revision just incremented; no stale data-modifying-CTE snapshot.
     const syncResult=await this.pool.query<{
       site_id:string;device_id:string;revision:string|number;desired_authority:ScheduleExecutionAuthority;
     }>(`SELECT s.site_id,s.device_id,s.revision,(${desiredAuthority}) AS desired_authority
-      FROM spff.device_schedule_sync_state s WHERE $3::boolean
+      FROM spff.device_schedule_sync_state s WHERE NOT EXISTS(
+        SELECT 1 FROM spff.device_automatic_control_configs ov WHERE ov.site_id=s.site_id AND ov.device_id=s.device_id AND ov.operator_override_active)
+        AND ($3::boolean
         OR published_revision IS DISTINCT FROM revision
-        OR published_authority IS DISTINCT FROM (${desiredAuthority})
+        OR published_authority IS DISTINCT FROM (${desiredAuthority}))
       ORDER BY s.site_id,s.device_id`,[authority,nativeDevices,force]);
     const schedules=await this.enabledSchedules(false);
     const generatedAt = new Date().toISOString();
@@ -692,6 +723,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
 
     return result.rows.map((row) => ({
       kind: "automatic_control_sync" as const,
+      releaseOperatorOverride: row.operator_override_active !== true,
       schemaVersion: 1 as const,
       siteId: String(row.site_id),
       deviceId: String(row.device_id),

@@ -61,7 +61,7 @@ export class CommandDispatchService {
   }
 
   private async dispatch(command: PendingControlCommand): Promise<void> {
-    const message: PumpCommandMessage = {
+    const messageFor = (command:PendingControlCommand): PumpCommandMessage => ({
       schemaVersion: 1,
       siteId: command.siteId,
       deviceId: command.deviceId,
@@ -74,15 +74,18 @@ export class CommandDispatchService {
       targetId: command.actuatorKey,
       params: {
         isActive: command.requestedIsActive,
+        ...(command.operatorOverride?{operatorOverride:true}:{}),
       },
-    };
+    });
 
     try {
-      await this.publisher.publishCommand(message);
-      await this.repository.markCommandPublished(
-        command.commandId,
-        new Date().toISOString(),
-      );
+      if(this.repository.publishPendingCommand) {
+        const sent=await this.repository.publishPendingCommand(command.commandId,current=>this.publisher.publishCommand(messageFor(current)));
+        if(!sent)return;
+      } else {
+        await this.publisher.publishCommand(messageFor(command));
+        await this.repository.markCommandPublished(command.commandId,new Date().toISOString());
+      }
       console.log("[command-dispatch] command published", {
         commandId: command.commandId,
         siteId: command.siteId,

@@ -275,7 +275,7 @@ export async function approveDoseVolume(raw:unknown,actor:string){
    WHERE c.site_id=$1 AND c.device_id=$2 FOR SHARE OF c`,[siteId,old.deviceId])).rows[0];
   const status=equipment?.raw_payload;
   const requiredMode=pulse?'automatic':'manual';
-  if(!equipment?.online||!recent(equipment.recorded_at,90000)||equipment.mode!==requiredMode
+  if(equipment?.operator_override_active||!equipment?.online||!recent(equipment.recorded_at,90000)||equipment.mode!==requiredMode
     ||equipment.desired_mode!==requiredMode||equipment.applied_mode!==requiredMode||equipment.acknowledgement_status!=='applied'
     ||String(equipment.revision)!==String(equipment.acknowledged_revision)||(!pulse&&equipment.water_enabled)||equipment.fertilizer_enabled
     ||status?.pumpReadbackValid!==true||status.pumpWaterActualActive!==false||status.pumpFertActualActive!==false

@@ -75,7 +75,7 @@ export async function setSoilEcExecution(input:unknown,actor:string) {
 }
 export async function soilEcEquipment(client: PoolClient, deviceId: string) {
   const result = await client.query(`SELECT c.revision,c.desired_mode,c.applied_mode,c.acknowledged_revision,c.acknowledgement_status,
-    c.fertilizer_enabled,st.recorded_at,st.online,st.mode,st.raw_payload,
+    c.fertilizer_enabled,c.operator_override_active,st.recorded_at,st.online,st.mode,st.raw_payload,
     ss.revision AS schedule_revision,ss.acknowledged_revision AS schedule_ack,ss.acknowledgement_status AS schedule_status,
     crop.crop_id,
     EXISTS(SELECT 1 FROM spff.actuator_schedules a WHERE a.site_id=d.site_id AND a.device_id=d.device_id
@@ -93,7 +93,7 @@ export async function soilEcEquipment(client: PoolClient, deviceId: string) {
       ORDER BY recorded_at DESC,device_status_id DESC LIMIT 1) st ON true
     WHERE d.site_id=$1 AND d.device_id=$2 AND d.enabled`, [siteId, deviceId]);
   const r = result.rows[0];
-  if (!r || r.fertilizer_enabled || !r.online || r.mode !== 'automatic' || r.desired_mode !== 'automatic' || r.applied_mode !== 'automatic' ||
+  if (!r || r.operator_override_active || r.fertilizer_enabled || !r.online || r.mode !== 'automatic' || r.desired_mode !== 'automatic' || r.applied_mode !== 'automatic' ||
       r.acknowledgement_status !== 'applied' || String(r.revision) !== String(r.acknowledged_revision) ||
       !r.recorded_at || Date.now() - r.recorded_at.getTime() > 90000 || r.recorded_at.getTime() > Date.now() ||
       r.raw_payload?.serverPulseCapable !== true || r.raw_payload?.independentSoilEcCapable !== true || !/^[a-fA-F0-9]{16}$/.test(r.raw_payload?.pulseBootId??'') || r.schedule_status !== 'applied' ||

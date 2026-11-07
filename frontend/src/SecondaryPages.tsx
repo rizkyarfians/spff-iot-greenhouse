@@ -1,3 +1,4 @@
+import { resumePumpAutomation } from './api'
 import { ToggleButtons } from './ToggleButtons'
 import { SettingChoice } from './SettingChoice'
 import './SettingsWorkspace.css'
@@ -952,18 +953,12 @@ function ControlsPage({
         return
       }
 
-      if (active && automaticModeRequested) {
-        setCommandNotice(
-          'Command ON manual dikunci saat mode otomatis diminta atau sedang aktif.',
-        )
-        return
-      }
 
 
       const eligible =
         controls.filter(
           (control) =>
-            !control.pending,
+            !active || !control.pending,
         )
 
 
@@ -995,6 +990,8 @@ function ControlsPage({
           await updateActuator(
             control.id,
             active,
+            undefined,
+            automaticModeRequested,
           )
         }
 
@@ -1020,6 +1017,7 @@ function ControlsPage({
   const toggleControl =
     async (
       id: string,
+      requestedActive?:boolean,
     ) => {
       if (commandInFlight.current) return
       const target =
@@ -1031,19 +1029,13 @@ function ControlsPage({
 
       if (
         !target
-        || target.pending
+        || (target.pending && (requestedActive ?? !target.isActive))
         || connectionState
           !== 'connected'
       ) {
         return
       }
 
-      if (!target.isActive && automaticModeRequested) {
-        setCommandNotice(
-          'Command ON manual dikunci saat mode otomatis diminta atau sedang aktif.',
-        )
-        return
-      }
 
 
       commandInFlight.current = true
@@ -1058,7 +1050,9 @@ function ControlsPage({
       try {
         await updateActuator(
           id,
-          !target.isActive,
+          requestedActive ?? !target.isActive,
+          undefined,
+          automaticModeRequested,
         )
 
 
@@ -1257,7 +1251,7 @@ function ControlsPage({
     >
       <div className="controls-actuators page-card">
       <div className="control-toolbar">
-        <h2>Pompa</h2>
+        <h2>Pompa</h2>{automaticControl?.operatorOverrideActive&&<button type="button" className="secondary-button" disabled={savingAutomatic||sendingCommand||connectionState!=='connected'} onClick={()=>void resumePumpAutomation(automaticControl.deviceId).then(()=>{setCommandNotice('Menunggu konfirmasi perangkat untuk melanjutkan otomasi.');onRefresh()}).catch(error=>setCommandNotice(error instanceof Error?error.message:'Gagal melanjutkan otomasi.'))}>Lanjutkan otomatis</button>}
         <div
           className="segmented-control"
           aria-label="Pilih mode operasi yang diinginkan"
@@ -1385,20 +1379,14 @@ function ControlsPage({
                             : 'Aktifkan'
                         } ${control.name}`
                       }
-                      onClick={() =>
-                        void toggleControl(
-                          control.id,
-                        )
-                      }
+                      onValueChange={active=>void toggleControl(control.id,active)}
+                      disabledOn={control.pending}
+                      allowOff={control.pending}
                       disabled={
                         sendingCommand
-                        || control.pending
                         || connectionState
                           !== 'connected'
-                        || (
-                          automaticModeRequested
-                          && !control.isActive
-                        )
+
                       }
                     >
                       <span />
