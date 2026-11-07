@@ -1,20 +1,7 @@
-import {FertigationProgressPanel} from './FertigationProgressPanel'
-import {useFertigationProgress} from './useFertigationProgress'
 import { useEffect, useRef, useState } from 'react'
-import { soilEcPulseProfileSchema, type FertigationRecipe } from '@spff/contracts'
-import { fetchSoilEcPulseSessions, saveSoilEcAutomaticProfile, startSoilEcPulseSession, stopSoilEcPulseSession, releaseSoilEcPulseSession, type SoilEcSessionView } from './api'
+import type { FertigationRecipe } from '@spff/contracts'
+import { fetchSoilEcPulseSessions, stopSoilEcPulseSession, releaseSoilEcPulseSession, type SoilEcSessionView } from './api'
 
-const numericFields = [
-  ['kpMsPerUsCm','Faktor pulse (ms per selisih µS/cm)'],
-  ['minOnMs','Pulse minimum (ms, minimal 1500)'],['maxOnMs','Pulse maksimum (ms, maksimal 30000)'],
-  ['settleMs','Waktu meresap sebelum pembacaan baru (ms)'],['maxSessionMs','Batas durasi seluruh sesi (ms)'],
-  ['maxTotalOnMs','Batas total pompa ON per sesi (ms)'],['maxDailyOnMs','Batas total pompa ON per hari (ms)'],
-  ['maxCycles','Batas jumlah cycle'],['stableSamples','Jumlah sampel stabil (2–10)'],
-  ['stableSpreadUsCm','Selisih maksimum antar sampel stabil (µS/cm)'],['toleranceUsCm','Toleransi target EC (µS/cm)'],
-  ['minimumRiseUsCm','Kenaikan EC minimum setelah pulse (µS/cm)'],['maxNoResponseCycles','Batas cycle tanpa respons'],
-  ['moistureMinPercent','Moisture minimum evaluasi (%)'],['moistureMaxPercent','Moisture maksimum evaluasi (%)'],
-  ['cooldownMs','Jeda minimum antar sesi (ms)'],['minFlowLpm','Debit penggerak minimum (L/min)'],
-] as const
 const reasons:Record<string,string> = {
   schedule_priority:'Menunggu jadwal aktif selesai',automatic_session_started:'Sesi AI otomatis dimulai',
   waiting_new_samples:'Menunggu sampel tanah baru', settling:'Menunggu larutan meresap',
@@ -28,82 +15,46 @@ const reasons:Record<string,string> = {
   rule_mode_schedule_or_device_changed:'Aturan, mode, jadwal, atau perangkat tidak lagi siap',
   soil_sensor_invalid_or_stale:'Sensor tanah tidak valid atau terlambat', device_rejected_or_fault:'Perangkat menolak atau melaporkan fault',
 }
-export function SoilEcPulsePanel({recipe,deviceId,admin,operator,dirty}:{recipe:FertigationRecipe;deviceId:string;admin:boolean;operator:boolean;dirty:boolean}) {
-  const progress=useFertigationProgress(deviceId,!!deviceId,recipe.recipeId)
-  const [values,setValues]=useState<Record<string,string>>({})
-  const [reference,setReference]=useState('')
-  const [confirmed,setConfirmed]=useState(false)
-  const [water,setWater]=useState(false)
-  const [flowKey,setFlowKey]=useState<'flow_water_lpm'|'flow_fert_lpm'>('flow_fert_lpm')
-  const [enabled,setEnabled]=useState(false)
-  const [executionEnabled,setExecutionEnabled]=useState(false)
+export function SoilEcPulsePanel({deviceId,admin,operator}:{recipe:FertigationRecipe;deviceId:string;admin:boolean;operator:boolean;dirty:boolean}) {
   const [sessions,setSessions]=useState<SoilEcSessionView[]>([])
-  const [automatic,setAutomatic]=useState<{armed:boolean;reason:string}|null>(null)
-  const [notice,setNotice]=useState('')
-  const loaded=useRef(false)
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(false)
-  const requestId=useRef<string|null>(null)
   const busyRef=useRef(false)
   const generation=useRef(0)
-  useEffect(()=>{loaded.current=false;setValues({});setReference('');setAutomatic(null);setNotice('');requestId.current=null;setSessions([]);setEnabled(false);setExecutionEnabled(false);setError('');setConfirmed(false)
+  useEffect(()=>{
     const current=++generation.current
+    setSessions([]);setError('')
     if(!deviceId)return
-    let running=false
-    const refresh=async()=>{if(running)return;running=true;try{
-      const data=await fetchSoilEcPulseSessions(deviceId)
-      if(generation.current===current){setEnabled(data.enabled);setExecutionEnabled(data.executionEnabled);setSessions(data.sessions);setAutomatic(data.automatic?.recipe_id===recipe.recipeId?data.automatic:null)
-        if(!loaded.current){loaded.current=true;if(data.automatic?.recipe_id===recipe.recipeId){
-          const p=data.automatic.profile;setValues(Object.fromEntries(numericFields.map(([k])=>[k,String(p[k])])));
-          setReference(p.calibrationReference);setWater(p.waterWithPulse);setFlowKey(p.flowSensorKey)
-        }}
-      }
-    }catch(e){if(generation.current===current){setEnabled(false);setError(e instanceof Error?e.message:'Gagal memuat sesi')}}finally{running=false}}
+    let pending=false
+    async function refresh(){
+      if(pending)return
+      pending=true
+      try{const data=await fetchSoilEcPulseSessions(deviceId)
+        if(generation.current===current){setSessions(data.sessions);setError('')}
+      }catch{if(generation.current===current)setError('Riwayat sesi belum tersedia.')}
+      finally{pending=false}
+    }
     void refresh();const timer=setInterval(()=>void refresh(),5000)
     return()=>{clearInterval(timer);generation.current++}
-  },[deviceId,recipe.recipeId])
-  async function start(saveAutomatic=false){
-    if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('')
+  },[deviceId])
+  async function stop(id:string,release=false){
+    if(busyRef.current)return
+    busyRef.current=true;setBusy(true);setError('')
+    const current=generation.current
     try{
-      if(!confirmed)throw new Error('Verifikasi kalibrasi dan susunan aliran terlebih dahulu.')
-      const profile=soilEcPulseProfileSchema.parse({...Object.fromEntries(numericFields.map(([k])=>[k,values[k]?.trim()?Number(values[k]):null])),
-        calibrationReference:reference,soilEcTargetsVerified:true,hydraulicsVerified:true,waterWithPulse:water,flowSensorKey:flowKey})
-      requestId.current??=crypto.randomUUID()
-      const input={requestId:requestId.current,recipeId:recipe.recipeId,deviceId,profile}
-      if(saveAutomatic){await saveSoilEcAutomaticProfile(input);setNotice('Kalibrasi disimpan. AI ON akan mengevaluasi sensor otomatis, termasuk di luar jadwal.')}
-      else await startSoilEcPulseSession(input)
-      const data=await fetchSoilEcPulseSessions(deviceId);setSessions(data.sessions);setAutomatic(data.automatic?.recipe_id===recipe.recipeId?data.automatic:null)
-    }catch(e){setError(e instanceof Error?e.message:'Gagal memulai sesi')}
+      await (release?releaseSoilEcPulseSession(id):stopSoilEcPulseSession(id))
+      const data=await fetchSoilEcPulseSessions(deviceId)
+      if(generation.current===current)setSessions(data.sessions)
+    }catch(e){if(generation.current===current)setError(e instanceof Error?e.message:'Gagal menghentikan sesi')}
     finally{busyRef.current=false;setBusy(false)}
   }
-  async function stop(id:string,release=false){if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');try{
-    await (release?releaseSoilEcPulseSession(id):stopSoilEcPulseSession(id));const data=await fetchSoilEcPulseSessions(deviceId);setSessions(data.sessions)
-  }catch(e){setError(e instanceof Error?e.message:'Gagal menghentikan sesi')}finally{busyRef.current=false;setBusy(false)}}
-  const active=sessions.some(s=>['waiting','in_flight','fault'].includes(s.status))
-  return <section className="ft-field-group" aria-label="Sesi pemupukan EC tanah"><h3>Pemupukan otomatis</h3>
-    {deviceId&&<FertigationProgressPanel minimal report={progress.report} error={progress.error} loading={progress.loading} onRetry={progress.retry}/>}
-    {!deviceId?<p>Pilih perangkat terlebih dahulu.</p>:!enabled?<p>Pemupukan otomatis belum tersedia. Periksa koneksi atau hubungi pengelola.</p>:null}
-    {enabled&&!executionEnabled&&<p>Aktifkan AI Fertigasi EC Tanah di halaman Kontrol sebelum memulai sesi.</p>}
-    {automatic&&<p role="status">AI otomatis: {automatic.armed?'siap mengevaluasi':'dihentikan operator'} · {reasons[automatic.reason]??'Periksa kondisi alat.'}</p>}
-    {notice&&<p role="status">{notice}</p>}
-    {error&&<p className="ft-error" role="alert">{error}</p>}
-    {enabled&&admin&&<details><summary>Kalibrasi dan pengaman (untuk teknisi)</summary>
-      <fieldset disabled={busy||active||dirty}><div className="ft-fields">
-        <label>Referensi hasil kalibrasi<input value={reference} onChange={e=>{setReference(e.target.value);requestId.current=null;setConfirmed(false)}}/></label>
-        {numericFields.map(([key,label])=><label key={key}>{label}<input type="number" step="any" value={values[key]??''}
-          onChange={e=>{setValues({...values,[key]:e.target.value});requestId.current=null;setConfirmed(false)}}/></label>)}
-        <label>Flow meter penggerak yang sudah diverifikasi<select value={flowKey} onChange={e=>{setFlowKey(e.target.value as typeof flowKey);requestId.current=null;setConfirmed(false)}}>
-          <option value="flow_fert_lpm">Flow jalur pupuk/Venturi</option><option value="flow_water_lpm">Flow jalur air</option></select></label>
-        <label className="ft-pulse-check"><input type="checkbox" checked={water} onChange={e=>{setWater(e.target.checked);requestId.current=null;setConfirmed(false)}}/>CH3 perlu menyala bersama CH1 saat pulse, sesuai hasil uji jalur air</label>
-        <label className="ft-pulse-check"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>Target dataset sudah diverifikasi untuk sensor EC tanah ini; respons pulse, waktu meresap, dan aliran Venturi sudah dikalibrasi.</label>
-      </div></fieldset>
-      <button type="button" className="ft-primary" disabled={busy||active||dirty||!confirmed||!deviceId} onClick={()=>void start(true)}>Simpan kalibrasi untuk AI otomatis</button>
-      <button type="button" className="ft-primary" disabled={busy||active||dirty||!confirmed||!deviceId||!executionEnabled} onClick={()=>void start()}>Mulai satu sesi</button>
-    </details>}
-    {sessions.map(s=><article className="ft-result" key={s.session_id}><strong>{{waiting:'Menunggu',in_flight:'Sedang berjalan',completed:'Selesai',cancelled:'Dihentikan',fault:'Perlu diperiksa'}[s.status]??'Menunggu konfirmasi'}</strong>
-      <p>{reasons[s.reason]??'Periksa kondisi alat.'}</p><p>Siklus: {s.cycles} · durasi pemberian: {Number(s.total_on_ms)/1000} detik · EC sebelumnya: {s.previous_ec??'—'} µS/cm</p>
-
-      {admin&&['completed','cancelled','fault'].includes(s.status)&&<button type="button" disabled={busy} onClick={()=>void stop(s.session_id,true)}>Akhiri kontrol sesi (mode Manual)</button>}
+  if(!sessions.length&&!error)return null
+  return <section className="ft-field-group" aria-label="Riwayat sesi AI"><h3>Riwayat sesi AI</h3>
+    {error&&<p role="alert">{error}</p>}
+    {sessions.map(s=><article className="ft-result" key={s.session_id}>
+      <strong>{{waiting:'Menunggu',in_flight:'Sedang berjalan',completed:'Selesai',cancelled:'Dihentikan',fault:'Perlu diperiksa'}[s.status]??'Menunggu konfirmasi'}</strong>
+      <p>{reasons[s.reason]??s.reason}</p><p>Durasi pemberian: {Number(s.total_on_ms)/1000} detik</p>
+      {admin&&['completed','cancelled','fault'].includes(s.status)&&<button type="button" disabled={busy} onClick={()=>void stop(s.session_id,true)}>Akhiri kontrol sesi</button>}
       {operator&&['waiting','in_flight','fault'].includes(s.status)&&<button type="button" disabled={busy} onClick={()=>void stop(s.session_id)}>Hentikan sesi</button>}
     </article>)}
   </section>

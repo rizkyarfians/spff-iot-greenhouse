@@ -12,6 +12,7 @@ import {
   Router,
 } from 'express';
 import { requireAiEvaluationEnabled } from '../middleware/aiEvaluation.js';
+import { advisoryPumpPolicy } from '../middleware/advisoryAi.js';
 import { getHstProposals, postHstApproval, getHstExecutionReadiness, getHstRealPreflight,
  getHstRealHardwareProfile,putHstRealHardwareProfile,
  postHstRealExecute,getHstRealSession,postHstRealStop,getHstRealLatest,
@@ -151,6 +152,7 @@ apiRouter.use(
   auditMutation,
 );
 
+apiRouter.use(advisoryPumpPolicy);
 
 /*
  * AUTH

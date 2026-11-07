@@ -56,7 +56,7 @@ export class AdaptiveFertigationTransport {
  async dispatch(){
   const c=await this.pool.connect();let rows;
   try{await c.query('BEGIN');
-   await tickServerWater(c,process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED==='true');
+   await tickServerWater(c,false);
    await this.stopOnEmptyWater(c);
    // Claim before network I/O. A process crash becomes uncertain; never replay START automatically.
    await c.query(`UPDATE spff.adaptive_fert_sessions s SET status='reconciliation_required',reason='command_outcome_unknown' WHERE status IN ('queued','running','paused') AND EXISTS(SELECT 1 FROM spff.adaptive_fert_commands cmd WHERE cmd.site_id=s.site_id AND cmd.session_id=s.session_id AND cmd.status IN ('dispatching','unknown') AND cmd.expires_at<now())`);
@@ -66,9 +66,9 @@ export class AdaptiveFertigationTransport {
    rows=(await c.query(`SELECT cmd.*,s.device_id,s.command_snapshot FROM spff.adaptive_fert_commands cmd JOIN spff.adaptive_fert_sessions s USING(site_id,session_id)
     WHERE cmd.status='pending' AND cmd.expires_at>now() AND s.status NOT IN ('completed','fault')
     AND s.command_snapshot->>'kind' IS DISTINCT FROM 'hst_dose_pulse'
-    AND (cmd.payload->>'commandType'<>'start' OR CASE WHEN cmd.payload->>'kind'='dose_volume_command' THEN $2::boolean ELSE $1::boolean END)
+    AND (cmd.payload->>'commandType' NOT IN ('start','resume') OR CASE WHEN cmd.payload->>'kind'='dose_volume_command' THEN $2::boolean ELSE $1::boolean END)
     AND (cmd.payload->>'commandType'<>'start' OR NOT EXISTS(SELECT 1 FROM spff.adaptive_fert_commands earlier WHERE earlier.site_id=cmd.site_id AND earlier.session_id=cmd.session_id AND earlier.created_at<cmd.created_at AND earlier.status IN ('pending','dispatching','forwarded')))
-    ORDER BY cmd.created_at FOR UPDATE OF cmd SKIP LOCKED LIMIT 10`,[process.env.SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED==='true',process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED==='true'])).rows;
+    ORDER BY cmd.created_at FOR UPDATE OF cmd SKIP LOCKED LIMIT 10`,[false,false])).rows;
    for(const row of rows){
     row.payload=normalizeDoseVolumeStop(row);
     await c.query("UPDATE spff.adaptive_fert_commands SET status='dispatching',dispatch_started_at=now(),payload=$3 WHERE site_id=$1 AND command_id=$2",

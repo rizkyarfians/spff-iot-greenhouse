@@ -29,7 +29,7 @@ async function settleHstPulses(client:PoolClient) {
         kind:operation==='stop'?'fertigation_pulse_stop':'fertigation_pulse_release',
         schemaVersion:1,siteId:s.site_id,deviceId:s.device_id,sessionId:s.session_id,cycle:1,commandId,
         issuedAt:now.toISOString(),expiresAt:expires.toISOString(),
-        ...(operation==='release'&&!faultStopped&&!unknownStopped?{resumeAutomatic:true}:{}),
+        ...(operation==='release'?{resumeAutomatic:false}:{}),
       });
       await client.query(`INSERT INTO spff.hst_dose_pulse_commands
         (site_id,session_id,cycle,command_id,operation,payload,expires_at) VALUES($1,$2,1,$3,$4,$5,$6)
@@ -129,7 +129,7 @@ export class SoilEcPulseTransport {
         WHERE pc.status IN ('pending','published','accepted') AND pc.expires_at>now()
           AND (pc.operation<>'pulse' OR ($1::boolean AND s.status='in_flight' AND ${executionGate}))
           AND (pc.last_published_at IS NULL OR pc.last_published_at<now()-interval '2 seconds')
-        ORDER BY (pc.operation='stop') DESC,pc.created_at FOR UPDATE OF pc SKIP LOCKED LIMIT 10`,[process.env.SPFF_SOIL_EC_PULSES_ENABLED==='true']);
+        ORDER BY (pc.operation='stop') DESC,pc.created_at FOR UPDATE OF pc SKIP LOCKED LIMIT 10`,[false]);
       const hstInstalled=(await c.query("SELECT to_regclass('spff.hst_dose_pulse_commands') IS NOT NULL AS ready")).rows[0]?.ready===true;
       if(hstInstalled)await settleHstPulses(c);
       const hst=hstInstalled?await c.query(`
@@ -150,13 +150,13 @@ export class SoilEcPulseTransport {
             AND NOT EXISTS (SELECT 1 FROM spff.device_soil_ec_execution_configs ec
               WHERE ec.site_id=s.site_id AND ec.device_id=s.device_id AND ec.enabled)))
         ORDER BY (pc.operation='stop') DESC,pc.created_at FOR UPDATE OF pc SKIP LOCKED LIMIT 10`,
-      [process.env.SPFF_HST_DOSE_PULSES_ENABLED==='true' && process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED==='true']):null;
+      [false]):null;
       const commands=[
         ...r.rows.map(row=>({row,table:'spff.soil_ec_pulse_commands' as const})),
         ...(hst?.rows??[]).map(row=>({row,table:'spff.hst_dose_pulse_commands' as const})),
       ];
       for(const {row,table} of commands){
-        const payload=fertigationPulseCommandSchema.parse(row.payload);
+        const payload=fertigationPulseCommandSchema.parse({...row.payload,...(row.operation==='release'?{resumeAutomatic:false}:{})});
         if(table==='spff.hst_dose_pulse_commands' &&
           (payload.siteId!==row.site_id || payload.deviceId!==row.device_id || payload.sessionId!==row.session_id ||
            payload.commandId!==row.command_id || payload.cycle!==row.cycle ||

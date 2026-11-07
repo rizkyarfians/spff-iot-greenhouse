@@ -118,9 +118,6 @@ if [[ "$MODE" == deploy ]]; then
   fatal "migration 034-036 not verified; no runtime change"
  fi
  [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain adaptive sessions; do not interrupt"
- if [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == true ]]; then
-  [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "Turn SHADOW MODE ON before deployment; no build or runtime change performed"
- fi
  for loc in "$PROD/packages/contracts/dist" "$PROD/functions/lib" "$PROD/mqtt-worker/dist" "$PROD/frontend/dist"; do
   [[ -d "$loc" && ! -L "$loc" ]] || fatal "unexpected runtime directory: $loc"
  done
@@ -150,7 +147,7 @@ STAGING_BUILD
  for module in aiHst adaptiveFertigation unifiedAiDashboard doseVolume hstDosePulse; do
   install -m644 "$SRC/packages/contracts/dist/$module.js" "$RUN/new/contracts/$module.js"
  done
- for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController controllers/dashboardController services/postgresRepository services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
+ for module in controllers/aiHstController controllers/unifiedAiDashboardController controllers/doseVolumeController controllers/dashboardController middleware/advisoryAi services/soilEcPulseService services/postgresRepository services/doseVolumeService services/adaptiveFertigationService services/hstRealExecutionService services/hstExecutionModeService; do
   install -D -m644 "$SRC/functions/lib/$module.js" "$RUN/new/api/$module.js"
  done
  install -m644 "$SRC/mqtt-worker/dist/adaptiveFertigationTransport.js" "$RUN/new/worker/adaptiveFertigationTransport.js"
@@ -245,6 +242,10 @@ if pos<0: raise SystemExit('STOP: authenticated bootstrap route anchor not found
 auth=re.search(r'apiRouter\.use\(\s*requireAuth\s*,?\s*\)\s*;',live)
 if auth is None or pos<auth.end(): raise SystemExit('STOP: authentication boundary mismatch')
 live=live[:pos]+'\n'.join(routes)+'\n\n'+live[pos:]
+if 'apiRouter.use(advisoryPumpPolicy);' not in live:
+    auth=re.search(r'apiRouter\.use\(\s*requireAuth\s*,?\s*\)\s*;',live)
+    live=live[:auth.end()]+'\napiRouter.use(advisoryPumpPolicy);\n'+live[auth.end():]
+    live="import { advisoryPumpPolicy } from '../middleware/advisoryAi.js';\n"+live
 dest.write_text(live)
 print('PRESERVED_LOCAL_API_ROUTES=PASS;',len(routes),'HST/dashboard routes merged')
 print('AI_DASHBOARD_ROUTE=INSTALLED; AUTH=REQUIRED')
@@ -260,7 +261,7 @@ PY
  rm -rf "$MERGED/frontend/src"
  cp -a "$PROD/frontend/src" "$MERGED/frontend/src"
  if [[ -d "$PROD/frontend/public" && -d "$MERGED/frontend/public" ]]; then cp -a "$PROD/frontend/public/." "$MERGED/frontend/public/"; fi
- for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx pageConfig.ts HstFertilizationNotice.tsx; do
+ for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx pageConfig.ts HstFertilizationNotice.tsx SoilEcPulsePanel.tsx SoilEcExecutionSettings.tsx; do
    install -m644 "$SRC/frontend/src/$hst_file" "$MERGED/frontend/src/$hst_file"
  done
  python3 - "$MERGED/frontend/src/api.ts" "$SRC/frontend/src/api.ts" "$MERGED/frontend/src/GuidePage.tsx" <<'PY'
@@ -360,7 +361,6 @@ SUMMARY_CHECK
    (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/038_hst_shadow_mode.sql"
  fi
  [[ "$(db "SELECT (to_regclass('spff.hst_execution_modes') IS NOT NULL)::text")" == true ]] || fatal "migration 038 missing"
- [[ "$(db "SELECT shadow_enabled::text FROM spff.hst_execution_modes ORDER BY site_id LIMIT 1")" == true ]] || fatal "Turn SHADOW MODE ON in the admin dashboard before deployment"
  say "Migration 039: dose-volume plans and measured delivery ledger"
  volume_tables="$(db "SELECT (to_regclass('spff.dose_volume_plans') IS NOT NULL)::int::text || ',' || (to_regclass('spff.dose_volume_bindings') IS NOT NULL)::int::text")"
  case "$volume_tables" in

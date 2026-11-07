@@ -321,7 +321,9 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         WHERE status = 'pending'
           AND issued_at <= now()
           AND expires_at > now()
-          AND (requested_is_active = false OR (requested_by NOT LIKE 'schedule:%' AND EXISTS (
+          AND (requested_is_active = false OR (
+            coalesce(request_payload->>'source','') <> 'spff-server-fuzzy-water'
+            AND requested_by NOT LIKE 'schedule:%' AND EXISTS (
             SELECT 1 FROM spff.device_automatic_control_configs mode_config
             WHERE mode_config.site_id = spff.control_commands.site_id
               AND mode_config.device_id = spff.control_commands.device_id

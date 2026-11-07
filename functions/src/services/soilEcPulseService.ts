@@ -8,7 +8,7 @@ import { pool, configuredSiteId as siteId } from './postgresRepository.js';
 import { getFertigationRecipe, listFertigationRecipes } from './fertigationRepository.js';
 import { applicationDue, jakartaDay } from './fertigationSchedule.js';
 
-export const soilEcPulsesEnabled = () => process.env.SPFF_SOIL_EC_PULSES_ENABLED === 'true' && (process.env.AI_EVALUATION_ENABLED??'true').trim().toLowerCase() === 'true';
+export const soilEcPulsesEnabled = () => false;
 export async function soilEcPulseStorageReady() {
   const r=await pool.query("SELECT to_regclass('spff.soil_ec_pulse_sessions') IS NOT NULL AS ready");
   return r.rows[0]?.ready===true;

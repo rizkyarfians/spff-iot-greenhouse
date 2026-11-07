@@ -176,51 +176,28 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.equal((await query('SELECT 1 FROM spff.hst_dose_pulse_commands')).rows.length,0);
    assert.equal((await service.readDoseVolumeSession(previous.session_id)).evidence_verified,false);
   });
-  await t.test('HST ACC publishes one combined pulse and credits only the confirmed meter delta',async()=>{
+  await t.test('AI pulse dispatcher refuses new pulses even when old flags are enabled',async()=>{
    await fixture();
-   const env={SPFF_HST_DOSE_PULSES_ENABLED:'true',SPFF_HST_MAX_STOCK_FLOW_LPM:'25',SPFF_HST_MIN_WATER_FLOW_LPM:'5'};
-   Object.assign(process.env,env);
+   const run=await approve(await makePlan());
+   await query(`UPDATE spff.adaptive_fert_sessions SET command_snapshot=$2 WHERE session_id=$1`,
+    [run.session_id,JSON.stringify({kind:'hst_dose_pulse',bootId:boot})]);
+   await query(`INSERT INTO spff.hst_dose_pulse_commands(site_id,session_id,command_id,cycle,operation,payload,expires_at)
+    VALUES('greenhouse-01',$1,$2,1,'pulse',$3,now()+interval '60 seconds')`,
+    [run.session_id,randomUUID(),JSON.stringify({params:{onDurationMs:3000}})]);
+   await query(`UPDATE spff.device_status_events SET mode='automatic',raw_payload=raw_payload||
+    '{"serverPulseCapable":true,"waterInterlockEnabled":true,"aiAccTankGuardHealthy":true}'::jsonb`);
+   process.env.SPFF_SOIL_EC_PULSES_ENABLED='true';
+   process.env.SPFF_HST_DOSE_PULSES_ENABLED='true';
    try{
-    await db.exec(`UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',applied_mode='automatic',water_enabled=true,
-     water_moisture_low_pct=10,water_moisture_target_pct=30,water_max_runtime_seconds=120,water_cooldown_seconds=60,water_min_flow_lpm=5;
-     UPDATE spff.device_status_events SET mode='automatic',raw_payload=(raw_payload-'doseVolumeV1')||
-       '{"serverPulseCapable":true,"serverPulseOwner":false,"waterInterlockEnabled":true,"aiAccTankGuardHealthy":true}'::jsonb;
-     UPDATE spff.telemetry_samples SET flow_water_total_l=100,flow_fert_total_l=20,
-       sensor_health=sensor_health||'{"flow_water_total_l":{"valid":true},"flow_fert_total_l":{"valid":true}}'::jsonb;`);
-    const plan=await makePlan();
-    assert.equal(plan.executionReady,true);
-    const run=await approve(plan), messages=[];
+    const {SoilEcPulseTransport}=await import('../../mqtt-worker/dist/soilEcPulseTransport.js');
+    const messages=[];
     const pulseTransport=new SoilEcPulseTransport(async command=>{messages.push(command)},database);
     await pulseTransport.dispatch();
-    assert.deepEqual(messages.map(p=>p.kind),['fertigation_pulse']);
-    assert.equal(messages[0].params.waterWithPulse,true);
-    const confirm=async command=>pulseTransport.saveAck({kind:'fertigation_pulse_ack',schemaVersion:1,
-     siteId:command.siteId,deviceId:command.deviceId,sessionId:command.sessionId,commandId:command.commandId,
-     cycle:command.cycle,status:'completed',acknowledgedAt:new Date().toISOString(),pumpsOff:true,reason:'confirmed_off'});
-    await confirm(messages[0]);
-    await db.exec("UPDATE spff.hst_dose_pulse_commands SET expires_at=now()-interval '1 second' WHERE operation='pulse'");
-    await pulseTransport.dispatch();
-    assert.equal(messages[1].kind,'fertigation_pulse_stop');
-    await confirm(messages[1]);
-    assert.equal((await service.readDoseVolumeSession(run.session_id)).evidence_verified,false);
-    for(const sequence of [2,3]){
-     await query(`INSERT INTO spff.telemetry_samples(site_id,device_id,message_id,sequence,recorded_at,received_at,
-        flow_water_total_l,flow_fert_total_l,sensor_health,raw_payload)
-       SELECT site_id,device_id,$1,$2::bigint,now()+$2::bigint*interval '1 millisecond',now(),110,22,sensor_health,raw_payload
-       FROM spff.telemetry_samples WHERE sequence=1`,[randomUUID(),sequence]);
-    }
-    await new Promise(resolve=>setTimeout(resolve,15));
-    await pulseTransport.dispatch();
-    assert.equal(messages[2].kind,'fertigation_pulse_release');
-    await confirm(messages[2]);
-    await pulseTransport.dispatch();
-    const final=await service.readDoseVolumeSession(run.session_id);
-    assert.equal(final.status,'completed');
-    assert.equal(final.fert_volume_l,2);
-    assert.equal(final.credited_g,8);
-    const progress=await service.doseVolumeCredits(proposals.proposals[0]);
-    assert.equal(progress.remaining_g,392);
-   }finally{for(const key of Object.keys(env))delete process.env[key];}
+    assert.deepEqual(messages,[]);
+   }finally{
+    delete process.env.SPFF_SOIL_EC_PULSES_ENABLED;
+    delete process.env.SPFF_HST_DOSE_PULSES_ENABLED;
+   }
   });
   await t.test('recipe uses Guide remaining mass and tank liters, without EC or manual dose injection',async()=>{
    await fixture();const plan=await makePlan();assert.equal(plan.recipe.recipe.batchMassG,400);
@@ -332,7 +309,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.equal(command.controlAlgorithm,'water_until_low_v1');
    assert.equal(command.targetWaterVolumeL,undefined);
    await transport.dispatch();
-   assert.equal(published[0].command.controlAlgorithm,'water_until_low_v1');
+   assert.equal(published.length,0,'AI START is advisory only');
    await event(ack(command,{reason:'water_low_reached'}));
    await event(telemetry(command,{reason:'water_low_reached',waterVolumeL:120,stockVolumeL:0}));
    const result=await service.readDoseVolumeSession(run.session_id);
@@ -365,7 +342,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.equal(on.requested_is_active,true);
    assert.equal(on.actuator_key,'pump_water');
    await assert.rejects(query('UPDATE spff.device_water_interlock_configs SET enabled=false'),/server_water_session_owns_interlock/);
-   await transport.dispatch();assert.equal(published.length,0,'no firmware-specific message');
+   await transport.dispatch();assert.ok(published.every(message=>message.command.commandType==='stop'));
    await query(`UPDATE spff.control_commands SET status='completed',issued_at=now()-interval '30 seconds',
     expires_at=now()-interval '10 seconds' WHERE command_id=$1`,[on.command_id]);
    await query('UPDATE spff.telemetry_samples SET tank_water_level_pct=0,flow_water_total_l=125,recorded_at=now()');
@@ -392,7 +369,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    const commands=(await query('SELECT requested_is_active,status FROM spff.control_commands ORDER BY requested_is_active DESC')).rows;
    assert.deepEqual(commands,[{requested_is_active:true,status:'failed'},{requested_is_active:false,status:'pending'}]);
    const session=await service.readDoseVolumeSession(run.session_id);
-   assert.equal(session.reason,'sensor_stale_or_meter_invalid');
+   assert.equal(session.reason,'server_gate_closed');
    assert.equal(session.evidence_verified,false);
   });
   await t.test('legacy emergency STOP is converted for a volume session with START gates OFF',async()=>{
@@ -413,8 +390,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    await transport.dispatch();assert.equal(published.length,0);
    process.env.SPFF_DOSE_VOLUME_DISPATCH_ENABLED='true';
    await transport.dispatch();await transport.dispatch();
-   assert.equal(published.length,1);assert.equal(published[0].command.kind,'dose_volume_command');
-   assert.equal(published[0].command.targetEcUs,undefined);
+   assert.equal(published.length,0,'legacy dispatch flags cannot reactivate AI START');
   });
   await t.test('stale Fuzzy evidence, manual completion and expired plans cannot start pumps',async()=>{
    await fixture();summary.production_fuzzy.expires_at=new Date(Date.now()-1000).toISOString();

@@ -1,8 +1,8 @@
 import {hstIrrigationDisplay} from './hstIrrigationSummary'
 import {useEffect,useState} from 'react'
-import {Check,Clock3,Cpu,Droplets,FlaskConical,Leaf,Radio,ShieldAlert} from 'lucide-react'
-import type {AiHstMode,AiHstExecutionReadiness,AiHstProposal,AiHstRealSessionSummary,FertigationProgress} from '@spff/contracts'
-import {fetchGuidePrograms,fetchAiHstProposals,fetchAiHstMode,fetchAiHstExecutionReadiness,fetchAiHstLiquidSummary,fetchAiHstRealLatest} from './api'
+import {Clock3,FlaskConical,Leaf,ShieldAlert} from 'lucide-react'
+import type {AiHstProposal,AiHstRealSessionSummary,FertigationProgress} from '@spff/contracts'
+import {fetchGuidePrograms,fetchAiHstProposals,fetchAiHstLiquidSummary,fetchAiHstRealLatest} from './api'
 import './AiFertigationOverview.css'
 
 const nf=new Intl.NumberFormat('id-ID',{maximumFractionDigits:2})
@@ -10,7 +10,7 @@ const finite=(n:number|null|undefined):n is number=>typeof n==='number'&&Number.
 const amount=(n:number|null|undefined,unit:string)=>finite(n)?nf.format(n)+' '+unit:'—'
 const time=(at:string|null|undefined)=>at?new Date(at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'})+' WIB':'Belum ada data'
 type Liquid=Awaited<ReturnType<typeof fetchAiHstLiquidSummary>>
-type Overview={proposals:AiHstProposal[]|null;mode:AiHstMode|null;readiness:AiHstExecutionReadiness|null;liquid:Liquid|null}
+type Overview={proposals:AiHstProposal[]|null;liquid:Liquid|null}
 function Inventory({label,value,capacity,stock=false}:{label:string;value:number|null|undefined;capacity:number|null|undefined;stock?:boolean}){
  const known=finite(value)
  const fill=known&&finite(capacity)&&capacity>0?Math.max(0,Math.min(100,value/capacity*100)):null
@@ -28,7 +28,7 @@ function VolumeBar({label,value,target}:{label:string;value:number|null;target:n
   {valid?<progress aria-label={label} value={Math.min(value,target)} max={target}/>:<div className="afo-empty-meter" aria-label={label+' belum terkonfirmasi'}/>}
  </div>
 }
-/** Read-only overview. Every request below is a GET; ACC stays in the HST panel. */
+/** Read-only estimates and historical device reports. */
 export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:FertigationProgress|null}){
  const [data,setData]=useState<Overview|null>(null)
  const [selected,setSelected]=useState('')
@@ -43,16 +43,13 @@ export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:
    if(pending)return
    pending=true
    try{
-    const [programs,proposals,mode,readiness,liquid]=await Promise.allSettled([
-     fetchGuidePrograms(),fetchAiHstProposals(abort.signal),fetchAiHstMode(abort.signal),
-     fetchAiHstExecutionReadiness(abort.signal),fetchAiHstLiquidSummary(abort.signal),
+    const [programs,proposals,liquid]=await Promise.allSettled([
+     fetchGuidePrograms(),fetchAiHstProposals(abort.signal),fetchAiHstLiquidSummary(abort.signal),
     ])
     if(abort.signal.aborted)return
     const ids=new Set(programs.status==='fulfilled'?programs.value.filter(p=>p.config.deviceId===deviceId).map(p=>p.programId):[])
     setData({
      proposals:programs.status==='fulfilled'&&proposals.status==='fulfilled'?proposals.value.proposals.filter(p=>ids.has(p.program_id)):null,
-     mode:mode.status==='fulfilled'?mode.value:null,
-     readiness:readiness.status==='fulfilled'?readiness.value:null,
      liquid:liquid.status==='fulfilled'?liquid.value:null,
     })
    }finally{pending=false;if(!abort.signal.aborted)setLoading(false)}
@@ -87,12 +84,10 @@ export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:
  const sessionFresh=Number.isFinite(sessionAge)&&sessionAge>=0&&sessionAge<=90000
  const sensorFresh=report?.deviceId===deviceId&&report.telemetryFresh
  const fresh=sessionFresh||sensorFresh
- const real=data?.mode?.shadowEnabled===false
- const modeLabel=!data?.mode?'Mode belum tersedia':real?(data.readiness?.canDispatch?'REAL':'REAL terkunci'):'SHADOW'
  const statusLabel=sessionError?'Status sesi belum tersedia':uncertain?'Sesi perlu diperiksa':
   matched?.status==='completed'?'Sesi selesai':matched?.status==='paused'?'Sesi dijeda':
   matched?.status==='running'?(sessionFresh?'Sesi berjalan':'Menunggu data sesi'):
-  matched?.status==='queued'?'Menunggu ACK perangkat':proposal?(real?'Menunggu ACC REAL':'Menunggu review HST'):
+  matched?.status==='queued'?'Menunggu ACK perangkat':proposal?'Kebutuhan HST tersedia':
   loading?'Memuat data…':data?.proposals===null?'Usulan belum tersedia':'Belum ada usulan HST'
  const liquid=data?.liquid
  const sourceAge=Date.now()-Date.parse(liquid?.planning_recorded_at??'')
@@ -107,15 +102,8 @@ export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:
  const unit=matched?'L':'kg'
  const displayedValue=matched?value:finite(value)?value/1000:null
  const displayedTarget=matched?target:finite(target)?target/1000:null
- const stages=[
-  {name:'HST',icon:Leaf,reached:!!proposal},
-  {name:'AI',icon:Cpu,reached:!!matched},
-  {name:'ACC',icon:Check,reached:!!matched},
-  {name:'ESP32',icon:Radio,reached:!!matched?.lastTelemetryAt},
-  {name:'Sesi',icon:Droplets,reached:matched?.status==='completed',active:matched?.status==='running'&&sessionFresh&&!uncertain},
- ]
- return <section className="afo" aria-label="Ringkasan pemupukan dan eksekusi AI" aria-busy={loading}>
-  <header className="afo-heading"><div><span className="afo-eyebrow"><Leaf size={13}/> PEMUPUKAN AI</span><h3>Tanaman &amp; eksekusi</h3></div><span className={'afo-mode'+(real?' is-real':'')}>{modeLabel}</span></header>
+ return <section className="afo" aria-label="Estimasi kebutuhan tanaman" aria-busy={loading}>
+  <header className="afo-heading"><div><span className="afo-eyebrow"><Leaf size={13}/> ESTIMASI AI</span><h3>Kebutuhan tanaman</h3></div><span className="afo-mode">Estimasi</span></header>
   <div className="afo-status" role="status"><span className={'afo-dot'+(fresh?' is-fresh':'')}/><strong>{statusLabel}</strong><small>{fresh?'Data terbaru':'Data alat belum terbaru'}</small></div>
   {data?.proposals&&data.proposals.length>1?<label className="afo-select">Kegiatan HST<select value={proposal?.obligation_id??''} onChange={event=>setSelected(event.target.value)}>{data.proposals.map(p=><option key={p.obligation_id} value={p.obligation_id}>HST {p.hst??'—'} · {p.product??'Pupuk'}</option>)}</select></label>:<p className="afo-crop">{proposal?<>HST {proposal.hst??'—'} <span>·</span> {proposal.product??'Pupuk'}</>:'Jadwal HST belum tersedia'}</p>}
   <div className="afo-inventories">
@@ -133,15 +121,15 @@ export function AiFertigationOverview({deviceId,report}:{deviceId:string;report:
    <div><span>Sisa kebutuhan tanaman</span><small>{proposal?.product??'Pupuk'} · HST {proposal?.hst??'—'}</small></div>
    <strong>{credited&&!uncertain&&finite(proposal?.remaining_g)?amount(proposal.remaining_g/1000,'kg'):'Perlu verifikasi'}</strong>
   </div>
-  <ol className="afo-pipeline" aria-label="Tahapan eksekusi AI">{stages.map(stage=><li key={stage.name} className={(stage.reached?'is-reached ':'')+(stage.active?'is-active':'')}><span><stage.icon size={17}/></span><small>{stage.name}</small><span className="afo-sr">{stage.active?'berjalan':stage.reached?'tercatat':'menunggu'}</span></li>)}</ol>
+
   {matched&&<div className="afo-session"><VolumeBar label="Air sesi" value={matched.lastTelemetryAt?matched.waterVolumeL:null} target={matched.commandedWaterL}/><VolumeBar label="Larutan stok sesi" value={matched.lastTelemetryAt?matched.fertVolumeL:null} target={matched.commandedFertL}/><small><Clock3 size={12}/> Laporan sesi {time(matched.lastTelemetryAt)}</small></div>}
   {liquid?.operational_profile&&<p className="afo-irrigation-note">{liquid.operational_profile.calculation_ready
     ?'Fuzzy: profil Panduan · maksimum '+amount(liquid.operational_profile.target_water_l,'L')
-    :liquid.operational_profile.status==='MISSING'?'Fuzzy produksi: profil belum terpasang':'Fuzzy produksi: profil perlu ditinjau'}</p>}
+    :liquid.operational_profile.status==='MISSING'?'Estimasi Fuzzy: profil belum terpasang':'Estimasi Fuzzy: profil perlu ditinjau'}</p>}
   <div className="afo-remaining"><span>{irrigation.label}</span><strong>{amount(irrigation.valueL,'L')}</strong></div>
   <small className="afo-irrigation-note">{irrigation.note}</small>
   {(uncertain||sessionError)&&<p className="afo-alert"><ShieldAlert size={15}/> Periksa sesi sebelum melanjutkan.</p>}
-  <footer><small>Estimasi tandon · {time(liquid?.planning_recorded_at)}</small><small>ACC di panel HST</small></footer>
+  <footer><small>Estimasi tandon · {time(liquid?.planning_recorded_at)}</small><small>AI hanya memberi estimasi</small></footer>
  </section>
 }
 
