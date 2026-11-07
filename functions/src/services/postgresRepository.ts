@@ -268,9 +268,12 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
     dispatchEnabled:false,updatedAt:null,phase:null,nextHst:null,waterStatus:null };
   if (!(await pool.query("SELECT to_regclass('spff.automatic_cycle_states') IS NOT NULL AS ready")).rows[0]?.ready) return empty;
   const row=(await pool.query(`SELECT c.*,p.phase_number,p.title,p.hst,p.product,p.method,p.target_g,p.delivered_g,
-    p.formula_status,p.fulfilled,p.activity_id,e.phase_id AS estimate_id,e.profile_snapshot,e.baseline_ec,
+    p.formula_status,p.fulfilled,p.activity_id,e.phase_id AS estimate_id,e.profile_snapshot,e.baseline_ec,e.baseline_at,
     e.unmeasured_intervals,e.reason AS estimate_reason,e.estimated_g,p.started_at AS phase_started_at,p.updated_at AS phase_updated_at,
     (SELECT max(recorded_at) FROM spff.ec_dose_intervals i WHERE i.phase_id=e.phase_id AND i.status='measured') AS last_recorded_at,
+    (SELECT jsonb_build_object('at',i.recorded_at,'ecUsCm',i.ec_us_cm,'volumeL',i.volume_l,'massG',i.mass_g)
+      FROM spff.ec_dose_intervals i WHERE i.phase_id=e.phase_id AND i.status='measured'
+      ORDER BY i.recorded_at DESC,i.telemetry_id DESC LIMIT 1) AS last_calculation,
     cal.coefficient AS current_coefficient,cal.validated AS current_validated,
     g.plan->>'plants' AS plant_count,
     (SELECT status FROM spff.fuzzy_water_runs r WHERE r.site_id=c.site_id AND r.device_id=c.device_id
@@ -295,12 +298,16 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
       formulaStatus:row.formula_status,fulfilled:row.fulfilled,estimated:!!row.estimate_id,
       estimationReason:!row.estimate_id?(row.current_coefficient===null?'coefficient_missing':'baseline_unavailable'):
         row.current_coefficient!==row.profile_snapshot.coefficient?'calibration_changed':row.current_validated!==true?'estimate_only':
+        row.profile_snapshot.baselineBasis==='PRE_INJECTION_SENSOR'?'baseline_reference_only':
         row.unmeasured_intervals>0?'unmeasured_intervals':row.estimate_reason,
       unmeasuredIntervals:row.unmeasured_intervals??0,
       targetGPerPlant:row.target_g!==null&&Number(row.plant_count)>0?row.target_g/Number(row.plant_count):null,
       gPerPlant:row.delivered_g!==null&&Number(row.plant_count)>0?row.delivered_g/Number(row.plant_count):null,
-      coefficient:row.profile_snapshot?.coefficient??null,baselineEcUs:row.baseline_ec??null,
-      completionEligible:row.current_validated===true&&row.current_coefficient===row.profile_snapshot?.coefficient,history}:null};
+      coefficient:row.profile_snapshot?.coefficient??row.current_coefficient??null,baselineEcUs:row.baseline_ec??null,
+      baselineBasis:row.profile_snapshot?.baselineBasis??(row.estimate_id?'WATER_ONLY_STABLE':null),
+      baselineAt:row.baseline_at?.toISOString()??null,intervalReason:row.estimate_reason??null,lastCalculation:row.last_calculation??null,
+      completionEligible:row.current_validated===true&&row.current_coefficient===row.profile_snapshot?.coefficient&&
+        row.profile_snapshot?.baselineBasis!=='PRE_INJECTION_SENSOR',history}:null};
 }
 
 async function hstFertilizationStarts(deviceId: string) {

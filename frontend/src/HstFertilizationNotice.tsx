@@ -18,7 +18,13 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
   const watering = cycle.mode === 'watering'
   const Icon = watering ? Droplets : FlaskConical
   const title = cycle.mode === 'waiting_off' ? 'Target pemupukan tercapai' : watering ? 'Penyiraman Fuzzy' : phase?.title ?? 'Program otomatis'
-  const historyText = phase?.history?.status === 'unmeasured' ? 'Sesi tercatat · perhitungan belum lengkap' :
+  const waitingText = phase?.estimationReason === 'coefficient_missing' ? 'Menunggu koefisien K' :
+    phase?.estimationReason === 'baseline_unavailable' ? 'EC sebelum injeksi belum ditemukan di riwayat' :
+    phase?.intervalReason === 'pump_status_unconfirmed' ? 'Menunggu status pompa yang sesuai waktu sensor' :
+    phase?.intervalReason === 'ec_or_flow_invalid' ? 'Pembacaan EC atau flow belum valid' :
+    phase?.intervalReason === 'injection_flow_unconfirmed' ? 'Aliran injeksi pupuk belum terukur' :
+    'Menunggu interval EC dan flow yang valid'
+  const historyText = phase?.history?.status === 'unmeasured' ? waitingText :
     phase?.history?.lastRecordedAt ? 'Catatan ' + new Date(phase.history.lastRecordedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' }) + ' WIB' :
     recorded > 0 ? 'Berdasarkan riwayat tersimpan' : 'Belum ada pengiriman tercatat'
   if (closed) return <button type="button" className="hfp-reopen" onClick={() => setClosed(false)} aria-expanded={false}>
@@ -38,7 +44,7 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
     {phase ? <>
       <div className="hfp-metrics">
         <div className="hfp-metric"><span>Dosis per tanaman</span><Quantity value={phase.targetGPerPlant ?? null} unit="g/tanaman" /></div>
-        <div className="hfp-metric"><span>{phase.estimated ? 'Total tercatat · estimasi EC' : 'Total tercatat diberikan'}</span><Quantity value={recorded} /></div>
+        <div className="hfp-metric"><span>{phase.baselineBasis==='PRE_INJECTION_SENSOR' ? 'Total estimasi · EC sebelum ON' : phase.estimated ? 'Total tercatat · estimasi EC' : 'Total tercatat diberikan'}</span><Quantity value={recorded} /></div>
         <div className="hfp-metric hfp-metric--remaining"><span>Sisa total fase</span><Quantity value={remaining} /></div>
       </div>
       <div className="hfp-progress-heading"><span>Progres pemupukan</span><strong>{percent === null ? '—' : number.format(percent) + '%'}</strong></div>
@@ -54,11 +60,20 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
     </footer>
     {phase && <details className="hfp-details"><summary>Detail perhitungan<ChevronDown size={14} aria-hidden="true" /></summary>
       <div>
+        <p>Gram interval = max(EC campuran − EC awal, 0) ÷ K × volume campuran.</p>
         {phase.history?.status === 'empty' && <p>Angka menunjukkan riwayat yang sudah tercatat untuk fase ini.</p>}
         {phase.gPerPlant != null && <p>Rata-rata: <b>{phase.gPerPlant.toLocaleString('id-ID', { maximumFractionDigits: 5 })} g/tanaman</b></p>}
-        {phase.coefficient != null && <p>K: <b>{phase.coefficient}</b> · Baseline EC: <b>{phase.baselineEcUs} µS/cm</b></p>}
+        {phase.coefficient != null && <p>K: <b>{number.format(phase.coefficient)}</b> · EC awal: <b>{phase.baselineEcUs == null ? '—' : number.format(phase.baselineEcUs) + ' µS/cm'}</b></p>}
+        {phase.baselineAt && <p>EC awal dari sensor: {new Date(phase.baselineAt).toLocaleString('id-ID', {timeZone:'Asia/Jakarta'})} WIB
+          {phase.baselineBasis==='PRE_INJECTION_SENSOR'?' · sebelum pompa ON':' · air mengalir, pupuk OFF'}</p>}
+        {phase.lastCalculation && phase.baselineEcUs != null && phase.coefficient != null && <div className="hfp-calculation">
+          <span>Interval terakhir · {new Date(phase.lastCalculation.at).toLocaleString('id-ID', {timeZone:'Asia/Jakarta'})} WIB</span>
+          <strong>max({number.format(phase.lastCalculation.ecUsCm)} − {number.format(phase.baselineEcUs)}, 0) ÷ {number.format(phase.coefficient)} × {number.format(phase.lastCalculation.volumeL)} L = {number.format(phase.lastCalculation.massG)} g</strong>
+          <small>Total tercatat menjumlahkan interval yang valid, bukan debit sesaat.</small>
+        </div>}
+        {phase.baselineBasis==='PRE_INJECTION_SENSOR' && <p>Memakai EC sensor sebelum ON sebagai referensi estimasi. EC air saat mengalir diperlukan untuk memastikan fase terpenuhi.</p>}
         {phase.estimationReason === 'coefficient_missing' && <p>Isi koefisien K di Pengaturan untuk menghitung riwayat formulasi ini.</p>}
-        {phase.estimationReason === 'baseline_unavailable' && phase.history?.status === 'unmeasured' && <p>Baseline EC air untuk sesi ini belum ditemukan di riwayat.</p>}
+        {phase.estimationReason === 'baseline_unavailable' && phase.history?.status === 'unmeasured' && <p>Belum ada EC sensor yang valid sebelum injeksi; EC campuran saat pupuk ON tidak dijadikan EC awal.</p>}
         {phase.estimationReason === 'estimate_only' && <p>Estimasi eksperimen; kalibrasi belum diverifikasi untuk progres fase.</p>}
         {phase.estimationReason === 'calibration_changed' && <p>Koefisien fase berbeda dari kalibrasi terbaru. Periksa Pengaturan EC.</p>}
         {!!phase.unmeasuredIntervals && <p>{phase.unmeasuredIntervals} interval belum terukur dan tidak ditambahkan ke estimasi.</p>}

@@ -52,3 +52,31 @@ Dashboard memakai jumlah gram yang tersimpan per fase tanpa memeriksa umur senso
 Baseline dicari sebagai kelompok pembacaan air saja yang stabil di riwayat sebelum sesi. Kelompok tersebut tidak harus menjadi tiga baris telemetri terbaru dan boleh merupakan data lama; batas waktu diperiksa terhadap waktu sesi/sampel historis. Fallback memakai waktu telemetri tersimpan terakhir, bukan menunggu sensor saat ini.
 
 Sesi HST lama dipasangkan ke program, kegiatan, HST, dan produk yang sama meskipun gate START OFF. Hitungan dibatasi sampai laporan pupuk OFF setelah injeksi pertama, agar penyalaan manual di kemudian hari tidak masuk ke fase lama. Proses ini tidak mengirim ON. Angka yang sudah tercatat tetap tampil saat pompa berhenti, sensor offline, atau refresh API sementara gagal.
+# Simultaneous HST pump start
+
+The estimator first searches the saved water-only sensor history. Three stable
+readings remain preferred; one valid flowing-water reading within 120 seconds
+can also supply the baseline without waiting for three telemetry periods.
+The search after an HST command is bounded by the first confirmed fertilizer ON,
+so a later unrelated water-only run cannot be used as this session's baseline.
+
+If HST starts both pumps directly, the latest valid idle sensor reading within
+120 seconds BEFORE the saved start may initialize an estimate. Both pump
+readbacks must be OFF, water and fertilizer flows must be zero, and the EC/flow
+health and boot identity must match. A mixing reading taken during the run is
+never reused as a raw-water baseline. Missing evidence remains missing; zero EC
+is not invented. Historical sessions can be calculated after deployment using
+their own saved pre-start timestamps rather than current telemetry age.
+
+This idle reference is stored as `PRE_INJECTION_SENSOR` in the immutable profile
+snapshot. The dashboard labels the result as an estimate from EC before ON.
+Stagnant sensor EC does not prove the flowing raw-water EC, so this basis alone
+does not mark a phase fulfilled, even with verified K. Existing water-only
+baselines keep their original completion eligibility. This update does not
+start, stop or sequence pumps.
+
+The automatic-cycle API exposes baseline EC/time/basis, K and the last measured
+interval's EC, volume and grams. The dashboard details show the substituted
+formula and the cumulative recorded amount. Checkpoints still prevent duplicate
+credit when saved sensor history is replayed.
+

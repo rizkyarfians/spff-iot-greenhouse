@@ -30,6 +30,8 @@ export type AutomaticCycleStatus = {
     formulaStatus: 'pending' | 'ready'; fulfilled: boolean;
     estimated?: boolean; estimationReason?: string; unmeasuredIntervals?: number;
     targetGPerPlant?: number|null; gPerPlant?: number|null; coefficient?: number|null; baselineEcUs?: number|null; completionEligible?: boolean;
+    baselineBasis?: string|null; baselineAt?: string|null; intervalReason?: string|null;
+    lastCalculation?: {at:string;ecUsCm:number;volumeL:number;massG:number}|null;
     history?: {recordedG:number;remainingG:number|null;lastRecordedAt:string|null;status:'empty'|'unmeasured'|'recorded'} }) | null;
   nextHst: number | null;
   waterStatus: string | null;
