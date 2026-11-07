@@ -46,19 +46,20 @@ export function HstFertilizationNotice({ deviceId }: { deviceId: string }) {
 
     void refresh()
 
-    const timer = setInterval(() => void refresh(), 5000)
+    const timer = setInterval(() => void refresh(), 30000)
 
     return () => { controller.abort(); clearInterval(timer) }
 
   }, [deviceId])
 
-  if (error) return <p role="status">{error}</p>
+  if (error&&!cycle) return <p role="status">{error}</p>
 
-  const grams=(value:number|null)=>value===null?'Menunggu data':new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(value)+' g'
+  const grams=(value:number|null)=>value===null?'—':new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(value)+' g'
 
   const phase=cycle?.phase
 
   return <>
+    {error&&<p role="status">{error} Riwayat terakhir tetap ditampilkan.</p>}
 
     {cycle&&<article className="page-card" role="status" aria-label="Fase pemupukan dan penyiraman">
 
@@ -70,17 +71,20 @@ export function HstFertilizationNotice({ deviceId }: { deviceId: string }) {
 
           <div><small>Target</small><strong>{grams(phase.targetG)}</strong></div>
 
-          <div><small>{phase.estimated?'Estimasi diberikan':'Sudah diberikan'}</small><strong>{grams(phase.deliveredG)}</strong></div>
+          <div><small>{phase.estimated?'Tercatat (estimasi EC)':'Tercatat diberikan'}</small><strong>{grams(phase.history?.recordedG??phase.deliveredG??0)}</strong></div>
 
-          <div><small>{phase.estimated?'Sisa estimasi':'Sisa kebutuhan'}</small><strong>{grams(phase.remainingG)}</strong></div>
+          <div><small>Sisa target tercatat</small><strong>{grams(phase.history?.remainingG??phase.remainingG??phase.targetG)}</strong></div>
 
         </div></>}
 
       {phase&&<>
+        {phase.history?.status==='empty'&&<p>Belum ada pengiriman yang tercatat untuk fase ini.</p>}
+        {phase.history?.status==='unmeasured'&&<p>Riwayat sesi ada; gram yang belum dapat dihitung belum masuk catatan.</p>}
+        {phase.history?.lastRecordedAt&&<small>Catatan terakhir: {new Date(phase.history.lastRecordedAt).toLocaleString('id-ID')}</small>}
         {phase.gPerPlant!=null&&<p>Rata-rata: {phase.gPerPlant.toLocaleString('id-ID',{maximumFractionDigits:5})} g/tanaman</p>}
         {phase.coefficient!=null&&<small>K: {phase.coefficient} · Baseline: {phase.baselineEcUs} µS/cm</small>}
-        {phase.estimationReason==='coefficient_missing'&&<p>Isi koefisien K untuk formulasi ini di Pengaturan.</p>}
-        {phase.estimationReason==='baseline_unavailable'&&<p>Baseline EC air sebelum sesi belum tersedia. Air perlu mengalir stabil dengan pupuk OFF.</p>}
+        {phase.estimationReason==='coefficient_missing'&&<p>Isi K di Pengaturan untuk menghitung riwayat formulasi ini.</p>}
+        {phase.estimationReason==='baseline_unavailable'&&phase.history?.status==='unmeasured'&&<p>Baseline EC air untuk sesi ini belum ditemukan di riwayat.</p>}
         {phase.estimationReason==='estimate_only'&&<p>Estimasi eksperimen; kalibrasi belum diverifikasi untuk progres fase.</p>}
         {phase.estimationReason==='calibration_changed'&&<p>Koefisien fase berbeda dari kalibrasi terbaru. Periksa pengaturan EC.</p>}
         {phase.unmeasuredIntervals!=null&&phase.unmeasuredIntervals>0&&<p>{phase.unmeasuredIntervals} interval belum terukur dan tidak ditambahkan ke estimasi.</p>}

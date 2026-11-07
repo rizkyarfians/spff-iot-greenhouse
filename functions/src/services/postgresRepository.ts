@@ -269,7 +269,9 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
   if (!(await pool.query("SELECT to_regclass('spff.automatic_cycle_states') IS NOT NULL AS ready")).rows[0]?.ready) return empty;
   const row=(await pool.query(`SELECT c.*,p.phase_number,p.title,p.hst,p.product,p.method,p.target_g,p.delivered_g,
     p.formula_status,p.fulfilled,p.activity_id,e.phase_id AS estimate_id,e.profile_snapshot,e.baseline_ec,
-    e.unmeasured_intervals,e.reason AS estimate_reason,cal.coefficient AS current_coefficient,cal.validated AS current_validated,
+    e.unmeasured_intervals,e.reason AS estimate_reason,e.estimated_g,p.started_at AS phase_started_at,p.updated_at AS phase_updated_at,
+    (SELECT max(recorded_at) FROM spff.ec_dose_intervals i WHERE i.phase_id=e.phase_id AND i.status='measured') AS last_recorded_at,
+    cal.coefficient AS current_coefficient,cal.validated AS current_validated,
     g.plan->>'plants' AS plant_count,
     (SELECT status FROM spff.fuzzy_water_runs r WHERE r.site_id=c.site_id AND r.device_id=c.device_id
       ORDER BY created_at DESC LIMIT 1) AS water_status
@@ -279,6 +281,12 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
     LEFT JOIN spff.guide_programs g ON g.site_id=p.site_id AND g.program_id=p.program_id
     WHERE c.site_id=$1 AND c.device_id=$2`,[siteId,deviceId])).rows[0];
   if (!row) return empty;
+  const recordedG=Math.max(row.delivered_g??0,row.estimated_g??0);
+  const legacyRecord=row.delivered_g!==null&&!row.estimate_id;
+  const history={recordedG,remainingG:row.target_g!==null?Math.max(0,row.target_g-recordedG):null,
+    lastRecordedAt:row.last_recorded_at?.toISOString()??(legacyRecord?row.phase_updated_at?.toISOString():null),
+    status:row.last_recorded_at||legacyRecord?'recorded' as const:
+      row.phase_started_at||row.estimate_id?'unmeasured' as const:'empty' as const};
   return {deviceId,mode:row.mode,reason:row.reason,dispatchEnabled:row.dispatch_enabled,updatedAt:row.updated_at.toISOString(),
     nextHst:row.next_hst,waterStatus:row.water_status,
     phase:row.phase_id?{activityId:row.activity_id,phaseNumber:row.phase_number,title:row.title,hst:row.hst,
@@ -291,7 +299,7 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
       unmeasuredIntervals:row.unmeasured_intervals??0,
       gPerPlant:row.delivered_g!==null&&Number(row.plant_count)>0?row.delivered_g/Number(row.plant_count):null,
       coefficient:row.profile_snapshot?.coefficient??null,baselineEcUs:row.baseline_ec??null,
-      completionEligible:row.current_validated===true&&row.current_coefficient===row.profile_snapshot?.coefficient}:null};
+      completionEligible:row.current_validated===true&&row.current_coefficient===row.profile_snapshot?.coefficient,history}:null};
 }
 
 async function hstFertilizationStarts(deviceId: string) {

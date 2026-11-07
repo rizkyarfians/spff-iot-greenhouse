@@ -44,3 +44,11 @@ Fase yang sudah terpenuhi tidak dibuka ulang atau memicu ON ulang akibat perubah
 - GET `/api/fertigation/automatic-cycle?deviceId=...` menyertakan estimasi gram/tanaman, K, baseline, dan kualitas interval.
 
 Deploy seluruh perubahan memakai `scripts/hst-orange-backend.sh deploy "$PWD"`, yang menyertakan migration 046, kontrak, controller, route, worker, dan frontend. Deploy mematikan izin START seperti sebelumnya. Tidak perlu perubahan firmware untuk rumus, selama telemetri EC, flow, boot, dan readback pompa yang diperlukan sudah tersedia.
+
+## Riwayat dan tampilan dashboard
+
+Dashboard memakai jumlah gram yang tersimpan per fase tanpa memeriksa umur sensor saat website dibuka. Jika belum ada gram yang masuk ledger, tampil `Tercatat diberikan: 0 g` dan sisa target sesuai catatan. Ini menyatakan belum ada gram tercatat, bukan bukti bahwa secara fisik belum pernah ada pupuk keluar. Riwayat sesi yang belum dapat dihitung ditandai terpisah.
+
+Baseline dicari sebagai kelompok pembacaan air saja yang stabil di riwayat sebelum sesi. Kelompok tersebut tidak harus menjadi tiga baris telemetri terbaru dan boleh merupakan data lama; batas waktu diperiksa terhadap waktu sesi/sampel historis. Fallback memakai waktu telemetri tersimpan terakhir, bukan menunggu sensor saat ini.
+
+Sesi HST lama dipasangkan ke program, kegiatan, HST, dan produk yang sama meskipun gate START OFF. Hitungan dibatasi sampai laporan pupuk OFF setelah injeksi pertama, agar penyalaan manual di kemudian hari tidak masuk ke fase lama. Proses ini tidak mengirim ON. Angka yang sudah tercatat tetap tampil saat pompa berhenti, sensor offline, atau refresh API sementara gagal.

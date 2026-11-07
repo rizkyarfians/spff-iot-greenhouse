@@ -111,6 +111,11 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
           ('greenhouse-01','esp32-s3-01','pump_fert','Fertilizer')`);
    await tickHstFertilization({query},false);
    assert.equal((await query('SELECT 1 FROM spff.control_commands')).rows.length,0);
+   const emptyHistory=await repo.repository.automaticCycleStatus('esp32-s3-01');
+   assert.equal(emptyHistory.phase.history.status,'empty');
+   assert.equal(emptyHistory.phase.history.recordedG,0,'zero means no grams recorded, not proof no delivery occurred');
+   assert.equal(emptyHistory.phase.history.remainingG,400);
+   assert.equal(emptyHistory.phase.deliveredG,null,'unknown physical delivery is not rewritten as measured zero');
    await db.exec(`UPDATE spff.device_status_events SET mode='automatic';
     UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',applied_mode='automatic',
     water_enabled=true,water_moisture_low_pct=10,water_moisture_target_pct=30,
@@ -143,6 +148,13 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    }
    await tickHstFertilization({query},false);
    assert.equal((await query('SELECT status FROM spff.hst_fertilization_starts')).rows[0].status,'started');
+   await db.exec('UPDATE spff.hst_fertilization_starts SET phase_id=NULL; UPDATE spff.hst_fertilization_phases SET started_at=NULL;');
+   await tickHstFertilization({query},false);
+   const restored=(await query('SELECT h.phase_id,p.started_at FROM spff.hst_fertilization_starts h JOIN spff.hst_fertilization_phases p USING(phase_id)')).rows;
+   assert.equal(restored.length,1,'legacy history is bound even with dispatch disabled');
+   assert.ok(restored[0].started_at);
+   assert.equal((await query('SELECT 1 FROM spff.control_commands')).rows.length,2,'history restoration sends no new ON');
+
   });
   await t.test('phase formula gates completion, prevents repeated fertilizer ON and returns water to Fuzzy',async()=>{
    await fixture();
@@ -227,7 +239,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.equal((await readEcDoseSettings('esp32-s3-01','Phonska')).profile.validated,false);
    await assert.rejects(saveEcDoseSettings('esp32-s3-01',{product:'Phonska',coefficient:1,expectedRevision:0},'admin'),/berubah/);
    await db.exec('DELETE FROM spff.telemetry_samples; DELETE FROM spff.device_status_events;');
-   const start=Date.now()-30*60000,phaseId=randomUUID();
+   const start=Date.now()-4*86400000,phaseId=randomUUID();
    const phase=(await query(`INSERT INTO spff.hst_fertilization_phases(phase_id,site_id,device_id,program_id,activity_id,
     phase_number,title,hst,product,method,target_g,started_at)
     VALUES($1,'greenhouse-01','esp32-s3-01',$2,'row-19',2,'Pemupukan ke-2',20,'Phonska','Tabur',5000,$3) RETURNING *`,
@@ -244,6 +256,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
      JSON.stringify(health),JSON.stringify({sensorHealth:{soil_2_moisture:{pollBootId:boot}}})]);
    }
    for(const seconds of [0,30,60])await sample(seconds,false,seconds*200/60,200);
+   for(const seconds of [65,75,85])await sample(seconds,true,200+seconds*2);
    for(let i=0;i<=30;i++)await sample(120+i*30,true,400+i*100);
    async function record(){await db.exec('BEGIN');try{const result=await recordEcFertilizerDelivery({query},phase);await db.exec('COMMIT');return result;}
     catch(e){await db.exec('ROLLBACK');throw e;}}
@@ -278,6 +291,10 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.equal(progress.phase.fulfilled,true,'verified accumulated valid grams can complete the phase');
    assert.equal(progress.phase.deliveredG,1356.25);assert.equal(progress.phase.gPerPlant,0.678125);
    assert.equal(progress.phase.unmeasuredIntervals,1,'skipped invalid intervals remain visible and receive no credit');
+   assert.equal(progress.phase.history.recordedG,1356.25);
+   assert.equal(progress.phase.history.remainingG,0);
+   assert.equal(progress.phase.history.status,'recorded');
+   assert.ok(Date.now()-Date.parse(progress.phase.history.lastRecordedAt)>3*86400000,'saved history survives stale live readings');
    assert.equal((await query('SELECT 1 FROM spff.control_commands')).rows.length,0);
 
    for(const seconds of [1200,1230,1260])await sample(seconds,false,4200+(seconds-1200)*200/60,200);
@@ -287,6 +304,7 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
     [randomUUID(),pid,new Date(start-60000)])).rows[0];
    await db.exec('BEGIN');const recovered=await recordEcFertilizerDelivery({query},nextPhase);await db.exec('COMMIT');
    assert.equal(recovered.grams,0,'new water-only baseline never fills earlier unmeasured grams');
+   assert.equal((await record()).grams,1356.25,'later water-only periods are not credited to the old injection session');
    assert.equal((await query('SELECT baseline_at FROM spff.ec_dose_estimates WHERE phase_id=$1',[nextPhase.phase_id])).rows[0].baseline_at.getTime(),start+1260000);
   });
   await t.test('water-first terminal report records OFF and per-pump durations without crediting dose',async()=>{

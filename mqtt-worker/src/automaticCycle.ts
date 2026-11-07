@@ -62,6 +62,19 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
       const row = (await client.query(`SELECT * FROM spff.hst_fertilization_phases
         WHERE site_id=$1 AND program_id=$2 AND activity_id=$3 FOR UPDATE`,[site,program.program_id,definition.activityId])).rows[0];
       if(row.fulfilled) { last=row;continue; }
+      // Restoring accounting history must not require enabling pump dispatch.
+      if(!row.started_at) {
+        const history=(await client.query(`UPDATE spff.hst_fertilization_starts SET phase_id=$1
+          WHERE start_id=(SELECT start_id FROM spff.hst_fertilization_starts
+            WHERE site_id=$2 AND device_id=$3 AND program_id=$4 AND activity_id=$5
+              AND lower(trim(product))=lower(trim($6)) AND hst=$7
+              AND (phase_id IS NULL OR phase_id=$1) ORDER BY created_at LIMIT 1)
+          RETURNING created_at`,[row.phase_id,site,device,row.program_id,row.activity_id,row.product,row.hst])).rows[0];
+        if(history) {
+          await client.query('UPDATE spff.hst_fertilization_phases SET started_at=$2 WHERE phase_id=$1',[row.phase_id,history.created_at]);
+          row.started_at=history.created_at;
+        }
+      }
       let measured: number | null = null;
       let completionAllowed=false;
       try { if(row.started_at && !formula) {
@@ -111,15 +124,6 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
       raw?.aiAccSessionActive===true || raw?.doseVolumeSessionActive===true) continue;
     if ((await client.query(`SELECT 1 FROM spff.fuzzy_water_runs WHERE site_id=$1 AND device_id=$2 AND status<>'completed'`,[site,device])).rows.length) continue;
     if ((await client.query('SELECT 1 FROM spff.hst_fertilization_starts WHERE phase_id=$1',[phase.phase_id])).rows.length) continue;
-    // Upgrade historical starts into the phase boundary without replaying the old ON pair.
-    const historical = (await client.query(`UPDATE spff.hst_fertilization_starts SET phase_id=$1
-      WHERE start_id=(SELECT start_id FROM spff.hst_fertilization_starts WHERE site_id=$2 AND device_id=$3
-        AND program_id=$4 AND activity_id=$5 AND phase_id IS NULL ORDER BY created_at LIMIT 1) RETURNING created_at`,
-    [phase.phase_id,site,device,phase.program_id,phase.activity_id])).rows[0];
-    if (historical) {
-      await client.query('UPDATE spff.hst_fertilization_phases SET started_at=$2 WHERE phase_id=$1',[phase.phase_id,historical.created_at]);
-      continue;
-    }
     if ((await client.query(`SELECT 1 FROM spff.control_commands WHERE site_id=$1 AND device_id=$2
       AND status IN ('pending','published','accepted') AND expires_at>now()
       UNION ALL SELECT 1 FROM spff.actuator_schedules WHERE site_id=$1 AND device_id=$2

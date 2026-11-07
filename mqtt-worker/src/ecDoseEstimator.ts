@@ -10,14 +10,20 @@ export async function findEcWaterBaseline(c:PoolClient,site:string,device:string
   const rows=(await c.query(`SELECT t.*,h.raw_payload AS status_payload,h.recorded_at AS status_at,h.online AS status_online
     FROM spff.telemetry_samples t ${sampleStatus} WHERE t.site_id=$1 AND t.device_id=$2
     AND t.recorded_at BETWEEN $3::timestamptz-interval '15 minutes' AND $3
-    ORDER BY t.recorded_at DESC,t.telemetry_id DESC LIMIT 3`,[site,device,before])).rows.map(ecDoseSample);
-  if(rows.length!==3||rows.some(s=>!s.valid||s.waterOn!==true||s.fertOn!==false||s.flowLpm===null||s.flowLpm<=0||s.stockLpm!==0)||
-    new Set(rows.map(s=>s.boot)).size!==1) return null;
-  const times=rows.map(s=>Date.parse(s.at));
-  if(times[0]-times[2]<40000||times[0]-times[1]>120000||times[1]-times[2]>120000) return null;
-  const mean=rows.reduce((sum,s)=>sum+s.ec!,0)/3;
-  if(Math.max(...rows.map(s=>s.ec!))-Math.min(...rows.map(s=>s.ec!))>Math.max(20,mean*0.05)) return null;
-  return {ec:mean,at:rows[0].at,boot:rows[0].boot!,evidence:rows.map(s=>s.id)};
+    ORDER BY t.recorded_at DESC,t.telemetry_id DESC LIMIT 120`,[site,device,before])).rows.map(ecDoseSample);
+  // Search the saved water-only period, rather than assuming the three newest
+  // records are a baseline. "before" is the session time, never current sensor age.
+  for(let i=0;i+2<rows.length;i++) {
+    const group=rows.slice(i,i+3);
+    if(group.some(s=>!s.valid||s.waterOn!==true||s.fertOn!==false||s.flowLpm===null||s.flowLpm<=0||s.stockLpm!==0)||
+      new Set(group.map(s=>s.boot)).size!==1) continue;
+    const times=group.map(s=>Date.parse(s.at));
+    if(times[0]-times[2]<40000||times[0]-times[1]>120000||times[1]-times[2]>120000) continue;
+    const mean=group.reduce((sum,s)=>sum+s.ec!,0)/3;
+    if(Math.max(...group.map(s=>s.ec!))-Math.min(...group.map(s=>s.ec!))>Math.max(20,mean*0.05)) continue;
+    return {ec:mean,at:group[0].at,boot:group[0].boot!,evidence:group.map(s=>s.id)};
+  }
+  return null;
 }
 
 export async function recordEcFertilizerDelivery(c:PoolClient,phase:any,now=new Date()) {
@@ -29,8 +35,13 @@ export async function recordEcFertilizerDelivery(c:PoolClient,phase:any,now=new 
   if(!state) {
     const profile=currentProfile;
     if(!profile) return {grams:null,completionAllowed:false};
-    const baseline=await findEcWaterBaseline(c,phase.site_id,phase.device_id,phase.started_at)
-      ?? await findEcWaterBaseline(c,phase.site_id,phase.device_id,now);
+    let baseline=await findEcWaterBaseline(c,phase.site_id,phase.device_id,phase.started_at);
+    if(!baseline) {
+      const latestStored=(await c.query(`SELECT recorded_at FROM spff.telemetry_samples WHERE site_id=$1 AND device_id=$2
+        AND recorded_at>=$3 AND recorded_at<=$4 ORDER BY recorded_at DESC,telemetry_id DESC LIMIT 1`,
+      [phase.site_id,phase.device_id,phase.started_at,now])).rows[0];
+      if(latestStored) baseline=await findEcWaterBaseline(c,phase.site_id,phase.device_id,latestStored.recorded_at);
+    }
     if(!baseline) return {grams:null,completionAllowed:false};
     await c.query(`INSERT INTO spff.ec_dose_estimates(phase_id,profile_snapshot,baseline_ec,baseline_at,baseline_boot_id)
       VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
@@ -38,10 +49,20 @@ export async function recordEcFertilizerDelivery(c:PoolClient,phase:any,now=new 
       calibrationReference:profile.calibration_reference,revision:profile.revision,baselineEvidence:baseline.evidence}),baseline.ec,baseline.at,baseline.boot]);
     state=(await c.query('SELECT * FROM spff.ec_dose_estimates WHERE phase_id=$1 FOR UPDATE',[phase.phase_id])).rows[0];
   }
+  // Bind this accounting run to its saved injection period. Later manual runs
+  // must not silently become fertilizer delivered for this old HST phase.
+  const periodStart=new Date(Math.max(new Date(phase.started_at).getTime(),new Date(state.baseline_at).getTime()));
+  const firstOn=(await c.query(`SELECT recorded_at FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2
+    AND recorded_at>=$3 AND raw_payload @> '{"pumpReadbackValid":true,"pumpWaterActualActive":true,"pumpFertActualActive":true}'::jsonb
+    ORDER BY recorded_at,device_status_id LIMIT 1`,[phase.site_id,phase.device_id,periodStart])).rows[0];
+  const firstOff=firstOn?(await c.query(`SELECT recorded_at FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2
+    AND recorded_at>$3 AND raw_payload @> '{"pumpReadbackValid":true,"pumpFertActualActive":false}'::jsonb
+    ORDER BY recorded_at,device_status_id LIMIT 1`,[phase.site_id,phase.device_id,firstOn.recorded_at])).rows[0]:null;
+  const periodEnd=firstOff&&firstOff.recorded_at<now?firstOff.recorded_at:now;
   const samples=(await c.query(`SELECT t.*,h.raw_payload AS status_payload,h.recorded_at AS status_at,h.online AS status_online
     FROM spff.telemetry_samples t ${sampleStatus} WHERE t.site_id=$1 AND t.device_id=$2
     AND t.recorded_at>=greatest($3::timestamptz,$6::timestamptz) AND t.recorded_at<=$4 AND t.telemetry_id>$5
-    ORDER BY t.telemetry_id LIMIT 200`,[phase.site_id,phase.device_id,phase.started_at,now,state.cursor_id,state.baseline_at])).rows;
+    ORDER BY t.telemetry_id LIMIT 200`,[phase.site_id,phase.device_id,phase.started_at,periodEnd,state.cursor_id,state.baseline_at])).rows;
   let anchor=state.anchor as EcDoseSample|null,mass=state.estimated_g as number,invalid=state.unmeasured_intervals as number;
   let cursor=state.cursor_id,reason=state.reason;
   for(const row of samples) {
