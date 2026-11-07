@@ -6,6 +6,7 @@ import {BookOpen,Square,SquareCheck,Pencil,Save,RotateCcw} from 'lucide-react'
 import snapshot from './data/protocolGuide.json'
 import {columnName,guideRows,applyGuideOverrides,guideColumnKind,type GuideDataset,type GuideCell} from './protocolGuide'
 import './GuidePage.css'
+import './FertigationWorkspace.css'
 import {HstApprovalPanel} from './HstApprovalPanel'
 import {AutomationMethod} from './AutomationMethod'
 
@@ -85,7 +86,8 @@ export function GuidePage(){
       <div className="guide-source-heading"><span className="guide-icon" aria-hidden="true"><BookOpen size={23}/></span><div><h2 id="guide-crop-heading">{sheet.sheetName}</h2><p>Informasi lahan dan tanaman</p></div>
         {sourceHst&&<span className="guide-hst"><strong>{sourceHst.display}</strong> HST <small>pada file</small></span>}
       </div>
-      <dl className="guide-metadata">{metadata.map(({label,value},index)=><div key={index}><dt>{label.display}</dt><dd>{value?.display??'—'}</dd></div>)}</dl>
+      <dl className="guide-metadata guide-metadata-primary">{metadata.filter((_,index)=>[2,3,6,7].includes(index)).map(({label,value},index)=><div key={index}><dt>{label.display}</dt><dd>{value?.display??'—'}</dd></div>)}</dl>
+      <details className="guide-growing-details"><summary>Detail tanaman & jarak tanam</summary><dl className="guide-metadata">{metadata.filter((_,index)=>![2,3,6,7].includes(index)).map(({label,value},index)=><div key={index}><dt>{label.display}</dt><dd>{value?.display??'—'}</dd></div>)}</dl></details>
       {notes.length>0&&<div className="guide-source-notes" aria-label="Catatan pada Excel">{notes.map((note,index)=><p key={index}>{note.display}</p>)}</div>}
     </section>
     <HstApprovalPanel/>

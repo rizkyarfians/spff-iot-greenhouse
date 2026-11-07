@@ -1,3 +1,4 @@
+import { ToggleButtons } from './ToggleButtons'
 import type { ApiActuator, ApiAutomaticControl, ApiDevice } from '@spff/contracts'
 import { useRef, useState } from 'react'
 import { Droplets, FlaskConical } from 'lucide-react'
@@ -75,12 +76,12 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, conf
                 {failed && <small>Perintah terakhir gagal</small>}
               </span>
                 <span className={`actuator-summary-status is-${tone}`}>{label}</span>
-              <button type="button" role="switch" aria-checked={pump.isActive}
+              <ToggleButtons type="button" role="switch" aria-checked={pump.isActive}
                 className={`actuator-summary-switch${pump.isActive ? ' is-on' : ''}`}
                 aria-label={`${pump.isActive ? 'Matikan' : 'Nyalakan'} ${pump.name}`}
                 disabled={!available || pending || pump.state === 'processing'
                   || (!pump.isActive && (automatic || pump.state === 'offline' || pump.state === 'fault'))}
-                onClick={() => void toggle(pump)}><span /></button>
+                onClick={() => void toggle(pump)}><span /></ToggleButtons>
             </div>
           )
         })}

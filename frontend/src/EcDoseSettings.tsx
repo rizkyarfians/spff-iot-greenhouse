@@ -3,6 +3,7 @@ import type {ApiDevice,EcDoseSettings as Settings} from '@spff/contracts';
 import {fetchEcDoseSettings,saveEcDoseSettings} from './api';
 import {Check, ChevronDown, FlaskConical, Save, SlidersHorizontal} from 'lucide-react';
 import './EcDoseSettings.css';
+import {SettingChoice} from './SettingChoice';
 
 export function EcDoseSettings({devices,editable}:{devices:ApiDevice[];editable:boolean}) {
   const [selected,setSelected]=useState('');
@@ -64,10 +65,10 @@ export function EcDoseSettings({devices,editable}:{devices:ApiDevice[];editable:
           disabled={loading} placeholder="Contoh: 6400" value={coefficient} onChange={e=>setCoefficient(e.target.value)}/><small>(µS/cm)/(g/L) · sesuai hasil kalibrasi</small></label>
         <label>Referensi kalibrasi<input maxLength={500} disabled={loading} placeholder="Dokumen atau catatan pengujian" value={reference} onChange={e=>setReference(e.target.value)}/></label>
         </div>
-        <label className="ecd-verification">
+        <div className="ecd-verification">
           <span><strong>Kalibrasi terverifikasi</strong><small>Izinkan estimasi menentukan fase pupuk terpenuhi.</small></span>
-          <input className="ecd-toggle" type="checkbox" role="switch" checked={validated} disabled={loading} onChange={e=>setValidated(e.target.checked)}/>
-        </label>
+          <SettingChoice label="Kalibrasi terverifikasi" value={validated} disabled={loading||busy||!editable} onChange={setValidated}/>
+        </div>
       </fieldset>
       {data?.baseline&&<div className="ecd-baseline"><span>Baseline EC terakhir</span><strong>{data.baseline.ecUsCm.toLocaleString('id-ID')} <small>µS/cm</small></strong><time>{new Date(data.baseline.recordedAt).toLocaleString('id-ID')}</time></div>}
       <details className="ecd-details"><summary><SlidersHorizontal size={16}/> Cara perhitungan <ChevronDown size={16}/></summary>

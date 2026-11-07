@@ -1,0 +1,105 @@
+/* Shared application palette; status colors remain semantic. */
+:root {
+  --green:#214e3f;
+  --green-dark:#173e31;
+  --green-soft:#edf3eb;
+  --forest:#173e31;
+  --lime:#d7ed9b;
+}
+.app-shell.forest-theme {
+  --green:#214e3f;
+  --green-dark:#173e31;
+  --green-soft:#edf3eb;
+  --ink:#1c2923;
+  --muted:#7c857e;
+  --line:#e3e8e2;
+  --page:#f2f3f0;
+  --surface:#fff;
+  --forest:#173e31;
+  --lime:#d7ed9b;
+  background:var(--page);
+}
+.forest-theme .side-drawer { background:#fff; border-color:#e5e8e2; }
+.forest-theme .brand-mark { background:var(--forest); box-shadow:none; }
+.forest-theme .drawer-brand strong { color:var(--forest); }
+.forest-theme .drawer-brand small { color:#8a938c; }
+.forest-theme .drawer-nav-item { color:#56655d; }
+.forest-theme .drawer-nav-item:hover { background:#f1f4ee; }
+.forest-theme .drawer-nav-item.is-active { color:white; background:var(--forest); box-shadow:0 2px 5px #173e3114; }
+.forest-theme .drawer-nav-item.is-active .drawer-nav-icon { color:var(--lime); background:transparent; }
+.forest-theme .drawer-nav-item:not(.is-active) .drawer-nav-icon { background:transparent; color:#607268; }
+.forest-theme .compact-account-dock { background:#fff; border-color:#e5e9e2; box-shadow:0 4px 20px #233a2b06; }
+.forest-theme .page-shell-header h1 { color:#1c2923; }
+.forest-theme .dashboard-home :is(.schedule-card,.chart-card,.metric-card,.hfp-card,.actuator-summary) { background:white; border-color:#e2e7df; box-shadow:0 2px 8px #233a2b03; }
+.forest-theme .hero-card { background-color:var(--forest); }
+.forest-theme .hero-shade { background:linear-gradient(90deg,#102f25e6 0%,#153d2c70 70%,#193e311a 100%),linear-gradient(0deg,#0e2a21b3,transparent 75%); }
+.forest-theme .hero-location-icon { color:var(--lime); }
+.forest-theme .hero-sensor { background:#ffffff12; border-color:#ffffff30; }
+.forest-theme .hero-sensor[aria-pressed="true"],
+.forest-theme .hero-npk-item[aria-pressed="true"] { background:var(--lime)!important; border-color:var(--lime)!important; color:var(--forest)!important; }
+.forest-theme :is(.hero-sensor,.hero-npk-item)[aria-pressed="true"] :is(span,strong,small) { color:var(--forest); }
+.forest-theme .hero-npk-card { background:#123c2de0; border-color:#ffffff26; }
+.forest-theme .hero-npk-item { background:#ffffff0d; border-color:#ffffff1c; }
+.forest-theme .today-chip { background:#edf3e5; color:#38563a; }
+.forest-theme .schedule-calendar-icon { background:#f0f4e9; color:var(--forest); }
+.forest-theme .schedule-list > button { border-color:#edf0e9; }
+.forest-theme .metric-card { color:#243d30; border-bottom-width:1px; }
+.forest-theme .metric-icon { background:#f0f4eb; color:#3b6146; }
+.forest-theme .metric-card.is-selected,
+.forest-theme button.metric-card[aria-pressed="true"] { background:var(--forest)!important; border-color:var(--forest)!important; color:white!important; box-shadow:0 4px 14px #173e3114; }
+.forest-theme .metric-card.is-selected :is(.metric-label,.metric-reading,.metric-reading h2,.metric-reading small,.metric-arrow,.metric-unit) { color:#fff; }
+.forest-theme .metric-card.is-selected .metric-icon { color:var(--forest); background:var(--lime); }
+.forest-theme .metric-card.is-selected .metric-update { color:#d4dfd3; }
+.forest-theme .chart-line { stroke:#315a40; }
+.forest-theme .chart-point { stroke:#315a40; fill:#fff; }
+.forest-theme .chart-latest-button { color:var(--forest); background:#eff4e8; border-color:#dce6d3; }
+.forest-theme .hfp-icon { color:var(--forest); background:#edf3e5; border-color:#e0e7d8; }
+.forest-theme .hfp-metric--remaining { background:#f0f5e9; border-color:#e1e9d7; }
+.forest-theme .hfp-value { color:var(--forest); }
+.forest-theme .hfp-progress { accent-color:#315a40; }
+.forest-theme .hfp-badge--on { background:#eaf2dd; border-color:#d8e6c3; color:#36522e; }
+.forest-theme button[aria-pressed="true"] { background:var(--forest)!important; border-color:var(--forest)!important; }
+.forest-theme .setting-choice > button[aria-pressed="true"] { color:#fff!important; }
+.forest-theme :is(.ft-program-shell,.guide-page) {
+  --fw-ink:#1c2923;
+  --fw-muted:#778278;
+  --fw-line:#e2e7df;
+  --fw-green:var(--forest);
+  --fw-soft:#f0f4e9;
+}
+.forest-theme :is(.page-card,.gp-panel,.guide-source-card,.guide-table-card,.hst-panel,.um-panel,.um-card) {
+  border-color:#e2e7df;
+  background:#fff;
+  box-shadow:0 2px 8px #233a2b03;
+}
+.forest-theme :is(.primary-button,.gp-primary,.guide-save,.ecd-save,.ft-primary,.hst-approve) {
+  background:var(--forest);
+  border-color:var(--forest);
+  color:#fff;
+}
+.forest-theme :is(.primary-button,.gp-primary,.guide-save,.ecd-save,.ft-primary,.hst-approve):hover:not(:disabled) { background:#275b44; border-color:#275b44; color:#fff; }
+.forest-theme :is(.gp-crop-icon,.guide-icon,.ecd-icon) { background:#eff4e6; color:var(--forest); }
+.forest-theme :is(.gp-age,.gp-task-hst,.gp-hst) { background:#edf3e3; color:#345533; border-color:#dfe7d4; }
+.forest-theme .gp-page .gp-view-tabs button[aria-pressed="true"] { background:var(--forest)!important; padding-inline:12px; }
+.forest-theme .gp-page .gp-status.is-done { background:#e8f1da; color:#36532f; }
+.forest-theme .gp-task-rail progress { accent-color:#315a40; }
+.forest-theme .gp-task-rail .gp-panel { background:#fafbf8; }
+.forest-theme .guide-metadata-primary { background:#f5f7f0; border-color:#e5eadf; }
+.forest-theme .guide-hst { background:#f2f6e9; color:#345533; border-color:#e0e7d5; }
+.forest-theme .guide-table-scroll th { background:#244c3c; }
+.forest-theme .hst-inventory .hst-figures > div { background:#f2f6eb; border-color:#e1e8d8; }
+.forest-theme .hst-remaining-need { background:#edf3e3; }
+.forest-theme .sw-navigation button[aria-current="page"] { background:#eaf1df; color:#244b36; }
+.forest-theme .sw-navigation button:hover { background:#f0f4e9; }
+.forest-theme .sw-section-heading h2 { color:#243b2d; }
+.forest-theme .ecd-badge.is-verified { background:#eaf2dd; color:#36522e; }
+.forest-theme .ecd-verification { background:#f4f7ee; border-color:#e1e7d8; }
+.forest-theme .setting-choice { border-color:#dbe2d5; background:#f0f3ed; }
+.forest-theme .binary-setting-row { border-color:#e0e6da; background:#f6f8f2; }
+.forest-theme .controls-setting-row { background:#f3f6ee; border-color:#e0e6da; }
+.forest-theme .sensor-pump-card.is-selected { background:#eef4e5; border-color:#426545; }
+.forest-theme .automatic-profile-heading strong { color:#244b36; }
+.forest-theme .controls-pump-row { background:#f6f8f3; }
+.forest-theme input[type="checkbox"] { accent-color:#315a40; }
+.auth-screen { --green:#214e3f; --green-dark:#173e31; --green-soft:#edf3eb; background:#f2f3f0; }
+.auth-screen :is(.auth-brand-mark,.auth-submit) { background:#173e31; }

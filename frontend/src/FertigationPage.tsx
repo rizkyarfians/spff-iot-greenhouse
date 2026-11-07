@@ -7,6 +7,7 @@ import { ApiError, fetchFertigationRecipes, saveFertigationRecipe, evaluateFerti
 import { useAuth } from './authContext'
 import './FertigationPage.css'
 import './GuidePrograms.css'
+import './FertigationWorkspace.css'
 
 const GuidePrograms=lazy(()=>import('./GuidePrograms').then(module=>({default:module.GuidePrograms})))
 
@@ -49,8 +50,8 @@ function message(error: unknown) {
 export function FertigationPage({devices}:{devices:ApiDevice[]}){
   const [tab,setTab]=useState<'guide'|'sensor'>('guide')
   return <section className="ft-program-shell"><div className="gp-main-tabs" role="group" aria-label="Jenis program">
-    <button aria-pressed={tab==='guide'} onClick={()=>setTab('guide')}>Program dari Panduan</button>
-    <button aria-pressed={tab==='sensor'} onClick={()=>setTab('sensor')}>Aturan sensor & pompa</button>
+    <button aria-pressed={tab==='guide'} onClick={()=>setTab('guide')}><FlaskConical size={18}/>Program tanaman</button>
+    <button aria-pressed={tab==='sensor'} onClick={()=>setTab('sensor')}><Droplets size={18}/>Aturan sensor & pompa</button>
   </div><div hidden={tab!=='guide'}><Suspense fallback={<p>Memuat program Panduan…</p>}><GuidePrograms devices={devices}/></Suspense></div><div hidden={tab!=='sensor'}><SensorFertigationPage devices={devices}/></div></section>
 }
 function SensorFertigationPage({ devices }: { devices: ApiDevice[] }) {

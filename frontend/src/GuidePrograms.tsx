@@ -7,8 +7,8 @@ import {useAuth} from './authContext'
 import source from './data/protocolGuide.json'
 import './GuidePrograms.css'
 import {supportsFertigationAutomation,automaticGuideActivities} from './fertigationSupport'
-import {GuideSchedule} from './GuideSchedule'
-import {guideTaskSummary} from './guideSchedule'
+import {GuideSchedule} from './GuideSchedule.tsx'
+import {guideTaskSummary} from './guideSchedule.ts'
 import {GuideEcSettings} from './GuideEcSettings'
 import {useGuideEcConversions} from './useGuideEcConversions'
 import {GuideEcTarget} from './GuideEcTarget'
@@ -51,7 +51,7 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
  const done=taskSummary?.done.length??0
  function status(a:GuideActivity){return selected?.completedActivityIds.includes(a.id)?'Selesai':a.hst===null?'Periksa HST':a.hst===(selected?.hst??0)?'Hari ini':a.hst!<(selected?.hst??0)?'Belum selesai':'Akan datang'}
  return <section className="gp-page" aria-label="Program dari Panduan">
-  <div className="gp-program-toolbar"><div><h2>Program tanaman</h2></div><button type="button" disabled={busy||editing} onClick={()=>void run(reload)} aria-label="Muat ulang program"><RefreshCw size={20}/></button></div>
+  <div className="gp-program-toolbar"><div><span className="fw-eyebrow">PROGRAM TANAMAN</span><h2>Rencana perawatan</h2></div><button type="button" disabled={busy||editing} onClick={()=>void run(reload)} aria-label="Muat ulang program"><RefreshCw size={20}/></button></div>
   {error&&<p role="alert" className="gp-error">{error}</p>}{notice&&<p role="status" className="gp-notice">{notice}</p>}
   <section className="gp-panel gp-program-bar" aria-label="Program tanaman terpilih">
    <span className="gp-crop-icon" aria-hidden="true"><Leaf size={28}/></span>
@@ -87,9 +87,8 @@ export function GuidePrograms({devices}:{devices:ApiDevice[]}){
         <button type="button" aria-expanded={openActivity===a.id} aria-controls={`gp-body-${a.id}`} onClick={()=>setOpenActivity(openActivity===a.id?null:a.id)}>Detail<ChevronDown size={18}/></button>
        </div>
       </div>
-      {!editing&&admin&&selected&&supportsFertigationAutomation(a)&&<GuideEcSettings key={`${selected.programId}:${a.id}`} program={selected} activity={a} conversion={conversions.rows.find(c=>c.activityId===a.id)} onSaved={conversions.refresh} onWater={()=>start(selected)}/>}
       {completing===a.id&&selected&&<div className="gp-complete"><p>Sudah dilakukan sesuai kebutuhan di atas?</p><label>Catatan (opsional)<input maxLength={500} value={completionNote} onChange={e=>setCompletionNote(e.target.value)}/></label><div className="gp-actions"><button disabled={busy} onClick={()=>setCompleting(null)}>Batal</button><button className="gp-primary" disabled={busy} onClick={()=>void run(async()=>{await completeGuideProgram(selected,a.id,completionNote);await reload();setCompleting(null);setCompletionNote('');setNotice('Kegiatan tercatat selesai.')} )}>Ya, catat selesai</button></div></div>}
-      <div id={`gp-body-${a.id}`} hidden={openActivity!==a.id} className="gp-task-detail">{a.warnings.map(w=><p className="gp-warning" key={w}>{w}</p>)}{a.requirements.map(r=><section key={r.row}><strong>{r.product}</strong><p>Dosis {format(r.dose)} {r.doseUnit} · acuan {format(r.sourceAmount)} {r.sourceUnit}</p>{r.warnings.map(w=><p className="gp-warning" key={w}>{w}</p>)}</section>)}</div>
+      <div id={`gp-body-${a.id}`} hidden={openActivity!==a.id} className="gp-task-detail">{!editing&&admin&&selected&&supportsFertigationAutomation(a)&&<GuideEcSettings key={`${selected.programId}:${a.id}`} program={selected} activity={a} conversion={conversions.rows.find(c=>c.activityId===a.id)} onSaved={conversions.refresh} onWater={()=>start(selected)}/>}{a.warnings.map(w=><p className="gp-warning" key={w}>{w}</p>)}{a.requirements.map(r=><section key={r.row}><strong>{r.product}</strong><p>Dosis {format(r.dose)} {r.doseUnit} · acuan {format(r.sourceAmount)} {r.sourceUnit}</p>{r.warnings.map(w=><p className="gp-warning" key={w}>{w}</p>)}</section>)}</div>
      </article>)}
      {pageCount>1&&<nav className="gp-pagination" aria-label="Halaman kegiatan"><span>{currentPage*4+1}–{Math.min((currentPage+1)*4,visible.length)} dari {visible.length}</span><div><button type="button" disabled={currentPage===0} onClick={()=>{setPage(currentPage-1);setOpenActivity(null);setCompleting(null)}}>Sebelumnya</button><button type="button" disabled={currentPage===pageCount-1} onClick={()=>{setPage(currentPage+1);setOpenActivity(null);setCompleting(null)}}>Berikutnya</button></div></nav>}
     </section>

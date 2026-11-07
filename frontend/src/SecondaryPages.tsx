@@ -1,3 +1,6 @@
+import { ToggleButtons } from './ToggleButtons'
+import { SettingChoice } from './SettingChoice'
+import './SettingsWorkspace.css'
 import { EcDoseSettings } from './EcDoseSettings'
 import {userFacingMessage} from './userFacingMessage'
 import {ScheduleTimeRange} from './ScheduleTimeRange'
@@ -1362,7 +1365,7 @@ function ControlsPage({
                     </div>
 
 
-                    <button
+                    <ToggleButtons
                       className={
                         `switch ${
                           control.isActive
@@ -1399,7 +1402,7 @@ function ControlsPage({
                       }
                     >
                       <span />
-                    </button>
+                    </ToggleButtons>
                   </article>
                   )
                 },
@@ -1726,7 +1729,7 @@ function ControlsPage({
                         </span>
 
 
-                        <button
+                        <ToggleButtons
                           className={
                             `switch ${
                               schedule.enabled
@@ -1757,7 +1760,7 @@ function ControlsPage({
                           }
                         >
                           <span />
-                        </button>
+                        </ToggleButtons>
 
 
                         <button type="button" className="schedule-edit-button" disabled={!isAdmin || savingSchedule || connectionState!=='connected' || !schedule.updatedAt}
@@ -1844,12 +1847,12 @@ function ControlsPage({
               <div>
                 <strong>Pompa Air</strong>
               </div>
-              <button type="button" className={`sensor-enable-card${automaticDraft.water.enabled?' is-enabled':''}`} role="switch" aria-checked={automaticDraft.water.enabled}
+              <ToggleButtons type="button" className={`sensor-enable-card${automaticDraft.water.enabled?' is-enabled':''}`} role="switch" aria-checked={automaticDraft.water.enabled}
                 aria-label="Gunakan aturan sensor pompa air" disabled={!isAdmin || savingAutomatic}
                 onClick={()=>updateWater({enabled:!automaticDraft.water.enabled})}>
                 <span><strong>{automaticDraft.water.enabled?'Aturan sensor aktif':'Aturan sensor nonaktif'}</strong><small>Gunakan kelembapan tanah untuk memicu penyiraman.</small></span>
                 <span className="sensor-enable-switch" aria-hidden="true"><span/></span>
-              </button>
+              </ToggleButtons>
             </div>
 
             <div className="sensor-rule-summary"><strong>Aturan yang akan diterapkan</strong><p>{automaticDraft.water.enabled
@@ -1943,12 +1946,12 @@ function ControlsPage({
               <div>
                 <strong>Pompa Pupuk</strong>
               </div>
-              <button type="button" className={`sensor-enable-card${automaticDraft.fertilizer.enabled?' is-enabled':''}`} role="switch" aria-checked={automaticDraft.fertilizer.enabled}
+              <ToggleButtons type="button" className={`sensor-enable-card${automaticDraft.fertilizer.enabled?' is-enabled':''}`} role="switch" aria-checked={automaticDraft.fertilizer.enabled}
                 aria-label="Gunakan aturan sensor pompa pupuk" disabled={!isAdmin || savingAutomatic}
                 onClick={()=>updateFertilizer({enabled:!automaticDraft.fertilizer.enabled})}>
                 <span><strong>{automaticDraft.fertilizer.enabled?'Aturan sensor aktif':'Aturan sensor nonaktif'}</strong><small>Gunakan EC larutan tandon untuk memicu pemberian pupuk.</small></span>
                 <span className="sensor-enable-switch" aria-hidden="true"><span/></span>
-              </button>
+              </ToggleButtons>
             </div>
 
             <div className="sensor-rule-summary"><strong>Aturan yang akan diterapkan</strong><p>{automaticDraft.fertilizer.enabled
@@ -4518,206 +4521,53 @@ function SettingsPage({
     }
 
 
-  return (
-    <section
-      className="secondary-page"
-      aria-label="Pengaturan sistem"
-    >
-      <SensorSettings sensors={data?.sensorDefinitions ?? []}
-        editable={isAdmin && connectionState === 'connected'} onRefresh={onRefresh} />
-      <EcDoseSettings devices={data?.devices ?? []} editable={isAdmin && connectionState === 'connected'} />
-      <form
-        className="settings-form"
-        onSubmit={save}
-      >
-        {
-          !isAdmin && (
-            <div className="page-card">
-              <strong>
-                Mode baca saja
-              </strong>
-
-              <p>
-                Operator dapat melihat
-                pengaturan, tetapi hanya
-                admin yang dapat mengubahnya.
-              </p>
-            </div>
-          )
-        }
-
-
-        <div className="page-card settings-section">
-          <div className="page-card-header">
-            <div>
-              <h2>
-                Profil Lokasi
-              </h2>
-
-            </div>
-          </div>
-
-
-          <label className="field-label">
-            <span>
-              Nama Lokasi
-            </span>
-
-            <input
-              disabled={!isAdmin}
-              value={
-                settings.greenhouseName
-              }
-              onChange={(event) =>
-                update(
-                  'greenhouseName',
-                  event.target.value,
-                )
-              }
-            />
-          </label>
-        </div>
-
-
-        <div className="page-card settings-section">
-          <div className="setting-toggle-row">
-            <div>
-              <strong>
-                Notifikasi Alarm
-              </strong>
-
-            </div>
-
-            <button
-              className={
-                `switch ${
-                  settings.notifications
-                    ? 'is-on'
-                    : ''
-                }`
-              }
-              type="button"
-              role="switch"
-              aria-checked={
-                settings.notifications
-              }
-              disabled={!isAdmin}
-              onClick={() =>
-                update(
-                  'notifications',
-                  !settings.notifications,
-                )
-              }
-            >
-              <span />
-            </button>
-          </div>
-
-
-          <div className="setting-toggle-row">
-            <div>
-              <strong>
-                Suara Alarm
-              </strong>
-
-            </div>
-
-            <button
-              className={
-                `switch ${
-                  settings.sound
-                    ? 'is-on'
-                    : ''
-                }`
-              }
-              type="button"
-              role="switch"
-              aria-checked={
-                settings.sound
-              }
-              disabled={!isAdmin}
-              onClick={() =>
-                update(
-                  'sound',
-                  !settings.sound,
-                )
-              }
-            >
-              <span />
-            </button>
-          </div>
-
-
-          <div className="setting-toggle-row">
-            <div>
-              <strong>
-                Jadwal Otomatis
-              </strong>
-
-            </div>
-
-            <button
-              className={
-                `switch ${
-                  settings.autoSchedule
-                    ? 'is-on'
-                    : ''
-                }`
-              }
-              type="button"
-              role="switch"
-              aria-checked={
-                settings.autoSchedule
-              }
-              disabled={!isAdmin}
-              onClick={() =>
-                update(
-                  'autoSchedule',
-                  !settings.autoSchedule,
-                )
-              }
-            >
-              <span />
-            </button>
-          </div>
-        </div>
-
-
-        <div className="settings-actions">
-          {
-            notice && (
-              <p role="status">
-                {notice}
-              </p>
-            )
-          }
-
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={
-              resetFromDatabase
-            }
-            disabled={!isAdmin}
-          >
-            Batalkan Perubahan
-          </button>
-
-          <button
-            className="primary-button"
-            type="submit"
-            disabled={
-              !isAdmin
-              || connectionState
-                !== 'connected'
-            }
-          >
-            Simpan Pengaturan
-          </button>
-        </div>
+  const [category,setCategory]=useState<'sensors'|'calibration'|'site'|'preferences'>('sensors')
+  const categories=[
+    {id:'sensors' as const,label:'Sensor dashboard',icon:SlidersHorizontal},
+    {id:'calibration' as const,label:'Kalibrasi pupuk',icon:FlaskConical},
+    {id:'site' as const,label:'Profil lokasi',icon:MapPin},
+    {id:'preferences' as const,label:'Notifikasi & jadwal',icon:BellRing},
+  ]
+  return <section className="secondary-page sw-workspace" aria-label="Pengaturan sistem">
+    <nav className="sw-navigation" aria-label="Kategori pengaturan">
+      <span className="sw-nav-label">PENGATURAN SISTEM</span>
+      {categories.map(({id,label,icon:Icon})=><button type="button" key={id}
+        aria-current={category===id?'page':undefined} aria-controls={`settings-${id}`}
+        onClick={()=>setCategory(id)}><Icon size={17} aria-hidden="true"/><span>{label}</span><ChevronRight size={15} aria-hidden="true"/></button>)}
+    </nav>
+    <div className="sw-content">
+      {!isAdmin&&<p className="sw-readonly" role="status">Mode baca saja. Perubahan hanya tersedia untuk admin.</p>}
+      <div id="settings-sensors" hidden={category!=='sensors'}>
+        <SensorSettings sensors={data?.sensorDefinitions??[]} editable={isAdmin&&connectionState==='connected'} onRefresh={onRefresh}/>
+      </div>
+      <div id="settings-calibration" hidden={category!=='calibration'}>
+        <EcDoseSettings devices={data?.devices??[]} editable={isAdmin&&connectionState==='connected'}/>
+      </div>
+      <form className="settings-form" onSubmit={save} hidden={category!=='site'&&category!=='preferences'}>
+        <section className="page-card settings-section" id="settings-site" hidden={category!=='site'}>
+          <header className="sw-section-heading"><h2>Profil lokasi</h2><p>Identitas lahan yang tampil di sistem.</p></header>
+          <label className="field-label"><span>Nama lokasi</span><input disabled={!isAdmin}
+            value={settings.greenhouseName} onChange={event=>update('greenhouseName',event.target.value)}/></label>
+        </section>
+        <section className="page-card settings-section" id="settings-preferences" hidden={category!=='preferences'}>
+          <header className="sw-section-heading"><h2>Notifikasi & jadwal</h2><p>Sesuaikan pemberitahuan dan preferensi penjadwalan.</p></header>
+          {([
+            {key:'notifications',label:'Notifikasi alarm',hint:'Tampilkan pemberitahuan saat ada alarm.'},
+            {key:'sound',label:'Suara alarm',hint:'Putar suara untuk pemberitahuan alarm.'},
+            {key:'autoSchedule',label:'Jadwal otomatis',hint:'Preferensi penjadwalan sistem.'},
+          ] as const).map(({key,label,hint})=><div className="sw-setting-row" key={key}>
+            <span><strong>{label}</strong><small>{hint}</small></span>
+            <SettingChoice label={label} value={settings[key]} disabled={!isAdmin||connectionState!=='connected'} onChange={value=>update(key,value)}/>
+          </div>)}
+        </section>
+        <div className="sw-form-footer"><span>Perubahan berlaku setelah disimpan.</span><div>
+          <button className="secondary-button" type="button" onClick={resetFromDatabase} disabled={!isAdmin}>Batalkan</button>
+          <button className="primary-button" type="submit" disabled={!isAdmin||connectionState!=='connected'}>Simpan perubahan</button>
+        </div></div>
       </form>
-    </section>
-  )
+      {notice&&<p className="sw-notice" role="status">{notice}</p>}
+    </div>
+  </section>
 }
 
 

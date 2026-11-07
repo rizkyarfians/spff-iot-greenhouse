@@ -35,7 +35,7 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
   if (closed) return <button type="button" className="hfp-reopen" onClick={() => setClosed(false)} aria-expanded={false}>
     <Icon size={17} aria-hidden="true" />Tampilkan fase pemupukan & penyiraman<ChevronDown size={15} aria-hidden="true" />
   </button>
-  return <article className={'hfp-card' + (watering ? ' hfp-card--water' : '')} aria-label="Fase pemupukan dan penyiraman">
+  return <article className={'hfp-card hfp-card--impact' + (watering ? ' hfp-card--water' : '')} aria-label="Fase pemupukan dan penyiraman">
     <header className="hfp-header">
       <div className="hfp-heading">
         <span className="hfp-icon"><Icon size={23} strokeWidth={1.7} aria-hidden="true" /></span>
@@ -46,18 +46,30 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
         <Power size={13} aria-hidden="true" /> Otomasi {cycle.dispatchEnabled ? 'ON' : 'OFF'}
       </span><button type="button" className="hfp-close" aria-label="Tutup kartu fase pemupukan dan penyiraman" title="Tutup kartu" onClick={() => setClosed(true)}><X size={18} aria-hidden="true" /></button></div>
     </header>
+    <div className="hfp-impact-progress">
+      <div className="hfp-progress-heading"><span>{phase?'Progres pemupukan':'Progres program'}</span></div>
+      <div className="hfp-progress-track">
+        {percent===null?<div className="hfp-track-placeholder" aria-hidden="true"/>:
+          <progress className="hfp-progress" value={percent} max={100} aria-label="Progres pemupukan berdasarkan gram tercatat"/>}
+        <span className="hfp-progress-chip" style={{left:`clamp(26px, ${percent??0}%, calc(100% - 26px))`}}>{percent===null?'—':number.format(percent)+'%'}</span>
+      </div>
+      <p className="hfp-progress-caption">{phase
+        ? percent===null?'Target fase belum tersedia':number.format(recorded)+' g dari '+number.format(phase.targetG!)+' g target fase'
+        : watering?'Status penyiraman mengikuti data perangkat.':'Belum ada fase pemupukan yang tercatat.'}</p>
+    </div>
     {phase ? <>
       <div className="hfp-metrics">
         <div className="hfp-metric"><span>Dosis per tanaman</span><Quantity value={phase.targetGPerPlant ?? null} unit="g/tanaman" /></div>
         <div className="hfp-metric"><span>{phase.baselineBasis==='PRE_INJECTION_SENSOR' ? 'Estimasi per tanaman · EC sebelum ON' : phase.estimated ? 'Estimasi tercatat per tanaman' : 'Tercatat per tanaman'}</span><Quantity value={recordedPerPlant} unit="g/tanaman" /></div>
         <div className="hfp-metric hfp-metric--remaining"><span>Sisa per tanaman</span><Quantity value={remainingPerPlant} unit="g/tanaman" /></div>
       </div>
-      <div className="hfp-progress-heading"><span>Progres pemupukan</span><strong>{percent === null ? '—' : number.format(percent) + '%'}</strong></div>
-      <progress className="hfp-progress" value={percent ?? 0} max={100} aria-label="Progres pemupukan berdasarkan gram tercatat" />
       <p className={'hfp-history' + (phase.history?.status === 'unmeasured' ? ' hfp-history--pending' : '')}>
         <History size={14} aria-hidden="true" />{historyText}
       </p>
-    </> : <p className="hfp-empty">Belum ada fase pemupukan yang tercatat.</p>}
+    </> : <div className="hfp-impact-waiting">
+      <div><Clock3 size={18} aria-hidden="true"/><span><strong>{cycle.nextHst==null?'Belum tersedia':'HST '+cycle.nextHst}</strong><small>Fase berikutnya</small></span></div>
+      <div><Icon size={18} aria-hidden="true"/><span><strong>{watering?'Penyiraman':'Menunggu fase'}</strong><small>Status program</small></span></div>
+    </div>}
     <footer className="hfp-footer">
       <span className="hfp-water-state">{watering ? <Droplets size={15} aria-hidden="true" /> : cycle.mode === 'waiting_off' ? <Clock3 size={15} aria-hidden="true" /> : <Pause size={15} aria-hidden="true" />}
         {watering ? 'Fuzzy air tersedia' : cycle.mode === 'fertilization' ? 'Fuzzy air dijeda selama pemupukan' : cycle.mode === 'waiting_off' ? 'Menunggu konfirmasi pompa OFF' : 'Menunggu status program'}</span>

@@ -17,6 +17,13 @@ live=/opt/spff/frontend/dist
 [[ -d "$live/assets" && ! -L "$live" ]] ||
  { echo "STOP: active frontend layout unexpected"; exit 1; }
 
+if [[ "${1:-}" == '--ui-theme' ]]; then
+ # Publish the complete reviewed frontend together, including its shared CSS and controls.
+ # No API, worker, contracts, database, service or dispatch flag is changed.
+ frontend="$repo/frontend"
+ [[ -s "$frontend/src/AppTheme.css" && -s "$frontend/src/ToggleButtons.tsx" ]] ||
+  { echo "STOP: complete UI theme source missing"; exit 1; }
+else
 latest=''
 for run in "$store"/hst-backend-*; do
  if [[ -f "$run/deploy.exit" && $(cat "$run/deploy.exit") == 0 &&
@@ -28,6 +35,7 @@ done
 [[ -n "$latest" ]] || { echo "STOP: no successful merged frontend source found"; exit 1; }
 
 frontend="$latest/merged-build/frontend"
+fi
 vite=''
 for candidate in "$frontend/node_modules/.bin/vite" "$frontend/../node_modules/.bin/vite"; do
  if [[ -x "$candidate" ]]; then vite="$candidate"; break; fi

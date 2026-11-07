@@ -1,0 +1,139 @@
+/* Shared presentation for the program workspace and its reference guide. */
+.ft-program-shell, .guide-page {
+  --fw-ink:#193e35;
+  --fw-muted:#697e77;
+  --fw-line:#dfe9e4;
+  --fw-green:#173e31;
+  --fw-soft:#eef7f2;
+}
+.fw-eyebrow { display:block; margin-bottom:6px; color:var(--fw-muted); font-size:11px; font-weight:700; letter-spacing:.1em; }
+.ft-program-shell .gp-main-tabs { display:inline-flex; padding:5px; margin-bottom:28px; gap:4px; background:#e7eeea; border:1px solid #dce6df; border-radius:14px; }
+.ft-program-shell .gp-main-tabs button { min-height:42px; border:0; border-radius:10px; background:transparent; color:#63786e; font-size:14px; padding:10px 20px; }
+.ft-program-shell .gp-main-tabs button[aria-pressed="true"] { background:#fff; color:#176348; box-shadow:0 2px 5px #193e3510; }
+.ft-program-shell .gp-page { padding-bottom:24px; font-size:14px; }
+.ft-program-shell .gp-program-toolbar { margin-bottom:18px; align-items:center; }
+.ft-program-shell .gp-program-toolbar h2 { font-size:24px; letter-spacing:-.6px; }
+.ft-program-shell .gp-page button { min-height:42px; border-color:#d1dfd6; font-size:14px; border-radius:10px; }
+.ft-program-shell .gp-page button:not(:disabled):hover { border-color:var(--green-dark, #173e31); background:#f0f8f3; }
+.ft-program-shell .gp-page .gp-primary { background:var(--fw-green); border-color:var(--fw-green); }
+.ft-program-shell .gp-page .gp-primary:not(:disabled):hover { background:#0e6b4e; color:white; }
+.ft-program-shell .gp-panel { border-color:var(--fw-line); border-radius:16px; padding:22px; }
+.ft-program-shell .gp-program-bar { gap:22px; margin-bottom:24px; background:linear-gradient(110deg,#fff 60%,#f5faf7); box-shadow:0 3px 12px #193e3504; }
+.ft-program-shell .gp-crop-icon { width:48px; height:48px; border-radius:14px; }
+.ft-program-shell .gp-program-picker { max-width:none; flex:1 1 250px; }
+.ft-program-shell .gp-program-picker select { min-height:44px; font-size:15px; border-color:var(--fw-line); }
+.ft-program-shell .gp-program-picker label { font-size:11px; font-weight:500; gap:7px; }
+.ft-program-shell .gp-age { padding:10px 20px; border:1px solid #d9eee1; }
+.ft-program-shell .gp-age strong { font-size:28px; }
+.ft-program-shell .gp-bar-stat { padding-left:20px; border-left:1px solid var(--fw-line); }
+.ft-program-shell .gp-bar-stat strong { font-size:19px; letter-spacing:-.3px; }
+.ft-program-shell .gp-bar-stat small, .ft-program-shell .gp-age small { font-size:11px; }
+.ft-program-shell .gp-program-actions { gap:8px; }
+.ft-program-shell .gp-view-tabs { gap:24px; }
+.ft-program-shell .gp-page .gp-view-tabs button { min-height:46px; padding:8px 0 12px; border-radius:0; font-size:14px; }
+.ft-program-shell .gp-content { gap:22px; }
+.ft-program-shell .gp-work-layout { grid-template-columns:minmax(0,1fr) 264px; gap:22px; }
+.ft-program-shell .gp-work-layout.is-editing { grid-template-columns:1fr; }
+.ft-program-shell .gp-task-list > h3 { font-size:14px; color:var(--fw-muted); font-weight:500; padding:0; }
+.ft-program-shell .gp-task { overflow:hidden; }
+.ft-program-shell .gp-task-heading { gap:14px; align-items:center; }
+.ft-program-shell .gp-task-heading h4 { font-size:18px; letter-spacing:-.3px; }
+.ft-program-shell .gp-task-heading small { font-size:12px; }
+.ft-program-shell .gp-task-hst { min-width:56px; border-radius:12px; padding:8px 12px; font-size:10px; }
+.ft-program-shell .gp-task-hst strong { font-size:24px; }
+.ft-program-shell .gp-status { font-size:11px; border-radius:20px; padding:5px 10px; white-space:nowrap; }
+.ft-program-shell .gp-task-main { grid-template-columns:1fr; gap:18px; margin-top:20px; }
+.ft-program-shell .gp-task-targets { gap:0; }
+.ft-program-shell .gp-task-targets li { padding:9px 0; border-bottom:1px solid #edf2ef; }
+.ft-program-shell .gp-task-targets strong { font-variant-numeric:tabular-nums; }
+.ft-program-shell .gp-task-actions { display:flex; justify-content:flex-end; gap:8px; }
+.ft-program-shell .gp-task-actions button { flex:0 1 auto; min-width:115px; }
+.ft-program-shell .gp-task-rail { gap:14px; }
+.ft-program-shell .gp-task-rail .gp-panel { padding:20px; }
+.ft-program-shell .gp-task-rail h3 { font-size:14px; margin-bottom:12px; }
+.ft-program-shell .gp-task-rail .gp-heading { gap:8px; }
+.ft-program-shell .gp-task-rail .gp-heading > strong { font-size:12px; color:var(--fw-muted); font-weight:500; }
+.ft-program-shell .gp-task-rail progress { height:8px; }
+.ft-program-shell .gp-progress-counts strong { font-size:24px; }
+.ft-program-shell .gp-progress-counts span { font-size:11px; gap:3px; }
+.ft-program-shell .gp-task-rail h4 { font-size:16px; }
+.ft-program-shell .gp-page details.gp-panel { padding:4px 20px; }
+.ft-program-shell .gp-page details.gp-panel > summary { font-size:13px; }
+.guide-page .guide-toolbar { gap:18px; margin-bottom:20px; }
+.guide-page .guide-toolbar label { max-width:320px; font-size:12px; gap:7px; color:var(--fw-muted); }
+.guide-page .guide-toolbar select { min-height:44px; font-size:14px; border-color:#d1dfd6; }
+.guide-page .guide-edit-actions { gap:8px; }
+.guide-page .guide-edit-actions button { min-height:42px; font-size:13px; padding:9px 14px; }
+.guide-page .guide-version:empty { display:none; }
+.guide-page .guide-source-card { padding:24px; border-color:var(--fw-line); border-radius:16px; }
+.guide-page .guide-source-heading { margin-bottom:22px; }
+.guide-page .guide-source-heading h2 { font-size:20px; letter-spacing:-.4px; }
+.guide-page .guide-source-heading p { font-size:12px; }
+.guide-page .guide-hst { background:#f5faf7; border-color:var(--fw-line); font-size:12px; padding:8px 12px; }
+.guide-page .guide-hst strong { font-size:22px; }
+.guide-page .guide-metadata-primary { padding:18px; background:#f7faf8; border:1px solid #e8efea; border-radius:12px; }
+.guide-page .guide-metadata dt { font-size:11px; }
+.guide-page .guide-metadata dd { font-size:16px; margin-top:7px; font-variant-numeric:tabular-nums; }
+.guide-growing-details { margin-top:16px; }
+.guide-growing-details > summary { cursor:pointer; color:#59756a; font-size:12px; padding:3px 0; }
+.guide-growing-details[open] > summary { margin-bottom:16px; }
+.guide-page .hst-panel { padding:24px; border:1px solid var(--fw-line); border-radius:16px; margin-bottom:22px; box-shadow:none; }
+.guide-page .hst-panel .ain-panel-heading { margin-bottom:18px; }
+.guide-page .hst-panel .ain-panel-heading h3 { font-size:17px; gap:8px; }
+.guide-page .hst-guide-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+.guide-page .hst-guide-nav button { padding:9px 14px; min-height:40px; border-radius:9px; font-size:13px; }
+.guide-page .hst-inventory { margin:0 0 18px; padding:0; border:0; background:transparent; }
+.guide-page .hst-inventory .hst-figures { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.guide-page .hst-inventory .hst-figures > div { padding:16px; background:#f2f8f4; border:1px solid #e0ece4; border-radius:12px; min-width:0; }
+.guide-page .hst-inventory .hst-figures small { display:block; font-size:11px; color:var(--fw-muted); margin-bottom:8px; }
+.guide-page .hst-inventory .hst-figures strong { font-size:22px; letter-spacing:-.6px; font-variant-numeric:tabular-nums; }
+.guide-page .hst-guide-section { border-top:1px solid var(--fw-line); padding-top:18px; margin-top:18px; }
+.guide-page .hst-guide-section h4 { font-size:15px; }
+.guide-page .guide-table-card { border-color:var(--fw-line); border-radius:16px; }
+.guide-page .guide-table-card > header { padding:22px 24px; }
+.guide-page .guide-table-card header h2 { font-size:17px; }
+.guide-page .guide-table-card header p { font-size:12px; }
+.guide-page .guide-table-scroll th { background:#245e4b; font-size:12px; }
+.guide-page .guide-table-scroll td { font-size:13px; padding:14px; }
+.guide-page .guide-history, .guide-page .guide-source-details { padding:8px 20px; border:1px solid var(--fw-line); border-radius:12px; background:white; }
+.guide-page .guide-history summary, .guide-page .guide-source-details summary { font-size:13px; }
+.guide-page summary:focus-visible { outline:3px solid var(--green-dark, #173e31); outline-offset:4px; border-radius:4px; }
+@media(max-width:1100px) {
+  .ft-program-shell .gp-work-layout { grid-template-columns:minmax(0,1fr) 230px; }
+  .ft-program-shell .gp-program-bar { gap:16px; }
+  .ft-program-shell .gp-program-actions { margin-left:0; }
+}
+@media(max-width:850px) {
+  .ft-program-shell .gp-work-layout { grid-template-columns:1fr; }
+  .ft-program-shell .gp-task-rail { grid-template-columns:1fr 1fr; }
+  .guide-page .guide-edit-actions { justify-content:flex-start; }
+}
+@media(max-width:600px) {
+  .ft-program-shell .gp-main-tabs { display:flex; width:100%; margin-bottom:22px; }
+  .ft-program-shell .gp-main-tabs button { flex:1; padding:9px; font-size:12px; }
+  .ft-program-shell .gp-main-tabs svg { display:none; }
+  .ft-program-shell .gp-panel { padding:16px; }
+  .ft-program-shell .gp-program-toolbar h2 { font-size:21px; }
+  .ft-program-shell .gp-program-bar { gap:14px; }
+  .ft-program-shell .gp-program-picker { flex-basis:calc(100% - 88px); }
+  .ft-program-shell .gp-bar-stat { flex:1; padding-left:0; border:0; }
+  .ft-program-shell .gp-program-actions { width:100%; }
+  .ft-program-shell .gp-task-rail { grid-template-columns:1fr; }
+  .ft-program-shell .gp-task-heading h4 { font-size:16px; }
+  .ft-program-shell .gp-task-heading .gp-status { margin-left:70px; }
+  .ft-program-shell .gp-task-actions { flex-direction:row; }
+  .ft-program-shell .gp-task-actions button { flex:1; min-width:0; font-size:12px; }
+  .ft-program-shell .gp-view-tabs { gap:16px; }
+  .ft-program-shell .gp-page .gp-view-tabs button { font-size:12px; }
+  .guide-page .guide-source-card, .guide-page .hst-panel { padding:16px; border-radius:14px; }
+  .guide-page .guide-source-heading h2 { font-size:17px; }
+  .guide-page .guide-source-heading p { font-size:11px; }
+  .guide-page .guide-metadata { gap:16px; }
+  .guide-page .guide-metadata-primary { padding:14px; }
+  .guide-page .guide-edit-actions button { padding:8px 12px; font-size:12px; }
+  .guide-page .hst-inventory .hst-figures { grid-template-columns:1fr; gap:8px; }
+  .guide-page .hst-inventory .hst-figures > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; }
+  .guide-page .hst-inventory .hst-figures small { margin:0; }
+  .guide-page .hst-inventory .hst-figures strong { font-size:19px; }
+  .guide-page .guide-table-card > header { padding:18px 16px; }
+}

@@ -1,0 +1,54 @@
+/* Compact program summary, inspired by an impact/progress card. */
+.forest-theme .dashboard-home .hfp-card.hfp-card--impact {
+  color:#173e31;
+  border:1px solid #e2e7df;
+  background:#fff;
+  padding:23px 26px 18px;
+  box-shadow:0 5px 18px #173e3105;
+}
+.hfp-card.hfp-card--impact .hfp-header { margin-bottom:20px; }
+.forest-theme .hfp-card--impact .hfp-icon { background:#f1f5eb; border-color:#e2e8d9; color:#315a40; width:40px; height:40px; flex-basis:40px; border-radius:12px; }
+.hfp-card--impact .hfp-heading h3 { color:#173e31; font-size:18px; }
+.hfp-card--impact .hfp-eyebrow { color:#6d8073; font-size:10px; }
+.hfp-card--impact .hfp-heading p { color:#718278; font-size:11px; }
+.hfp-card--impact .hfp-close { background:#f1f5eb; color:#687e70; }
+.hfp-card--impact .hfp-close:hover { background:#e4ecdd; color:#173e31; }
+.forest-theme .hfp-card--impact .hfp-badge--on { background:#d7ed9b; border-color:#d7ed9b; color:#183d30; }
+.hfp-card--impact .hfp-badge--off { background:#fff7e9; border-color:#ede1c9; color:#89672d; }
+.hfp-card--impact .hfp-progress-heading { color:#55705d; margin-bottom:10px; font-size:11px; }
+.hfp-progress-track { position:relative; height:29px; }
+.hfp-card--impact .hfp-progress, .hfp-track-placeholder { display:block; height:29px; width:100%; border:1px solid #dbe4d6; border-radius:30px; overflow:hidden; background:repeating-linear-gradient(55deg,#cdd9c5 0px,#cdd9c5 2px,#e8eee2 2px,#e8eee2 5px); }
+.hfp-card--impact .hfp-progress::-webkit-progress-bar { background:repeating-linear-gradient(55deg,#cdd9c5 0px,#cdd9c5 2px,#e8eee2 2px,#e8eee2 5px); border-radius:30px; }
+.hfp-card--impact .hfp-progress::-webkit-progress-value { background:linear-gradient(90deg,#173e31,#3d7654); border-radius:30px; }
+.hfp-card--impact .hfp-progress::-moz-progress-bar { background:linear-gradient(90deg,#173e31,#3d7654); border-radius:30px; }
+.hfp-progress-chip { position:absolute; top:4px; transform:translateX(-50%); min-width:44px; padding:3px 8px; border-radius:30px; background:#fff; color:#21513c; font-size:11px; line-height:15px; text-align:center; font-weight:700; font-variant-numeric:tabular-nums; box-shadow:0 1px 4px #0b241733; }
+.hfp-progress-caption { color:#6e8273; font-size:11px; margin:8px 0 0; line-height:1.6; }
+.hfp-card--impact .hfp-metrics { margin:18px 0 0; padding-top:17px; border-top:1px solid #e7ece3; gap:20px; }
+.hfp-card--impact .hfp-metric, .forest-theme .hfp-card--impact .hfp-metric--remaining { background:transparent; border:0; border-radius:0; padding:0; gap:7px; }
+.hfp-card--impact .hfp-metric > span { color:#718275; font-size:11px; }
+.forest-theme .hfp-card--impact .hfp-value { color:#173e31; font-size:25px; }
+.hfp-card--impact .hfp-value > span { color:#6d8272; font-size:11px; }
+.forest-theme .hfp-card--impact .hfp-metric--remaining .hfp-value { color:#315a40; }
+.hfp-impact-waiting { display:grid; grid-template-columns:1fr 1fr; gap:20px; border-top:1px solid #e7ece3; margin-top:17px; padding-top:16px; }
+.hfp-impact-waiting > div { display:flex; align-items:center; gap:10px; }
+.hfp-impact-waiting > div > svg { color:#456a50; background:#f0f5e8; padding:7px; box-sizing:content-box; border-radius:50%; }
+.hfp-impact-waiting span { display:grid; gap:4px; }
+.hfp-impact-waiting strong { color:#244b36; font-size:15px; font-weight:600; }
+.hfp-impact-waiting small { color:#738576; font-size:10px; }
+.hfp-card--impact .hfp-footer { margin-top:16px; padding-top:12px; border-color:#e7ece3; font-size:10px; }
+.hfp-card--impact .hfp-water-state,.hfp-card--impact .hfp-water-state svg,.hfp-card--impact .hfp-next,.hfp-card--impact .hfp-next b { color:#5f7966; }
+.hfp-card--impact .hfp-history { margin:12px 0 0; color:#708574; }
+.hfp-card--impact .hfp-history--pending { color:#946f31; }
+.hfp-card--impact .hfp-details { border-color:#e4ecdd; color:#617c69; }
+.hfp-card--impact .hfp-calculation { background:#f6f8f2; border-color:#dbe4d6; }
+.hfp-card--impact .hfp-calculation strong { color:#254d37; }
+.hfp-card--impact .hfp-calculation small { color:#718375; }
+@media(max-width:600px) {
+  .forest-theme .dashboard-home .hfp-card.hfp-card--impact { padding:18px; }
+  .hfp-card--impact .hfp-heading h3 { font-size:16px; }
+  .hfp-card--impact .hfp-metrics { gap:14px; }
+  .forest-theme .hfp-card--impact .hfp-value { font-size:22px; }
+  .hfp-card--impact .hfp-metric:first-child { background:transparent; }
+  .hfp-impact-waiting strong { font-size:13px; }
+}
+@media(max-width:370px) { .hfp-impact-waiting { grid-template-columns:1fr; gap:14px; } }

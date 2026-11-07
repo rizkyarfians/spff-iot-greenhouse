@@ -1793,7 +1793,7 @@ const soilNpkGroups =
           navOpen
             ? 'nav-is-open'
             : ''
-        } ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`
+        } ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''} forest-theme`
       }
     >
       <aside

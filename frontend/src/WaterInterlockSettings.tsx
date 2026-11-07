@@ -1,3 +1,4 @@
+import { ToggleButtons } from './ToggleButtons'
 import { useEffect,useId,useRef,useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ApiDevice,WaterInterlockView } from '@spff/contracts'
@@ -89,9 +90,9 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
   return <div className="setting-toggle-row">
     {!open&&notice&&createPortal(<SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>,document.body)}
     <div><strong>Proteksi Tandon Air</strong></div>
-    <button className={`switch ${view?.enabled!==false?'is-on':''}`} type="button" role="switch"
+    <ToggleButtons className={`switch ${view?.enabled!==false?'is-on':''}`} type="button" role="switch"
       aria-label="Proteksi tandon air" aria-checked={view?.enabled??true} aria-busy={busy}
-      aria-haspopup="dialog" disabled={!admin||!connected||!deviceId||busy} onClick={show}><span/></button>
+      aria-haspopup="dialog" disabled={!admin||!connected||!deviceId||busy} onClick={show}><span/></ToggleButtons>
     {open&&createPortal(<dialog ref={dialog} className="water-interlock-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
       onCancel={event=>{if(busyRef.current)event.preventDefault();else setOpen(false)}}
       onClick={event=>{if(event.target===event.currentTarget)close()}}>

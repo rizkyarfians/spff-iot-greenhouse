@@ -93,7 +93,7 @@
     13px 13px 13px 5px;
 
   background:
-    var(--green, #27ad78);
+    var(--green, var(--green-dark, #173e31));
 
   color: #fff;
 
@@ -109,7 +109,7 @@
 
 .auth-brand-copy strong {
   color:
-    var(--green-dark, #16845a);
+    var(--green-dark, var(--green-dark, #173e31));
 
   font-size: 14px;
   font-weight: 700;
@@ -155,7 +155,7 @@
     var(--green-soft, #e8f6f0);
 
   color:
-    var(--green-dark, #16845a);
+    var(--green-dark, var(--green-dark, #173e31));
 
   padding: 6px 10px;
 
@@ -248,7 +248,7 @@
 
 .auth-input:focus-within {
   border-color:
-    var(--green, #27ad78);
+    var(--green, var(--green-dark, #173e31));
 
   background: #fff;
 
@@ -320,7 +320,7 @@
   background: #edf3f0;
 
   color:
-    var(--green-dark, #16845a);
+    var(--green-dark, var(--green-dark, #173e31));
 }
 
 .auth-password-toggle:disabled {
@@ -352,7 +352,7 @@
     linear-gradient(
       135deg,
       #28ad79 0%,
-      #16845a 100%
+      var(--green-dark, #173e31) 100%
     );
 
   color: #fff;
@@ -420,7 +420,7 @@
   background: transparent;
 
   color:
-    var(--green-dark, #16845a);
+    var(--green-dark, var(--green-dark, #173e31));
 
   padding: 0;
 
@@ -465,7 +465,7 @@
 
 .auth-back-button:hover {
   color:
-    var(--green-dark, #16845a);
+    var(--green-dark, var(--green-dark, #173e31));
 }
 
 
@@ -512,7 +512,7 @@
   margin-top: 1px;
 
   color:
-    var(--green-dark, #16845a);
+    var(--green-dark, var(--green-dark, #173e31));
 }
 
 
@@ -592,7 +592,7 @@
   border-radius: 50%;
 
   background:
-    var(--green, #27ad78);
+    var(--green, var(--green-dark, #173e31));
 
   box-shadow:
     0 0 0 3px
@@ -1006,7 +1006,7 @@ svg {
     3px solid #dceee6;
 
   border-top-color:
-    var(--green, #27ad78);
+    var(--green, var(--green-dark, #173e31));
 
   border-radius: 50%;
 
@@ -1050,7 +1050,7 @@ svg {
   border-radius: 50%;
 
   background:
-    var(--green, #27ad78);
+    var(--green, var(--green-dark, #173e31));
 
   animation:
     auth-pulse

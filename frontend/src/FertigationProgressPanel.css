@@ -20,7 +20,7 @@
 .ai-metric.is-warning .ai-meter-fill { background: #cf9240; }
 .ai-metric small { display: block; }
 .ai-progress-notes { display: grid; gap: 4px; margin-top: 12px; }
-.ai-open-program { margin-top: 12px; border: 0; border-radius: 6px; padding: 8px 10px; color: #176343; background: #eaf4ed; font: inherit; cursor: pointer; }
+.ai-open-program { margin-top: 12px; border: 0; border-radius: 6px; padding: 8px 10px; color: var(--green-dark, #173e31); background: #eaf4ed; font: inherit; cursor: pointer; }
 .ai-progress.is-compact { margin: 8px 12px 12px; padding: 13px; }
 .ai-progress.is-compact .ai-progress-heading { flex-wrap: wrap; }
 .ai-progress.is-compact h2 { font-size: 13px; }
@@ -36,7 +36,7 @@
 
 .ai-explanation { margin-top:12px; font-size:12px; color:#63746a; line-height:1.6; }
 .ai-explanation summary { color:#347156; cursor:pointer; padding:5px 0; }
-.ai-explanation summary:focus-visible { outline:2px solid #176343; outline-offset:3px; }
+.ai-explanation summary:focus-visible { outline:2px solid var(--green-dark, #173e31); outline-offset:3px; }
 .ai-explanation p { margin:8px 0; }
 .ai-updated { display:block; margin-top:10px; color:#63746a; font-size:11px; }
 .ai-progress.is-minimal .ai-decision { margin:10px 0; }

@@ -6,7 +6,7 @@
 .schedule-time-card { margin:0; padding:16px; min-width:0; border:1px solid #d5dfd9; border-radius:12px; background:#fff; }
 .schedule-time-card.is-start { border-color:#9acdb6; }
 .schedule-time-card legend { padding:0 6px; font-size:13px; font-weight:700; color:#274d3b; }
-.schedule-time-step { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-right:7px; background:var(--green-soft,#e7f5ee); color:var(--green-dark,#16845a); border-radius:50%; font-size:12px; }
+.schedule-time-step { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-right:7px; background:var(--green-soft,#e7f5ee); color:var(--green-dark,var(--green-dark, #173e31)); border-radius:50%; font-size:12px; }
 .schedule-time-inputs { display:grid; grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr); align-items:end; gap:10px; max-width:260px; margin-top:5px; }
 .schedule-time-inputs label { display:flex; flex-direction:column; min-width:0; gap:7px; }
 .schedule-time-inputs label > span { font-size:12px; color:#536560; }
@@ -19,5 +19,5 @@
 .schedule-time-preview strong { font-size:15px; font-variant-numeric:tabular-nums; }
 .schedule-time-preview span { margin-top:4px; font-size:13px; line-height:1.5; }
 .schedule-time-preview.is-invalid { background:#fff4e5; border-color:#eed0a1; color:#855116; }
-.schedule-time-inputs select:focus-visible { outline:3px solid var(--green-dark,#16845a); outline-offset:3px; }
+.schedule-time-inputs select:focus-visible { outline:3px solid var(--green-dark,var(--green-dark, #173e31)); outline-offset:3px; }
 @media(max-width:560px) { .schedule-time-cards { grid-template-columns:1fr; gap:18px; } .schedule-time-inputs { max-width:280px; } }

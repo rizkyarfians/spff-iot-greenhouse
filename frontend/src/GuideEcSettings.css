@@ -1,5 +1,5 @@
 .gp-ec-target { display:flex; align-items:baseline; flex-wrap:wrap; gap:8px; padding:10px 12px; border-radius:8px; background:#eff6f1; margin:12px 0; font-size:14px; }
-.gp-ec-target strong { color:#176343; font-size:20px; }
+.gp-ec-target strong { color:var(--green-dark, #173e31); font-size:20px; }
 .gp-ec-target small { color:#526b5b; }
 .gp-ec-target.is-dry { background:#f2f4f5; color:#526b5b; }
 .gp-ec-target.is-blocked { background:#fff7df; color:#775521; }
