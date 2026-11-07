@@ -5,6 +5,7 @@ import { fertilizerProgress, type FertilizerDeliveryInput } from './fertilizerDe
 import { recordEcFertilizerDelivery } from './ecDoseEstimator.js';
 import { tickFuzzyWater, type FuzzyWaterDecision } from './automaticFuzzyWater.js';
 import {retryableModeRejection} from './nativeHstSchedule.js';
+import {hstRuntimeSeconds} from './hstRuntimeLimit.js';
 
 export async function enqueueAutomaticPump(client: PoolClient, site: string, device: string,
   actuator: string, on: boolean, source: string, metadata: Record<string, unknown>, expirySeconds=30) {
@@ -151,6 +152,7 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
       if(!sync) throw Error('Schedule sync state missing for HST device');
       const startId=previous?.start_id??randomUUID(),metadata={startId,phaseId:phase.phase_id,programId:phase.program_id,
         activityId:phase.activity_id,hst:phase.hst,nativeHstSchedule:true,scheduleRevision:String(sync.revision),
+        hstRuntimeLimitSeconds:hstRuntimeSeconds(control?.water_max_runtime_seconds),
         ...(previous?{modeRejectionRetry:previous.retried||previous.water_reason==='automatic_mode',
           nativeAuthorityRetry:previous.authority_retried||previous.water_status==='timed_out',
           previousWaterCommandId:previous.water_command_id,

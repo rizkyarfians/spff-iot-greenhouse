@@ -4,6 +4,7 @@ import { type GuideProgramPlan } from '@spff/contracts';
 import { config } from './config.js';
 import { tickAutomaticCycles } from './automaticCycle.js';
 import { readProductionFuzzy } from './automaticFuzzyWater.js';
+import {enforceHstRuntimeLimit} from './hstRuntimeLimit.js';
 
 export function matchHstFertilization(plan: GuideProgramPlan, hst: number) {
   return plan.activities.flatMap(activity => {
@@ -37,6 +38,8 @@ export async function tickHstFertilization(client: PoolClient, enabled: boolean,
       }
     }
   }
+  // OFF remains available even when new automatic starts are disabled.
+  await enforceHstRuntimeLimit(client,now);
   await tickAutomaticCycles(client,enabled,now,decision);
 }
 

@@ -1,5 +1,27 @@
 # HST through the existing automatic schedule path
 
+## Runtime limit
+
+HST snapshots the water pump's `maxRuntimeSeconds` setting per new cycle, capped
+at 900 seconds (15 minutes). Missing/invalid settings fall back to 900 seconds;
+shorter valid settings are honored. Existing running HST cycles adopt their
+stored setting once. The clock uses the earliest persisted ON publication,
+falling back to the confirmed start time, so a worker restart does not restart
+the clock.
+
+At the deadline the worker queues ordinary OFF for BOTH water and fertilizer,
+even if new HST dispatch is disabled. OFF retries continue until both OFF ACKs
+or device readback confirm the stop. Already-ended cycles and subsequent ONs
+from another owner are not stopped again by the old deadline. The estimator's
+recorded delivery is preserved; reaching a runtime limit does not mean the
+fertilizer target was fulfilled and does not automatically restart HST.
+
+This is a server timeout, evaluated in the existing five-second worker loop.
+Polling, transport and acknowledgement add delay; it is not a hard independent
+15-minute cutoff inside ESP32 when the server/link is unavailable. Firmware
+protections remain in force. Install by rebuilding/deploying the worker only;
+no firmware, API, frontend or database migration is required.
+
 HST uses the firmware's existing server-authority `schedule_sync` plus
 `set_pump` contract. No firmware prefix or new firmware build is required for
 the supplied `1.5.12-TIMED-FERT-EC` receiver.
