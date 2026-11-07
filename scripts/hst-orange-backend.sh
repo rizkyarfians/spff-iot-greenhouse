@@ -158,6 +158,7 @@ STAGING_BUILD
  install -m644 "$SRC/mqtt-worker/dist/serverWaterControl.js" "$RUN/new/worker/serverWaterControl.js"
  install -m644 "$SRC/mqtt-worker/dist/soilEcPulseTransport.js" "$RUN/new/worker/soilEcPulseTransport.js"
  install -m644 "$SRC/mqtt-worker/dist/hstFertilizationSchedule.js" "$RUN/new/worker/hstFertilizationSchedule.js"
+ install -m644 "$SRC/mqtt-worker/dist/repository.js" "$RUN/new/worker/repository.js"
  install -m644 "$SRC/mqtt-worker/dist/index.js" "$RUN/new/worker/index.js"
  [[ -f "$RUN/new/contracts/index.js" ]] || fatal "contracts barrel missing"
  grep -q "aiHst.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing aiHst export"

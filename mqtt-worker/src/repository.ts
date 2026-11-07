@@ -288,6 +288,15 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
 
   async pendingCommands(limit: number): Promise<PendingControlCommand[]> {
     const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+    const hstInstalled = (await this.pool.query(
+      "SELECT to_regclass('spff.hst_fertilization_starts') IS NOT NULL AS ready",
+    )).rows[0]?.ready === true;
+    const hstCommand = hstInstalled && process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED === 'true' ? `EXISTS (
+      SELECT 1 FROM spff.hst_fertilization_starts h
+      WHERE h.site_id=spff.control_commands.site_id AND h.device_id=spff.control_commands.device_id
+        AND h.status='queued'
+        AND spff.control_commands.command_id IN (h.water_command_id,h.fertilizer_command_id)
+    )` : 'false';
     const result = await this.pool.query<{
       command_id: string;
       site_id: string;
@@ -319,7 +328,10 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
               AND mode_config.acknowledgement_status = 'applied'
               AND mode_config.acknowledged_revision = mode_config.revision
               AND mode_config.applied_mode = mode_config.desired_mode
-              AND mode_config.desired_mode = 'manual'
+              AND (
+                (requested_by <> 'hst-fertilization' AND mode_config.desired_mode = 'manual')
+                OR (requested_by = 'hst-fertilization' AND mode_config.desired_mode = 'automatic' AND ${hstCommand})
+              )
           )))
         ORDER BY issued_at ASC, created_at ASC
         LIMIT $1

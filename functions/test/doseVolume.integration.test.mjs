@@ -121,6 +121,17 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
    assert.deepEqual(commands.map(c=>c.actuator_key).sort(),['pump_fert','pump_water']);
    assert.ok(commands.every(c=>c.requested_is_active));
    assert.equal((await query('SELECT status FROM spff.hst_fertilization_starts')).rows[0].status,'queued');
+   const {PostgresIngestionRepository}=await import('../../mqtt-worker/dist/repository.js');
+   const dispatchRepository=new PostgresIngestionRepository(database);
+   assert.equal((await dispatchRepository.pendingCommands(20)).length,0,'HST ON is not dispatched in Manual');
+   await db.exec(`UPDATE spff.device_automatic_control_configs SET desired_mode='automatic',applied_mode='automatic',
+    water_enabled=true,water_moisture_low_pct=10,water_moisture_target_pct=30,
+    water_max_runtime_seconds=120,water_cooldown_seconds=60,water_min_flow_lpm=5`);
+   assert.equal((await dispatchRepository.pendingCommands(20)).length,0,'HST dispatch remains off before activation');
+   process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED='true';
+   try{
+    assert.equal((await dispatchRepository.pendingCommands(20)).length,2,'HST ON is dispatched in acknowledged Automatic');
+   }finally{delete process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED;}
    for(const command of commands){
     await query(`INSERT INTO spff.command_ack_events(command_id,status,actual_is_active,acknowledged_at)
      VALUES($1,'completed',true,now())`,[command.command_id]);
