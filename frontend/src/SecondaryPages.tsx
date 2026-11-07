@@ -1410,8 +1410,9 @@ function ControlsPage({
 
 
       <div className="controls-automation page-card">
-        <h2>Otomasi &amp; Proteksi</h2>
+        <h2>{selectedMode === 'automatic' ? 'Otomasi & Proteksi' : 'Proteksi'}</h2>
         <WaterInterlockSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
+        {selectedMode === 'automatic' && <>
         <SoilEcExecutionSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
         <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'schedule'} id="schedule-settings-button" aria-controls="schedule-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'schedule' ? null : 'schedule') }}>
           <span className="control-icon"><CalendarClock aria-hidden="true" size={20} /></span>
@@ -2069,6 +2070,7 @@ function ControlsPage({
 
 
         </section>
+        </>}
       </div>
     </section>
   )

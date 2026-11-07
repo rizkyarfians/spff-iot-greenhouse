@@ -40,6 +40,9 @@ mkdir -m 700 "$repair"
 config="$frontend/.repair-vite-$stamp.mjs"
 cleanup(){
  local result=$?
+ if (( result != 0 )) && [[ -f "$repair/SecondaryPages-before.tsx" ]]; then
+  cp -a "$repair/SecondaryPages-before.tsx" "$frontend/src/SecondaryPages.tsx"
+ fi
  if (( result != 0 )) && [[ -d "$repair/ec-settings-before" ]]; then
   cp -a "$repair/ec-settings-before/." "$frontend/src/"
  fi
@@ -58,6 +61,10 @@ cleanup(){
  fi
 }
 trap cleanup EXIT
+if [[ "${1:-}" == '--controls' ]]; then
+ cp -a "$frontend/src/SecondaryPages.tsx" "$repair/SecondaryPages-before.tsx"
+ install -m 644 "$repo/frontend/src/SecondaryPages.tsx" "$frontend/src/SecondaryPages.tsx"
+fi
 if [[ "${1:-}" == '--ec-settings' ]]; then
  mkdir "$repair/ec-settings-before"
  for file in EcDoseSettings.tsx EcDoseSettings.css; do
