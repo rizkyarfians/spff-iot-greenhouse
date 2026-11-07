@@ -50,16 +50,19 @@ export async function recordEcFertilizerDelivery(c:PoolClient,phase:any,now=new 
   if(!state) {
     const profile=currentProfile;
     if(!profile) return {grams:null,completionAllowed:false};
-    const expectedBoot=typeof phase.baseline?.bootId==='string'?phase.baseline.bootId:undefined;
-    let baseline=await findEcWaterBaseline(c,phase.site_id,phase.device_id,phase.started_at,expectedBoot);
+    // A resumed batch keeps its ORIGINAL pre-injection reference, not the already-mixed EC before resume.
+    const referenceStart=phase.baseline?.originalStartedAt?new Date(phase.baseline.originalStartedAt):phase.started_at;
+    const referenceBoot=phase.baseline?.originalBootId??phase.baseline?.bootId;
+    const expectedBoot=typeof referenceBoot==='string'?referenceBoot:undefined;
+    let baseline=await findEcWaterBaseline(c,phase.site_id,phase.device_id,referenceStart,expectedBoot);
     if(!baseline) {
       // Bound the water-only search by the first confirmed fertilizer ON, never by a later manual watering run.
       const firstFertOn=(await c.query(`SELECT recorded_at FROM spff.device_status_events WHERE site_id=$1 AND device_id=$2
         AND recorded_at>=$3 AND recorded_at<=$4 AND raw_payload @> '{"pumpReadbackValid":true,"pumpFertActualActive":true}'::jsonb
-        ORDER BY recorded_at,device_status_id LIMIT 1`,[phase.site_id,phase.device_id,phase.started_at,now])).rows[0];
+        ORDER BY recorded_at,device_status_id LIMIT 1`,[phase.site_id,phase.device_id,referenceStart,now])).rows[0];
       if(firstFertOn) baseline=await findEcWaterBaseline(c,phase.site_id,phase.device_id,firstFertOn.recorded_at,expectedBoot);
     }
-    if(!baseline) baseline=await findPreInjectionEcReference(c,phase.site_id,phase.device_id,phase.started_at,expectedBoot);
+    if(!baseline) baseline=await findPreInjectionEcReference(c,phase.site_id,phase.device_id,referenceStart,expectedBoot);
     if(!baseline) return {grams:null,completionAllowed:false};
     await c.query(`INSERT INTO spff.ec_dose_estimates(phase_id,profile_snapshot,baseline_ec,baseline_at,baseline_boot_id)
       VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,

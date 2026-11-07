@@ -1,5 +1,25 @@
 # HST through the existing automatic schedule path
 
+## Explicit continuation after a stop
+
+For the same fertilizer batch, run `sudo bash scripts/resume-orange-hst.sh --same-batch`
+on Orange Pi after installing the current worker. This queues new ON IDs through
+the existing acknowledged automatic schedule path. It is an operator action,
+not an automatic retry loop. The script currently targets greenhouse-01 /
+esp32-s3-01, matching this deployment.
+
+The phase must be unfinished, server dispatch enabled, the ESP freshly confirmed
+in automatic mode with both outputs OFF, and old ONs expired. Active commands,
+timer schedules or another session prevent continuation. A second invocation
+while queued does not enqueue duplicate ONs. A new per-cycle runtime limit
+starts with the new ON publication.
+
+Existing delivered grams, estimate sum, original baseline/K, telemetry cursor
+and audit rows are retained. The interval anchor is reset so the stopped gap
+does not contribute volume. If the estimator has not initialized yet, it still
+searches the ORIGINAL pre-injection history, never already-mixed EC before the
+restart. No fresh batch or calibration is inferred by this same-batch action.
+
 ## Runtime limit
 
 HST snapshots the water pump's `maxRuntimeSeconds` setting per new cycle, capped
