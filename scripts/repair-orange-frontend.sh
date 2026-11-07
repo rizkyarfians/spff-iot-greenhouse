@@ -47,8 +47,20 @@ cleanup(){
  if (( result != 0 )) && [[ -d "$repair/guide-before" ]]; then
   cp -a "$repair/guide-before/." "$frontend/src/"
  fi
+ if (( result != 0 )) && [[ -d "$repair/sensors-before" ]]; then
+  cp -a "$repair/sensors-before/." "$frontend/src/"
+ fi
 }
 trap cleanup EXIT
+if [[ "${1:-}" == '--sensor-groups' ]]; then
+ repo="$(cd "$(dirname "$0")/.." && pwd)"
+ mkdir "$repair/sensors-before"
+ for file in App.tsx App.css dashboardSensors.ts; do
+  cp -a "$frontend/src/$file" "$repair/sensors-before/$file"
+ done
+ install -m 644 "$repo/frontend/src/dashboardSensors.ts" "$frontend/src/dashboardSensors.ts"
+ node "$repo/scripts/merge-dashboard-sensor-groups.cjs" "$repo" "$frontend/src/App.tsx"
+fi
 if [[ "${1:-}" == '--guide' ]]; then
  repo="$(cd "$(dirname "$0")/.." && pwd)"
  mkdir "$repair/guide-before"

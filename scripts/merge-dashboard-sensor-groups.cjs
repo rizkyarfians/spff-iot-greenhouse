@@ -29,8 +29,10 @@ function visit(node){
   if(ts.isIdentifier(node.name)&&node.name.text==='chartSensorOptions'&&init){
    found.chart++;
    const text=init.getText(tree);
-   if(!text.includes("option.key.startsWith('soil_1_')"))
-    replace(init,'('+text+").filter(option=>!option.key.startsWith('soil_1_'))");
+   const oldFilter=".filter(option=>!option.key.startsWith('soil_1_'))";
+   const displayFilter=".filter(option=>backendData?.sensorDefinitions.find(definition=>definition.sensorKey===option.key)?.enabled??!option.key.startsWith('soil_1_'))";
+   if(text.includes(oldFilter))replace(init,text.replace(oldFilter,displayFilter));
+   else if(!text.includes(displayFilter))replace(init,'('+text+')'+displayFilter);
   }
  }
  if(ts.isJsxElement(node)&&node.openingElement.tagName.getText(tree)==='select'){
@@ -40,7 +42,7 @@ function visit(node){
    if(node.children.some(child=>!ts.isJsxText(child)&&!(ts.isJsxElement(child)&&child.openingElement.tagName.getText(tree)==='option')))
     throw Error('Unsupported dynamic dashboard group options');
    edits.push({start:node.openingElement.end,end:node.closingElement.getStart(tree),
-    text:'\n<option value="soil1" disabled>Tanah 1</option>\n<option value="soil2">Tanah 2</option>\n<option value="water">Air</option>\n<option value="environment">Lingkungan</option>\n<option value="energy">Energi</option>\n'});
+    text:'\n<option value="soil1" disabled={!backendData?.sensorDefinitions.some(definition=>definition.sensorKey.startsWith("soil_1_")&&definition.enabled)}>Tanah 1</option>\n<option value="soil2">Tanah 2</option>\n<option value="water">Air</option>\n<option value="environment">Lingkungan</option>\n<option value="energy">Energi</option>\n'});
   }
  }
  ts.forEachChild(node,visit);
@@ -55,4 +57,4 @@ const css=fs.readFileSync(cssPath,'utf8');
 const marker='/* Temporarily unavailable dashboard sensor group. */';
 fs.writeFileSync(file,output);
 if(!css.includes(marker))fs.writeFileSync(cssPath,css+'\n'+marker+'\n.sensor-group-select option:disabled { color: #9ca3af; background: #f3f4f6; }\n');
-console.log('DASHBOARD_GROUPS=PASS; soil1 disabled; soil2 default; water/environment separated; local App preserved');
+console.log('DASHBOARD_GROUPS=PASS; groups follow sensor settings; soil2 default; local App preserved');
