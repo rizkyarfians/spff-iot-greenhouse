@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, ChevronDown, Clock3, Droplets, FlaskConical, History, Pause, Power } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ChevronDown, Clock3, Droplets, FlaskConical, History, Pause, Power, X } from 'lucide-react'
 import type { AutomaticCycleStatus } from '@spff/contracts'
 import { fetchHstFertilizationStarts, fetchAutomaticCycleStatus } from './api'
 import './HstFertilizationNotice.css'
@@ -10,6 +10,7 @@ function Quantity({ value, unit = 'g' }: { value: number | null; unit?: string }
 }
 
 export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
+  const [closed, setClosed] = useState(false)
   const phase = cycle.phase
   const recorded = phase?.history?.recordedG ?? phase?.deliveredG ?? 0
   const remaining = phase?.history?.remainingG ?? phase?.remainingG ?? phase?.targetG ?? null
@@ -20,6 +21,9 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
   const historyText = phase?.history?.status === 'unmeasured' ? 'Sesi tercatat · perhitungan belum lengkap' :
     phase?.history?.lastRecordedAt ? 'Catatan ' + new Date(phase.history.lastRecordedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' }) + ' WIB' :
     recorded > 0 ? 'Berdasarkan riwayat tersimpan' : 'Belum ada pengiriman tercatat'
+  if (closed) return <button type="button" className="hfp-reopen" onClick={() => setClosed(false)} aria-expanded={false}>
+    <Icon size={17} aria-hidden="true" />Tampilkan fase pemupukan & penyiraman<ChevronDown size={15} aria-hidden="true" />
+  </button>
   return <article className={'hfp-card' + (watering ? ' hfp-card--water' : '')} aria-label="Fase pemupukan dan penyiraman">
     <header className="hfp-header">
       <div className="hfp-heading">
@@ -27,9 +31,9 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
         <div><div className="hfp-eyebrow">{phase ? 'Fase ' + phase.phaseNumber : 'Kontrol otomatis'}<span />{phase ? 'HST ' + phase.hst : 'Tanaman'}</div>
           <h3>{title}</h3><p>{phase ? phase.product + ' · ' + phase.method : 'Status program tanaman'}</p></div>
       </div>
-      <span className={'hfp-badge ' + (cycle.dispatchEnabled ? 'hfp-badge--on' : 'hfp-badge--off')}>
+      <div className="hfp-header-actions"><span className={'hfp-badge ' + (cycle.dispatchEnabled ? 'hfp-badge--on' : 'hfp-badge--off')}>
         <Power size={13} aria-hidden="true" /> Otomasi {cycle.dispatchEnabled ? 'ON' : 'OFF'}
-      </span>
+      </span><button type="button" className="hfp-close" aria-label="Tutup kartu fase pemupukan dan penyiraman" title="Tutup kartu" onClick={() => setClosed(true)}><X size={18} aria-hidden="true" /></button></div>
     </header>
     {phase ? <>
       <div className="hfp-metrics">

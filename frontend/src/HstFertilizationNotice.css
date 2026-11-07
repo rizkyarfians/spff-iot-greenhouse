@@ -3,6 +3,13 @@
 .hfp-card--water{--hfp-accent:#237d98}
 .hfp-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px}
 .hfp-heading{display:flex;align-items:flex-start;gap:13px;min-width:0}
+.hfp-header-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.hfp-close{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:9px;background:#f1f6f3;color:#6b8174;cursor:pointer}
+.hfp-close:hover{background:#e3eee7;color:#173f31}
+.hfp-reopen{display:flex;align-items:center;gap:9px;width:100%;padding:12px 15px;border:1px solid #dce8e1;border-radius:12px;background:#fff;color:#315e4a;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.hfp-reopen svg:last-child{margin-left:auto;flex-shrink:0}.hfp-reopen:hover{background:#f3f9f5}
+.hfp-close:focus-visible,.hfp-reopen:focus-visible{outline:3px solid #147d6055;outline-offset:3px}
+@media(max-width:450px){.hfp-header-actions{margin-left:auto}.hfp-header-actions .hfp-badge{margin-left:0}}
 .hfp-icon{display:grid;place-items:center;width:48px;height:48px;flex:0 0 48px;border-radius:14px;color:var(--hfp-accent);background:#e9f5ee;border:1px solid #deeee4}
 .hfp-card--water .hfp-icon{background:#eaf5f8;border-color:#daebef}
 .hfp-eyebrow{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:650;color:#718578;letter-spacing:.035em;line-height:1.5;margin:0 0 3px}
