@@ -1,5 +1,6 @@
 import {dashboardSensorsFor,type DashboardSensorGroup} from './dashboardSensors'
 import {FloatingAiRecommendation} from './FloatingAiRecommendation'
+import {HstFertilizationNotice} from './HstFertilizationNotice'
 import {useFertigationProgress} from './useFertigationProgress'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
@@ -2253,6 +2254,7 @@ const soilNpkGroups =
                   className="dashboard-home"
                   aria-label="Dashboard Smart Fertigasi"
                 >
+                  <HstFertilizationNotice deviceId={primaryDevice?.deviceId??''}/>
                   <div className="overview-grid">
                     <article className="hero-card">
                       <div className="hero-shade" />

@@ -1,4 +1,5 @@
 import {AdaptiveFertigationTransport} from './adaptiveFertigationTransport.js';
+import {HstFertilizationSchedule} from './hstFertilizationSchedule.js';
 import { WaterInterlockSyncService } from './waterInterlockSync.js';
 import { SoilEcPulseTransport } from './soilEcPulseTransport.js';
 import { CommandDispatchService } from "./commandDispatchService.js";
@@ -11,6 +12,7 @@ import { AlarmEvaluator } from "./alarmEvaluator.js";
 import { AutomaticControlSyncService } from "./automaticControlSyncService.js";
 
 const repository = new PostgresIngestionRepository();
+const hstFertilizationSchedule = new HstFertilizationSchedule();
 const alarmEvaluator = new AlarmEvaluator(
   repository,
   config.alarm.pollIntervalMs,
@@ -47,6 +49,7 @@ async function shutdown(signal: string) {
   automaticControlSyncService.stop();
   commandDispatcher.stop();
   alarmEvaluator.stop();
+  await hstFertilizationSchedule.stop();
   await waterInterlockSync.stop();
   await pulseTransport.stop();
   await adaptiveTransport.stop();
@@ -83,6 +86,7 @@ void repository
     automaticControlSyncService.start();
     console.log("[schedule-evaluator] Direct server scheduler disabled: ESP32 coordinates timed schedules and sensor control.");
     commandDispatcher.start();
+    hstFertilizationSchedule.start();
     if(await waterInterlockSync.installed())waterInterlockSync.start();
     if (await pulseTransport.isInstalled()) pulseTransport.start();
     if(await adaptiveTransport.installed())adaptiveTransport.start();

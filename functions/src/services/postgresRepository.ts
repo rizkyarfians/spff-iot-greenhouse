@@ -263,6 +263,15 @@ async function setSensorGroupEnabled(group: string, enabled: boolean) {
   return Number(result.rows[0]?.updated ?? 0);
 }
 
+async function hstFertilizationStarts(deviceId: string) {
+  const installed = (await pool.query("SELECT to_regclass('spff.hst_fertilization_starts') IS NOT NULL AS ready")).rows[0]?.ready;
+  if (!installed) return [];
+  return (await pool.query(`SELECT start_id,device_id,hst,product,method,status,created_at,started_at
+    FROM spff.hst_fertilization_starts WHERE site_id=$1 AND device_id=$2
+    AND application_day=(now() AT TIME ZONE 'Asia/Jakarta')::date
+    ORDER BY created_at DESC LIMIT 5`, [siteId,deviceId])).rows;
+}
+
 async function latestTelemetry() {
   const result = await pool.query(
     `SELECT latest.*,
@@ -1818,4 +1827,5 @@ export const repository = {
   automaticControl,
   updateAutomaticControl,
   setSensorGroupEnabled,
+  hstFertilizationStarts,
 };

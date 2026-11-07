@@ -15,7 +15,7 @@ SWAPPED=0; SUCCESS=0
 fatal(){ echo "STOP: $*" >&2; exit 1; }
 say(){ echo "=== $* ==="; }
 [[ "$EUID" == 0 ]] || fatal "must use sudo"
-[[ "$MODE" =~ ^(deploy|enable|enable-dose-volume|disable|status|diagnose|dose-volume-status)$ ]] || fatal "Expected deploy|enable|enable-dose-volume|disable|status|diagnose|dose-volume-status"
+[[ "$MODE" =~ ^(deploy|enable|enable-dose-volume|enable-hst-schedule|disable|status|diagnose|dose-volume-status)$ ]] || fatal "Expected deploy|enable|enable-dose-volume|enable-hst-schedule|disable|status|diagnose|dose-volume-status"
 exec 9>/run/lock/spff-hst-prod-rollout.lock
 flock -n 9 || fatal "SPFF deployment lock occupied"
 # postgres cannot traverse /home/orangepi (0700). Run psql from / instead,
@@ -26,6 +26,7 @@ gates(){
  install -d -m 755 /etc/systemd/system/spff-api.service.d /etc/systemd/system/spff-mqtt-worker.service.d
  printf '[Service]\nEnvironment=SPFF_HST_REAL_DISPATCH_ENABLED=%s\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\nEnvironment=SPFF_DOSE_VOLUME_DISPATCH_ENABLED=%s\n' "$1" "$1" "$volume" > "$APIGATE"
  printf '[Service]\nEnvironment=SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED=%s\nEnvironment=SPFF_DOSE_VOLUME_DISPATCH_ENABLED=%s\n' "$2" "$volume" > "$WORKERGATE"
+ printf 'Environment=SPFF_HST_SCHEDULE_DISPATCH_ENABLED=%s\n' "${4:-false}" >> "$WORKERGATE"
  chmod 644 "$APIGATE" "$WORKERGATE"
  systemctl daemon-reload
 }
@@ -156,6 +157,8 @@ STAGING_BUILD
  install -m644 "$SRC/mqtt-worker/dist/doseVolumeEvidence.js" "$RUN/new/worker/doseVolumeEvidence.js"
  install -m644 "$SRC/mqtt-worker/dist/serverWaterControl.js" "$RUN/new/worker/serverWaterControl.js"
  install -m644 "$SRC/mqtt-worker/dist/soilEcPulseTransport.js" "$RUN/new/worker/soilEcPulseTransport.js"
+ install -m644 "$SRC/mqtt-worker/dist/hstFertilizationSchedule.js" "$RUN/new/worker/hstFertilizationSchedule.js"
+ install -m644 "$SRC/mqtt-worker/dist/index.js" "$RUN/new/worker/index.js"
  [[ -f "$RUN/new/contracts/index.js" ]] || fatal "contracts barrel missing"
  grep -q "aiHst.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing aiHst export"
  grep -q "adaptiveFertigation.js" "$RUN/new/contracts/index.js" || fatal "live contracts barrel missing adaptive export"
@@ -229,6 +232,10 @@ sensor_route="apiRouter.put('/settings/sensors/:sensorKey', requireAdmin, requir
 if sensor_route not in live:
     live="import { updateSensorEnabled } from '../controllers/dashboardController.js';\n"+live
     routes.append(sensor_route)
+hst_status_route="apiRouter.get('/fertigation/hst-starts', guideHstStartStatus);"
+if not re.search(r"""apiRouter\.get\(\s*['"]/fertigation/hst-starts['"]""",live):
+    live="import { getHstFertilizationStarts as guideHstStartStatus } from '../controllers/dashboardController.js';\n"+live
+    routes.append(hst_status_route)
 anchor="apiRouter.get('/unified-ai/hst/proposals'"
 pos=live.find("apiRouter.get(\n  '/bootstrap'")
 if pos<0: pos=live.find("apiRouter.get('/bootstrap'")
@@ -252,7 +259,7 @@ PY
  rm -rf "$MERGED/frontend/src"
  cp -a "$PROD/frontend/src" "$MERGED/frontend/src"
  if [[ -d "$PROD/frontend/public" && -d "$MERGED/frontend/public" ]]; then cp -a "$PROD/frontend/public/." "$MERGED/frontend/public/"; fi
- for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx pageConfig.ts; do
+ for hst_file in HstApprovalPanel.tsx HstApprovalPanel.css HstRealExecutionCard.tsx HstDoseVolumeCard.tsx hstExecutionMode.ts AiFertigationOverview.tsx AiFertigationOverview.css dashboardSensors.ts hstIrrigationSummary.ts App.tsx SecondaryPages.tsx SensorSettings.tsx pageConfig.ts HstFertilizationNotice.tsx; do
    install -m644 "$SRC/frontend/src/$hst_file" "$MERGED/frontend/src/$hst_file"
  done
  python3 - "$MERGED/frontend/src/api.ts" "$SRC/frontend/src/api.ts" "$MERGED/frontend/src/GuidePage.tsx" <<'PY'
@@ -282,6 +289,12 @@ if not sensor_fn: raise SystemExit('STOP: sensor settings API missing from sourc
 api=local_path.read_text()
 if 'export function saveSensorEnabled(' not in api:
  local_path.write_text(sensor_fn[0]+'\n\n'+api)
+status_pattern=r'^export function fetchHstFertilizationStarts\(.*?^}'
+status_fn=re.search(status_pattern,stage,re.M|re.S)
+if not status_fn: raise SystemExit('STOP: HST status API source missing')
+api=local_path.read_text()
+if 'export function fetchHstFertilizationStarts(' not in api:
+ local_path.write_text(status_fn[0]+'\n\n'+api)
 if 'HstApprovalPanel' not in guide:
  i="import './GuidePage.css'"
  c="    <AutomationMethodNote/>"
@@ -362,6 +375,8 @@ SUMMARY_CHECK
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/042_sensor_settings.sql"
  say "Migration 043: sensor display groups"
  (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/043_sensor_display_groups.sql"
+ say "Migration 044: HST fertilization start tracking"
+ (cd / && runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -d spff) < "$SRC/infrastructure/postgres/migrations/044_hst_fertilization_starts.sql"
  say "Swap only compiled HST modules (physical pump command gate remains OFF)"
  chown -R root:root "$RUN/new"
  chmod -R a+rX "$RUN/new"
@@ -393,12 +408,27 @@ SUMMARY_CHECK
  assert_runtime_gate "$WORKER" SPFF_ADAPTIVE_FERT_DISPATCH_ENABLED false
  assert_runtime_gate "$API" SPFF_DOSE_VOLUME_DISPATCH_ENABLED false
  assert_runtime_gate "$WORKER" SPFF_DOSE_VOLUME_DISPATCH_ENABLED false
+ assert_runtime_gate "$WORKER" SPFF_HST_SCHEDULE_DISPATCH_ENABLED false
  status="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/unified-ai/hst/execution-readiness)"
  [[ "$status" == 401 ]] || fatal "auth boundary failed, expected 401 got $status"
  SUCCESS=1
  echo 0 > "$RUN/deploy.exit"
  trap - EXIT ERR
  echo "BACKEND_APPLY=SUCCESS; PUMP_DISPATCH=OFF; BACKUP=$RUN"
+ exit 0
+fi
+if [[ "$MODE" == enable-hst-schedule ]]; then
+ healthy || fatal "production unhealthy"
+ [[ "$(db "SELECT (to_regclass('spff.hst_fertilization_starts') IS NOT NULL)::text")" == true ]] || fatal "deploy migration 044 first"
+ [[ "$(db "SELECT count(*) FROM spff.adaptive_fert_sessions WHERE status NOT IN ('completed','fault')")" == 0 ]] || fatal "active/uncertain session"
+ gates false false false true
+ if ! systemctl restart "$API" "$WORKER" || ! wait_healthy; then
+  gates false false
+  systemctl restart "$API" "$WORKER" || true
+  fatal "HST schedule enable failed; dispatch disabled"
+ fi
+ assert_runtime_gate "$WORKER" SPFF_HST_SCHEDULE_DISPATCH_ENABLED true
+ echo 'HST_SCHEDULE=ENABLED; matching Phonska/Tabur/HST can send both pump ON commands immediately'
  exit 0
 fi
 if [[ "$MODE" == disable ]]; then

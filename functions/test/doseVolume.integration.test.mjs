@@ -95,6 +95,39 @@ test('dose-volume: plans, transactional ACC, receipt credit, STOP and protocol i
  try{
   const dir=resolve(import.meta.dirname,'../../infrastructure/postgres/migrations');
   for(const name of readdirSync(dir).sort())await db.exec(readFileSync(resolve(dir,name),'utf8'));
+  await t.test('HST Phonska Tabur queues one ON pair and reports started only after both acknowledgements',async()=>{
+   await fixture();
+   const {tickHstFertilization,matchHstFertilization}=await import('../../mqtt-worker/dist/hstFertilizationSchedule.js');
+   const configured={activities:[{...activity,method:'Tabur',
+    requirements:[{...activity.requirements[0],product:'Phonska plus'}]}]};
+   assert.equal(matchHstFertilization(configured,20).length,1);
+   assert.equal(matchHstFertilization(configured,19).length,0);
+   assert.equal(matchHstFertilization({activities:[{...configured.activities[0],method:'Semprot'}]},20).length,0);
+   assert.equal(matchHstFertilization({activities:[{...configured.activities[0],
+    requirements:[{...activity.requirements[0],product:'Ultradap'}]}]},20).length,0);
+   await query('UPDATE spff.guide_programs SET plan=$1',[JSON.stringify(configured)]);
+   await db.exec(`INSERT INTO spff.actuators(site_id,device_id,actuator_key,display_name)
+    VALUES('greenhouse-01','esp32-s3-01','pump_water','Water'),
+          ('greenhouse-01','esp32-s3-01','pump_fert','Fertilizer')`);
+   await tickHstFertilization({query},false);
+   assert.equal((await query('SELECT 1 FROM spff.control_commands')).rows.length,0);
+   for(let i=0;i<2;i++){
+    await db.exec('BEGIN');
+    await tickHstFertilization({query},true);
+    await db.exec('COMMIT');
+   }
+   const commands=(await query('SELECT * FROM spff.control_commands')).rows;
+   assert.equal(commands.length,2);
+   assert.deepEqual(commands.map(c=>c.actuator_key).sort(),['pump_fert','pump_water']);
+   assert.ok(commands.every(c=>c.requested_is_active));
+   assert.equal((await query('SELECT status FROM spff.hst_fertilization_starts')).rows[0].status,'queued');
+   for(const command of commands){
+    await query(`INSERT INTO spff.command_ack_events(command_id,status,actual_is_active,acknowledged_at)
+     VALUES($1,'completed',true,now())`,[command.command_id]);
+   }
+   await tickHstFertilization({query},false);
+   assert.equal((await query('SELECT status FROM spff.hst_fertilization_starts')).rows[0].status,'started');
+  });
   await t.test('water-first terminal report records OFF and per-pump durations without crediting dose',async()=>{
    await fixture();
    const run=await approve(await makePlan());

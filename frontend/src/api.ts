@@ -838,6 +838,13 @@ export function saveSensorEnabled(group: string, enabled: boolean) {
   )
 }
 
+export function fetchHstFertilizationStarts(deviceId: string, signal: AbortSignal) {
+  return request<{
+    start_id: string; device_id: string; hst: number; product: string; method: string;
+    status: 'queued' | 'started' | 'failed'; created_at: string; started_at: string | null;
+  }[]>('/fertigation/hst-starts?deviceId=' + encodeURIComponent(deviceId), { signal })
+}
+
 export function saveSettings(
   settings: ApiSettings,
 ) {
