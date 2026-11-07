@@ -925,6 +925,10 @@ function ControlsPage({
   ) => {
     setAutomaticSettingsRequested(desiredMode === 'automatic')
     setControlTab(null)
+    if (desiredMode === automaticControl?.desiredMode) {
+      setModeSaveError('')
+      return
+    }
     const next = {
       ...automaticDraft,
       desiredMode,

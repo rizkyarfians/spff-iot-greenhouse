@@ -616,6 +616,8 @@ export const updateAutomaticControl = run(async (req, res) => {
   return ok(
     res,
     config,
-    'Mode tersimpan. Menunggu konfirmasi dari perangkat.',
+    config.acknowledgementStatus === 'applied' && config.acknowledgedRevision === config.revision && config.appliedMode === config.desiredMode
+      ? 'Konfigurasi sudah diterapkan pada perangkat.'
+      : 'Mode tersimpan. Menunggu konfirmasi dari perangkat.',
   );
 });

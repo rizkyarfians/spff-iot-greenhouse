@@ -1519,6 +1519,17 @@ async function updateAutomaticControl(
   const deviceId = deviceResult.rows[0]?.device_id as string | undefined;
   if (!deviceId) return null;
 
+  // Compare only configuration, under the upsert's row lock. Repeated saves must
+  // retain revision and ACK: firmware stops outputs when it applies a new revision.
+  const configColumns = [
+    'desired_mode','water_enabled','water_sensor_key','water_moisture_low_pct','water_moisture_target_pct',
+    'water_max_runtime_seconds','water_cooldown_seconds','water_min_tank_level_pct','water_min_flow_lpm',
+    'water_trigger_sample_count','water_sensor_stale_seconds','fertilizer_enabled','fertilizer_sensor_key',
+    'fertilizer_ec_low_us_cm','fertilizer_ec_target_us_cm','fertilizer_ec_high_us_cm','fertilizer_dose_pulse_seconds',
+    'fertilizer_mixing_delay_seconds','fertilizer_cooldown_seconds','fertilizer_max_dose_volume_l',
+    'fertilizer_max_daily_volume_l','fertilizer_min_tank_level_pct','fertilizer_min_flow_lpm',
+    'fertilizer_trigger_sample_count','fertilizer_sensor_stale_seconds',
+  ];
   await pool.query(
     `INSERT INTO spff.device_automatic_control_configs (
        site_id, device_id, desired_mode,
@@ -1574,7 +1585,9 @@ async function updateAutomaticControl(
        acknowledgement_status = NULL,
        acknowledged_at = NULL,
        acknowledgement_reason = NULL,
-       updated_by = EXCLUDED.updated_by`,
+       updated_by = EXCLUDED.updated_by
+     WHERE ROW(${configColumns.map(column=>`spff.device_automatic_control_configs.${column}`).join(',')})
+       IS DISTINCT FROM ROW(${configColumns.map(column=>`EXCLUDED.${column}`).join(',')})`,
     [
       siteId, deviceId, input.desiredMode,
       input.water.enabled, input.water.sensorKey,
