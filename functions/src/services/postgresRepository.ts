@@ -301,8 +301,9 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
         row.profile_snapshot.baselineBasis==='PRE_INJECTION_SENSOR'?'baseline_reference_only':
         row.unmeasured_intervals>0?'unmeasured_intervals':row.estimate_reason,
       unmeasuredIntervals:row.unmeasured_intervals??0,
+      plantCount:Number(row.plant_count)>0?Number(row.plant_count):null,
       targetGPerPlant:row.target_g!==null&&Number(row.plant_count)>0?row.target_g/Number(row.plant_count):null,
-      gPerPlant:row.delivered_g!==null&&Number(row.plant_count)>0?row.delivered_g/Number(row.plant_count):null,
+      gPerPlant:Number(row.plant_count)>0?recordedG/Number(row.plant_count):null,
       coefficient:row.profile_snapshot?.coefficient??row.current_coefficient??null,baselineEcUs:row.baseline_ec??null,
       baselineBasis:row.profile_snapshot?.baselineBasis??(row.estimate_id?'WATER_ONLY_STABLE':null),
       baselineAt:row.baseline_at?.toISOString()??null,intervalReason:row.estimate_reason??null,lastCalculation:row.last_calculation??null,

@@ -5,8 +5,9 @@ import { fetchHstFertilizationStarts, fetchAutomaticCycleStatus } from './api'
 import './HstFertilizationNotice.css'
 
 const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 })
+const doseNumber = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 5 })
 function Quantity({ value, unit = 'g' }: { value: number | null; unit?: string }) {
-  return <strong className="hfp-value">{value === null ? '—' : number.format(value)}{value !== null && <span>{unit}</span>}</strong>
+  return <strong className="hfp-value">{value === null ? '—' : (unit === 'g/tanaman' ? doseNumber : number).format(value)}{value !== null && <span>{unit}</span>}</strong>
 }
 
 export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
@@ -14,6 +15,10 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
   const phase = cycle.phase
   const recorded = phase?.history?.recordedG ?? phase?.deliveredG ?? 0
   const remaining = phase?.history?.remainingG ?? phase?.remainingG ?? phase?.targetG ?? null
+  const plants = phase?.plantCount ?? (phase?.targetG != null && phase.targetGPerPlant != null && phase.targetGPerPlant > 0
+    ? phase.targetG / phase.targetGPerPlant : null)
+  const recordedPerPlant = plants != null && plants > 0 ? recorded / plants : null
+  const remainingPerPlant = plants != null && plants > 0 && remaining != null ? remaining / plants : null
   const percent = phase?.targetG && phase.targetG > 0 ? Math.max(0, Math.min(100, recorded / phase.targetG * 100)) : null
   const watering = cycle.mode === 'watering'
   const Icon = watering ? Droplets : FlaskConical
@@ -44,8 +49,8 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
     {phase ? <>
       <div className="hfp-metrics">
         <div className="hfp-metric"><span>Dosis per tanaman</span><Quantity value={phase.targetGPerPlant ?? null} unit="g/tanaman" /></div>
-        <div className="hfp-metric"><span>{phase.baselineBasis==='PRE_INJECTION_SENSOR' ? 'Total estimasi · EC sebelum ON' : phase.estimated ? 'Total tercatat · estimasi EC' : 'Total tercatat diberikan'}</span><Quantity value={recorded} /></div>
-        <div className="hfp-metric hfp-metric--remaining"><span>Sisa total fase</span><Quantity value={remaining} /></div>
+        <div className="hfp-metric"><span>{phase.baselineBasis==='PRE_INJECTION_SENSOR' ? 'Estimasi per tanaman · EC sebelum ON' : phase.estimated ? 'Estimasi tercatat per tanaman' : 'Tercatat per tanaman'}</span><Quantity value={recordedPerPlant} unit="g/tanaman" /></div>
+        <div className="hfp-metric hfp-metric--remaining"><span>Sisa per tanaman</span><Quantity value={remainingPerPlant} unit="g/tanaman" /></div>
       </div>
       <div className="hfp-progress-heading"><span>Progres pemupukan</span><strong>{percent === null ? '—' : number.format(percent) + '%'}</strong></div>
       <progress className="hfp-progress" value={percent ?? 0} max={100} aria-label="Progres pemupukan berdasarkan gram tercatat" />
@@ -61,8 +66,9 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
     {phase && <details className="hfp-details"><summary>Detail perhitungan<ChevronDown size={14} aria-hidden="true" /></summary>
       <div>
         <p>Gram interval = max(EC campuran − EC awal, 0) ÷ K × volume campuran.</p>
+        <p>Total fase: target <b>{phase.targetG == null ? '—' : number.format(phase.targetG)} g</b> · tercatat <b>{number.format(recorded)} g</b> · sisa <b>{remaining == null ? '—' : number.format(remaining)} g</b>.</p>
+        {plants != null && plants > 0 && <p>Dosis rata-rata: {number.format(recorded)} g ÷ {number.format(plants)} tanaman = <b>{doseNumber.format(recordedPerPlant!)} g/tanaman</b>.</p>}
         {phase.history?.status === 'empty' && <p>Angka menunjukkan riwayat yang sudah tercatat untuk fase ini.</p>}
-        {phase.gPerPlant != null && <p>Rata-rata: <b>{phase.gPerPlant.toLocaleString('id-ID', { maximumFractionDigits: 5 })} g/tanaman</b></p>}
         {phase.coefficient != null && <p>K: <b>{number.format(phase.coefficient)}</b> · EC awal: <b>{phase.baselineEcUs == null ? '—' : number.format(phase.baselineEcUs) + ' µS/cm'}</b></p>}
         {phase.baselineAt && <p>EC awal dari sensor: {new Date(phase.baselineAt).toLocaleString('id-ID', {timeZone:'Asia/Jakarta'})} WIB
           {phase.baselineBasis==='PRE_INJECTION_SENSOR'?' · sebelum pompa ON':' · air mengalir, pupuk OFF'}</p>}
