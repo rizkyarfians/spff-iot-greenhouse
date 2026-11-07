@@ -50,8 +50,18 @@ cleanup(){
  if (( result != 0 )) && [[ -d "$repair/sensors-before" ]]; then
   cp -a "$repair/sensors-before/." "$frontend/src/"
  fi
+ if (( result != 0 )) && [[ -d "$repair/hst-card-before" ]]; then
+  cp -a "$repair/hst-card-before/." "$frontend/src/"
+ fi
 }
 trap cleanup EXIT
+if [[ "${1:-}" == '--hst-card' ]]; then
+ mkdir "$repair/hst-card-before"
+ for file in HstFertilizationNotice.tsx HstFertilizationNotice.css; do
+  if [[ -f "$frontend/src/$file" ]]; then cp -a "$frontend/src/$file" "$repair/hst-card-before/$file"; fi
+  install -m 644 "$repo/frontend/src/$file" "$frontend/src/$file"
+ done
+fi
 if [[ "${1:-}" == '--sensor-groups' ]]; then
  repo="$(cd "$(dirname "$0")/.." && pwd)"
  mkdir "$repair/sensors-before"
