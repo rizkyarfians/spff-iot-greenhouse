@@ -26,3 +26,16 @@ test('staged bytes must match every freshly compiled file',t=>{
  writeFileSync(join(target,'app.js'),'export const app = {unexpected:true};');
  assert.throws(()=>verifyRuntimeCopy('api',source,target),/copy mismatch/);
 });
+
+test('worker rejects empty modules and inert entry before runtime replacement',t=>{
+ const {root}=fixture(t),source=join(root,'worker');mkdirSync(source);
+ writeFileSync(join(source,'index.js'),'worker.start();');
+ writeFileSync(join(source,'mqttWorker.js'),'export class MqttWorker {}');
+ writeFileSync(join(source,'ingestionService.js'),'export class IngestionService {}');
+ assert.equal(verifyApiRuntime('worker',source).modules,3);
+ writeFileSync(join(source,'mqttWorker.js'),'');
+ assert.throws(()=>verifyApiRuntime('worker',source),/Empty compiled module/);
+ writeFileSync(join(source,'mqttWorker.js'),'export class MqttWorker {}');
+ writeFileSync(join(source,'index.js'),'process.exit(0);');
+ assert.throws(()=>verifyApiRuntime('worker',source),/behavior missing/);
+});

@@ -10,7 +10,7 @@ function files(root,dir=root) {
   });
 }
 export function verifyApiRuntime(kind,path) {
-  if(!['api','contracts'].includes(kind))throw Error('Expected api or contracts');
+  if(!['api','contracts','worker'].includes(kind))throw Error('Expected api, contracts or worker');
   const root=realpathSync(path),all=files(root),js=all.filter(name=>name.endsWith('.js'));
   if(!js.length)throw Error('No compiled JavaScript in '+root);
   for(const name of js)if(readFileSync(join(root,name)).length===0)throw Error('Empty compiled module: '+name);
@@ -18,6 +18,10 @@ export function verifyApiRuntime(kind,path) {
     'local.js':/\bapp\.listen\s*\(/,
     'app.js':/export\s+(?:const|let|var)\s+app\s*=/,
     'routes/index.js':/['"]\/auth\/login['"]/,
+  }:kind==='worker'?{
+    'index.js':/\bworker\.start\s*\(/,
+    'mqttWorker.js':/\bclass\s+MqttWorker\b/,
+    'ingestionService.js':/\bclass\s+IngestionService\b/,
   }:{'index.js':/\bexport\b/};
   for(const [name,pattern] of Object.entries(required))if(!pattern.test(readFileSync(join(root,name),'utf8')))
     throw Error('Required runtime behavior missing: '+name);
