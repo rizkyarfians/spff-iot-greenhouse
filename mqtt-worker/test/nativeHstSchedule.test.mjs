@@ -30,3 +30,14 @@ test('retry is limited to both automatic-mode rejections and later OFF evidence,
   {fert_reason:'water_tank_interlock'},{water_expires:new Date('2026-11-07T12:02:00Z')}])
   assert.equal(retryableModeRejection({...start,...patch},fresh),false);
 });
+
+test('the authority regression can retry only two native ONs that were never published',()=>{
+ const expiry=new Date('2026-11-07T12:00:00Z'),heartbeat=new Date('2026-11-07T12:01:00Z');
+ const start={status:'failed',native_schedule:true,sync_authority:'device',water_status:'timed_out',fert_status:'timed_out',
+  water_reason:'command_expired',fert_reason:'command_expired',water_published:null,fert_published:null,
+  water_expires:expiry,fert_expires:expiry,retried:true,authority_retried:false};
+ assert.equal(retryableModeRejection(start,heartbeat),true);
+ for(const patch of [{authority_retried:true},{water_published:expiry},{fert_published:expiry},
+  {native_schedule:false},{sync_authority:'server'},{fert_reason:'unknown'}])
+  assert.equal(retryableModeRejection({...start,...patch},heartbeat),false);
+});

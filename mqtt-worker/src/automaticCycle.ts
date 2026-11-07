@@ -124,14 +124,18 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
     if (!phase || !enabled || !automatic || !off || raw?.serverPulseOwner===true ||
       raw?.aiAccSessionActive===true || raw?.doseVolumeSessionActive===true) continue;
     if ((await client.query(`SELECT 1 FROM spff.fuzzy_water_runs WHERE site_id=$1 AND device_id=$2 AND status<>'completed'`,[site,device])).rows.length) continue;
-    if ((process.env.SCHEDULE_EXECUTION_MODE??'server') !== 'server') continue;
     const previous=(await client.query(`SELECT h.*,w.status AS water_status,f.status AS fert_status,
       w.reason AS water_reason,f.reason AS fert_reason,w.expires_at AS water_expires,f.expires_at AS fert_expires,
       coalesce((w.request_payload->>'modeRejectionRetry')::boolean,false) AS retried,
+      coalesce((w.request_payload->>'nativeAuthorityRetry')::boolean,false) AS authority_retried,
+      w.request_payload->>'nativeHstSchedule'='true' AS native_schedule,
+      w.published_at AS water_published,f.published_at AS fert_published,sync.published_authority AS sync_authority,
       EXISTS(SELECT 1 FROM spff.command_ack_events a WHERE a.command_id IN (h.water_command_id,h.fertilizer_command_id)
         AND a.actual_is_active) AS had_on
       FROM spff.hst_fertilization_starts h JOIN spff.control_commands w ON w.command_id=h.water_command_id
-      JOIN spff.control_commands f ON f.command_id=h.fertilizer_command_id WHERE h.phase_id=$1 FOR UPDATE OF h`,[phase.phase_id])).rows[0]??null;
+      JOIN spff.control_commands f ON f.command_id=h.fertilizer_command_id
+      LEFT JOIN spff.device_schedule_sync_state sync ON sync.site_id=h.site_id AND sync.device_id=h.device_id
+      WHERE h.phase_id=$1 FOR UPDATE OF h`,[phase.phase_id])).rows[0]??null;
     if(previous && (!retryableModeRejection(previous,heartbeat.recorded_at) || previous.had_on ||
       Number(phase.delivered_g??0)>0)) continue;
     if ((await client.query(`SELECT 1 FROM spff.control_commands WHERE site_id=$1 AND device_id=$2
@@ -147,7 +151,9 @@ export async function tickAutomaticCycles(client: PoolClient, enabled: boolean, 
       if(!sync) throw Error('Schedule sync state missing for HST device');
       const startId=previous?.start_id??randomUUID(),metadata={startId,phaseId:phase.phase_id,programId:phase.program_id,
         activityId:phase.activity_id,hst:phase.hst,nativeHstSchedule:true,scheduleRevision:String(sync.revision),
-        ...(previous?{modeRejectionRetry:true,previousWaterCommandId:previous.water_command_id,
+        ...(previous?{modeRejectionRetry:previous.retried||previous.water_reason==='automatic_mode',
+          nativeAuthorityRetry:previous.authority_retried||previous.water_status==='timed_out',
+          previousWaterCommandId:previous.water_command_id,
           previousFertilizerCommandId:previous.fertilizer_command_id}:{} )};
       // Allow time for native schedule synchronization before the dispatcher sends ON.
       const water=await enqueueAutomaticPump(client,site,device,'pump_water',true,'hst-fertilization',metadata,90);

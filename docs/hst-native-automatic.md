@@ -11,6 +11,14 @@ they register the HST application's authorization for that day, rather than
 enabling independent device timers. The existing firmware remains responsible
 for ending the fertilizer run and its protections stay in force.
 
+The worker normally synchronizes device-authority schedules. For a device with
+an HST start awaiting confirmation, its snapshot uses server authority; other
+devices retain their normal authority. Once both ONs are acknowledged (or the
+attempt fails), ordinary device authority is restored with a new revision.
+This avoids holding normal timers for the remainder of an unfulfilled phase.
+No global schedule setting or
+firmware source is changed.
+
 The worker bumps the schedule revision and waits until the ESP acknowledges the
 current server snapshot as applied before publishing either ON. The ON wire
 sources are `schedule:hst-<start UUID>-water:on` and
@@ -26,8 +34,15 @@ credited delivery, conflicting schedule, command or relay owner. New command IDs
 are used, with the old IDs preserved in their metadata. Timeout, partial start
 and uncertain outcomes are not retried by this path.
 
+The first rollout incorrectly left HST registrations under the worker's
+hardcoded device authority, so both ONs expired without ever being published.
+That exact regression can also retry once, only when both commands have NULL
+published timestamps, native HST metadata, explicit command-expired status and
+device-authority synchronization. OFF evidence, expiry and no-delivery checks
+still apply. A published or ambiguous timeout is not retried.
+
 Install with `sudo bash scripts/repair-orange-worker.sh`. It rebuilds the worker
 only, preserves flags and restarts it. With HST dispatch already enabled, a due
 phase or eligible retry can start after the native schedule ACK. No migration,
-API or frontend build is needed. `SCHEDULE_EXECUTION_MODE` must be `server` (the
-existing default); device-authority deployments are not changed implicitly.
+API or frontend build is needed. The worker's existing device-authority default
+is supported; no environment override is needed.

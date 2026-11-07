@@ -21,9 +21,13 @@ export function nativeHstSchedules(rows: NativeHstSchedule[], authority: Schedul
 }
 
 export function retryableModeRejection(start: Record<string, any> | null, heartbeatAt: Date): boolean {
-  return !!start && start.status==='failed' &&
-    start.water_status==='rejected' && start.fert_status==='rejected' &&
-    start.water_reason==='automatic_mode' && start.fert_reason==='automatic_mode' &&
-    start.water_expires instanceof Date && start.fert_expires instanceof Date &&
-    heartbeatAt>=start.water_expires && heartbeatAt>=start.fert_expires && !start.retried;
+  if(!start || start.status!=='failed' || !(start.water_expires instanceof Date) ||
+    !(start.fert_expires instanceof Date) || heartbeatAt<start.water_expires || heartbeatAt<start.fert_expires) return false;
+  const rejectedMode=start.water_status==='rejected' && start.fert_status==='rejected' &&
+    start.water_reason==='automatic_mode' && start.fert_reason==='automatic_mode' && !start.retried;
+  const unpublishedAuthorityTimeout=start.native_schedule===true && start.sync_authority==='device' &&
+    start.water_status==='timed_out' && start.fert_status==='timed_out' &&
+    start.water_reason==='command_expired' && start.fert_reason==='command_expired' &&
+    start.water_published===null && start.fert_published===null && !start.authority_retried;
+  return rejectedMode || unpublishedAuthorityTimeout;
 }

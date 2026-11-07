@@ -575,49 +575,33 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
     authority: ScheduleExecutionAuthority,
     force: boolean,
   ): Promise<ScheduleSyncMessage[]> {
-    const [syncResult, schedules] = await Promise.all([
-      this.pool.query<{
-        site_id: string;
-        device_id: string;
-        revision: string | number;
-      }>(
-        `
-          WITH authority_revision AS (
-            UPDATE spff.device_schedule_sync_state
-            SET
-              revision = revision + 1,
-              updated_at = now()
-            WHERE published_revision = revision
-              AND published_authority IS NOT NULL
-              AND published_authority IS DISTINCT FROM $1
-            RETURNING site_id, device_id
-          )
-          SELECT site_id, device_id, revision
-          FROM spff.device_schedule_sync_state
-          WHERE $2::boolean
-             OR published_revision IS DISTINCT FROM revision
-             OR published_authority IS DISTINCT FROM $1
-          ORDER BY site_id, device_id
-        `,
-        [
-          authority,
-          force,
-        ],
-      ),
-      this.enabledSchedules(false),
-    ]);
-
-    const generatedAt = new Date().toISOString();
-
     let hstRows:NativeHstSchedule[]=[];
-    if(authority==='server' && process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED==='true' &&
+    if(process.env.SPFF_HST_SCHEDULE_DISPATCH_ENABLED==='true' &&
       (await this.pool.query("SELECT to_regclass('spff.hst_fertilization_starts') IS NOT NULL AS ready")).rows[0]?.ready) {
       hstRows=(await this.pool.query<NativeHstSchedule>(`SELECT h.site_id,h.device_id,h.start_id,h.application_day::text AS run_date
         FROM spff.hst_fertilization_starts h JOIN spff.control_commands c ON c.command_id=h.water_command_id
         JOIN spff.hst_fertilization_phases p ON p.phase_id=h.phase_id
-        WHERE h.status IN ('queued','started') AND NOT p.fulfilled
+        WHERE h.status='queued' AND NOT p.fulfilled
           AND c.request_payload->>'nativeHstSchedule'='true'`)).rows;
     }
+    const nativeDevices=JSON.stringify(hstRows.map(row=>({site_id:row.site_id,device_id:row.device_id})));
+    // HST uses server authority only on its own device. Keep ordinary device schedules unchanged elsewhere.
+    const desiredAuthority=`CASE WHEN EXISTS (SELECT 1 FROM jsonb_to_recordset($2::jsonb)
+      AS native(site_id text,device_id text) WHERE native.site_id=s.site_id AND native.device_id=s.device_id)
+      THEN 'server' ELSE $1 END`;
+    await this.pool.query(`UPDATE spff.device_schedule_sync_state s SET revision=revision+1,updated_at=now()
+      WHERE published_revision=revision AND published_authority IS NOT NULL
+        AND published_authority IS DISTINCT FROM (${desiredAuthority})`,[authority,nativeDevices]);
+    // Separate SELECT observes the revision just incremented; no stale data-modifying-CTE snapshot.
+    const syncResult=await this.pool.query<{
+      site_id:string;device_id:string;revision:string|number;desired_authority:ScheduleExecutionAuthority;
+    }>(`SELECT s.site_id,s.device_id,s.revision,(${desiredAuthority}) AS desired_authority
+      FROM spff.device_schedule_sync_state s WHERE $3::boolean
+        OR published_revision IS DISTINCT FROM revision
+        OR published_authority IS DISTINCT FROM (${desiredAuthority})
+      ORDER BY s.site_id,s.device_id`,[authority,nativeDevices,force]);
+    const schedules=await this.enabledSchedules(false);
+    const generatedAt = new Date().toISOString();
 
     return syncResult.rows.map((sync) => {
       const deviceSchedules = schedules
@@ -639,7 +623,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
           enabled: true,
         }));
 
-      deviceSchedules.push(...nativeHstSchedules(hstRows,authority,sync.site_id,sync.device_id));
+      deviceSchedules.push(...nativeHstSchedules(hstRows,sync.desired_authority,sync.site_id,sync.device_id));
 
       if (deviceSchedules.length > 64) {
         throw new Error(
@@ -654,7 +638,7 @@ export class PostgresIngestionRepository implements IngestionRepository, Command
         deviceId: sync.device_id,
         revision: Number(sync.revision),
         generatedAt,
-        executionAuthority: authority,
+        executionAuthority: sync.desired_authority,
         schedules: deviceSchedules,
       };
     });
