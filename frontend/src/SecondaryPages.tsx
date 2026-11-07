@@ -686,6 +686,7 @@ function ControlsPage({
     mode: 'manual' | 'automatic'; revision: number
   } | null>(null)
   const [modeSaveError, setModeSaveError] = useState('')
+  const [automaticSettingsRequested, setAutomaticSettingsRequested] = useState(false)
   const commandInFlight = useRef(false)
   const [sendingCommand, setSendingCommand] = useState(false)
   const [controlTab, setControlTab] = useState<'schedule' | 'sensor' | null>(null)
@@ -922,6 +923,8 @@ function ControlsPage({
   const selectMode = (
     desiredMode: ApiAutomaticControlUpdateRequest['desiredMode'],
   ) => {
+    setAutomaticSettingsRequested(desiredMode === 'automatic')
+    setControlTab(null)
     const next = {
       ...automaticDraft,
       desiredMode,
@@ -1294,7 +1297,7 @@ function ControlsPage({
 
 
 
-      {!controlTab && visibleModeFeedback && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
+      {visibleModeFeedback && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
       {!mode && <p className="controls-message">Mode alat belum diketahui.</p>}
       {connectionState !== 'connected' && <p className="controls-message" role="status">Sistem belum tersambung.</p>}
       {!controlTab && commandNotice && <p className="controls-message" role="status">{commandNotice}</p>}
@@ -1410,9 +1413,9 @@ function ControlsPage({
 
 
       <div className="controls-automation page-card">
-        <h2>{selectedMode === 'automatic' ? 'Otomasi & Proteksi' : 'Proteksi'}</h2>
+        <h2>{selectedMode === 'automatic' || automaticSettingsRequested ? 'Otomasi & Proteksi' : 'Proteksi'}</h2>
         <WaterInterlockSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
-        {selectedMode === 'automatic' && <>
+        {(selectedMode === 'automatic' || automaticSettingsRequested) && <>
         <SoilEcExecutionSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
         <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'schedule'} id="schedule-settings-button" aria-controls="schedule-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'schedule' ? null : 'schedule') }}>
           <span className="control-icon"><CalendarClock aria-hidden="true" size={20} /></span>
