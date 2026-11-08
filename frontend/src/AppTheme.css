@@ -5,6 +5,9 @@
   --green-soft:#edf3eb;
   --forest:#173e31;
   --lime:#d7ed9b;
+  --action-lime:#d7ed9b;
+  --action-lime-hover:#c7e37d;
+  --action-lime-border:#9db95f;
 }
 .app-shell.forest-theme {
   --green:#214e3f;
@@ -59,7 +62,16 @@
 .forest-theme .hfp-progress { accent-color:#315a40; }
 .forest-theme .hfp-badge--on { background:#eaf2dd; border-color:#d8e6c3; color:#36522e; }
 .forest-theme button[aria-pressed="true"] { background:var(--forest)!important; border-color:var(--forest)!important; }
-.forest-theme .setting-choice > button[aria-pressed="true"] { color:#fff!important; }
+body .forest-theme .setting-choice > button[aria-pressed="true"] {
+  background:#e0e4e1!important;
+  border-color:#b9c2bc!important;
+  color:#46544b!important;
+}
+body .forest-theme .setting-choice > button:last-child[aria-pressed="true"] {
+  background:var(--action-lime)!important;
+  border-color:var(--action-lime-border)!important;
+  color:var(--forest)!important;
+}
 .forest-theme :is(.ft-program-shell,.guide-page) {
   --fw-ink:#1c2923;
   --fw-muted:#778278;
@@ -78,6 +90,16 @@
   color:#fff;
 }
 .forest-theme :is(.primary-button,.gp-primary,.guide-save,.ecd-save,.ft-primary,.hst-approve):hover:not(:disabled) { background:#275b44; border-color:#275b44; color:#fff; }
+body .forest-theme .setting-choice > button[aria-pressed="true"]:hover:not(:disabled) {
+  background:#d3d9d5!important;
+  border-color:#a9b4ac!important;
+  color:#35453b!important;
+}
+body .forest-theme .setting-choice > button:last-child[aria-pressed="true"]:hover:not(:disabled) {
+  background:var(--action-lime-hover)!important;
+  border-color:var(--action-lime-border)!important;
+  color:var(--forest)!important;
+}
 .forest-theme :is(.gp-crop-icon,.guide-icon,.ecd-icon) { background:#eff4e6; color:var(--forest); }
 .forest-theme :is(.gp-age,.gp-task-hst,.gp-hst) { background:#edf3e3; color:#345533; border-color:#dfe7d4; }
 .forest-theme .gp-page .gp-view-tabs button[aria-pressed="true"] { background:var(--forest)!important; padding-inline:12px; }
