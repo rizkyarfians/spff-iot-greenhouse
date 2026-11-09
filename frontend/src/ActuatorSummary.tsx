@@ -5,14 +5,13 @@ import { Droplets, FlaskConical } from 'lucide-react'
 import { updateActuator, resumePumpAutomation } from './api'
 import './ActuatorSummary.css'
 
-export function ActuatorSummary({ actuators, devices, connected, automatic, configuration, onUpdated, onOpenControls, onControlUpdated }: {
+export function ActuatorSummary({ actuators, devices, connected, automatic, configuration, onUpdated, onControlUpdated }: {
   actuators: ApiActuator[]
   devices: ApiDevice[]
   connected: boolean
   automatic: boolean
   configuration: ApiAutomaticControl | null
   onUpdated: (actuator: ApiActuator) => void
-  onOpenControls: () => void
   onControlUpdated: (config:ApiAutomaticControl|null)=>void
 }) {
   const inFlight = useRef(new Set<string>())
@@ -89,11 +88,17 @@ export function ActuatorSummary({ actuators, devices, connected, automatic, conf
           )
         })}
       </div>
-      {automatic&&actuators.length>0&&<div className="actuator-summary-mode-hint">
-        <span>{configuration?.operatorOverrideActive?'Override operator aktif. Otomasi dijeda; matikan kedua pompa sebelum melanjutkan.':'ON/OFF di sini mengambil kendali operator dan menjeda otomasi.'}</span>
-        {configuration?.operatorOverrideActive?<button type="button" className="secondary-button" disabled={!connected||sending.length>0}
-          onClick={()=>{if(!configuration)return;void resumePumpAutomation(configuration.deviceId).then(next=>{onControlUpdated(next);setNotice('Menunggu konfirmasi perangkat untuk melanjutkan otomasi.')}).catch(error=>setNotice(error instanceof Error?error.message:'Gagal melanjutkan otomasi.'))}}>Lanjutkan otomatis</button>
-          :<button type="button" className="secondary-button" onClick={onOpenControls}>Kontrol Perangkat</button>}
+      {automatic && actuators.length > 0 && configuration?.operatorOverrideActive && <div className="actuator-summary-mode-hint">
+        <span>Otomasi dijeda oleh operator. Matikan kedua pompa sebelum melanjutkan.</span>
+        <button type="button" className="secondary-button" disabled={!connected || sending.length > 0}
+          onClick={() => void resumePumpAutomation(configuration.deviceId)
+            .then(next => {
+              onControlUpdated(next)
+              setNotice('Menunggu konfirmasi perangkat untuk melanjutkan otomasi.')
+            })
+            .catch(error => setNotice(error instanceof Error ? error.message : 'Gagal melanjutkan otomasi.'))}>
+          Lanjutkan otomatis
+        </button>
       </div>}
       <div className="actuator-summary-note" role="status" aria-live="polite">{notice}</div>
     </section>

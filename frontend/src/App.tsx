@@ -2542,7 +2542,6 @@ const soilNpkGroups =
 
                   <ActuatorSummary
                     onControlUpdated={(automaticControl)=>setBackendData(current=>current?{...current,automaticControl}:current)}
-                    onOpenControls={() => navigateTo('controls')}
                     actuators={backendData?.actuators ?? []}
                     devices={backendData?.devices ?? []}
                     connected={connectionState === 'connected'}
