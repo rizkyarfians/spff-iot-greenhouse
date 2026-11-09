@@ -1244,168 +1244,85 @@ function ControlsPage({
       className="secondary-page controls-page"
       aria-label="Kontrol perangkat"
     >
-      <div className="controls-actuators page-card">
-      <div className="control-toolbar">
-        <h2>Pompa</h2>{automaticControl?.operatorOverrideActive&&<button type="button" className="secondary-button" disabled={savingAutomatic||sendingCommand||connectionState!=='connected'} onClick={()=>void resumePumpAutomation(automaticControl.deviceId).then(()=>{setCommandNotice('Menunggu konfirmasi perangkat untuk melanjutkan otomasi.');onRefresh()}).catch(error=>setCommandNotice(error instanceof Error?error.message:'Gagal melanjutkan otomasi.'))}>Lanjutkan otomatis</button>}
-        <div
-          className="segmented-control"
-          aria-label="Pilih mode operasi yang diinginkan"
-          role="group"
-        >
-          <button
-            className={
-              selectedMode === 'automatic'
-                ? 'is-selected'
-                : ''
-            }
-            type="button"
-            aria-pressed={selectedMode === 'automatic'}
-            onClick={() => selectMode('automatic')}
-            disabled={
-              !isAdmin
-              || savingAutomatic
-            }
-          >
-            Otomatis
-          </button>
+      <div className="controls-protection page-card">
+        <WaterInterlockSettings devices={data?.devices ?? []} admin={isAdmin} connected={connectionState === 'connected'} />
+      </div>
 
-          <button
-            className={
-              selectedMode === 'manual'
-                ? 'is-selected'
-                : ''
-            }
-            type="button"
-            aria-pressed={selectedMode === 'manual'}
-            onClick={() => selectMode('manual')}
-            disabled={
-              !isAdmin
-              || savingAutomatic
-            }
-          >
-            Manual
-          </button>
+      <div className="controls-actuators page-card">
+        <div className="control-toolbar">
+          <div className="segmented-control" role="group" aria-label="Pilih mode operasi">
+            <button type="button" aria-pressed={selectedMode === 'automatic'}
+              onClick={() => selectMode('automatic')} disabled={!isAdmin || savingAutomatic}>Otomatis</button>
+            <button type="button" aria-pressed={selectedMode === 'manual'}
+              onClick={() => selectMode('manual')} disabled={!isAdmin || savingAutomatic}>Manual</button>
+          </div>
         </div>
 
+        {visibleModeFeedback && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
+        {!mode && <p className="controls-message">Mode alat belum diketahui.</p>}
+        {connectionState !== 'connected' && <p className="controls-message" role="status">Sistem belum tersambung.</p>}
+        {commandNotice && <p className="controls-message" role="status">{commandNotice}</p>}
 
-
-      </div>
-
-
-
-      {visibleModeFeedback && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
-      {!mode && <p className="controls-message">Mode alat belum diketahui.</p>}
-      {connectionState !== 'connected' && <p className="controls-message" role="status">Sistem belum tersambung.</p>}
-      {!controlTab && commandNotice && <p className="controls-message" role="status">{commandNotice}</p>}
-      <div className="control-grid">
-        {
-          controls.length > 0
-            ? controls.map(
-                (control) => {
-                  const failure = data?.actuatorLog.find((event) => event.commandId === control.commandId && event.reason)
-                  const recentFailure = failure && Date.now() - Date.parse(failure.receivedAt) < 120_000
-                  const failureText = farmerReasonLabel(failure?.reason) || 'Perintah terakhir gagal.'
-                  const failureTime = failure && <time dateTime={failure.receivedAt}>{new Date(failure.receivedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB</time>
-                  return (
-                  <article
-                    className="control-card"
-                    key={control.id}
-                  >
-                    <div
-                      className="control-icon"
-                      aria-hidden="true"
-                    >
-                      <ControlGlyph
-                        icon={
-                          control.icon
-                        }
-                      />
-                    </div>
-
-
-                    <div className="control-copy">
-                      <h3>
-                        {control.name}
-                      </h3>
-
-
-
-                      <span
-                        className="controls-pump-status"
-                      >
-                        {
-                          control.pending
-                            ? 'Menunggu konfirmasi'
-                            : connectionState !== 'connected' || control.state === 'offline'
-                              || getTelemetryFreshness(control.updatedAt, true) !== 'fresh'
-                              ? 'Status belum terbarui'
-                              : control.state === 'fault' ? 'Bermasalah'
-                                : control.isActive ? 'Menyala' : 'Mati'
-                        }
-                      </span>
-                      {['rejected', 'failed', 'timed_out'].includes(control.commandStatus ?? '') && (
-                        recentFailure ? <div className="controls-command-error" role="status"><p>{failureText}</p>{failureTime}</div> :
-                        <details className="controls-command-history">
-                          <summary>Riwayat perintah terakhir</summary>
-                          <p>{failureText}</p>
-                          {failureTime}
-                        </details>
-                      )}
-                    </div>
-
-
-                    <ToggleButtons
-                      className={
-                        `switch ${
-                          control.isActive
-                            ? 'is-on'
-                            : ''
-                        }`
-                      }
-                      type="button"
-                      role="switch"
-                      aria-checked={
-                        control.isActive
-                      }
-                      aria-label={
-                        `${
-                          control.isActive
-                            ? 'Matikan'
-                            : 'Aktifkan'
-                        } ${control.name}`
-                      }
-                      onValueChange={active=>void toggleControl(control.id,active)}
-                      disabledOn={control.pending}
-                      allowOff={control.pending}
-                      disabled={
-                        sendingCommand
-                        || connectionState
-                          !== 'connected'
-
-                      }
-                    >
-                      <span />
-                    </ToggleButtons>
-                  </article>
-                  )
-                },
-              )
-
-            : (
-              <div className="schedule-empty">
-                Belum ada aktuator aktif yang tersedia.
+        <div className="control-grid">
+          {controls.length === 0 && <div className="schedule-empty">Belum ada aktuator aktif yang tersedia.</div>}
+          {controls.map(control => {
+            const events = control.commandId
+              ? data?.actuatorLog.filter(event => event.commandId === control.commandId) ?? []
+              : []
+            const failed = ['rejected', 'failed', 'timed_out'].includes(control.commandStatus ?? '')
+            const commandEvent = events.find(event => event.source === 'command_ack') ?? events[0]
+            const failureReason = failed && farmerReasonLabel(events.find(event => event.reason)?.reason)
+            const pumpStatus = connectionState !== 'connected' || control.state === 'offline'
+              || getTelemetryFreshness(control.updatedAt, true) !== 'fresh'
+              ? 'Status belum terbarui'
+              : control.state === 'fault' ? 'Bermasalah' : control.isActive ? 'Menyala' : 'Mati'
+            return <article className="control-card" key={control.id}>
+              <header className="controls-pump-heading">
+                <span className="control-icon" aria-hidden="true"><ControlGlyph icon={control.icon} /></span>
+                <h3>{control.name}</h3>
+                <span className="controls-pump-status">{pumpStatus}</span>
+              </header>
+              <div className="controls-pump-actions">
+                <ToggleButtons
+                  aria-label={`Kontrol ${control.name}`}
+                  aria-checked={control.isActive}
+                  onValueChange={active => void toggleControl(control.id, active)}
+                  disabledOn={control.pending}
+                  allowOff={control.pending}
+                  disabled={sendingCommand || connectionState !== 'connected'}
+                />
+                <div className="controls-pump-time">
+                  <span>Waktu laporan</span>
+                  {commandEvent
+                    ? <time dateTime={commandEvent.recordedAt}>{new Date(commandEvent.recordedAt).toLocaleString('id-ID', {
+                        timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short',
+                      })} WIB</time>
+                    : <span>—</span>}
+                </div>
               </div>
-            )
-        }
-      </div>
-      <div className="controls-pump-footer"><button className="controls-text-button" type="button" onClick={() => void setAll(false)} disabled={sendingCommand || connectionState !== 'connected'}>Matikan semua</button></div>
-      </div>
+              <p className={`controls-command-result${failed ? ' controls-command-error' : ''}`} role="status">
+                <span>Status perintah</span>
+                <strong>{control.pending ? 'Menunggu konfirmasi' : failed ? 'Gagal' : control.commandStatus === 'completed' ? 'Berhasil' : '—'}</strong>
+                {failureReason && <small>{failureReason}</small>}
+              </p>
+            </article>
+          })}
+        </div>
 
+        <div className="controls-pump-footer">
+          {automaticControl?.operatorOverrideActive && <button type="button" className="secondary-button"
+            disabled={savingAutomatic || sendingCommand || connectionState !== 'connected'}
+            onClick={() => void resumePumpAutomation(automaticControl.deviceId)
+              .then(() => { setCommandNotice('Menunggu konfirmasi perangkat untuk melanjutkan otomasi.'); onRefresh() })
+              .catch(error => setCommandNotice(error instanceof Error ? error.message : 'Gagal melanjutkan otomasi.'))}>
+            Lanjutkan otomatis
+          </button>}
+          <button className="controls-text-button" type="button" onClick={() => void setAll(false)}
+            disabled={sendingCommand || connectionState !== 'connected'}>Matikan semua</button>
+        </div>
 
-      <div className="controls-automation page-card">
-        <h2>{selectedMode === 'automatic' || automaticSettingsRequested ? 'Otomasi & Proteksi' : 'Proteksi'}</h2>
-        <WaterInterlockSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
-        {(selectedMode === 'automatic' || automaticSettingsRequested) && <>
+        {(selectedMode === 'automatic' || automaticSettingsRequested) && <details className="controls-automation">
+          <summary>Pengaturan otomatis</summary>
         <SoilEcExecutionSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
         <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'schedule'} id="schedule-settings-button" aria-controls="schedule-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'schedule' ? null : 'schedule') }}>
           <span className="control-icon"><CalendarClock aria-hidden="true" size={20} /></span>
@@ -1413,7 +1330,6 @@ function ControlsPage({
           <ChevronRight aria-hidden="true" size={18} />
         </button>
         <section className="controls-settings-panel" id="schedule-settings-panel" hidden={controlTab !== 'schedule'} aria-labelledby="schedule-settings-button">
-          {commandNotice && <p role="status">{commandNotice}</p>}
       {
         controlTab === 'schedule' && (
       <div className="actuator-schedule-card">
@@ -1446,7 +1362,6 @@ function ControlsPage({
         <section className="controls-schedule-panel" id="schedule-form-panel" hidden={!showScheduleForm} aria-labelledby="schedule-form-title">
           <div className="controls-section-heading"><h2 id="schedule-form-title">{editingSchedule ? 'Edit Jadwal' : 'Tambah Jadwal'}</h2><button type="button" className="secondary-button" disabled={savingSchedule} onClick={() => {setShowScheduleForm(false);setEditingSchedule(null)}}>Batal</button></div>
           {editingSchedule&&<p className="controls-message">Mengubah waktu dan pengulangan untuk pompa yang sama. Status aktif/nonaktif jadwal tetap mengikuti pengaturan saat ini. Perubahan berlaku setelah jadwal diterima alat.</p>}
-          {commandNotice && <p role="status">{commandNotice}</p>}
         <form
           className="schedule-builder"
           onSubmit={addSchedule}
@@ -1807,7 +1722,6 @@ function ControlsPage({
         <section className="controls-settings-panel" id="sensor-settings-panel" hidden={controlTab !== 'sensor'} aria-labelledby="sensor-settings-button">
         {visibleModeFeedback && controlTab === 'sensor' && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
         {modeFeedback?.tone === 'success' && controlTab === 'sensor' && <p className="controls-message" role="status">Pengaturan tersimpan dan diterapkan pada alat.</p>}
-        {commandNotice && <p role="status">{commandNotice}</p>}
 
       {controlTab === 'sensor' && (
       <div className="automatic-control-card">
@@ -2063,7 +1977,7 @@ function ControlsPage({
 
 
         </section>
-        </>}
+        </details>}
       </div>
     </section>
   )

@@ -3,31 +3,39 @@
 .controls-settings-panel[hidden], .controls-schedule-panel[hidden] { display: none; }
 .controls-setting-row[aria-expanded="true"] { background: var(--green-soft); }
 .controls-setting-row[aria-expanded="true"] > svg:last-child { transform: rotate(90deg); }
-.controls-page .control-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.controls-page > .page-card { max-width: 920px; margin-inline: auto; }
+.controls-protection .setting-toggle-row { margin: 0; }
+.controls-page .control-toolbar { display: flex; justify-content: center; }
+.controls-page .control-toolbar .segmented-control { border-radius: 999px; }
+.controls-page .control-toolbar .segmented-control button { min-width: 96px; min-height: 40px; border-radius: 999px !important; }
 .controls-page h2 { margin: 0; font-size: var(--font-size-section, 20px); font-weight: 700; }
 .controls-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.controls-page .control-grid { display: block; margin-top: 12px; }
-.controls-page .control-card { display: flex; align-items: center; gap: 16px; padding: 16px; border: 0; border-radius: 14px; box-shadow: none; background: #f5f7f6; }
-.controls-page .control-card + .control-card { margin-top: 10px; }
-.controls-page .control-copy { flex: 1; min-width: 0; }
-.controls-page .control-copy h3 { margin: 0 0 6px; font-size: var(--font-size-body); }
-.controls-pump-status, .controls-message { color: #536560; font-size: var(--font-size-label); }
+.controls-page .control-grid { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 20px; gap: 0; }
+.controls-page .control-card { display: grid; gap: 14px; min-width: 0; padding: 20px 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.controls-page .control-card + .control-card { border-top: 1px solid var(--line); }
+.controls-pump-heading, .controls-pump-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.controls-pump-heading h3 { margin: 0; font-size: var(--font-size-body); }
+.controls-pump-status { margin-left: auto; }
+.controls-pump-actions { justify-content: space-between; }
+.controls-pump-time { display: grid; gap: 3px; text-align: end; }
+.controls-pump-time > span:first-child, .controls-pump-status, .controls-message { color: #536560; font-size: var(--font-size-label); }
+.controls-pump-time time { font-variant-numeric: tabular-nums; }
+.controls-command-result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; margin: 0; font-size: var(--font-size-label); color: #536560; }
+.controls-command-result strong { color: var(--ink); }
+.controls-command-result small { flex-basis: 100%; }
+.controls-command-error :is(strong, small) { color: #a12e25; }
 .controls-page .control-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--green-soft); color: var(--green-dark); flex-shrink: 0; }
-.controls-pump-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
+.controls-pump-footer { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 12px; }
 .controls-text-button { border: 0; background: transparent; color: #536560; font: inherit; font-size: var(--font-size-label); padding: 10px 0; cursor: pointer; }
 .controls-text-button:disabled { opacity: .5; cursor: default; }
 .controls-setting-row { display: flex; align-items: center; gap: 16px; width: 100%; margin-top: 12px; padding: 16px; border: 0; border-radius: 14px; background: #f5f7f6; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .controls-setting-row:hover { background: var(--green-soft); }
-.controls-automation > .controls-settings-panel { padding: 16px 12px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 14px 14px; }
-.controls-automation > .controls-setting-row[aria-expanded="true"] { border-radius: 14px 14px 0 0; }
+.controls-automation { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.controls-automation > summary { width: fit-content; margin-left: auto; padding: 8px 0; cursor: pointer; font-weight: 700; color: var(--green-dark); }
+.controls-automation > .controls-settings-panel { padding: 16px 12px; border: 1px solid var(--line); border-radius: 12px; }
 .controls-setting-row > span:nth-child(2) { flex: 1; min-width: 0; }
 .controls-setting-row small { display: block; margin-top: 5px; color: #536560; font-size: var(--font-size-label); }
-.controls-command-history { margin-top: 8px; font-size: var(--font-size-label); color: #536560; }
-.controls-command-history summary { cursor: pointer; }
-.controls-command-history p { color: #b83030; margin: 8px 0; }
-.controls-command-error { margin-top: 8px; font-size: var(--font-size-label); color: #b83030; }
-.controls-command-error p { margin: 0 0 4px; }
-.controls-setting-row:focus-visible, .controls-text-button:focus-visible, .controls-command-history summary:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
+.controls-setting-row:focus-visible, .controls-text-button:focus-visible, .controls-automation > summary:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
 .controls-page .automatic-profile-grid { display: block; }
 .controls-page .automatic-profile[hidden] { display: none; }
 .controls-page .automatic-profile { padding: 0; border: 0; background: transparent; }
@@ -58,7 +66,8 @@
   .controls-page .automatic-control-header { align-items: flex-start; flex-wrap: wrap; }
   .controls-page .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
   .controls-page .schedule-item-copy { flex: 1; min-width: 60%; }
-  .controls-setting-row, .controls-page .control-card { padding: 12px; gap: 12px; }
+  .controls-setting-row { padding: 12px; gap: 12px; }
+  .controls-pump-time { text-align: start; }
 }
 
 .sensor-rules-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }

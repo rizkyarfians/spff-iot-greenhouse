@@ -1,6 +1,6 @@
-/* One rectangular button language across dashboard, forms, dialogs and controls. */
+/* Shared button radius across pages, forms, and dialogs. */
 body button {
-  border-radius:4px !important;
+  border-radius:10px !important;
   font-family:inherit;
   font-weight:600;
   transition:background-color .12s ease,border-color .12s ease,color .12s ease;
@@ -20,7 +20,7 @@ body button[aria-pressed="true"] {
   box-shadow:none !important;
 }
 body :is(.segmented-control,.gp-main-tabs,.guide-mobile-layout,.setting-choice) {
-  border-radius:4px;
+  border-radius:12px;
   background:#edf2ee;
   border:1px solid #cfdcd3;
   padding:3px;
