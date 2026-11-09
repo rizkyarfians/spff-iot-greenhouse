@@ -3,9 +3,8 @@
 .controls-settings-panel[hidden], .controls-schedule-panel[hidden] { display: none; }
 .controls-page > .page-card { max-width: 920px; margin-inline: auto; }
 .controls-page .controls-actuators > .control-toolbar { display: grid; grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr); align-items: center; gap: 4px; }
-.controls-page .control-toolbar .segmented-control { grid-column: 2; border-radius: 999px; }
+.controls-page .control-toolbar .gp-main-tabs { grid-column: 2; margin: 0; flex-wrap: nowrap; }
 .controls-page .water-interlock-trigger { grid-column: 3; justify-self: end; }
-.controls-page .control-toolbar .segmented-control button { min-width: 96px; min-height: 40px; border-radius: 999px !important; }
 .controls-page h2 { margin: 0; font-size: var(--font-size-section, 20px); font-weight: 700; }
 .controls-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .controls-page .control-grid { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 20px; gap: 0; }
@@ -47,8 +46,8 @@
 .controls-settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .controls-settings-close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
 .controls-settings-close:hover { background: var(--green-soft); }
-.controls-page .controls-settings-tabs { width: fit-content; margin: 0 auto 20px; border-radius: 999px; }
-.controls-settings-tabs > button { min-width: 96px; min-height: 40px; border-radius: 999px !important; }
+.controls-page .controls-settings-tabs { display: flex; width: fit-content; margin: 0 auto 20px; }
+.controls-page .gp-main-tabs button:disabled { opacity: .55; }
 .controls-emergency-stop:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
 .controls-page .automatic-profile-grid { display: block; }
 .controls-page .automatic-profile[hidden] { display: none; }
@@ -76,7 +75,6 @@
 .controls-schedule-panel p { font-size: var(--font-size-body); }
 @media (max-width: 640px) {
   .controls-page .page-card { padding: 16px; }
-  .controls-page .control-toolbar .segmented-control button { min-width: 76px; }
   .controls-page .automatic-fields { grid-template-columns: 1fr; }
   .controls-page .automatic-control-header { align-items: flex-start; flex-wrap: wrap; }
 }

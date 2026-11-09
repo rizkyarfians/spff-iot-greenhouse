@@ -29,12 +29,15 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  Cog,
   Cpu,
   FlaskConical,
+  Hand,
   Leaf,
   MapPin,
   Plus,
   Pencil,
+  RadioTower,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -1255,11 +1258,15 @@ function ControlsPage({
     >
       <div className="controls-actuators page-card">
         <div className="control-toolbar">
-          <div className="segmented-control" role="group" aria-label="Pilih mode operasi">
+          <div className="gp-main-tabs" role="group" aria-label="Pilih mode operasi">
             <button type="button" aria-pressed={selectedMode === 'automatic'}
-              onClick={() => selectMode('automatic')} disabled={!isAdmin || savingAutomatic}>Otomatis</button>
+              onClick={() => selectMode('automatic')} disabled={!isAdmin || savingAutomatic}>
+              <Cog size={18} aria-hidden="true" /> Otomatis
+            </button>
             <button type="button" aria-pressed={selectedMode === 'manual'}
-              onClick={() => selectMode('manual')} disabled={!isAdmin || savingAutomatic}>Manual</button>
+              onClick={() => selectMode('manual')} disabled={!isAdmin || savingAutomatic}>
+              <Hand size={18} aria-hidden="true" /> Manual
+            </button>
           </div>
           <WaterInterlockSettings devices={data?.devices ?? []} admin={isAdmin} connected={connectionState === 'connected'} />
         </div>
@@ -1350,9 +1357,13 @@ function ControlsPage({
               <X size={20} aria-hidden="true" />
             </button>
           </header>
-          <div className="segmented-control controls-settings-tabs" role="group" aria-label="Pilih pengaturan otomatis">
-            <button type="button" id="sensor-settings-button" aria-pressed={controlTab === 'sensor'} aria-controls="sensor-settings-panel" onClick={() => setControlTab('sensor')}>Sensor</button>
-            <button type="button" id="schedule-settings-button" aria-pressed={controlTab === 'schedule'} aria-controls="schedule-settings-panel" onClick={() => setControlTab('schedule')}>Jadwal</button>
+          <div className="gp-main-tabs controls-settings-tabs" role="group" aria-label="Pilih pengaturan otomatis">
+            <button type="button" id="sensor-settings-button" aria-pressed={controlTab === 'sensor'} aria-controls="sensor-settings-panel" onClick={() => setControlTab('sensor')}>
+              <RadioTower size={18} aria-hidden="true" /> Sensor
+            </button>
+            <button type="button" id="schedule-settings-button" aria-pressed={controlTab === 'schedule'} aria-controls="schedule-settings-panel" onClick={() => setControlTab('schedule')}>
+              <CalendarClock size={18} aria-hidden="true" /> Jadwal
+            </button>
           </div>
         <section className="controls-settings-panel" id="schedule-settings-panel" hidden={controlTab !== 'schedule'} aria-labelledby="schedule-settings-button">
         {controlTab === 'schedule' && commandNotice && <p className="controls-message" role="status">{commandNotice}</p>}

@@ -7,9 +7,10 @@
   --fw-soft:#eef7f2;
 }
 .fw-eyebrow { display:block; margin-bottom:6px; color:var(--fw-muted); font-size:11px; font-weight:700; letter-spacing:.1em; }
-.ft-program-shell .gp-main-tabs { display:inline-flex; padding:5px; margin-bottom:28px; gap:4px; background:#e7eeea; border:1px solid #dce6df; border-radius:14px; }
-.ft-program-shell .gp-main-tabs button { min-height:42px; border:0; border-radius:10px; background:transparent; color:#63786e; font-size:14px; padding:10px 20px; }
-.ft-program-shell .gp-main-tabs button[aria-pressed="true"] { background:#fff; color:#176348; box-shadow:0 2px 5px #193e3510; }
+:is(.ft-program-shell, .controls-page) .gp-main-tabs { display:inline-flex; padding:5px; gap:4px; background:#e7eeea; border:1px solid #dce6df; border-radius:14px; }
+:is(.ft-program-shell, .controls-page) .gp-main-tabs button { min-height:42px; border:0; border-radius:10px; background:transparent; color:#63786e; font-size:14px; padding:10px 20px; }
+:is(.ft-program-shell, .controls-page) .gp-main-tabs button[aria-pressed="true"] { background:#fff; color:#176348; box-shadow:0 2px 5px #193e3510; }
+.ft-program-shell .gp-main-tabs { margin-bottom:28px; }
 .ft-program-shell .gp-page { padding-bottom:24px; font-size:14px; }
 .ft-program-shell .gp-program-toolbar { margin-bottom:18px; align-items:center; }
 .ft-program-shell .gp-program-toolbar h2 { font-size:24px; letter-spacing:-.6px; }
@@ -81,8 +82,8 @@
 }
 @media(max-width:600px) {
   .ft-program-shell .gp-main-tabs { display:flex; width:100%; margin-bottom:22px; }
-  .ft-program-shell .gp-main-tabs button { flex:1; min-width:0; padding:9px 4px; font-size:12px; }
-  .ft-program-shell .gp-main-tabs svg { display:none; }
+  :is(.ft-program-shell, .controls-page) .gp-main-tabs button { flex:1; min-width:0; padding:9px 4px; font-size:12px; }
+  :is(.ft-program-shell, .controls-page) .gp-main-tabs svg { display:none; }
   .ft-program-shell .gp-panel { padding:16px; }
   .ft-program-shell .gp-program-toolbar h2 { font-size:21px; }
   .ft-program-shell .gp-program-bar { gap:14px; }
