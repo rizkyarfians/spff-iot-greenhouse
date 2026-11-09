@@ -11,15 +11,14 @@
 .controls-page h2 { margin: 0; font-size: var(--font-size-section, 20px); font-weight: 700; }
 .controls-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .controls-page .control-grid { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 20px; gap: 0; }
-.controls-page .control-card { display: grid; gap: 14px; min-width: 0; padding: 20px 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.controls-page .control-card { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; min-width: 0; padding: 20px 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .controls-page .control-card + .control-card { border-top: 1px solid var(--line); }
 .controls-pump-heading, .controls-pump-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .controls-pump-heading h3 { margin: 0; font-size: var(--font-size-body); }
-.controls-pump-status { margin-left: auto; }
-.controls-pump-actions { justify-content: space-between; }
-.controls-pump-time { display: grid; gap: 3px; text-align: end; }
+.controls-pump-actions { flex: 1 1 auto; justify-content: space-between; min-width: 0; }
+.controls-pump-time { display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px 6px; }
 .controls-pump-time > span:first-child, .controls-pump-status, .controls-message { color: #536560; font-size: var(--font-size-label); }
-.controls-pump-time time { font-variant-numeric: tabular-nums; }
+.controls-pump-time time { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .controls-command-result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; margin: 0; font-size: var(--font-size-label); color: #536560; }
 .controls-command-result strong { color: var(--ink); }
 .controls-command-result small { flex-basis: 100%; }
@@ -67,7 +66,6 @@
   .controls-page .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
   .controls-page .schedule-item-copy { flex: 1; min-width: 60%; }
   .controls-setting-row { padding: 12px; gap: 12px; }
-  .controls-pump-time { text-align: start; }
 }
 
 .sensor-rules-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }

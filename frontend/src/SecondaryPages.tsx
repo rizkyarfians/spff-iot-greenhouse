@@ -1292,7 +1292,7 @@ function ControlsPage({
                   disabled={sendingCommand || connectionState !== 'connected'}
                 />
                 <div className="controls-pump-time">
-                  <span>Waktu laporan</span>
+                  <span>Laporan</span>
                   {commandEvent
                     ? <time dateTime={commandEvent.recordedAt}>{new Date(commandEvent.recordedAt).toLocaleString('id-ID', {
                         timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short',
@@ -1301,7 +1301,7 @@ function ControlsPage({
                 </div>
               </div>
               <p className={`controls-command-result${failed ? ' controls-command-error' : ''}`} role="status">
-                <span>Status perintah</span>
+                <span>Perintah</span>
                 <strong>{control.pending ? 'Menunggu konfirmasi' : failed ? 'Gagal' : control.commandStatus === 'completed' ? 'Berhasil' : '—'}</strong>
                 {failureReason && <small>{failureReason}</small>}
               </p>
