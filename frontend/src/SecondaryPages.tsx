@@ -1278,10 +1278,32 @@ function ControlsPage({
               ? 'Status belum terbarui'
               : control.state === 'fault' ? 'Bermasalah' : control.isActive ? 'Menyala' : 'Mati'
             return <article className="control-card" key={control.id}>
-              <header className="controls-pump-heading">
-                <span className="control-icon" aria-hidden="true"><ControlGlyph icon={control.icon} /></span>
-                <h3>{control.name}</h3>
-              </header>
+              <div className="controls-pump-info">
+                <header className="controls-pump-heading">
+                  <span className="control-icon" aria-hidden="true"><ControlGlyph icon={control.icon} /></span>
+                  <h3>{control.name}</h3>
+                </header>
+                <div className="controls-pump-details">
+                  <div className="controls-pump-report">
+                    <span>{pumpStatus}</span>
+                    <div className="controls-pump-time">
+                      <span>Laporan</span>
+                      {commandEvent
+                        ? <time dateTime={commandEvent.recordedAt}>{new Date(commandEvent.recordedAt).toLocaleString('id-ID', {
+                            timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short',
+                          })} WIB</time>
+                        : <span>—</span>}
+                    </div>
+                  </div>
+                  <p className="controls-command-result" role="status">
+                    <span>Perintah</span>
+                    <strong className={`controls-command-badge is-${commandResult}`}>
+                      {{ pending: 'Menunggu konfirmasi', failure: 'Gagal', success: 'Berhasil', none: '—' }[commandResult]}
+                    </strong>
+                    {failureReason && <small>{failureReason}</small>}
+                  </p>
+                </div>
+              </div>
               <div className="controls-pump-actions">
                 <ToggleButtons
                   aria-label={`Kontrol ${control.name}`}
@@ -1291,24 +1313,6 @@ function ControlsPage({
                   allowOff={control.pending}
                   disabled={sendingCommand || connectionState !== 'connected'}
                 />
-              </div>
-              <div className="controls-pump-details">
-                <span>{pumpStatus}</span>
-                <div className="controls-pump-time">
-                  <span>Laporan</span>
-                  {commandEvent
-                    ? <time dateTime={commandEvent.recordedAt}>{new Date(commandEvent.recordedAt).toLocaleString('id-ID', {
-                        timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short',
-                      })} WIB</time>
-                    : <span>—</span>}
-                </div>
-                <p className="controls-command-result" role="status">
-                  <span>Perintah</span>
-                  <strong className={`controls-command-badge is-${commandResult}`}>
-                    {{ pending: 'Menunggu konfirmasi', failure: 'Gagal', success: 'Berhasil', none: '—' }[commandResult]}
-                  </strong>
-                  {failureReason && <small>{failureReason}</small>}
-                </p>
               </div>
             </article>
           })}

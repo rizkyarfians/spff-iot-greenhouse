@@ -16,8 +16,9 @@
 .controls-pump-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .controls-pump-heading h3 { margin: 0; font-size: var(--font-size-body); }
 .controls-pump-actions { justify-self: end; }
-.controls-pump-details { grid-column: 1 / -1; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 16px; padding-inline-start: 52px; }
+.controls-pump-details { display: grid; gap: 6px; margin-block-start: 8px; padding-inline-start: 52px; }
 .controls-pump-details, .controls-message { color: #536560; font-size: var(--font-size-label); }
+.controls-pump-report { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; }
 .controls-pump-time, .controls-command-result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; }
 .controls-pump-time time { font-variant-numeric: tabular-nums; color: var(--ink); }
 .controls-command-result { margin: 0; }
