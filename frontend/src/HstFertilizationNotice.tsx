@@ -10,7 +10,7 @@ function Quantity({ value, unit = 'g' }: { value: number | null; unit?: string }
   return <strong className="hfp-value">{value === null ? '—' : (unit === 'g/tanaman' ? doseNumber : number).format(value)}{value !== null && <span>{unit}</span>}</strong>
 }
 
-export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
+export function HstPhaseCard({ cycle, compact = false }: { cycle: AutomaticCycleStatus; compact?: boolean }) {
   const [closed, setClosed] = useState(false)
   const phase = cycle.phase
   const recorded = phase?.history?.recordedG ?? phase?.deliveredG ?? 0
@@ -32,6 +32,16 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
   const historyText = phase?.history?.status === 'unmeasured' ? waitingText :
     phase?.history?.lastRecordedAt ? 'Catatan ' + new Date(phase.history.lastRecordedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' }) + ' WIB' :
     recorded > 0 ? 'Berdasarkan riwayat tersimpan' : 'Belum ada pengiriman tercatat'
+  const doseDetails = phase && <>
+    <div className="hfp-metrics">
+      <div className="hfp-metric"><span>Dosis per tanaman</span><Quantity value={phase.targetGPerPlant ?? null} unit="g/tanaman" /></div>
+      <div className="hfp-metric"><span>{phase.baselineBasis==='PRE_INJECTION_SENSOR' ? 'Estimasi per tanaman · EC sebelum ON' : phase.estimated ? 'Estimasi tercatat per tanaman' : 'Tercatat per tanaman'}</span><Quantity value={recordedPerPlant} unit="g/tanaman" /></div>
+      <div className="hfp-metric hfp-metric--remaining"><span>Sisa per tanaman</span><Quantity value={remainingPerPlant} unit="g/tanaman" /></div>
+    </div>
+    <p className={'hfp-history' + (phase.history?.status === 'unmeasured' ? ' hfp-history--pending' : '')}>
+      <History size={14} aria-hidden="true" />{historyText}
+    </p>
+  </>
   if (closed) return <button type="button" className="hfp-reopen" onClick={() => setClosed(false)} aria-expanded={false}>
     <Icon size={17} aria-hidden="true" />Tampilkan fase pemupukan & penyiraman<ChevronDown size={15} aria-hidden="true" />
   </button>
@@ -57,25 +67,20 @@ export function HstPhaseCard({ cycle }: { cycle: AutomaticCycleStatus }) {
         ? percent===null?'Target fase belum tersedia':number.format(recorded)+' g dari '+number.format(phase.targetG!)+' g target fase'
         : watering?'Status penyiraman mengikuti data perangkat.':'Belum ada fase pemupukan yang tercatat.'}</p>
     </div>
-    {phase ? <>
-      <div className="hfp-metrics">
-        <div className="hfp-metric"><span>Dosis per tanaman</span><Quantity value={phase.targetGPerPlant ?? null} unit="g/tanaman" /></div>
-        <div className="hfp-metric"><span>{phase.baselineBasis==='PRE_INJECTION_SENSOR' ? 'Estimasi per tanaman · EC sebelum ON' : phase.estimated ? 'Estimasi tercatat per tanaman' : 'Tercatat per tanaman'}</span><Quantity value={recordedPerPlant} unit="g/tanaman" /></div>
-        <div className="hfp-metric hfp-metric--remaining"><span>Sisa per tanaman</span><Quantity value={remainingPerPlant} unit="g/tanaman" /></div>
-      </div>
-      <p className={'hfp-history' + (phase.history?.status === 'unmeasured' ? ' hfp-history--pending' : '')}>
-        <History size={14} aria-hidden="true" />{historyText}
-      </p>
-    </> : <div className="hfp-impact-waiting">
+    {compact && phase && <details className="hfp-details hfp-dose-details">
+      <summary>Detail<ChevronDown size={14} aria-hidden="true" /></summary>
+      {doseDetails}
+    </details>}
+    {!compact && (phase ? doseDetails : <div className="hfp-impact-waiting">
       <div><Clock3 size={18} aria-hidden="true"/><span><strong>{cycle.nextHst==null?'Belum tersedia':'HST '+cycle.nextHst}</strong><small>Fase berikutnya</small></span></div>
       <div><Icon size={18} aria-hidden="true"/><span><strong>{watering?'Penyiraman':'Menunggu fase'}</strong><small>Status program</small></span></div>
-    </div>}
-    <footer className="hfp-footer">
+    </div>)}
+    {!compact && <footer className="hfp-footer">
       <span className="hfp-water-state">{watering ? <Droplets size={15} aria-hidden="true" /> : cycle.mode === 'waiting_off' ? <Clock3 size={15} aria-hidden="true" /> : <Pause size={15} aria-hidden="true" />}
         {watering ? 'Fuzzy air tersedia' : cycle.mode === 'fertilization' ? 'Fuzzy air dijeda selama pemupukan' : cycle.mode === 'waiting_off' ? 'Menunggu konfirmasi pompa OFF' : 'Menunggu status program'}</span>
       {cycle.nextHst !== null && <span className="hfp-next">Berikutnya <b>HST {cycle.nextHst}</b></span>}
-    </footer>
-    {phase && <details className="hfp-details"><summary>Detail perhitungan<ChevronDown size={14} aria-hidden="true" /></summary>
+    </footer>}
+    {!compact && phase && <details className="hfp-details"><summary>Detail perhitungan<ChevronDown size={14} aria-hidden="true" /></summary>
       <div>
         <p>Gram interval = max(EC campuran − EC awal, 0) ÷ K × volume campuran.</p>
         <p>Total fase: target <b>{phase.targetG == null ? '—' : number.format(phase.targetG)} g</b> · tercatat <b>{number.format(recorded)} g</b> · sisa <b>{remaining == null ? '—' : number.format(remaining)} g</b>.</p>
@@ -126,7 +131,7 @@ export function HstFertilizationNotice({ deviceId }: { deviceId: string }) {
   }, [deviceId])
   return <section className="hfp-notice" aria-label="Ringkasan pemupukan HST">
     {error && <p className="hfp-error" role="status"><AlertCircle size={16} aria-hidden="true" />{error}{cycle ? ' Riwayat terakhir tetap ditampilkan.' : ''}</p>}
-    {cycle && <HstPhaseCard cycle={cycle} />}
+    {cycle && <HstPhaseCard cycle={cycle} compact />}
     {rows.length > 0 && <details className="hfp-sessions"><summary><History size={15} aria-hidden="true" />Riwayat sesi hari ini<span>{rows.length}</span><ChevronDown className="hfp-chevron" size={15} aria-hidden="true" /></summary>
       <div>{rows.map(row => {
         const EventIcon = row.status === 'started' ? CheckCircle2 : row.status === 'queued' ? Clock3 : AlertCircle
