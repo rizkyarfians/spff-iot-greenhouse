@@ -1,24 +1,38 @@
 /* One rectangular button language across dashboard, forms, dialogs and controls. */
 body button {
+  --button-bg:#f1f7db;
+  --button-hover:#e6f2bf;
+  --button-border:#cbdca0;
+  --button-ink:var(--forest,#173e31);
+  background:var(--button-bg) !important;
+  border-color:var(--button-border) !important;
+  color:var(--button-ink) !important;
   border-radius:4px !important;
   font-family:inherit;
   font-weight:600;
   transition:background-color .12s ease,border-color .12s ease,color .12s ease;
 }
-body button:focus-visible { outline:3px solid #69af8d; outline-offset:3px; }
-body button:disabled { cursor:not-allowed; }
-body :is(.primary-button,.gp-primary,.guide-save,.ecd-save,.ft-primary,.auth-submit) {
-  background-color:var(--green-dark,#173e31);
-  border-color:var(--green-dark,#173e31);
-  color:#fff;
-  box-shadow:none;
+body button:is(.primary-button,.gp-primary,.guide-save,.ecd-save,.ft-primary,.auth-submit,.hst-approve,.ai-floating-trigger,[aria-pressed="true"],[aria-current="page"],[aria-checked="true"],.is-selected,.is-active) {
+  --button-bg:var(--action-lime,#d7ed9b);
+  --button-hover:var(--action-lime-hover,#c7e37d);
+  --button-border:var(--action-lime-border,#9db95f);
 }
-body button[aria-pressed="true"] {
-  background:var(--green-dark,#173e31) !important;
-  border-color:var(--green-dark,#173e31) !important;
-  color:#fff !important;
-  box-shadow:none !important;
+body .setting-choice > button:first-child[aria-pressed="true"],
+body button[role="switch"][aria-checked="false"] {
+  --button-bg:#e0e4e1;
+  --button-hover:#d3d9d5;
+  --button-border:#b9c2bc;
+  --button-ink:#46544b;
 }
+body button:hover:not(:disabled) { background:var(--button-hover) !important; }
+body button:focus-visible { outline:3px solid #56752a; outline-offset:3px; }
+body button:disabled {
+  --button-bg:#e7eae7;
+  --button-border:#cbd2cc;
+  --button-ink:#546358;
+  cursor:not-allowed;
+}
+body button:is(.schedule-delete-button,.um-button--delete,.hst-stop):not(:disabled) { --button-ink:#842c2c; }
 body :is(.segmented-control,.gp-main-tabs,.guide-mobile-layout,.setting-choice) {
   border-radius:4px;
   background:#edf2ee;
