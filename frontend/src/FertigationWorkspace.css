@@ -32,22 +32,8 @@
 .ft-program-shell .gp-view-tabs { gap:24px; }
 .ft-program-shell .gp-page .gp-view-tabs button { min-height:46px; padding:8px 0 12px; border-radius:0; font-size:14px; }
 .ft-program-shell .gp-content { gap:22px; }
-.ft-program-shell .gp-work-layout { grid-template-columns:minmax(0,1fr) 264px; gap:22px; }
-.ft-program-shell .gp-work-layout.is-editing { grid-template-columns:1fr; }
 .ft-program-shell .gp-task-list > h3 { font-size:14px; color:var(--fw-muted); font-weight:500; padding:0; }
-.ft-program-shell .gp-task { overflow:hidden; }
-.ft-program-shell .gp-task-heading { gap:14px; align-items:center; }
-.ft-program-shell .gp-task-heading h4 { font-size:18px; letter-spacing:-.3px; }
-.ft-program-shell .gp-task-heading small { font-size:12px; }
-.ft-program-shell .gp-task-hst { min-width:56px; border-radius:12px; padding:8px 12px; font-size:10px; }
-.ft-program-shell .gp-task-hst strong { font-size:24px; }
 .ft-program-shell .gp-status { font-size:11px; border-radius:20px; padding:5px 10px; white-space:nowrap; }
-.ft-program-shell .gp-task-main { grid-template-columns:1fr; gap:18px; margin-top:20px; }
-.ft-program-shell .gp-task-targets { gap:0; }
-.ft-program-shell .gp-task-targets li { padding:9px 0; border-bottom:1px solid #edf2ef; }
-.ft-program-shell .gp-task-targets strong { font-variant-numeric:tabular-nums; }
-.ft-program-shell .gp-task-actions { display:flex; justify-content:flex-end; gap:8px; }
-.ft-program-shell .gp-task-actions button { flex:0 1 auto; min-width:115px; }
 .ft-program-shell .gp-task-rail { gap:14px; }
 .ft-program-shell .gp-task-rail .gp-panel { padding:20px; }
 .ft-program-shell .gp-task-rail h3 { font-size:14px; margin-bottom:12px; }
@@ -77,18 +63,6 @@
 .guide-growing-details { margin-top:16px; }
 .guide-growing-details > summary { cursor:pointer; color:#59756a; font-size:12px; padding:3px 0; }
 .guide-growing-details[open] > summary { margin-bottom:16px; }
-.guide-page .hst-panel { padding:24px; border:1px solid var(--fw-line); border-radius:16px; margin-bottom:22px; box-shadow:none; }
-.guide-page .hst-panel .ain-panel-heading { margin-bottom:18px; }
-.guide-page .hst-panel .ain-panel-heading h3 { font-size:17px; gap:8px; }
-.guide-page .hst-guide-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
-.guide-page .hst-guide-nav button { padding:9px 14px; min-height:40px; border-radius:9px; font-size:13px; }
-.guide-page .hst-inventory { margin:0 0 18px; padding:0; border:0; background:transparent; }
-.guide-page .hst-inventory .hst-figures { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
-.guide-page .hst-inventory .hst-figures > div { padding:16px; background:#f2f8f4; border:1px solid #e0ece4; border-radius:12px; min-width:0; }
-.guide-page .hst-inventory .hst-figures small { display:block; font-size:11px; color:var(--fw-muted); margin-bottom:8px; }
-.guide-page .hst-inventory .hst-figures strong { font-size:22px; letter-spacing:-.6px; font-variant-numeric:tabular-nums; }
-.guide-page .hst-guide-section { border-top:1px solid var(--fw-line); padding-top:18px; margin-top:18px; }
-.guide-page .hst-guide-section h4 { font-size:15px; }
 .guide-page .guide-table-card { border-color:var(--fw-line); border-radius:16px; }
 .guide-page .guide-table-card > header { padding:22px 24px; }
 .guide-page .guide-table-card header h2 { font-size:17px; }
@@ -99,18 +73,15 @@
 .guide-page .guide-history summary, .guide-page .guide-source-details summary { font-size:13px; }
 .guide-page summary:focus-visible { outline:3px solid var(--green-dark, #173e31); outline-offset:4px; border-radius:4px; }
 @media(max-width:1100px) {
-  .ft-program-shell .gp-work-layout { grid-template-columns:minmax(0,1fr) 230px; }
   .ft-program-shell .gp-program-bar { gap:16px; }
   .ft-program-shell .gp-program-actions { margin-left:0; }
 }
 @media(max-width:850px) {
-  .ft-program-shell .gp-work-layout { grid-template-columns:1fr; }
-  .ft-program-shell .gp-task-rail { grid-template-columns:1fr 1fr; }
   .guide-page .guide-edit-actions { justify-content:flex-start; }
 }
 @media(max-width:600px) {
   .ft-program-shell .gp-main-tabs { display:flex; width:100%; margin-bottom:22px; }
-  .ft-program-shell .gp-main-tabs button { flex:1; padding:9px; font-size:12px; }
+  .ft-program-shell .gp-main-tabs button { flex:1; min-width:0; padding:9px 4px; font-size:12px; }
   .ft-program-shell .gp-main-tabs svg { display:none; }
   .ft-program-shell .gp-panel { padding:16px; }
   .ft-program-shell .gp-program-toolbar h2 { font-size:21px; }
@@ -119,21 +90,13 @@
   .ft-program-shell .gp-bar-stat { flex:1; padding-left:0; border:0; }
   .ft-program-shell .gp-program-actions { width:100%; }
   .ft-program-shell .gp-task-rail { grid-template-columns:1fr; }
-  .ft-program-shell .gp-task-heading h4 { font-size:16px; }
-  .ft-program-shell .gp-task-heading .gp-status { margin-left:70px; }
-  .ft-program-shell .gp-task-actions { flex-direction:row; }
-  .ft-program-shell .gp-task-actions button { flex:1; min-width:0; font-size:12px; }
   .ft-program-shell .gp-view-tabs { gap:16px; }
   .ft-program-shell .gp-page .gp-view-tabs button { font-size:12px; }
-  .guide-page .guide-source-card, .guide-page .hst-panel { padding:16px; border-radius:14px; }
+  .guide-page .guide-source-card { padding:16px; border-radius:14px; }
   .guide-page .guide-source-heading h2 { font-size:17px; }
   .guide-page .guide-source-heading p { font-size:11px; }
   .guide-page .guide-metadata { gap:16px; }
   .guide-page .guide-metadata-primary { padding:14px; }
   .guide-page .guide-edit-actions button { padding:8px 12px; font-size:12px; }
-  .guide-page .hst-inventory .hst-figures { grid-template-columns:1fr; gap:8px; }
-  .guide-page .hst-inventory .hst-figures > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; }
-  .guide-page .hst-inventory .hst-figures small { margin:0; }
-  .guide-page .hst-inventory .hst-figures strong { font-size:19px; }
   .guide-page .guide-table-card > header { padding:18px 16px; }
 }

@@ -4,6 +4,9 @@ export type HstIrrigationSource={
  water_carryover?:{status:string;remaining_for_reassessment_l:number|null};
  irrigation_schedule_preview?:{status:string;tomorrow_at_least_l:number|null;fuzzy_demand_l:number|null};
  fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null;basis?:'SIMULATION_PROFILE'|'OPERATIONAL_PROFILE'}|null;
+ production_fuzzy?:{
+  status:string; recorded_at:string|null; expires_at:string|null; target_water_l:number|null; irrigation_needed:boolean|null;
+ };
 }
 type Display={kind:'recorded'|'capacity_preview'|'demand_preview'|'unavailable';label:string;valueL:number|null;note:string}
 const valid=(value:unknown):value is number=>typeof value==='number'&&Number.isFinite(value)&&value>=0;
@@ -11,6 +14,26 @@ const fresh=(at:string|null|undefined,now:number)=>{
  const age=now-Date.parse(at??'');
  return Number.isFinite(age)&&age>=-5000&&age<=120000;
 };
+export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.now()){
+ if(data?.planning_status!=='CURRENT'||!fresh(data.planning_recorded_at,now))return null;
+ const production=data.production_fuzzy;
+ if(production?.status==='READY'&&fresh(production.recorded_at,now)&&Date.parse(production.expires_at??'')>now&&valid(production.target_water_l)){
+  return {
+   valueL:production.target_water_l,
+   label:production.irrigation_needed===false?'Belum perlu penyiraman':'Target penyiraman Fuzzy',
+   source:'Profil produksi',
+  };
+ }
+ const preview=data.fuzzy_preview;
+ if(preview&&fresh(preview.recorded_at,now)&&valid(preview.illustrative_water_l)){
+  return {
+   valueL:preview.illustrative_water_l,
+   label:'Estimasi kebutuhan air',
+   source:preview.basis==='OPERATIONAL_PROFILE'?'Pratinjau profil Panduan':'Simulasi Fuzzy',
+  };
+ }
+ return null;
+}
 /** Select existing Python results only. No delivery or tank calculations are recreated here. */
 export function hstIrrigationDisplay(data:HstIrrigationSource|null|undefined,now=Date.now()):Display{
  const carryover=data?.water_carryover;

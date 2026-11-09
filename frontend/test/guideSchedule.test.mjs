@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {guideActivityDate,guideCalendarMonth,shiftGuideMonth,guideTaskSummary} from '../src/guideSchedule.ts'
+import {guideActivityDate,guideCalendarMonth,guideCalendarWeek,shiftGuideMonth,guideTaskSummary} from '../src/guideSchedule.ts'
 test('activity dates preserve planting day zero, preplant activities and month boundaries',()=>{
  assert.equal(guideActivityDate('2026-10-18',0),'2026-10-18')
  assert.equal(guideActivityDate('2026-10-18',10),'2026-10-28')
@@ -19,6 +19,13 @@ test('calendar starts Monday and includes every date once with complete weeks',(
 test('calendar navigation crosses year boundaries without day overflow',()=>{
  assert.equal(shiftGuideMonth('2026-12',1),'2027-01')
  assert.equal(shiftGuideMonth('2026-01',-1),'2025-12')
+})
+
+test('weekly schedule keeps Monday to Sunday when selecting dates across a year boundary', () => {
+ const week = ['2025-12-29', '2025-12-30', '2025-12-31', '2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04']
+ assert.deepEqual(guideCalendarWeek('2026-01-01'), week)
+ assert.deepEqual(guideCalendarWeek('2026-01-04'), week)
+ assert.equal(guideCalendarWeek(guideActivityDate('2026-01-04', 7))[0], '2026-01-05')
 })
 
 test('unfinished activities remain actionable after their scheduled HST',()=>{

@@ -1037,6 +1037,7 @@ export function fetchAiHstLiquidSummary(signal?:AbortSignal){
   water_carryover:{status:string;remaining_for_reassessment_l:number|null;planning_date:string|null};
   irrigation_schedule_preview?:{status:string;tomorrow_at_least_l:number|null;fuzzy_demand_l:number|null};
   fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null;basis?:'SIMULATION_PROFILE'|'OPERATIONAL_PROFILE'}|null;
+  production_fuzzy?:import('@spff/contracts').UnifiedAiDashboard['production_fuzzy'];
   operational_profile?:{status:'MISSING'|'REVIEW_REQUIRED'|'GUIDE_BOUND';version:string|null;target_water_l:number|null;calculation_ready:boolean;blockers:string[]};
  }>('/unified-ai/dashboard',{signal});
 }

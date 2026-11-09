@@ -7,7 +7,6 @@ import snapshot from './data/protocolGuide.json'
 import {columnName,guideRows,applyGuideOverrides,guideColumnKind,type GuideDataset,type GuideCell} from './protocolGuide'
 import './GuidePage.css'
 import './FertigationWorkspace.css'
-import {HstApprovalPanel} from './HstApprovalPanel'
 import {AutomationMethod} from './AutomationMethod'
 
 const guide=snapshot as GuideDataset
@@ -72,7 +71,7 @@ export function GuidePage(){
       <div className="guide-edit-actions">
         {editing?<><span className="guide-draft-count">{changes.length} sel diubah</span><button type="button" disabled={saving} onClick={()=>{setEditing(false);setDraft({});setNote('');setError('')}}>Batal</button>
           <button className="guide-save" type="submit" form="guide-edit-form" disabled={saving||!changes.length}><Save size={18} aria-hidden="true"/>{saving?'Menyimpan…':'Simpan perubahan'}</button></>:
-          <>{admin&&<button type="button" disabled={!compatible||!!error} onClick={()=>{sessionStorage.setItem('spff-guide-program-crop',crop);window.location.hash='#/fertigation'}}>Gunakan untuk program</button>}<button type="button" disabled={!view} aria-pressed={showOriginal} onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?'Lihat versi tersimpan':'Lihat acuan Excel'}</button>
+          <><button type="button" disabled={!view} aria-pressed={showOriginal} onClick={()=>setShowOriginal(value=>!value)}>{showOriginal?'Lihat versi tersimpan':'Lihat acuan Excel'}</button>
           {admin&&<button className="guide-save" type="button" disabled={!compatible||!!error} onClick={()=>{setShowOriginal(false);setEditing(true);setNotice('')}}><Pencil size={18} aria-hidden="true"/>Edit tabel</button>}
           <button type="button" aria-label="Muat ulang panduan" onClick={()=>setReload(value=>value+1)}><RotateCcw size={18} aria-hidden="true"/></button></>}
       </div>
@@ -83,16 +82,15 @@ export function GuidePage(){
     {editing&&<p className="guide-edit-note">Edit sel tabel di bawah. Periksa kembali total kebutuhan setelah mengedit.</p>}
 
     <section className="guide-source-card" aria-labelledby="guide-crop-heading">
-      <div className="guide-source-heading"><span className="guide-icon" aria-hidden="true"><BookOpen size={23}/></span><div><h2 id="guide-crop-heading">{sheet.sheetName}</h2><p>Informasi lahan dan tanaman</p></div>
+      <div className="guide-source-heading"><span className="guide-icon" aria-hidden="true"><BookOpen size={23}/></span><div><h2 id="guide-crop-heading">{sheet.sheetName}</h2><p>Acuan budidaya · Atur tanggal tanam dan jumlah tanaman di Program Fertigasi.</p></div>
         {sourceHst&&<span className="guide-hst"><strong>{sourceHst.display}</strong> HST <small>pada file</small></span>}
       </div>
       <dl className="guide-metadata guide-metadata-primary">{metadata.filter((_,index)=>[2,3,6,7].includes(index)).map(({label,value},index)=><div key={index}><dt>{label.display}</dt><dd>{value?.display??'—'}</dd></div>)}</dl>
       <details className="guide-growing-details"><summary>Detail tanaman & jarak tanam</summary><dl className="guide-metadata">{metadata.filter((_,index)=>![2,3,6,7].includes(index)).map(({label,value},index)=><div key={index}><dt>{label.display}</dt><dd>{value?.display??'—'}</dd></div>)}</dl></details>
       {notes.length>0&&<div className="guide-source-notes" aria-label="Catatan pada Excel">{notes.map((note,index)=><p key={index}>{note.display}</p>)}</div>}
     </section>
-    <HstApprovalPanel/>
     <form id="guide-edit-form" ref={form} className="guide-table-card" aria-labelledby="guide-table-heading" onSubmit={event=>{event.preventDefault();void save()}}>
-      <header><h2 id="guide-table-heading">Jadwal dan kebutuhan</h2><p className="guide-table-hint">Geser tabel untuk melihat semua kolom.</p>
+      <header><h2 id="guide-table-heading">Dosis dan jadwal acuan</h2><p className="guide-table-hint">Geser tabel untuk melihat semua kolom.</p>
         <div className="guide-mobile-layout" role="group" aria-label="Tampilan panduan">
           <button type="button" aria-pressed={mobileLayout==='cards'} onClick={()=>setMobileLayout('cards')}>Kartu</button>
           <button type="button" aria-pressed={mobileLayout==='table'} onClick={()=>setMobileLayout('table')}>Tabel lengkap</button>

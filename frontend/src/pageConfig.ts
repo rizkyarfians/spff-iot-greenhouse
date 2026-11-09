@@ -3,6 +3,7 @@ export type PageKey =
   | 'plants'
   | 'smart-soil'
   | 'fertigation'
+  | 'ai-automation'
   | 'guide'
   | 'controls'
   | 'logs'
@@ -11,6 +12,11 @@ export type PageKey =
   | 'settings'
   | 'users'
 
+
+export const fertigationSections = ['fertigation', 'ai-automation', 'guide'] as const
+export type FertigationSection = typeof fertigationSections[number]
+export const isFertigationSection = (page: PageKey): page is FertigationSection =>
+  fertigationSections.some(section => section === page)
 
 export const pageTitles:
 Record<
@@ -26,6 +32,7 @@ Record<
     'Smart Soil',
 
   fertigation: 'Program Fertigasi',
+  'ai-automation': 'AI & Otomasi',
   guide: 'Panduan',
   controls:
     'Kontrol Perangkat',
@@ -61,6 +68,7 @@ Record<
     'Bandingkan kondisi tanah dan udara dengan kebutuhan tanaman.',
 
   fertigation: 'Program Fertigasi',
+  'ai-automation': 'Pantau estimasi kebutuhan air, pupuk per HST, dan riwayat pompa.',
   guide: 'Protokol budidaya dan kebutuhan pupuk sesuai Excel.',
   controls:
     'Nyalakan pompa, pilih cara kerja, dan atur jadwal.',

@@ -10,20 +10,16 @@
 .hst-real-form>.hst-setup-hint,.hst-real-form>.hst-session-settings,.hst-real-form>.hst-setup-confirm{grid-column:1/-1}
 .hst-session-settings{padding:10px 12px;border:1px solid #dce5df;border-radius:9px}.hst-session-settings label{margin-top:10px}
 .hst-real-form .hst-setup-confirm{flex-direction:row;align-items:flex-start;line-height:1.5}.hst-real-form .hst-setup-confirm input{width:auto;flex:none;margin-top:4px}
-/* Production Guide-page HST card; scoped to the existing SPFF layout. */
-.guide-page > .hst-panel { background: white; border: 1px solid #d3e1d8; border-radius: 14px;
-  padding: 22px; margin: 0 0 22px; }
-.hst-panel-heading { display:flex; align-items:flex-start; justify-content:space-between;
-  flex-wrap:wrap; gap:10px; }
-.hst-panel-heading h3 { display:flex; gap:8px; align-items:center; margin:0; font-size:18px; }
-.hst-panel-heading span { font-size:12px; font-weight:700; color:var(--green-dark, #173e31); }
 .hst-panel { min-width: 0; }
-.hst-guide-nav { display: flex; flex-wrap: wrap; gap: 8px; }
-.hst-inventory { padding: 14px; border: 1px solid #d4e6dc; border-radius: 10px; background: #f0f8f3; }
-.hst-inventory > small { display: block; margin-top: 8px; }
-.hst-inventory .hst-note { margin: 6px 0 0; }
-.hst-guide-section { border-top: 1px solid #dce4e0; padding-top: 14px; scroll-margin-top: 80px; }
-.hst-guide-section h4 { margin: 0; font-size: 16px; }
+.hst-estimates-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 18px; font-size: 18px; }
+.hst-guide-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.hst-guide-nav button { min-height: 44px; }
+.hst-inventory { margin-bottom: 18px; }
+.hst-inventory .hst-figures { gap: 12px; }
+.hst-inventory .hst-figures > div { padding: 16px; background: #f2f8f4; border: 1px solid #e0ece4; border-radius: 12px; }
+.hst-inventory .hst-figures strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.hst-guide-section { border-top: 1px solid #dce4e0; padding-top: 18px; margin-top: 18px; }
+.hst-guide-section h3 { margin: 0; font-size: 16px; }
 .hst-guide-section > p, .hst-guide-section-heading p { margin: 5px 0; }
 .hst-guide-section-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .hst-session-history summary, .hst-guide-summary details summary { cursor: pointer; }
@@ -55,6 +51,10 @@
 .hst-result strong { display: inline-flex; align-items: center; gap: 6px; }
 .hst-empty { opacity: .75; padding: 14px 0; }
 @media (max-width: 600px) {
+  .page-card.hst-panel { padding: 16px; }
+  .hst-inventory .hst-figures { grid-template-columns: 1fr; gap: 8px; }
+  .hst-inventory .hst-figures > div { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; }
+  .hst-inventory .hst-figures strong { font-size: 19px; text-align: end; }
   .hst-figures { gap: 5px; }
   .hst-figures strong { font-size: 13px; }
   .hst-card { padding: 12px; }

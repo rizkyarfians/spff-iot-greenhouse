@@ -68,18 +68,18 @@ export function HstApprovalPanel() {
     ? liquid.fertilizer_tank_preview.estimated_liquid_volume_l : null;
   const irrigation = hstIrrigationDisplay(liquid);
 
-  return <article className="ain-panel hst-panel" aria-label="Estimasi air dan pupuk">
-    <div className="ain-panel-heading"><h3><CalendarCheck2 size={18} /> Estimasi air dan pupuk</h3></div>
-    <nav className="hst-guide-nav" aria-label="Bagian Panduan">
+  return <article className="page-card hst-panel" aria-labelledby="hst-estimates-heading">
+    <h2 className="hst-estimates-heading" id="hst-estimates-heading">
+      <CalendarCheck2 size={18} aria-hidden="true" /> Estimasi air dan pupuk
+    </h2>
+    <div className="hst-guide-nav" role="group" aria-label="Jenis estimasi">
       {(['watering', 'fertilizer'] as const).map(value => <button type="button" key={value}
         className={section === value ? 'hst-approve' : 'hst-refresh'}
-        aria-expanded={section === value} aria-controls={'guide-' + value}
+        aria-expanded={section === value} aria-controls={'hst-estimate-' + value}
         onClick={() => setSection(previous => previous === value ? null : value)}>
         {value === 'watering' ? 'Estimasi air' : 'Kebutuhan pupuk HST'}
       </button>)}
-      <button type="button" className="hst-refresh" onClick={() =>
-        document.getElementById('guide-table-heading')?.scrollIntoView({ block: 'start' })}>Jadwal</button>
-    </nav>
+    </div>
     <section className="hst-inventory" aria-label="Isi tandon">
       <div className="hst-figures">
         <div><small>Isi tandon air</small><strong>{litres(water)}</strong></div>
@@ -88,16 +88,16 @@ export function HstApprovalPanel() {
       </div>
     </section>
     <HstDoseVolumeSessions refreshProposals={refresh} />
-    <section id="guide-watering" className="hst-guide-section" hidden={section !== 'watering'}>
-      <h4>Estimasi kebutuhan air</h4>
+    <section id="hst-estimate-watering" className="hst-guide-section" hidden={section !== 'watering'}>
+      <h3>Estimasi kebutuhan air</h3>
       {liquidError ? <p role="status">{liquidError}</p> : <>
         <p>{litres(irrigation.valueL)}</p>
         <small>{irrigation.note}</small>
       </>}
     </section>
-    <section id="guide-fertilizer" className="hst-guide-section" hidden={section !== 'fertilizer'}>
+    <section id="hst-estimate-fertilizer" className="hst-guide-section" hidden={section !== 'fertilizer'}>
       <div className="hst-guide-section-heading">
-        <h4>Kebutuhan pupuk per HST</h4>
+        <h3>Kebutuhan pupuk per HST</h3>
         <button type="button" className="hst-refresh" disabled={loading} onClick={() => void refresh()}>
           <RefreshCw size={15} /> {loading ? 'Memuat…' : 'Perbarui'}
         </button>

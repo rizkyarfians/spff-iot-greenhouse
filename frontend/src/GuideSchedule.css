@@ -1,0 +1,158 @@
+.gp-week-schedule {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  color: var(--fw-ink, #1c2923);
+}
+
+.gp-week-schedule .gp-panel {
+  padding: clamp(14px, 2vw, 22px);
+}
+
+.gp-week-schedule h3 {
+  font-size: 1.0625rem;
+}
+
+.gp-week-schedule p {
+  margin: 4px 0 0;
+  color: #506159;
+}
+
+.gp-week-upcoming {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.gp-week-upcoming-list {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 4px 8px;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.gp-week-upcoming-list > li { flex: none; }
+
+.ft-program-shell .gp-page .gp-week-event {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0;
+  min-height: 48px;
+  max-width: 240px;
+  padding: 0;
+  text-align: left;
+  border-color: #cbd9d2;
+  color: #23372d;
+}
+
+.gp-week-event time {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  min-width: 56px;
+  padding: 8px;
+  background: #edf3eb;
+  border-inline-end: 1px solid #cbd9d2;
+  border-radius: 3px 0 0 3px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gp-week-event > span { display: grid; gap: 2px; padding: 8px 10px; overflow-wrap: anywhere; }
+.gp-week-event small { color: #506159; font-size: .8125rem; }
+
+.gp-week-toolbar, .gp-week-navigation, .gp-week-details-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gp-week-toolbar, .gp-week-details-header { justify-content: space-between; margin-bottom: 16px; }
+
+.ft-program-shell .gp-page :is(.gp-week-arrow, .gp-week-today) { min-height: 48px; }
+.ft-program-shell .gp-page .gp-week-arrow { width: 48px; padding: 0; flex: none; }
+
+.gp-week-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 124px), 1fr));
+  gap: 8px;
+}
+
+.ft-program-shell .gp-page .gp-week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 6px;
+  min-width: 0;
+  min-height: 136px;
+  padding: 12px;
+  border: 1px solid #d8e2dc;
+  background: #fafbf9;
+  color: #23372d;
+  text-align: left;
+}
+
+.ft-program-shell .gp-page .gp-week-day[data-weekend='true'] { background: #f1f4f1; }
+
+body .forest-theme .gp-page .gp-week-day[aria-pressed='true'] {
+  background: #edf5ec !important;
+  border-color: #347353 !important;
+  color: #19382a !important;
+  box-shadow: inset 0 0 0 1px #347353 !important;
+}
+
+.gp-week-day-heading { display: flex; align-items: center; justify-content: space-between; gap: 4px; flex-wrap: wrap; }
+.gp-week-day-heading > span:first-child { font-weight: 700; }
+.gp-week-day-number { font-size: 1.625rem; line-height: 1.15; font-weight: 700; font-variant-numeric: tabular-nums; }
+.gp-week-day-meta { color: #506159; font-size: .8125rem; }
+.gp-week-activity-name { font-size: .875rem; overflow-wrap: anywhere; }
+.gp-week-today-tag { color: #23523a; font-size: .75rem; font-weight: 700; }
+
+.gp-week-badge, .gp-week-total {
+  align-self: flex-start;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #edf2ee;
+  color: #3c5447;
+  font-size: .8125rem;
+  font-weight: 700;
+}
+
+.gp-week-badge.is-done { background: #e6f2dd; color: #36532f; }
+.gp-week-badge.is-pending { background: #fff1d8; color: #704718; }
+.gp-week-badge.is-next { background: #eaf0f7; color: #345471; }
+.gp-week-day .gp-week-badge { margin-top: auto; }
+
+.gp-week-empty { padding: 10px 12px; background: #f5f7f4; border-radius: 6px; }
+
+.gp-week-detail-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr));
+  gap: 12px;
+}
+
+.gp-week-detail {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dce5dd;
+  border-radius: 8px;
+  background: #fafbf9;
+}
+
+.gp-week-detail-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.gp-week-detail dl { margin: 8px 0 0; }
+.gp-week-detail dl > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid #e3ebe3; }
+.gp-week-detail dd { margin: 0; font-weight: 700; }
+.gp-week-details .gp-warning { margin-top: 12px; }
+
+@media (max-width: 600px) {
+  .gp-week-upcoming { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .gp-week-navigation { gap: 8px; }
+}

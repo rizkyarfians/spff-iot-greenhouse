@@ -1,14 +1,55 @@
 import {useEffect,useId,useRef,useState} from 'react'
-import type {FertigationProgress} from '@spff/contracts'
-import {X} from 'lucide-react'
-import {AiFertigationOverview} from './AiFertigationOverview'
-import {AdaptiveRecommendation} from './AdaptiveRecommendation'
+import type {AutomaticCycleStatus} from '@spff/contracts'
+import {Droplets,X} from 'lucide-react'
+import {fetchAiHstLiquidSummary,fetchAutomaticCycleStatus} from './api'
+import {HstPhaseCard} from './HstFertilizationNotice'
+import {fuzzyIrrigationEstimate} from './hstIrrigationSummary'
 import './FloatingAiRecommendation.css'
 
-/** Read-only recommendation drawer; no chat prompt or pump action is sent. */
-export function FloatingAiRecommendation({deviceId,report,onOpenProgram}:{
- deviceId:string;report:FertigationProgress|null;onOpenProgram:()=>void
-}){
+const litres=new Intl.NumberFormat('id-ID',{maximumFractionDigits:2})
+
+function AutomaticSummary({deviceId}:{deviceId:string}){
+ const [liquid,setLiquid]=useState<Awaited<ReturnType<typeof fetchAiHstLiquidSummary>>|null>(null)
+ const [cycle,setCycle]=useState<AutomaticCycleStatus|null>(null)
+ const [loading,setLoading]=useState(true)
+ useEffect(()=>{
+  const controller=new AbortController()
+  const {signal}=controller
+  let pending=false
+  async function refresh(){
+   if(pending)return
+   pending=true
+   const fuzzyRequest=fetchAiHstLiquidSummary(signal).then(
+    value=>{if(!signal.aborted)setLiquid(value)},
+    ()=>{if(!signal.aborted)setLiquid(null)},
+   )
+   const cycleRequest=deviceId?fetchAutomaticCycleStatus(deviceId,signal).then(
+    value=>{if(!signal.aborted)setCycle(value)},
+    ()=>{if(!signal.aborted)setCycle(null)},
+   ):undefined
+   await Promise.all([fuzzyRequest,cycleRequest])
+   pending=false
+   if(!signal.aborted)setLoading(false)
+  }
+  void refresh()
+  const timer=setInterval(()=>void refresh(),15000)
+  return()=>{controller.abort();clearInterval(timer)}
+ },[deviceId])
+ const estimate=fuzzyIrrigationEstimate(liquid)
+ return <div className="ai-floating-content">
+  <section className="ai-floating-fuzzy" aria-label="Penyiraman Fuzzy">
+   <h2><Droplets size={18} aria-hidden="true"/>Penyiraman Fuzzy</h2>
+   {estimate?<dl><dt>{estimate.label}</dt><dd>{litres.format(estimate.valueL)} L</dd></dl>:
+    <p>{loading?'Memuat estimasi…':'Estimasi terbaru belum tersedia.'}</p>}
+   {estimate&&<small>{estimate.source}</small>}
+  </section>
+  {cycle?<HstPhaseCard cycle={cycle}/>:<p className="ai-floating-cycle-status" role="status">
+   {loading&&deviceId?'Memuat program otomatis…':deviceId?'Status program otomatis belum tersedia.':'Belum ada perangkat untuk program otomatis.'}
+  </p>}
+ </div>
+}
+
+export function FloatingAiRecommendation({deviceId}:{deviceId:string}){
  const [open,setOpen]=useState(false)
  const root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),closeButton=useRef<HTMLButtonElement>(null)
  const panelId=useId(),titleId=useId()
@@ -26,10 +67,7 @@ export function FloatingAiRecommendation({deviceId,report,onOpenProgram}:{
    <header className="ai-floating-header"><div><strong id={titleId}>Kebutuhan tanaman</strong></div>
     <button type="button" className="ai-floating-close" ref={closeButton} aria-label="Tutup kebutuhan tanaman" onClick={close}><X size={19} aria-hidden="true"/></button>
    </header>
-   <AiFertigationOverview deviceId={deviceId} report={report}/>
-   <details className="afo-details"><summary>Detail sensor &amp; program</summary>
-   <AdaptiveRecommendation deviceId={deviceId} report={report} onOpen={()=>{close();onOpenProgram()}}/>
-   </details>
+   <AutomaticSummary key={deviceId} deviceId={deviceId}/>
   </section>}
   <button type="button" className={`ai-floating-trigger${open?' is-open':''}`} ref={trigger} aria-label={open?'Tutup kebutuhan tanaman':'Buka kebutuhan tanaman'}
    aria-expanded={open} aria-controls={open?panelId:undefined} aria-haspopup="dialog" onClick={()=>open?close():setOpen(true)}>

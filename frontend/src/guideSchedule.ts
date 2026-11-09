@@ -15,6 +15,12 @@ export function guideCalendarMonth(month:string){
 }
 export function shiftGuideMonth(month:string,delta:number){const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+delta);return d.toISOString().slice(0,7)}
 
+export function guideCalendarWeek(date: string): string[] {
+ const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
+ const daysSinceMonday = (weekday + 6) % 7
+ return Array.from({ length: 7 }, (_, day) => guideActivityDate(date, day - daysSinceMonday))
+}
+
 export function guideTaskSummary(program:Pick<GuideProgram,'plan'|'hst'|'completedActivityIds'>){
  const due=program.plan.activities.filter(a=>a.hst!==null&&a.hst<=program.hst)
  const done=due.filter(a=>program.completedActivityIds.includes(a.id))

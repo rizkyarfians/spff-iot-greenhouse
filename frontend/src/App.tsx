@@ -1,7 +1,6 @@
 import {dashboardSensorsFor,type DashboardSensorGroup} from './dashboardSensors'
 import {FloatingAiRecommendation} from './FloatingAiRecommendation'
 import {HstFertilizationNotice} from './HstFertilizationNotice'
-import {useFertigationProgress} from './useFertigationProgress'
 import { ChartHover } from './ChartHover'
 import { ChartYAxis } from './ChartYAxis'
 import { ParameterPicker } from './ParameterPicker'
@@ -22,7 +21,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   BatteryMedium,
-  BookOpen,
   Bell,
   BellRing,
   CalendarDays,
@@ -55,6 +53,8 @@ import {
 
 import {
   pageTitles,
+  fertigationSections,
+  isFertigationSection,
   isPageEnabled,
   pageDestination,
   type PageKey,
@@ -468,7 +468,6 @@ Array<{
     icon: FlaskConical,
     label: 'Program Fertigasi',
   },
-  {key:'guide',icon:BookOpen,label:'Panduan'},
   {
     key: 'controls',
     icon: SlidersHorizontal,
@@ -502,11 +501,7 @@ Array<{
 ]
 
 
-const pageKeys =
-  navItems.map(
-    (item) =>
-      item.key,
-  )
+const pageKeys = [...navItems.map(item => item.key), ...fertigationSections]
 
 
 function pageFromHash():
@@ -801,6 +796,7 @@ function App() {
     >({})
 
 
+  const activeNavPage = isFertigationSection(activePage) ? 'fertigation' : activePage
   const visibleNavItems =
     useMemo(
       () =>
@@ -1492,7 +1488,6 @@ const soilNpkGroups =
     backendData?.devices[0]
 
 
-  const aiProgress=useFertigationProgress(primaryDevice?.deviceId??'',connectionState==='connected')
 
   const openAlarms =
     backendData?.alarms.filter(
@@ -1839,7 +1834,7 @@ const soilNpkGroups =
                 <button
                   className={
                     `drawer-nav-item ${
-                      activePage
+                      activeNavPage
                       === item.key
                         ? 'is-active'
                         : ''
@@ -1852,7 +1847,7 @@ const soilNpkGroups =
                     item.key
                   }
                   aria-current={
-                    activePage
+                    activeNavPage
                     === item.key
                       ? 'page'
                       : undefined
@@ -2238,7 +2233,7 @@ const soilNpkGroups =
             <h1>
               {
                 pageTitles[
-                  activePage
+                  activeNavPage
                 ]
               }
             </h1>
@@ -3038,6 +3033,7 @@ const soilNpkGroups =
 
             : (
                 <SecondaryPage
+                  onNavigate={navigateTo}
                   page={
                     activePage
                   }
@@ -3057,7 +3053,7 @@ const soilNpkGroups =
               )
         }
       </main>
-      <FloatingAiRecommendation deviceId={primaryDevice?.deviceId??''} report={aiProgress.report} onOpenProgram={()=>navigateTo('fertigation')}/>
+      <FloatingAiRecommendation deviceId={primaryDevice?.deviceId??''}/>
     </div>
   )
 }

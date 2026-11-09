@@ -269,7 +269,7 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
     dispatchEnabled:false,updatedAt:null,phase:null,nextHst:null,waterStatus:null };
   if (!(await pool.query("SELECT to_regclass('spff.automatic_cycle_states') IS NOT NULL AS ready")).rows[0]?.ready) return empty;
   const row=(await pool.query(`SELECT c.*,p.phase_number,p.title,p.hst,p.product,p.method,p.target_g,p.delivered_g,
-    p.formula_status,p.fulfilled,p.activity_id,e.phase_id AS estimate_id,e.profile_snapshot,e.baseline_ec,e.baseline_at,
+    p.formula_status,p.fulfilled,p.activity_id,p.program_id,e.phase_id AS estimate_id,e.profile_snapshot,e.baseline_ec,e.baseline_at,
     e.unmeasured_intervals,e.reason AS estimate_reason,e.estimated_g,p.started_at AS phase_started_at,p.updated_at AS phase_updated_at,
     (SELECT max(recorded_at) FROM spff.ec_dose_intervals i WHERE i.phase_id=e.phase_id AND i.status='measured') AS last_recorded_at,
     (SELECT jsonb_build_object('at',i.recorded_at,'ecUsCm',i.ec_us_cm,'volumeL',i.volume_l,'massG',i.mass_g)
@@ -293,7 +293,7 @@ async function automaticCycleStatus(deviceId: string): Promise<import('@spff/con
       row.phase_started_at||row.estimate_id?'unmeasured' as const:'empty' as const};
   return {deviceId,mode:row.mode,reason:row.reason,dispatchEnabled:row.dispatch_enabled,updatedAt:row.updated_at.toISOString(),
     nextHst:row.next_hst,waterStatus:row.water_status,
-    phase:row.phase_id?{activityId:row.activity_id,phaseNumber:row.phase_number,title:row.title,hst:row.hst,
+    phase:row.phase_id?{programId:row.program_id,activityId:row.activity_id,phaseNumber:row.phase_number,title:row.title,hst:row.hst,
       product:row.product,method:row.method,targetG:row.target_g,deliveredG:row.delivered_g,
       remainingG:row.target_g!==null&&row.delivered_g!==null?Math.max(0,row.target_g-row.delivered_g):null,
       formulaStatus:row.formula_status,fulfilled:row.fulfilled,estimated:!!row.estimate_id,

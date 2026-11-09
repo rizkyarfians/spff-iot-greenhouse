@@ -17,8 +17,6 @@ import { ParameterPicker } from './ParameterPicker'
 import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
-  lazy,
-  Suspense,
   useEffect,
   useMemo,
   useRef,
@@ -82,9 +80,7 @@ import {
   useAuth,
 } from './authContext'
 
-import type {
-  PageKey,
-} from './pageConfig'
+import { isFertigationSection, type PageKey } from './pageConfig'
 
 import {
   farmerReasonLabel,
@@ -520,7 +516,6 @@ function PlantStatusPage({
 }
 
 
-const GuidePage=lazy(()=>import('./GuidePage').then(module=>({default:module.GuidePage})))
 
 const controlMetadata:
 Record<
@@ -4561,6 +4556,7 @@ function SettingsPage({
 
 type SecondaryPageProps =
   ConnectedPageProps & {
+    onNavigate: (page: PageKey) => void
     page:
       Exclude<
         PageKey,
@@ -4574,9 +4570,11 @@ export function SecondaryPage({
   data,
   connectionState,
   onRefresh,
+  onNavigate,
 }: SecondaryPageProps) {
-  if (page === 'fertigation') return <FertigationPage devices={data?.devices ?? []} />
-  if (page === 'guide') return <Suspense fallback={<section className="guide-page" role="status">Memuat panduan…</section>}><GuidePage/></Suspense>
+  if (isFertigationSection(page)) {
+    return <FertigationPage devices={data?.devices ?? []} section={page} onNavigate={onNavigate} />
+  }
 
   const connectedProps = {
     data,
