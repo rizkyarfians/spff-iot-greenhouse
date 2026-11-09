@@ -8,7 +8,6 @@ import {ScheduleTimeRange} from './ScheduleTimeRange'
 import {mergeAutomaticDraft} from './automaticDraftState'
 import {isAutomaticControlConfig} from '@spff/contracts'
 import { WaterInterlockSettings } from './WaterInterlockSettings'
-import { SoilEcExecutionSettings } from './SoilEcExecutionSettings'
 import { SensorSettings } from './SensorSettings'
 import { FertigationPage } from './FertigationPage'
 import { ChartHover } from './ChartHover'
@@ -41,6 +40,7 @@ import {
   SlidersHorizontal,
   ShowerHead,
   Trash2,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -689,6 +689,7 @@ function ControlsPage({
   const commandInFlight = useRef(false)
   const [sendingCommand, setSendingCommand] = useState(false)
   const [controlTab, setControlTab] = useState<'schedule' | 'sensor' | null>(null)
+  const settingsDialog = useRef<HTMLDialogElement>(null)
   const [sensorPump, setSensorPump] = useState<'water' | 'fertilizer'>('water')
   const [showScheduleForm, setShowScheduleForm] = useState(false)
   const [savingSchedule, setSavingSchedule] = useState(false)
@@ -788,6 +789,14 @@ function ControlsPage({
     ?? automaticDraft.desiredMode
 
   const selectedMode = mode
+  const automaticSettingsAvailable = selectedMode === 'automatic' || automaticSettingsRequested
+  const automaticSettingsOpen = automaticSettingsAvailable && controlTab !== null
+  useEffect(() => {
+    if (!automaticSettingsOpen) return
+    const dialog = settingsDialog.current
+    dialog?.showModal()
+    return () => dialog?.close()
+  }, [automaticSettingsOpen])
 
   const automaticModeRequested =
     desiredMode === 'automatic'
@@ -1325,15 +1334,28 @@ function ControlsPage({
             disabled={sendingCommand || connectionState !== 'connected' || controls.length === 0}>Emergency Stop</button>
         </div>
 
-        {(selectedMode === 'automatic' || automaticSettingsRequested) && <details className="controls-automation">
-          <summary>Pengaturan otomatis</summary>
-        <SoilEcExecutionSettings devices={data?.devices??[]} admin={isAdmin} connected={connectionState==='connected'}/>
-        <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'schedule'} id="schedule-settings-button" aria-controls="schedule-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'schedule' ? null : 'schedule') }}>
-          <span className="control-icon"><CalendarClock aria-hidden="true" size={20} /></span>
-          <span><strong>Jadwal</strong><small>{activeScheduleCount ? `${activeScheduleCount} jadwal aktif` : 'Atur waktu nyala dan mati'}</small></span>
-          <ChevronRight aria-hidden="true" size={18} />
-        </button>
+        {automaticSettingsAvailable && <div className="controls-automation">
+          <button className="secondary-button" type="button" aria-haspopup="dialog" aria-controls="automatic-settings-dialog"
+            onClick={() => { setCommandNotice(''); setControlTab('sensor') }}>
+            <SlidersHorizontal size={16} aria-hidden="true" /> Pengaturan otomatis
+          </button>
+        </div>}
+
+        <dialog ref={settingsDialog} className="controls-settings-dialog" id="automatic-settings-dialog"
+          aria-labelledby="automatic-settings-title"
+          onCancel={event => { event.preventDefault(); setControlTab(null) }}>
+          <header className="controls-settings-header">
+            <h2 id="automatic-settings-title">Pengaturan otomatis</h2>
+            <button className="controls-settings-close" type="button" aria-label="Tutup pengaturan otomatis" onClick={() => setControlTab(null)}>
+              <X size={20} aria-hidden="true" />
+            </button>
+          </header>
+          <div className="segmented-control controls-settings-tabs" role="group" aria-label="Pilih pengaturan otomatis">
+            <button type="button" id="sensor-settings-button" aria-pressed={controlTab === 'sensor'} aria-controls="sensor-settings-panel" onClick={() => setControlTab('sensor')}>Sensor</button>
+            <button type="button" id="schedule-settings-button" aria-pressed={controlTab === 'schedule'} aria-controls="schedule-settings-panel" onClick={() => setControlTab('schedule')}>Jadwal</button>
+          </div>
         <section className="controls-settings-panel" id="schedule-settings-panel" hidden={controlTab !== 'schedule'} aria-labelledby="schedule-settings-button">
+        {controlTab === 'schedule' && commandNotice && <p className="controls-message" role="status">{commandNotice}</p>}
       {
         controlTab === 'schedule' && (
       <div className="actuator-schedule-card">
@@ -1718,11 +1740,6 @@ function ControlsPage({
 
 
         </section>
-        <button className="controls-setting-row" type="button" aria-expanded={controlTab === 'sensor'} id="sensor-settings-button" aria-controls="sensor-settings-panel" onClick={() => { setCommandNotice(''); setControlTab(controlTab === 'sensor' ? null : 'sensor') }}>
-          <span className="control-icon"><SlidersHorizontal aria-hidden="true" size={20} /></span>
-          <span><strong>Pengaturan Sensor</strong><small>Atur batas sensor untuk setiap pompa</small></span>
-          <ChevronRight aria-hidden="true" size={18} />
-        </button>
         <section className="controls-settings-panel" id="sensor-settings-panel" hidden={controlTab !== 'sensor'} aria-labelledby="sensor-settings-button">
         {visibleModeFeedback && controlTab === 'sensor' && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
         {modeFeedback?.tone === 'success' && controlTab === 'sensor' && <p className="controls-message" role="status">Pengaturan tersimpan dan diterapkan pada alat.</p>}
@@ -1981,7 +1998,7 @@ function ControlsPage({
 
 
         </section>
-        </details>}
+        </dialog>
       </div>
       <DatalogHistory data={data} connectionState={connectionState} logType="actuator" />
     </section>

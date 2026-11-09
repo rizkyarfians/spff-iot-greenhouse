@@ -5,15 +5,15 @@ import assert from 'node:assert/strict'
 const source = readFileSync(new URL('../src/SecondaryPages.tsx', import.meta.url), 'utf8')
 const controls = source.slice(source.indexOf('function ControlsPage('), source.indexOf('function LogsPage('))
 
-test('controls keeps pumps visible and opens automation inline below its buttons', () => {
+test('controls keeps pump actions outside the shared automation dialog', () => {
   assert.ok(controls.indexOf('controls-actuators') < controls.indexOf('controls-automation'))
+  const dialog = controls.slice(controls.indexOf('<dialog ref={settingsDialog}'), controls.indexOf('</dialog>'))
+  assert.match(dialog, /id="automatic-settings-dialog"/)
+  assert.match(dialog, /id="sensor-settings-button"[^>]+aria-controls="sensor-settings-panel"/)
+  assert.match(dialog, /id="schedule-settings-button"[^>]+aria-controls="schedule-settings-panel"/)
+  assert.doesNotMatch(dialog, /Emergency Stop|<ToggleButtons\s+aria-label=\{\x60Kontrol/)
   assert.match(controls, /<section[^>]+id="schedule-settings-panel"[^>]+hidden=\{controlTab !== 'schedule'\}/)
   assert.match(controls, /<section[^>]+id="sensor-settings-panel"[^>]+hidden=\{controlTab !== 'sensor'\}/)
-  assert.ok(controls.indexOf('id="schedule-settings-button"') < controls.indexOf('id="schedule-settings-panel"'))
-  assert.ok(controls.indexOf('id="schedule-settings-panel"') < controls.indexOf('id="sensor-settings-button"'))
-  assert.ok(controls.indexOf('id="sensor-settings-button"') < controls.indexOf('id="sensor-settings-panel"'))
-  assert.ok(controls.indexOf('controls-automation') < controls.indexOf('<section className="controls-settings-panel'))
-  assert.doesNotMatch(controls, /showModal|<dialog/)
   assert.doesNotMatch(controls, /Mode alat:|Pengaturan mode sudah diterapkan|operation-note/)
   assert.match(controls, /controlTab === 'schedule' &&/)
   assert.match(controls, /controlTab === 'sensor' &&/)

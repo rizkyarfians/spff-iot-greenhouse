@@ -1,8 +1,6 @@
 .controls-page { display: flex; flex-direction: column; gap: 16px; }
 .controls-page > * { min-width: 0; width: 100%; box-sizing: border-box; }
 .controls-settings-panel[hidden], .controls-schedule-panel[hidden] { display: none; }
-.controls-setting-row[aria-expanded="true"] { background: var(--green-soft); }
-.controls-setting-row[aria-expanded="true"] > svg:last-child { transform: rotate(90deg); }
 .controls-page > .page-card { max-width: 920px; margin-inline: auto; }
 .controls-page .controls-actuators > .control-toolbar { display: grid; grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr); align-items: center; gap: 4px; }
 .controls-page .control-toolbar .segmented-control { grid-column: 2; border-radius: 999px; }
@@ -32,14 +30,26 @@
 .controls-emergency-stop { min-height: 44px; padding: 8px 16px; border: 1px solid #a12e25; background: #a12e25; color: #fff; font-size: var(--font-size-label); font-weight: 700; cursor: pointer; }
 .controls-emergency-stop:hover:not(:disabled) { background: #84231c; border-color: #84231c; }
 .controls-emergency-stop:disabled { opacity: .5; cursor: not-allowed; }
-.controls-setting-row { display: flex; align-items: center; gap: 16px; width: 100%; margin-top: 12px; padding: 16px; border: 0; border-radius: 14px; background: #f5f7f6; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.controls-setting-row:hover { background: var(--green-soft); }
-.controls-automation { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
-.controls-automation > summary { width: fit-content; margin-left: auto; padding: 8px 0; cursor: pointer; font-weight: 700; color: var(--green-dark); }
-.controls-automation > .controls-settings-panel { padding: 16px 12px; border: 1px solid var(--line); border-radius: 12px; }
-.controls-setting-row > span:nth-child(2) { flex: 1; min-width: 0; }
-.controls-setting-row small { display: block; margin-top: 5px; color: #536560; font-size: var(--font-size-label); }
-.controls-setting-row:focus-visible, .controls-emergency-stop:focus-visible, .controls-automation > summary:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
+.controls-automation { display: flex; justify-content: flex-end; margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.controls-automation > button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.controls-settings-dialog {
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: clamp(14px, 3vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+}
+.controls-settings-dialog::backdrop { background: #123c3566; }
+.controls-settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.controls-settings-close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+.controls-settings-close:hover { background: var(--green-soft); }
+.controls-page .controls-settings-tabs { width: fit-content; margin-bottom: 20px; border-radius: 999px; }
+.controls-settings-tabs > button { min-width: 96px; min-height: 40px; border-radius: 999px !important; }
+.controls-emergency-stop:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
 .controls-page .automatic-profile-grid { display: block; }
 .controls-page .automatic-profile[hidden] { display: none; }
 .controls-page .automatic-profile { padding: 0; border: 0; background: transparent; }
@@ -71,7 +81,6 @@
   .controls-page .automatic-control-header { align-items: flex-start; flex-wrap: wrap; }
   .controls-page .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
   .controls-page .schedule-item-copy { flex: 1; min-width: 60%; }
-  .controls-setting-row { padding: 12px; gap: 12px; }
 }
 
 .sensor-rules-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }
@@ -110,4 +119,3 @@
 .sensor-enable-card:disabled, .schedule-edit-button:disabled { opacity:.55; cursor:default; }
 @media(min-width:900px) { .controls-settings-panel .schedule-item-copy { min-width:180px; } }
 @media(max-width:640px) { .sensor-pump-cards { grid-template-columns:1fr; } .sensor-rules-intro { flex-direction:column; } .controls-settings-panel .automatic-fields { grid-template-columns:1fr; } .sensor-apply-footer { padding:14px; } .sensor-apply-actions > button { flex:1; min-width:140px; } }
-.controls-automation > .setting-toggle-row { margin-top:16px; padding:16px; border:1px solid var(--line); border-radius:12px; background:#f5f8f6; }
