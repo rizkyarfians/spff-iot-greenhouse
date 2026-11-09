@@ -47,7 +47,7 @@
 .controls-settings-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .controls-settings-close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
 .controls-settings-close:hover { background: var(--green-soft); }
-.controls-page .controls-settings-tabs { width: fit-content; margin-bottom: 20px; border-radius: 999px; }
+.controls-page .controls-settings-tabs { width: fit-content; margin: 0 auto 20px; border-radius: 999px; }
 .controls-settings-tabs > button { min-width: 96px; min-height: 40px; border-radius: 999px !important; }
 .controls-emergency-stop:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
 .controls-page .automatic-profile-grid { display: block; }
@@ -57,8 +57,7 @@
 .controls-page .automatic-fields { margin-top: 16px; }
 .controls-advanced { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
 .controls-advanced summary { cursor: pointer; font-size: var(--font-size-body); font-weight: 700; }
-.controls-page .schedule-card-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.controls-page .schedule-card-header > div:first-child { margin-right: auto; }
+.controls-page .schedule-card-header { display: flex; flex-direction: row; justify-content: flex-end; align-items: center; gap: 12px; }
 .controls-page .schedule-summary { display: none; }
 .controls-page .actuator-schedule-list { margin-top: 18px; }
 .controls-page .actuator-schedule-item { border-radius: 0; border: 0; border-top: 1px solid var(--line); background: transparent; }
@@ -68,8 +67,9 @@
 .controls-settings-panel .automatic-control-card, .controls-settings-panel .actuator-schedule-card { padding: 0; border: 0; box-shadow: none; background: transparent; }
 .controls-settings-panel .automatic-fields { grid-template-columns: 1fr; }
 .controls-settings-panel .automatic-control-header { margin-bottom: 16px; }
-.controls-settings-panel .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
-.controls-settings-panel .schedule-item-copy { flex: 1; min-width: 60%; }
+.controls-settings-panel .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 0; }
+.controls-settings-panel .schedule-item-copy { flex: 1 1 130px; min-width: 0; }
+.schedule-row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; max-width: 100%; margin-inline-start: auto; }
 .controls-schedule-panel .schedule-builder { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 0; border: 0; margin-top: 24px; background: transparent; }
 .controls-schedule-panel .schedule-field { grid-column: auto; }
 .controls-schedule-panel .schedule-add-button { width: 100%; }
@@ -79,8 +79,6 @@
   .controls-page .control-toolbar .segmented-control button { min-width: 76px; }
   .controls-page .automatic-fields { grid-template-columns: 1fr; }
   .controls-page .automatic-control-header { align-items: flex-start; flex-wrap: wrap; }
-  .controls-page .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
-  .controls-page .schedule-item-copy { flex: 1; min-width: 60%; }
 }
 
 .sensor-rules-intro { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }
@@ -117,5 +115,4 @@
 .schedule-edit-button { display:inline-flex; align-items:center; gap:6px; padding:9px 12px; border:1px solid var(--line); background:#fff; color:var(--green-dark); border-radius:8px; font:inherit; font-size:12px; cursor:pointer; }
 .sensor-enable-card:focus-visible, .sensor-pump-card:focus-visible, .schedule-edit-button:focus-visible { outline:3px solid var(--green-dark); outline-offset:3px; }
 .sensor-enable-card:disabled, .schedule-edit-button:disabled { opacity:.55; cursor:default; }
-@media(min-width:900px) { .controls-settings-panel .schedule-item-copy { min-width:180px; } }
 @media(max-width:640px) { .sensor-pump-cards { grid-template-columns:1fr; } .sensor-rules-intro { flex-direction:column; } .controls-settings-panel .automatic-fields { grid-template-columns:1fr; } .sensor-apply-footer { padding:14px; } .sensor-apply-actions > button { flex:1; min-width:140px; } }

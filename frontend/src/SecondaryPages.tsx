@@ -1281,7 +1281,7 @@ function ControlsPage({
             const failureReason = failed && farmerReasonLabel(events.find(event => event.reason)?.reason)
             const pumpStatus = connectionState !== 'connected' || control.state === 'offline'
               || getTelemetryFreshness(control.updatedAt, true) !== 'fresh'
-              ? 'Status belum terbarui'
+              ? null
               : control.state === 'fault' ? 'Bermasalah' : control.isActive ? 'Menyala' : 'Mati'
             return <article className="control-card" key={control.id}>
               <div className="controls-pump-info">
@@ -1289,7 +1289,7 @@ function ControlsPage({
                 <div className="controls-pump-details">
                   <h3>{control.name}</h3>
                   <div className="controls-pump-report">
-                    <span>{pumpStatus}</span>
+                    {pumpStatus && <span>{pumpStatus}</span>}
                     <div className="controls-pump-time">
                       <span>Laporan</span>
                       {commandEvent
@@ -1653,66 +1653,46 @@ function ControlsPage({
                         </span>
 
 
-                        <ToggleButtons
-                          className={
-                            `switch ${
-                              schedule.enabled
-                                ? 'is-on'
-                                : ''
-                            }`
-                          }
-                          type="button"
-                          role="switch"
-                          aria-checked={
-                            schedule.enabled
-                          }
-                          aria-label={
-                            `${
-                              schedule.enabled
-                                ? 'Nonaktifkan'
-                                : 'Aktifkan'
-                            } jadwal ${schedule.actuatorName}`
-                          }
-                          onClick={() =>
-                            void toggleSchedule(
-                              schedule.id,
-                              schedule.enabled,
-                            )
-                          }
-                          disabled={
-                            !isAdmin || savingSchedule || connectionState !== 'connected'
-                          }
-                        >
-                          <span />
-                        </ToggleButtons>
-
-
-                        <button type="button" className="schedule-edit-button" disabled={!isAdmin || savingSchedule || connectionState!=='connected' || !schedule.updatedAt}
-                          onClick={()=>{if(!schedule.updatedAt)return;setEditingSchedule({id:schedule.id,updatedAt:schedule.updatedAt});
-                            setScheduleDraft({controlId:schedule.actuatorKey,onTime:schedule.onTime,offTime:schedule.offTime,repeatRule:schedule.repeatRule,runDate:schedule.runDate??jakartaDateInputValue()});
-                            setCommandNotice('');setShowScheduleForm(true);
-                            window.requestAnimationFrame(()=>document.getElementById('schedule-form-panel')?.scrollIntoView({block:'nearest',behavior:'smooth'}));
-                          }} aria-label={`Edit jadwal ${schedule.actuatorName} ${schedule.onTime}`}><Pencil size={15} aria-hidden="true"/> Edit</button>
-
-                        <button
-                          className="schedule-delete-button"
-                          type="button"
-                          aria-label={
-                            `Hapus jadwal ${schedule.actuatorName}`
-                          }
-                          onClick={() =>
-                            void deleteSchedule(
-                              schedule.id,
-                            )
-                          }
-                          disabled={!isAdmin || savingSchedule || connectionState !== 'connected'}
-                        >
-                          <Trash2
-                            size={15}
-                            strokeWidth={1.9}
-                            aria-hidden="true"
+                        <div className="schedule-row-actions">
+                          <ToggleButtons
+                            aria-checked={schedule.enabled}
+                            aria-label={`Status jadwal ${schedule.actuatorName}`}
+                            onClick={() => void toggleSchedule(schedule.id, schedule.enabled)}
+                            disabled={!isAdmin || savingSchedule || connectionState !== 'connected'}
                           />
-                        </button>
+                          <button
+                            type="button"
+                            className="schedule-edit-button"
+                            disabled={!isAdmin || savingSchedule || connectionState !== 'connected' || !schedule.updatedAt}
+                            aria-label={`Edit jadwal ${schedule.actuatorName} ${schedule.onTime}`}
+                            onClick={() => {
+                              if (!schedule.updatedAt) return
+                              setEditingSchedule({ id: schedule.id, updatedAt: schedule.updatedAt })
+                              setScheduleDraft({
+                                controlId: schedule.actuatorKey,
+                                onTime: schedule.onTime,
+                                offTime: schedule.offTime,
+                                repeatRule: schedule.repeatRule,
+                                runDate: schedule.runDate ?? jakartaDateInputValue(),
+                              })
+                              setCommandNotice('')
+                              setShowScheduleForm(true)
+                              window.requestAnimationFrame(() => document.getElementById('schedule-form-panel')
+                                ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+                            }}
+                          >
+                            <Pencil size={15} aria-hidden="true" /> Edit
+                          </button>
+                          <button
+                            className="schedule-delete-button"
+                            type="button"
+                            aria-label={`Hapus jadwal ${schedule.actuatorName}`}
+                            onClick={() => void deleteSchedule(schedule.id)}
+                            disabled={!isAdmin || savingSchedule || connectionState !== 'connected'}
+                          >
+                            <Trash2 size={15} strokeWidth={1.9} aria-hidden="true" />
+                          </button>
+                        </div>
                       </article>
                     )
                   },
