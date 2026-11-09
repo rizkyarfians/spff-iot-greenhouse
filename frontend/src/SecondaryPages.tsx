@@ -1979,6 +1979,7 @@ function ControlsPage({
         </section>
         </details>}
       </div>
+      <DatalogHistory data={data} connectionState={connectionState} logType="actuator" />
     </section>
   )
 }
@@ -2088,39 +2089,23 @@ const datalogDisplayRow = (
 }
 
 
-function LogsPage({
+function LogsPage({ data, connectionState }: ConnectedPageProps) {
+  return (
+    <section className="secondary-page" aria-label="Datalog sensor">
+      <DatalogHistory data={data} connectionState={connectionState} logType="sensor" />
+    </section>
+  )
+}
+
+function DatalogHistory({
   data,
   connectionState,
-}: ConnectedPageProps) {
-  const [
-    logType,
-    setLogType,
-  ] =
-    useState<
-      'sensor'
-      | 'actuator'
-    >(
-      'sensor',
-    )
-
-
-  const [
-    sensor,
-    setSensor,
-  ] =
-    useState(
-      'all',
-    )
-
-
-  const [
-    actuator,
-    setActuator,
-  ] =
-    useState(
-      'all',
-    )
-
+  logType,
+}: Pick<ConnectedPageProps, 'data' | 'connectionState'> & { logType: 'sensor' | 'actuator' }) {
+  const [selectedParameter, setSelectedParameter] = useState('all')
+  const sensorLog = logType === 'sensor'
+  const nameColumn = sensorLog ? 'Parameter' : 'Pompa'
+  const valueColumn = sensorLog ? 'Nilai' : 'Kondisi'
 
   const [fromDate, setFromDate] = useState(jakartaDateInputValue)
   const [toDate, setToDate] = useState(jakartaDateInputValue)
@@ -2139,7 +2124,7 @@ function LogsPage({
   }, [])
 
   const [chartSensor, setChartSensor] = useState('soil_2_moisture')
-  const catalog = data?.sensorDefinitions
+  const catalog = sensorLog ? data?.sensorDefinitions : undefined
   useEffect(() => {
     const available = catalog?.filter(sensor => sensor.enabled)
     if (available?.length && !available.some(sensor => sensor.sensorKey === chartSensor)) {
@@ -2175,9 +2160,7 @@ function LogsPage({
 
         for (
           const definition
-          of data
-            ?.sensorDefinitions
-            ?? []
+          of catalog ?? []
         ) {
           if (!definition.enabled) continue
           const chartGroupName = isEnergySensor(definition.sensorKey) ? 'Energi' : definition.groupName
@@ -2212,8 +2195,7 @@ function LogsPage({
         )
       },
       [
-        data
-          ?.sensorDefinitions,
+        catalog,
       ],
     )
 
@@ -2225,12 +2207,6 @@ function LogsPage({
     ).map(
       datalogDisplayRow,
     )
-
-
-  const selectedParameter =
-    logType === 'sensor'
-      ? sensor
-      : actuator
 
 
   useEffect(
@@ -2297,6 +2273,7 @@ function LogsPage({
 
   useEffect(
     () => {
+      if (!sensorLog) return
       const rangeFrom = datalogDateTime(fromDate, fromTime, false)
       const rangeTo = datalogDateTime(toDate, toTime, true)
       const rangeDurationMs = rangeTo.getTime() - rangeFrom.getTime()
@@ -2343,6 +2320,7 @@ function LogsPage({
       connectionState,
       fromDate,
       fromTime,
+      sensorLog,
       toDate,
       toTime,
     ],
@@ -2520,7 +2498,7 @@ function LogsPage({
     try {
       // Keep CSV chunks, not every JSON record plus a second giant string.
       const parts: Blob[] = [new Blob(['\uFEFF', encodeCsvRows([
-        ['Waktu', 'Parameter', 'Nilai', logType === 'sensor' ? 'Status' : 'Sumber'],
+        ['Waktu', nameColumn, valueColumn, sensorLog ? 'Status' : 'Sumber'],
       ])])]
       let bytes = parts[0].size
       let receivedRows = 0
@@ -2574,17 +2552,7 @@ function LogsPage({
 
   const resetFilters =
     () => {
-      setLogType(
-        'sensor',
-      )
-
-      setSensor(
-        'all',
-      )
-
-      setActuator(
-        'all',
-      )
+      setSelectedParameter('all')
 
       const today = jakartaDateInputValue()
       setFromDate(today)
@@ -2599,15 +2567,12 @@ function LogsPage({
 
 
   return (
-    <section
-      className="secondary-page"
-      aria-label="Datalog sensor dan pompa"
-    >
+    <>
       <div className="page-card">
         <div className="page-card-header logs-header">
           <div>
             <h2>
-              Riwayat Sensor & Pompa
+              {sensorLog ? 'Riwayat Sensor' : 'Riwayat Kontrol Pompa'}
             </h2>
 
             <p>
@@ -2623,39 +2588,7 @@ function LogsPage({
 
 
           <div className="log-actions">
-            <label className="page-select compact-select">
-              <span>
-                Jenis Data
-              </span>
-
-              <select
-                value={logType}
-                onChange={(event) => {
-                  setLogType(
-                    event.target
-                      .value
-                    === 'actuator'
-                      ? 'actuator'
-                      : 'sensor',
-                  )
-
-                  setCurrentPage(
-                    1,
-                  )
-                }}
-              >
-                <option value="sensor">
-                  Sensor
-                </option>
-
-                <option value="actuator">
-                  Aktivitas Pompa
-                </option>
-              </select>
-            </label>
-
-
-            <ParameterPicker label="Parameter" value={selectedParameter}
+            <ParameterPicker label={nameColumn} value={selectedParameter}
               options={[
                 { value: 'all', label: logType === 'sensor' ? 'Semua Sensor' : 'Semua Pompa' },
                 ...(logType === 'sensor'
@@ -2665,8 +2598,7 @@ function LogsPage({
                   : (data?.actuators ?? []).map(pump => ({ value: pump.id, label: pump.name, group: 'Pompa' }))),
               ]}
               onChange={value => {
-                if (logType === 'sensor') setSensor(value)
-                else setActuator(value)
+                setSelectedParameter(value)
                 setCurrentPage(1)
               }}/>
 
@@ -2789,11 +2721,11 @@ function LogsPage({
                 </th>
 
                 <th>
-                  Parameter
+                  {nameColumn}
                 </th>
 
                 <th>
-                  Nilai
+                  {valueColumn}
                 </th>
 
                 <th>
@@ -2979,7 +2911,7 @@ function LogsPage({
         </div>
       </div>
 
-      <article className="page-card datalog-chart-card">
+      {sensorLog && <article className="page-card datalog-chart-card">
         <div className="datalog-chart-header">
           <div>
             <h2>Grafik Riwayat Sensor</h2>
@@ -3083,8 +3015,8 @@ function LogsPage({
             </svg>
           )}
         </div>
-      </article>
-    </section>
+      </article>}
+    </>
   )
 }
 

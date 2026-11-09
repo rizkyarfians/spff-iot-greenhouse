@@ -71,10 +71,10 @@ Record<
   'ai-automation': 'Pantau estimasi kebutuhan air, pupuk per HST, dan riwayat pompa.',
   guide: 'Protokol budidaya dan kebutuhan pupuk sesuai Excel.',
   controls:
-    'Nyalakan pompa, pilih cara kerja, dan atur jadwal.',
+    'Atur pompa dan lihat riwayat kontrolnya.',
 
   logs:
-    'Lihat dan unduh riwayat sensor serta waktu pompa menyala dan mati.',
+    'Lihat dan unduh riwayat sensor.',
 
   alarms:
     'Lihat peringatan yang perlu diperiksa dan tindak lanjutnya.',

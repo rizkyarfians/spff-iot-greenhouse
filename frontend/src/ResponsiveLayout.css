@@ -84,7 +84,7 @@
 .smart-soil-metric { min-height: 112px; padding: 12px; }
 .smart-soil-layout { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); }
 .logs-header { align-items: start; flex-wrap: wrap; }
-.log-actions { display: grid; grid-template-columns: repeat(2, minmax(110px, 1fr)) repeat(2, minmax(130px, 1fr)) repeat(2, minmax(110px, 1fr)) auto auto; gap: 8px; width: 100%; }
+.log-actions { display: grid; grid-template-columns: minmax(110px, 1fr) repeat(2, minmax(130px, 1fr)) repeat(2, minmax(110px, 1fr)) auto auto; gap: 8px; width: 100%; }
 .log-actions .page-select, .log-actions .page-select:first-child, .log-actions .page-select:nth-child(2), .log-actions .datalog-date-filter, .log-actions .datalog-time-filter { width: 100%; min-width: 0; }
 .log-actions .page-select :is(select, input) { font-size: 12px; }
 .data-table-wrap, .um-table-wrap { max-width: 100%; }
