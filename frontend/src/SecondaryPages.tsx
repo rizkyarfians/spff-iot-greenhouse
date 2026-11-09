@@ -1270,6 +1270,7 @@ function ControlsPage({
               ? data?.actuatorLog.filter(event => event.commandId === control.commandId) ?? []
               : []
             const failed = ['rejected', 'failed', 'timed_out'].includes(control.commandStatus ?? '')
+            const commandResult = control.pending ? 'pending' : failed ? 'failure' : control.commandStatus === 'completed' ? 'success' : 'none'
             const commandEvent = events.find(event => event.source === 'command_ack') ?? events[0]
             const failureReason = failed && farmerReasonLabel(events.find(event => event.reason)?.reason)
             const pumpStatus = connectionState !== 'connected' || control.state === 'offline'
@@ -1280,7 +1281,6 @@ function ControlsPage({
               <header className="controls-pump-heading">
                 <span className="control-icon" aria-hidden="true"><ControlGlyph icon={control.icon} /></span>
                 <h3>{control.name}</h3>
-                <span className="controls-pump-status">{pumpStatus}</span>
               </header>
               <div className="controls-pump-actions">
                 <ToggleButtons
@@ -1291,6 +1291,9 @@ function ControlsPage({
                   allowOff={control.pending}
                   disabled={sendingCommand || connectionState !== 'connected'}
                 />
+              </div>
+              <div className="controls-pump-details">
+                <span>{pumpStatus}</span>
                 <div className="controls-pump-time">
                   <span>Laporan</span>
                   {commandEvent
@@ -1299,12 +1302,14 @@ function ControlsPage({
                       })} WIB</time>
                     : <span>—</span>}
                 </div>
+                <p className="controls-command-result" role="status">
+                  <span>Perintah</span>
+                  <strong className={`controls-command-badge is-${commandResult}`}>
+                    {{ pending: 'Menunggu konfirmasi', failure: 'Gagal', success: 'Berhasil', none: '—' }[commandResult]}
+                  </strong>
+                  {failureReason && <small>{failureReason}</small>}
+                </p>
               </div>
-              <p className={`controls-command-result${failed ? ' controls-command-error' : ''}`} role="status">
-                <span>Perintah</span>
-                <strong>{control.pending ? 'Menunggu konfirmasi' : failed ? 'Gagal' : control.commandStatus === 'completed' ? 'Berhasil' : '—'}</strong>
-                {failureReason && <small>{failureReason}</small>}
-              </p>
             </article>
           })}
         </div>
