@@ -1244,10 +1244,6 @@ function ControlsPage({
       className="secondary-page controls-page"
       aria-label="Kontrol perangkat"
     >
-      <div className="controls-protection page-card">
-        <WaterInterlockSettings devices={data?.devices ?? []} admin={isAdmin} connected={connectionState === 'connected'} />
-      </div>
-
       <div className="controls-actuators page-card">
         <div className="control-toolbar">
           <div className="segmented-control" role="group" aria-label="Pilih mode operasi">
@@ -1256,6 +1252,7 @@ function ControlsPage({
             <button type="button" aria-pressed={selectedMode === 'manual'}
               onClick={() => selectMode('manual')} disabled={!isAdmin || savingAutomatic}>Manual</button>
           </div>
+          <WaterInterlockSettings devices={data?.devices ?? []} admin={isAdmin} connected={connectionState === 'connected'} />
         </div>
 
         {visibleModeFeedback && <p className={`mode-feedback mode-feedback--${visibleModeFeedback.tone}`} role="status">{visibleModeFeedback.text}</p>}
@@ -1279,11 +1276,9 @@ function ControlsPage({
               : control.state === 'fault' ? 'Bermasalah' : control.isActive ? 'Menyala' : 'Mati'
             return <article className="control-card" key={control.id}>
               <div className="controls-pump-info">
-                <header className="controls-pump-heading">
-                  <span className="control-icon" aria-hidden="true"><ControlGlyph icon={control.icon} /></span>
-                  <h3>{control.name}</h3>
-                </header>
+                <span className="control-icon" aria-hidden="true"><ControlGlyph icon={control.icon} /></span>
                 <div className="controls-pump-details">
+                  <h3>{control.name}</h3>
                   <div className="controls-pump-report">
                     <span>{pumpStatus}</span>
                     <div className="controls-pump-time">
@@ -1326,8 +1321,8 @@ function ControlsPage({
               .catch(error => setCommandNotice(error instanceof Error ? error.message : 'Gagal melanjutkan otomasi.'))}>
             Lanjutkan otomatis
           </button>}
-          <button className="controls-text-button" type="button" onClick={() => void setAll(false)}
-            disabled={sendingCommand || connectionState !== 'connected'}>Matikan semua</button>
+          <button className="controls-emergency-stop" type="button" onClick={() => void setAll(false)}
+            disabled={sendingCommand || connectionState !== 'connected' || controls.length === 0}>Emergency Stop</button>
         </div>
 
         {(selectedMode === 'automatic' || automaticSettingsRequested) && <details className="controls-automation">

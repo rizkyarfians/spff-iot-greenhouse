@@ -1,4 +1,4 @@
-import { ToggleButtons } from './ToggleButtons'
+import { LockKeyhole, LockKeyholeOpen } from 'lucide-react'
 import { useEffect,useId,useRef,useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ApiDevice,WaterInterlockView } from '@spff/contracts'
@@ -87,22 +87,23 @@ export function WaterInterlockSettings({devices,admin,connected}:{devices:ApiDev
   },[saved,view,deviceId,rejected,confirmed,reported])
   const status=rejected?'Perangkat menolak perubahan.':confirmed&&reported?'Perubahan sudah diterapkan pada perangkat.':'Tersimpan. Menunggu konfirmasi perangkat.'
   const action=proposal?.enabled?'Aktifkan':'Nonaktifkan'
-  return <div className="setting-toggle-row">
+  const protectionLabel = view ? `Proteksi tandon air (${view.enabled ? 'aktif' : 'nonaktif'})` : 'Proteksi tandon air'
+  return <div className="water-interlock-trigger">
     {!open&&notice&&createPortal(<SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>,document.body)}
-    <div><strong>Proteksi Tandon Air</strong></div>
-    <ToggleButtons className={`switch ${view?.enabled!==false?'is-on':''}`} type="button" role="switch"
-      aria-label="Proteksi tandon air" aria-checked={view?.enabled??true} aria-busy={busy}
-      aria-haspopup="dialog" disabled={!admin||!connected||!deviceId||busy} onClick={show}><span/></ToggleButtons>
+    <button className="water-interlock-icon" type="button" aria-label={protectionLabel} title={protectionLabel}
+      aria-haspopup="dialog" disabled={!admin||!connected||!deviceId||busy} onClick={show}>
+      {view?.enabled === false ? <LockKeyholeOpen size={19} aria-hidden="true"/> : <LockKeyhole size={19} aria-hidden="true"/>}
+    </button>
     {open&&createPortal(<dialog ref={dialog} className="water-interlock-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
       onCancel={event=>{if(busyRef.current)event.preventDefault();else setOpen(false)}}
       onClick={event=>{if(event.target===event.currentTarget)close()}}>
       <SettingsSwitchNotice notice={notice} onClose={()=>setNotice(null)}/>
-      <h2 id={titleId}>{saved?'Proteksi Tandon Air':`${action} proteksi tandon air?`}</h2>
+      <h2 id={titleId}>{saved||!proposal?'Proteksi Tandon Air':`${action} proteksi tandon air?`}</h2>
       {devices.length>1&&!saved&&<label className="field-label"><span>Perangkat</span>
         <select value={deviceId} disabled={busy} onChange={event=>{setChosen(event.target.value);setProposal(null);setSaveError('')}}>
           {devices.map(device=><option key={device.deviceId} value={device.deviceId}>{device.displayName}</option>)}
         </select></label>}
-      <p id={descriptionId}>{saved?status:proposal?.enabled
+      <p id={descriptionId}>{saved?status:!proposal?'Pengaturan proteksi level tandon air.':proposal.enabled
         ?'Proteksi level tandon air akan diaktifkan. Pompa yang sedang berjalan akan dihentikan saat perubahan diterapkan.'
         :'Pompa air bisa menyala meskipun tandon kosong atau sensor level tidak terbaca. Pompa yang sedang berjalan akan dihentikan saat perubahan diterapkan.'}</p>
       <p className="water-interlock-device">{deviceName}</p>

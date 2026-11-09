@@ -4,19 +4,19 @@
 .controls-setting-row[aria-expanded="true"] { background: var(--green-soft); }
 .controls-setting-row[aria-expanded="true"] > svg:last-child { transform: rotate(90deg); }
 .controls-page > .page-card { max-width: 920px; margin-inline: auto; }
-.controls-protection .setting-toggle-row { margin: 0; }
-.controls-page .control-toolbar { display: flex; justify-content: center; }
-.controls-page .control-toolbar .segmented-control { border-radius: 999px; }
+.controls-page .controls-actuators > .control-toolbar { display: grid; grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr); align-items: center; gap: 4px; }
+.controls-page .control-toolbar .segmented-control { grid-column: 2; border-radius: 999px; }
+.controls-page .water-interlock-trigger { grid-column: 3; justify-self: end; }
 .controls-page .control-toolbar .segmented-control button { min-width: 96px; min-height: 40px; border-radius: 999px !important; }
 .controls-page h2 { margin: 0; font-size: var(--font-size-section, 20px); font-weight: 700; }
 .controls-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .controls-page .control-grid { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 20px; gap: 0; }
 .controls-page .control-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 12px; min-width: 0; padding: 20px 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .controls-page .control-card + .control-card { border-top: 1px solid var(--line); }
-.controls-pump-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.controls-pump-heading h3 { margin: 0; font-size: var(--font-size-body); }
+.controls-pump-info { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; }
+.controls-pump-details h3 { margin: 0 0 2px; color: var(--ink); font-size: var(--font-size-body); }
 .controls-pump-actions { justify-self: end; }
-.controls-pump-details { display: grid; gap: 6px; margin-block-start: 8px; padding-inline-start: 52px; }
+.controls-pump-details { display: grid; gap: 6px; overflow-wrap: anywhere; }
 .controls-pump-details, .controls-message { color: #536560; font-size: var(--font-size-label); }
 .controls-pump-report { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; }
 .controls-pump-time, .controls-command-result { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; }
@@ -29,8 +29,9 @@
 .controls-command-result small { flex-basis: 100%; }
 .controls-page .control-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--green-soft); color: var(--green-dark); flex-shrink: 0; }
 .controls-pump-footer { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 12px; }
-.controls-text-button { border: 0; background: transparent; color: #536560; font: inherit; font-size: var(--font-size-label); padding: 10px 0; cursor: pointer; }
-.controls-text-button:disabled { opacity: .5; cursor: default; }
+.controls-emergency-stop { min-height: 44px; padding: 8px 16px; border: 1px solid #a12e25; background: #a12e25; color: #fff; font-size: var(--font-size-label); font-weight: 700; cursor: pointer; }
+.controls-emergency-stop:hover:not(:disabled) { background: #84231c; border-color: #84231c; }
+.controls-emergency-stop:disabled { opacity: .5; cursor: not-allowed; }
 .controls-setting-row { display: flex; align-items: center; gap: 16px; width: 100%; margin-top: 12px; padding: 16px; border: 0; border-radius: 14px; background: #f5f7f6; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .controls-setting-row:hover { background: var(--green-soft); }
 .controls-automation { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
@@ -38,7 +39,7 @@
 .controls-automation > .controls-settings-panel { padding: 16px 12px; border: 1px solid var(--line); border-radius: 12px; }
 .controls-setting-row > span:nth-child(2) { flex: 1; min-width: 0; }
 .controls-setting-row small { display: block; margin-top: 5px; color: #536560; font-size: var(--font-size-label); }
-.controls-setting-row:focus-visible, .controls-text-button:focus-visible, .controls-automation > summary:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
+.controls-setting-row:focus-visible, .controls-emergency-stop:focus-visible, .controls-automation > summary:focus-visible, .controls-advanced summary:focus-visible { outline: 2px solid var(--green-dark); outline-offset: 3px; }
 .controls-page .automatic-profile-grid { display: block; }
 .controls-page .automatic-profile[hidden] { display: none; }
 .controls-page .automatic-profile { padding: 0; border: 0; background: transparent; }
@@ -65,7 +66,7 @@
 .controls-schedule-panel p { font-size: var(--font-size-body); }
 @media (max-width: 640px) {
   .controls-page .page-card { padding: 16px; }
-  .controls-pump-details { padding-inline-start: 0; }
+  .controls-page .control-toolbar .segmented-control button { min-width: 76px; }
   .controls-page .automatic-fields { grid-template-columns: 1fr; }
   .controls-page .automatic-control-header { align-items: flex-start; flex-wrap: wrap; }
   .controls-page .actuator-schedule-item { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
