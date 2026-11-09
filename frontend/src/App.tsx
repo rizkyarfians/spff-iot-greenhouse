@@ -1154,21 +1154,26 @@ function App() {
           : undefined
 
 
-      void fetchSensorHistory(
-        selectedSensor,
-        controller.signal,
-        {
-          to:
-            filteredTo,
-
+      async function loadHistory() {
+        const series = await fetchSensorHistory(selectedSensor, controller.signal, {
+          to: filteredTo,
           hours: 6,
+          bucket: '5m',
+        })
+        if (filteredTo || series.points.length >= 2 || controller.signal.aborted) return series
 
-          bucket:
-            '5m',
-        },
-      )
+        const recent = await fetchSensorHistory(selectedSensor, controller.signal, {
+          to: new Date(series.to),
+          hours: 24,
+          bucket: '5m',
+        }).catch(() => null)
+        return recent && recent.points.length > series.points.length ? recent : series
+      }
+
+      void loadHistory()
         .then(
           (series) => {
+            if (controller.signal.aborted) return
             setHistoryBySensor(
               (current) => ({
                 ...current,
@@ -1180,13 +1185,8 @@ function App() {
           },
         )
         .catch(
-          (error) => {
-            if (
-              error instanceof DOMException
-              && error.name === 'AbortError'
-            ) {
-              return
-            }
+          () => {
+            if (controller.signal.aborted) return
 
 
             setHistoryBySensor(
@@ -2723,6 +2723,7 @@ const soilNpkGroups =
                                 : 'Belum ada data tersimpan'
                             }
                           </small>
+                          {currentHistory.length === 1 && <small className="metric-update">Satu titik tersedia pada rentang ini.</small>}
                         </div>
 
 
@@ -2877,14 +2878,14 @@ const soilNpkGroups =
                                     >
                                       <stop
                                         offset="0"
-                                        stopColor="#28ad79"
-                                        stopOpacity="0.36"
+                                        stopColor="var(--lime)"
+                                        stopOpacity="0.75"
                                       />
 
                                       <stop
                                         offset="1"
-                                        stopColor="#28ad79"
-                                        stopOpacity="0.04"
+                                        stopColor="var(--lime)"
+                                        stopOpacity="0.12"
                                       />
                                     </linearGradient>
                                   </defs>
