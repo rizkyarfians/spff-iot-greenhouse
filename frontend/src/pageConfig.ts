@@ -38,7 +38,7 @@ Record<
     'Kontrol Perangkat',
 
   logs:
-    'Datalog',
+    'Sensor',
 
   alarms:
     'Detail Alarm',

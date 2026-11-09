@@ -2092,7 +2092,7 @@ const datalogDisplayRow = (
 
 function LogsPage({ data, connectionState }: ConnectedPageProps) {
   return (
-    <section className="secondary-page" aria-label="Datalog sensor">
+    <section className="secondary-page" aria-label="Sensor">
       <DatalogHistory data={data} connectionState={connectionState} logType="sensor" />
     </section>
   )
@@ -2250,7 +2250,7 @@ function DatalogHistory({
           if (error instanceof DOMException && error.name === 'AbortError') return
           setDatalogPage(null)
           setDatalogError(
-            error instanceof Error ? error.message : 'Datalog belum dapat dimuat.',
+            error instanceof Error ? error.message : 'Riwayat belum dapat dimuat.',
           )
         })
         .finally(() => {
@@ -2830,26 +2830,15 @@ function DatalogHistory({
 
           <nav
             className="data-pagination"
-            aria-label="Navigasi halaman datalog"
+            aria-label={sensorLog ? 'Navigasi riwayat sensor' : 'Navigasi riwayat kontrol pompa'}
           >
             <button
               className="data-pagination-step"
               type="button"
-              disabled={
-                currentPage
-                <= 1
-              }
-              onClick={() =>
-                setCurrentPage(
-                  (page) =>
-                    Math.max(
-                      1,
-                      page - 1,
-                    ),
-                )
-              }
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(1)}
             >
-              Sebelumnya
+              Pertama
             </button>
 
 
@@ -2892,21 +2881,10 @@ function DatalogHistory({
             <button
               className="data-pagination-step"
               type="button"
-              disabled={
-                currentPage
-                >= totalPages
-              }
-              onClick={() =>
-                setCurrentPage(
-                  (page) =>
-                    Math.min(
-                      totalPages,
-                      page + 1,
-                    ),
-                )
-              }
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(totalPages)}
             >
-              Berikutnya
+              Terakhir
             </button>
           </nav>
         </div>
@@ -2952,7 +2930,7 @@ function DatalogHistory({
               ref={chartSvg}
               viewBox={`0 0 ${chartSize.width} ${chartSize.height}`}
               role="img"
-              aria-label="Grafik riwayat sensor sesuai rentang Datalog"
+              aria-label="Grafik riwayat sensor sesuai rentang yang dipilih"
               preserveAspectRatio="xMidYMid meet"
             >
               <defs>

@@ -24,7 +24,6 @@ import {
   Bell,
   BellRing,
   CalendarDays,
-  ChartNoAxesCombined,
   Cpu,
   Droplets,
   FlaskConical,
@@ -35,6 +34,7 @@ import {
   MapPin,
   ChevronLeft,
   ChevronRight,
+  RadioTower,
   Ruler,
   Settings,
   SlidersHorizontal,
@@ -475,8 +475,8 @@ Array<{
   },
   {
     key: 'logs',
-    icon: ChartNoAxesCombined,
-    label: 'Datalog',
+    icon: RadioTower,
+    label: pageTitles.logs,
   },
   {
     key: 'alarms',
