@@ -25,11 +25,11 @@
 .controls-command-badge.is-failure { background: #fbe5e2; color: #a12e25; }
 .controls-command-result small { flex-basis: 100%; }
 .controls-page .control-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--green-soft); color: var(--green-dark); flex-shrink: 0; }
-.controls-pump-footer { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 12px; }
+.controls-pump-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
 .controls-emergency-stop { min-height: 44px; padding: 8px 16px; border: 1px solid #a12e25; background: #a12e25; color: #fff; font-size: var(--font-size-label); font-weight: 700; cursor: pointer; }
 .controls-emergency-stop:hover:not(:disabled) { background: #84231c; border-color: #84231c; }
 .controls-emergency-stop:disabled { opacity: .5; cursor: not-allowed; }
-.controls-automation { display: flex; justify-content: flex-end; margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.controls-automation { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-inline-start: auto; }
 .controls-automation > button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
 .controls-settings-dialog {
   box-sizing: border-box;

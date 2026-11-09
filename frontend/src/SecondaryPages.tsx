@@ -1330,23 +1330,22 @@ function ControlsPage({
         </div>
 
         <div className="controls-pump-footer">
-          {automaticControl?.operatorOverrideActive && <button type="button" className="secondary-button"
-            disabled={savingAutomatic || sendingCommand || connectionState !== 'connected'}
-            onClick={() => void resumePumpAutomation(automaticControl.deviceId)
-              .then(() => { setCommandNotice('Menunggu konfirmasi perangkat untuk melanjutkan otomasi.'); onRefresh() })
-              .catch(error => setCommandNotice(error instanceof Error ? error.message : 'Gagal melanjutkan otomasi.'))}>
-            Lanjutkan otomatis
-          </button>}
           <button className="controls-emergency-stop" type="button" onClick={() => void setAll(false)}
             disabled={sendingCommand || connectionState !== 'connected' || controls.length === 0}>Emergency Stop</button>
+          {(automaticSettingsAvailable || automaticControl?.operatorOverrideActive) && <div className="controls-automation">
+            {automaticControl?.operatorOverrideActive && <button type="button" className="secondary-button"
+              disabled={savingAutomatic || sendingCommand || connectionState !== 'connected'}
+              onClick={() => void resumePumpAutomation(automaticControl.deviceId)
+                .then(() => { setCommandNotice('Menunggu konfirmasi perangkat untuk melanjutkan otomasi.'); onRefresh() })
+                .catch(error => setCommandNotice(error instanceof Error ? error.message : 'Gagal melanjutkan otomasi.'))}>
+              Lanjutkan otomatis
+            </button>}
+            {automaticSettingsAvailable && <button className="secondary-button" type="button" aria-haspopup="dialog" aria-controls="automatic-settings-dialog"
+              onClick={() => { setCommandNotice(''); setControlTab('sensor') }}>
+              <SlidersHorizontal size={16} aria-hidden="true" /> Pengaturan otomatis
+            </button>}
+          </div>}
         </div>
-
-        {automaticSettingsAvailable && <div className="controls-automation">
-          <button className="secondary-button" type="button" aria-haspopup="dialog" aria-controls="automatic-settings-dialog"
-            onClick={() => { setCommandNotice(''); setControlTab('sensor') }}>
-            <SlidersHorizontal size={16} aria-hidden="true" /> Pengaturan otomatis
-          </button>
-        </div>}
 
         <dialog ref={settingsDialog} className="controls-settings-dialog" id="automatic-settings-dialog"
           aria-labelledby="automatic-settings-title"
