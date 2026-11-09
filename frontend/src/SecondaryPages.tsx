@@ -2287,28 +2287,41 @@ function DatalogHistory({
 
       if (connectionState !== 'connected' || !rangeIsValid || !chartSensor) {
         setChartSeries(null)
+        setChartLoading(false)
         return
       }
 
       const controller = new AbortController()
       const rangeHours = rangeDurationMs / (60 * 60 * 1000)
       const bucket = rangeHours <= 24 ? '5m' : rangeHours <= 7 * 24 ? '1h' : '6h'
+      const wholeDayToday = fromDate === toDate && toDate === jakartaDateInputValue() && !fromTime && !toTime
       setChartLoading(true)
 
-      void fetchSensorHistory(
-        chartSensor,
-        controller.signal,
-        {
+      async function loadChart() {
+        const series = await fetchSensorHistory(chartSensor, controller.signal, {
           from: rangeFrom,
           to: rangeTo,
           hours: Math.max(1, Math.ceil(rangeHours)),
           bucket,
-        },
-      )
-        .then(setChartSeries)
-        .catch((error) => {
-          if (error instanceof DOMException && error.name === 'AbortError') return
-          setChartSeries(null)
+        })
+        if (!wholeDayToday || series.points.length >= 2 || controller.signal.aborted) return series
+
+        const now = new Date()
+        const recent = await fetchSensorHistory(chartSensor, controller.signal, {
+          from: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+          to: now,
+          hours: 24,
+          bucket: '5m',
+        }).catch(() => null)
+        return recent && recent.points.length > series.points.length ? recent : series
+      }
+
+      void loadChart()
+        .then(series => {
+          if (!controller.signal.aborted) setChartSeries(series)
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setChartSeries(null)
         })
         .finally(() => {
           if (!controller.signal.aborted) setChartLoading(false)
@@ -2479,6 +2492,12 @@ function DatalogHistory({
         )
 
   const dateRangeLabel = `${fromDate} ${fromTime || '00:00'} – ${toDate} ${toTime || '23:59'}`
+  const chartUsesRecentRange = chartSeries && !chartLoading
+    && (Date.parse(chartSeries.from) !== datalogDateTime(fromDate, fromTime, false).getTime()
+      || Date.parse(chartSeries.to) !== datalogDateTime(toDate, toTime, true).getTime())
+  const chartRangeLabel = chartUsesRecentRange
+    ? `24 jam terakhir · ${datalogTimestamp(chartSeries.from)} – ${datalogTimestamp(chartSeries.to)}`
+    : dateRangeLabel
 
 
   const exportCsv = async () => {
@@ -2894,7 +2913,8 @@ function DatalogHistory({
         <div className="datalog-chart-header">
           <div>
             <h2>Grafik Riwayat Sensor</h2>
-            <p>{dateRangeLabel} · nilai rata-rata per interval</p>
+            <p>{chartRangeLabel} · nilai rata-rata per interval</p>
+            {!chartLoading && chartPoints.length === 1 && <p>Satu titik tersedia pada rentang ini.</p>}
           </div>
 
           <div className="datalog-chart-controls">
@@ -2935,8 +2955,8 @@ function DatalogHistory({
             >
               <defs>
                 <linearGradient id="datalog-chart-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#27b484" stopOpacity="0.28" />
-                  <stop offset="100%" stopColor="#27b484" stopOpacity="0.03" />
+                  <stop offset="0%" stopColor="var(--lime)" stopOpacity="0.75" />
+                  <stop offset="100%" stopColor="var(--lime)" stopOpacity="0.12" />
                 </linearGradient>
               </defs>
               <line
