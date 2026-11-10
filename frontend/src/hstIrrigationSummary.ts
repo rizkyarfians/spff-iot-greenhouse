@@ -5,6 +5,7 @@ export type HstIrrigationSource={
  water_carryover?:{status:string;remaining_for_reassessment_l:number|null};
  irrigation_schedule_preview?:{status:string;tomorrow_at_least_l:number|null;fuzzy_demand_l:number|null};
  fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null;basis?:'SIMULATION_PROFILE'|'OPERATIONAL_PROFILE'}|null;
+ fuzzy_preview_blockers?:readonly string[];
  production_fuzzy?:{
   status:string; basis?:string; recorded_at:string|null; expires_at:string|null; target_water_l:number|null; irrigation_needed:boolean|null;
  };
@@ -34,6 +35,24 @@ export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.n
   };
  }
  return null;
+}
+
+export function fuzzyUnavailableReason(data:HstIrrigationSource|null,now=Date.now()){
+ if(!data)return 'Menunggu data AI.';
+ if(data.planning_status!=='CURRENT'||!fresh(data.planning_recorded_at,now)){
+  return 'Menunggu data sensor terbaru.';
+ }
+ const blockers=data.fuzzy_preview_blockers??[];
+ if(blockers.includes('control_source_not_selected'))return 'Pilih sensor kelembapan di Kontrol Perangkat.';
+ if(blockers.includes('control_config_not_acknowledged'))return 'Menunggu alat menerapkan pengaturan sensor.';
+ if(blockers.some(reason=>reason.startsWith('selected_sensor_')||reason.startsWith('sensor_raw_')||
+    reason==='sensor_control_diagnostic_rejected'||reason==='sensor_poll_boot_missing')){
+  return 'Menunggu bacaan sensor kelembapan yang valid.';
+ }
+ if(blockers.includes('simulation_profile_unavailable')||blockers.includes('simulation_rules_invalid')){
+  return 'Profil perhitungan Fuzzy perlu diperiksa.';
+ }
+ return 'Menunggu hasil Fuzzy terbaru.';
 }
 
 type TankReading={recordedAt:string;valueL:number};

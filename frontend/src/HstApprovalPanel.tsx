@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CalendarCheck2, RefreshCw } from 'lucide-react';
 import type { AiHstProposal, AiHstProposals } from '@spff/contracts';
 import { fetchAiHstLiquidSummary, fetchAiHstProposals } from './api';
-import { hstIrrigationDisplay } from './hstIrrigationSummary';
+import { fuzzyIrrigationEstimate, fuzzyUnavailableReason, hstIrrigationDisplay } from './hstIrrigationSummary';
 import { HstDoseVolumeSessions } from './HstDoseVolumeCard';
 import './HstApprovalPanel.css';
 
@@ -67,6 +67,8 @@ export function HstApprovalPanel() {
   const stock = current && liquid?.fertilizer_tank_preview.level_status === 'ESTIMATED'
     ? liquid.fertilizer_tank_preview.estimated_liquid_volume_l : null;
   const irrigation = hstIrrigationDisplay(liquid);
+  const demand = fuzzyIrrigationEstimate(liquid);
+  const demandStatus = demand?.source ?? (liquidError || fuzzyUnavailableReason(liquid));
 
   return <article className="page-card hst-panel" aria-labelledby="hst-estimates-heading">
     <h2 className="hst-estimates-heading" id="hst-estimates-heading">
@@ -84,15 +86,23 @@ export function HstApprovalPanel() {
       <div className="hst-figures">
         <div><small>Isi tandon air</small><strong>{litres(water)}</strong></div>
         <div><small>Isi tandon pupuk</small><strong>{litres(stock)}</strong></div>
-        <div><small>{irrigation.label}</small><strong>{litres(irrigation.valueL)}</strong></div>
+        <div>
+          <small>Kebutuhan penyiraman</small>
+          <strong>{litres(demand?.valueL)}</strong>
+          <small>{demandStatus}</small>
+        </div>
       </div>
     </section>
     <HstDoseVolumeSessions refreshProposals={refresh} />
     <section id="hst-estimate-watering" className="hst-guide-section" hidden={section !== 'watering'}>
       <h3>Estimasi kebutuhan air</h3>
       {liquidError ? <p role="status">{liquidError}</p> : <>
-        <p>{litres(irrigation.valueL)}</p>
-        <small>{irrigation.note}</small>
+        <p>{litres(demand?.valueL)}</p>
+        <small>{demandStatus}</small>
+        {(irrigation.kind === 'recorded' || irrigation.kind === 'capacity_preview') && <>
+          <p>{irrigation.label} · {litres(irrigation.valueL)}</p>
+          <small>{irrigation.note}</small>
+        </>}
       </>}
     </section>
     <section id="hst-estimate-fertilizer" className="hst-guide-section" hidden={section !== 'fertilizer'}>

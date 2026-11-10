@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {fuzzyIrrigationEstimate,hstIrrigationDisplay,recentTankReadings,tankDisplayEstimate} from '../src/hstIrrigationSummary.ts'
+import {fuzzyIrrigationEstimate,fuzzyUnavailableReason,hstIrrigationDisplay,recentTankReadings,tankDisplayEstimate} from '../src/hstIrrigationSummary.ts'
 const now=Date.parse('2026-11-04T15:52:15Z')
 const current={
  planning_status:'CURRENT',planning_recorded_at:new Date(now).toISOString(),
@@ -92,5 +92,12 @@ test('tank display takes the median of distinct recent valid readings and expire
  assert.equal(tankDisplayEstimate(readings,sample(0,3580),now)?.current,true)
  assert.equal(tankDisplayEstimate(readings,invalid,now+120001),null)
  assert.equal(tankDisplayEstimate([],sample(0,0),now)?.valueL,0)
+})
+
+test('fresh tank readings do not hide the reason Fuzzy has no demand estimate',()=>{
+ const source={...current,fuzzy_preview:null,tank_preview:{level_status:'ESTIMATED',estimated_available_l:3585}}
+ assert.equal(fuzzyIrrigationEstimate(source,now),null)
+ assert.match(fuzzyUnavailableReason({...source,fuzzy_preview_blockers:['sensor_raw_age_unverified']},now),/kelembapan/)
+ assert.match(fuzzyUnavailableReason({...source,fuzzy_preview_blockers:['control_config_not_acknowledged']},now),/menerapkan pengaturan/)
 })
 
