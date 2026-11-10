@@ -1,10 +1,15 @@
+type FuzzyMoistureInput = {
+ input_key?: 'soil_1_moisture'|'soil_2_moisture'|null;
+ moisture_pct?: number|null;
+};
+
 export type HstIrrigationSource={
  planning_status:string;
  planning_recorded_at:string|null;
  water_carryover?:{status:string;remaining_for_reassessment_l:number|null};
  irrigation_schedule_preview?:{status:string;tomorrow_at_least_l:number|null;fuzzy_demand_l:number|null};
- fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null;basis?:'SIMULATION_PROFILE'|'OPERATIONAL_PROFILE'}|null;
- production_fuzzy?:{
+ fuzzy_preview?:({illustrative_water_l:number|null;recorded_at:string|null;basis?:'SIMULATION_PROFILE'|'OPERATIONAL_PROFILE'} & FuzzyMoistureInput)|null;
+ production_fuzzy?:FuzzyMoistureInput & {
   status:string; recorded_at:string|null; expires_at:string|null; target_water_l:number|null; irrigation_needed:boolean|null;
  };
 }
@@ -22,6 +27,8 @@ export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.n
    valueL:production.target_water_l,
    label:production.irrigation_needed===false?'Belum perlu penyiraman':'Target penyiraman Fuzzy',
    source:'Profil produksi',
+   inputKey:production.input_key,
+   moisturePct:production.moisture_pct,
   };
  }
  const preview=data.fuzzy_preview;
@@ -30,6 +37,8 @@ export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.n
    valueL:preview.illustrative_water_l,
    label:'Estimasi kebutuhan air',
    source:preview.basis==='OPERATIONAL_PROFILE'?'Pratinjau profil Panduan':'Simulasi Fuzzy',
+   inputKey:preview.input_key,
+   moisturePct:preview.moisture_pct,
   };
  }
  return null;

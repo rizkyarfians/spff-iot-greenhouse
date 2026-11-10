@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, ChevronDown, Clock3, Droplets, FlaskConical, History, Pause, Power, X } from 'lucide-react'
 import type { AutomaticCycleStatus } from '@spff/contracts'
-import { fetchHstFertilizationStarts, fetchAutomaticCycleStatus } from './api'
+import { fetchAiHstLiquidSummary, fetchHstFertilizationStarts, fetchAutomaticCycleStatus } from './api'
+import { fuzzyIrrigationEstimate } from './hstIrrigationSummary'
 import './HstFertilizationNotice.css'
 
 const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 })
@@ -10,9 +11,51 @@ function Quantity({ value, unit = 'g' }: { value: number | null; unit?: string }
   return <strong className="hfp-value">{value === null ? '—' : (unit === 'g/tanaman' ? doseNumber : number).format(value)}{value !== null && <span>{unit}</span>}</strong>
 }
 
+function DashboardFuzzyEstimate() {
+  const [summary, setSummary] = useState<Awaited<ReturnType<typeof fetchAiHstLiquidSummary>> | null | undefined>()
+  useEffect(() => {
+    const controller = new AbortController()
+    let pending = false
+    async function refresh() {
+      if (pending) return
+      pending = true
+      try {
+        const result = await fetchAiHstLiquidSummary(controller.signal)
+        if (!controller.signal.aborted) setSummary(result)
+      } catch {
+        if (!controller.signal.aborted) setSummary(null)
+      } finally {
+        pending = false
+      }
+    }
+    void refresh()
+    const timer = setInterval(() => void refresh(), 30000)
+    return () => { controller.abort(); clearInterval(timer) }
+  }, [])
+
+  const estimate = fuzzyIrrigationEstimate(summary ?? null)
+  if (!estimate) return <p className="hfp-progress-caption" role="status">
+    {summary === undefined ? 'Memuat estimasi kebutuhan air…' : 'Estimasi kebutuhan air terbaru belum tersedia.'}
+  </p>
+
+  return <div className="hfp-metrics">
+    <div className="hfp-metric">
+      <span>{estimate.label}</span>
+      <Quantity value={estimate.valueL} unit="L" />
+      <span>{estimate.source}</span>
+    </div>
+    {estimate.inputKey && estimate.moisturePct != null && <div className="hfp-metric">
+      <span>Kelembapan Tanah {estimate.inputKey === 'soil_1_moisture' ? '1' : '2'}</span>
+      <Quantity value={estimate.moisturePct} unit="%" />
+    </div>}
+  </div>
+}
+
 export function HstPhaseCard({ cycle, compact = false }: { cycle: AutomaticCycleStatus; compact?: boolean }) {
   const [closed, setClosed] = useState(false)
-  const phase = cycle.phase
+  const watering = cycle.mode === 'watering'
+  const showFuzzyEstimate = compact && watering
+  const phase = showFuzzyEstimate ? null : cycle.phase
   const recorded = phase?.history?.recordedG ?? phase?.deliveredG ?? 0
   const remaining = phase?.history?.remainingG ?? phase?.remainingG ?? phase?.targetG ?? null
   const plants = phase?.plantCount ?? (phase?.targetG != null && phase.targetGPerPlant != null && phase.targetGPerPlant > 0
@@ -20,7 +63,6 @@ export function HstPhaseCard({ cycle, compact = false }: { cycle: AutomaticCycle
   const recordedPerPlant = plants != null && plants > 0 ? recorded / plants : null
   const remainingPerPlant = plants != null && plants > 0 && remaining != null ? remaining / plants : null
   const percent = phase?.targetG && phase.targetG > 0 ? Math.max(0, Math.min(100, recorded / phase.targetG * 100)) : null
-  const watering = cycle.mode === 'watering'
   const Icon = watering ? Droplets : FlaskConical
   const title = cycle.mode === 'waiting_off' ? 'Target pemupukan tercapai' : watering ? 'Penyiraman Fuzzy' : phase?.title ?? 'Program otomatis'
   const waitingText = phase?.estimationReason === 'coefficient_missing' ? 'Menunggu koefisien K' :
@@ -50,13 +92,13 @@ export function HstPhaseCard({ cycle, compact = false }: { cycle: AutomaticCycle
       <div className="hfp-heading">
         <span className="hfp-icon"><Icon size={23} strokeWidth={1.7} aria-hidden="true" /></span>
         <div><div className="hfp-eyebrow">{phase ? 'Fase ' + phase.phaseNumber : 'Kontrol otomatis'}<span />{phase ? 'HST ' + phase.hst : 'Tanaman'}</div>
-          <h3>{title}</h3><p>{phase ? phase.product + ' · ' + phase.method : 'Status program tanaman'}</p></div>
+          <h3>{title}</h3><p>{phase ? phase.product + ' · ' + phase.method : showFuzzyEstimate ? 'Berdasarkan kelembapan tanah' : 'Status program tanaman'}</p></div>
       </div>
       <div className="hfp-header-actions"><span className={'hfp-badge ' + (cycle.dispatchEnabled ? 'hfp-badge--on' : 'hfp-badge--off')}>
         <Power size={13} aria-hidden="true" /> Otomasi {cycle.dispatchEnabled ? 'ON' : 'OFF'}
       </span><button type="button" className="hfp-close" aria-label="Tutup kartu fase pemupukan dan penyiraman" title="Tutup kartu" onClick={() => setClosed(true)}><X size={18} aria-hidden="true" /></button></div>
     </header>
-    <div className="hfp-impact-progress">
+    {showFuzzyEstimate ? <DashboardFuzzyEstimate key={cycle.deviceId} /> : <div className="hfp-impact-progress">
       <div className="hfp-progress-heading"><span>{phase?'Progres pemupukan':'Progres program'}</span></div>
       <div className="hfp-progress-track">
         {percent===null?<div className="hfp-track-placeholder" aria-hidden="true"/>:
@@ -66,7 +108,8 @@ export function HstPhaseCard({ cycle, compact = false }: { cycle: AutomaticCycle
       <p className="hfp-progress-caption">{phase
         ? percent===null?'Target fase belum tersedia':number.format(recorded)+' g dari '+number.format(phase.targetG!)+' g target fase'
         : watering?'Status penyiraman mengikuti data perangkat.':'Belum ada fase pemupukan yang tercatat.'}</p>
-    </div>
+    </div>}
+    {compact && cycle.mode === 'waiting_off' && <p className="hfp-progress-caption">Menunggu konfirmasi pompa OFF.</p>}
     {compact && phase && <details className="hfp-details hfp-dose-details">
       <summary>Detail<ChevronDown size={14} aria-hidden="true" /></summary>
       {doseDetails}
