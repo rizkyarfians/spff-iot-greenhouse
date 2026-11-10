@@ -97,7 +97,15 @@ test('tank display takes the median of distinct recent valid readings and expire
 test('fresh tank readings do not hide the reason Fuzzy has no demand estimate',()=>{
  const source={...current,fuzzy_preview:null,tank_preview:{level_status:'ESTIMATED',estimated_available_l:3585}}
  assert.equal(fuzzyIrrigationEstimate(source,now),null)
- assert.match(fuzzyUnavailableReason({...source,fuzzy_preview_blockers:['sensor_raw_age_unverified']},now),/kelembapan/)
- assert.match(fuzzyUnavailableReason({...source,fuzzy_preview_blockers:['control_config_not_acknowledged']},now),/menerapkan pengaturan/)
+ assert.match(fuzzyUnavailableReason({...source,fuzzy_preview_blockers:['sensor_raw_age_unverified']}),/kelembapan/)
+ assert.match(fuzzyUnavailableReason({...source,fuzzy_preview_blockers:['control_config_not_acknowledged']}),/menerapkan pengaturan/)
+})
+
+test('current Fuzzy preview follows the API snapshot despite client clock skew',()=>{
+ assert.equal(fuzzyIrrigationEstimate(current,now-233200)?.valueL,600)
+ assert.equal(fuzzyIrrigationEstimate(current,now+233200)?.valueL,600)
+ assert.equal(fuzzyIrrigationEstimate({...current,planning_status:'STALE'},now),null)
+ const oldPreview={...current.fuzzy_preview,recorded_at:new Date(now-1000).toISOString()}
+ assert.equal(fuzzyIrrigationEstimate({...current,fuzzy_preview:oldPreview},now),null)
 })
 

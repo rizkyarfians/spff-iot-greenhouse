@@ -17,9 +17,9 @@ const fresh=(at:string|null|undefined,now:number)=>{
  return Number.isFinite(age)&&age>=-5000&&age<=120000;
 };
 export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.now()){
- if(data?.planning_status!=='CURRENT'||!fresh(data.planning_recorded_at,now))return null;
+ if(data?.planning_status!=='CURRENT')return null;
  const production=data.production_fuzzy;
- if(production?.basis!=='TANK_INVENTORY_FUZZY'&&production?.status==='READY'&&fresh(production.recorded_at,now)&&Date.parse(production.expires_at??'')>now&&valid(production.target_water_l)){
+ if(production?.basis!=='TANK_INVENTORY_FUZZY'&&production?.status==='READY'&&fresh(data.planning_recorded_at,now)&&fresh(production.recorded_at,now)&&Date.parse(production.expires_at??'')>now&&valid(production.target_water_l)){
   return {
    valueL:production.target_water_l,
    label:production.irrigation_needed===false?'Belum perlu penyiraman':'Target penyiraman Fuzzy',
@@ -27,7 +27,9 @@ export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.n
   };
  }
  const preview=data.fuzzy_preview;
- if(preview&&fresh(preview.recorded_at,now)&&valid(preview.illustrative_water_l)){
+ // The API validates freshness for CURRENT. Match the preview to that same sample.
+ const recorded=Date.parse(data.planning_recorded_at??'');
+ if(preview&&Number.isFinite(recorded)&&Date.parse(preview.recorded_at??'')===recorded&&valid(preview.illustrative_water_l)){
   return {
    valueL:preview.illustrative_water_l,
    label:'Estimasi kebutuhan air',
@@ -37,9 +39,9 @@ export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.n
  return null;
 }
 
-export function fuzzyUnavailableReason(data:HstIrrigationSource|null,now=Date.now()){
+export function fuzzyUnavailableReason(data:HstIrrigationSource|null){
  if(!data)return 'Menunggu data AI.';
- if(data.planning_status!=='CURRENT'||!fresh(data.planning_recorded_at,now)){
+ if(data.planning_status!=='CURRENT'){
   return 'Menunggu data sensor terbaru.';
  }
  const blockers=data.fuzzy_preview_blockers??[];
