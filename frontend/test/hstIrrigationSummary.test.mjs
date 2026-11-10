@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {hstIrrigationDisplay} from '../src/hstIrrigationSummary.ts'
+import {fuzzyIrrigationEstimate,hstIrrigationDisplay,recentTankReadings,tankDisplayEstimate} from '../src/hstIrrigationSummary.ts'
 const now=Date.parse('2026-11-04T15:52:15Z')
 const current={
  planning_status:'CURRENT',planning_recorded_at:new Date(now).toISOString(),
@@ -62,5 +62,35 @@ test('operational Guide calculation is distinguished from a simulator',()=>{
  assert.ok(!result.note.includes('Profil simulasi'))
  const simulated=hstIrrigationDisplay({...source,fuzzy_preview:{...source.fuzzy_preview,basis:'SIMULATION_PROFILE'}},now)
  assert.match(simulated.label,/simulasi Fuzzy/)
+})
+
+test('Fuzzy demand is independent of an available or blocked tank target',()=>{
+ const production={basis:'TANK_INVENTORY_FUZZY',recorded_at:current.planning_recorded_at,
+  expires_at:new Date(now+1000).toISOString(),irrigation_needed:true}
+ for(const result of [{status:'READY',target_water_l:3580},{status:'BLOCKED',target_water_l:null}]){
+  const source={...current,production_fuzzy:{...production,...result}}
+  assert.equal(fuzzyIrrigationEstimate(source,now)?.valueL,600)
+ }
+ assert.equal(fuzzyIrrigationEstimate({...current,fuzzy_preview:null,
+  production_fuzzy:{...production,status:'READY',target_water_l:3580}},now),null)
+ const guide={...production,basis:'VERIFIED_GUIDE_FUZZY',status:'READY',target_water_l:844}
+ assert.equal(fuzzyIrrigationEstimate({...current,production_fuzzy:guide},now)?.valueL,844)
+})
+
+test('tank display takes the median of distinct recent valid readings and expires historical data',()=>{
+ const sample=(seconds,valueL,levelStatus='ESTIMATED')=>({...current,
+  planning_recorded_at:new Date(now+seconds*1000).toISOString(),
+  tank_preview:{level_status:levelStatus,estimated_available_l:valueL}})
+ let readings=[]
+ for(const reading of [sample(-90,800),sample(-60,3500),sample(-30,4900),sample(0,3580),sample(0,3580)]){
+  readings=recentTankReadings(readings,reading,now)
+ }
+ const invalid=sample(1,0,'UNVERIFIED')
+ assert.deepEqual(tankDisplayEstimate(readings,invalid,now+1000),{
+  valueL:3580,recordedAt:current.planning_recorded_at,sampleCount:3,current:false,
+ })
+ assert.equal(tankDisplayEstimate(readings,sample(0,3580),now)?.current,true)
+ assert.equal(tankDisplayEstimate(readings,invalid,now+120001),null)
+ assert.equal(tankDisplayEstimate([],sample(0,0),now)?.valueL,0)
 })
 

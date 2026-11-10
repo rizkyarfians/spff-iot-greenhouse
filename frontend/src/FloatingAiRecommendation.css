@@ -15,5 +15,6 @@
 .ai-floating-fuzzy dl { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0; }
 .ai-floating-fuzzy dd { margin: 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ai-floating-fuzzy small { display: block; margin-top: 4px; color: #52695c; }
+.ai-floating-tank { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e7df; }
 .ai-floating-fuzzy p, .ai-floating-cycle-status { margin: 0; font-size: 14px; color: #52695c; }
 @media(max-width:600px) { .ai-floating { right: max(16px,env(safe-area-inset-right)); bottom: max(16px,env(safe-area-inset-bottom)); } .ai-floating-panel { width: calc(100vw - 32px); max-height: calc(100dvh - 120px); bottom: 70px; } .ai-floating-trigger { width: 56px; height: 56px; } }

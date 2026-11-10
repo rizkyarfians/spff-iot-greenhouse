@@ -1,11 +1,12 @@
 export type HstIrrigationSource={
  planning_status:string;
  planning_recorded_at:string|null;
+ tank_preview?:{level_status:string;estimated_available_l:number|null};
  water_carryover?:{status:string;remaining_for_reassessment_l:number|null};
  irrigation_schedule_preview?:{status:string;tomorrow_at_least_l:number|null;fuzzy_demand_l:number|null};
  fuzzy_preview?:{illustrative_water_l:number|null;recorded_at:string|null;basis?:'SIMULATION_PROFILE'|'OPERATIONAL_PROFILE'}|null;
  production_fuzzy?:{
-  status:string; recorded_at:string|null; expires_at:string|null; target_water_l:number|null; irrigation_needed:boolean|null;
+  status:string; basis?:string; recorded_at:string|null; expires_at:string|null; target_water_l:number|null; irrigation_needed:boolean|null;
  };
 }
 type Display={kind:'recorded'|'capacity_preview'|'demand_preview'|'unavailable';label:string;valueL:number|null;note:string}
@@ -17,7 +18,7 @@ const fresh=(at:string|null|undefined,now:number)=>{
 export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.now()){
  if(data?.planning_status!=='CURRENT'||!fresh(data.planning_recorded_at,now))return null;
  const production=data.production_fuzzy;
- if(production?.status==='READY'&&fresh(production.recorded_at,now)&&Date.parse(production.expires_at??'')>now&&valid(production.target_water_l)){
+ if(production?.basis!=='TANK_INVENTORY_FUZZY'&&production?.status==='READY'&&fresh(production.recorded_at,now)&&Date.parse(production.expires_at??'')>now&&valid(production.target_water_l)){
   return {
    valueL:production.target_water_l,
    label:production.irrigation_needed===false?'Belum perlu penyiraman':'Target penyiraman Fuzzy',
@@ -33,6 +34,41 @@ export function fuzzyIrrigationEstimate(data:HstIrrigationSource|null,now=Date.n
   };
  }
  return null;
+}
+
+type TankReading={recordedAt:string;valueL:number};
+
+function currentTankReading(data:HstIrrigationSource|null,now:number):TankReading|null{
+ const at=data?.planning_recorded_at;
+ const tank=data?.tank_preview;
+ if(!at||data?.planning_status!=='CURRENT'||!fresh(at,now)||
+    tank?.level_status!=='ESTIMATED'||!valid(tank.estimated_available_l))return null;
+ return {recordedAt:at,valueL:tank.estimated_available_l};
+}
+
+export function recentTankReadings(previous:TankReading[],data:HstIrrigationSource|null,now=Date.now()){
+ const readings=previous.filter(reading=>fresh(reading.recordedAt,now));
+ const latest=currentTankReading(data,now);
+ if(latest){
+  const at=Date.parse(latest.recordedAt);
+  const repeated=readings.findIndex(reading=>Date.parse(reading.recordedAt)===at);
+  if(repeated===-1)readings.push(latest);
+  else readings[repeated]=latest;
+ }
+ return readings.sort((a,b)=>Date.parse(b.recordedAt)-Date.parse(a.recordedAt)).slice(0,3);
+}
+
+export function tankDisplayEstimate(readings:TankReading[],data:HstIrrigationSource|null,now=Date.now()){
+ const recent=recentTankReadings(readings,data,now);
+ if(recent.length===0)return null;
+ const sorted=recent.map(reading=>reading.valueL).sort((a,b)=>a-b);
+ const middle=Math.floor(sorted.length/2);
+ return {
+  valueL:sorted.length%2===0?(sorted[middle-1]+sorted[middle])/2:sorted[middle],
+  recordedAt:recent[0].recordedAt,
+  sampleCount:recent.length,
+  current:currentTankReading(data,now)!==null,
+ };
 }
 /** Select existing Python results only. No delivery or tank calculations are recreated here. */
 export function hstIrrigationDisplay(data:HstIrrigationSource|null|undefined,now=Date.now()):Display{

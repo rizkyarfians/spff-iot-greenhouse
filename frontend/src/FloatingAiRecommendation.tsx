@@ -3,13 +3,15 @@ import type {AutomaticCycleStatus} from '@spff/contracts'
 import {Droplets,X} from 'lucide-react'
 import {fetchAiHstLiquidSummary,fetchAutomaticCycleStatus} from './api'
 import {HstPhaseCard} from './HstFertilizationNotice'
-import {fuzzyIrrigationEstimate} from './hstIrrigationSummary'
+import {fuzzyIrrigationEstimate,recentTankReadings,tankDisplayEstimate} from './hstIrrigationSummary'
 import './FloatingAiRecommendation.css'
 
 const litres=new Intl.NumberFormat('id-ID',{maximumFractionDigits:2})
+const readingTime=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'})
 
 function AutomaticSummary({deviceId}:{deviceId:string}){
  const [liquid,setLiquid]=useState<Awaited<ReturnType<typeof fetchAiHstLiquidSummary>>|null>(null)
+ const [tankReadings,setTankReadings]=useState<ReturnType<typeof recentTankReadings>>([])
  const [cycle,setCycle]=useState<AutomaticCycleStatus|null>(null)
  const [loading,setLoading]=useState(true)
  useEffect(()=>{
@@ -20,7 +22,11 @@ function AutomaticSummary({deviceId}:{deviceId:string}){
    if(pending)return
    pending=true
    const fuzzyRequest=fetchAiHstLiquidSummary(signal).then(
-    value=>{if(!signal.aborted)setLiquid(value)},
+    value=>{
+     if(signal.aborted)return
+     setLiquid(value)
+     setTankReadings(previous=>recentTankReadings(previous,value))
+    },
     ()=>{if(!signal.aborted)setLiquid(null)},
    )
    const cycleRequest=deviceId?fetchAutomaticCycleStatus(deviceId,signal).then(
@@ -36,12 +42,18 @@ function AutomaticSummary({deviceId}:{deviceId:string}){
   return()=>{controller.abort();clearInterval(timer)}
  },[deviceId])
  const estimate=fuzzyIrrigationEstimate(liquid)
+ const tank=tankDisplayEstimate(tankReadings,liquid)
  return <div className="ai-floating-content">
   <section className="ai-floating-fuzzy" aria-label="Penyiraman Fuzzy">
    <h2><Droplets size={18} aria-hidden="true"/>Penyiraman Fuzzy</h2>
    {estimate?<dl><dt>{estimate.label}</dt><dd>{litres.format(estimate.valueL)} L</dd></dl>:
     <p>{loading?'Memuat estimasi…':'Estimasi terbaru belum tersedia.'}</p>}
    {estimate&&<small>{estimate.source}</small>}
+   <div className="ai-floating-tank">
+    <dl><dt>Estimasi air di tandon</dt><dd>{tank?litres.format(tank.valueL)+' L':'—'}</dd></dl>
+    {tank?<small>{tank.current?'':'Bacaan terkini belum tersedia · '}{tank.sampleCount} sampel · terakhir {readingTime.format(new Date(tank.recordedAt))} WIB</small>:
+     <small>Menunggu bacaan tandon yang valid.</small>}
+   </div>
   </section>
   {cycle?<HstPhaseCard cycle={cycle}/>:<p className="ai-floating-cycle-status" role="status">
    {loading&&deviceId?'Memuat program otomatis…':deviceId?'Status program otomatis belum tersedia.':'Belum ada perangkat untuk program otomatis.'}
