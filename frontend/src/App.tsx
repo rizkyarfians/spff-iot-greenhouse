@@ -85,6 +85,7 @@ import {
 
 import './App.css'
 import { ActuatorSummary } from './ActuatorSummary'
+import { isScheduleToday } from './actuatorScheduleDate'
 
 
 type SensorKey = string
@@ -627,6 +628,7 @@ function formatSensorValue(
 
 function formatScheduleDate(
   date: Date,
+  timeZone: string,
 ) {
   return new Intl.DateTimeFormat(
     'id-ID',
@@ -635,6 +637,7 @@ function formatScheduleDate(
       day: 'numeric',
       month: 'long',
       year: 'numeric',
+      timeZone,
     },
   ).format(date)
 }
@@ -1544,7 +1547,7 @@ const soilNpkGroups =
     )
       .filter(
         (schedule) =>
-          schedule.enabled,
+          isScheduleToday(schedule, clock),
       )
       .slice(
         0,
@@ -2472,6 +2475,7 @@ const soilNpkGroups =
                                         {
                                           formatScheduleDate(
                                             clock,
+                                            schedule.timezone,
                                           )
                                         }
                                       </strong>
@@ -2512,7 +2516,7 @@ const soilNpkGroups =
 
                             : (
                                 <div className="schedule-empty-inline">
-                                  Belum ada jadwal aktif.
+                                  Tidak ada jadwal hari ini.
                                 </div>
                               )
                         }
@@ -3033,6 +3037,7 @@ const soilNpkGroups =
 
             : (
                 <SecondaryPage
+                  clock={clock}
                   onNavigate={navigateTo}
                   page={
                     activePage

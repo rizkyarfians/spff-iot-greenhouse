@@ -5,6 +5,7 @@ import './SettingsWorkspace.css'
 import { EcDoseSettings } from './EcDoseSettings'
 import {userFacingMessage} from './userFacingMessage'
 import {ScheduleTimeRange} from './ScheduleTimeRange'
+import { isOneTimeSchedulePast } from './actuatorScheduleDate'
 import {mergeAutomaticDraft} from './automaticDraftState'
 import {isAutomaticControlConfig} from '@spff/contracts'
 import { WaterInterlockSettings } from './WaterInterlockSettings'
@@ -655,7 +656,8 @@ function ControlsPage({
   data,
   connectionState,
   onRefresh,
-}: ConnectedPageProps) {
+  clock,
+}: ConnectedPageProps & { clock: Date }) {
   const { user } =
     useAuth()
 
@@ -1244,7 +1246,7 @@ function ControlsPage({
   const activeScheduleCount =
     schedules.filter(
       (schedule) =>
-        schedule.enabled,
+        schedule.enabled && !isOneTimeSchedulePast(schedule, clock),
     ).length
 
 
@@ -1573,6 +1575,7 @@ function ControlsPage({
                     const Icon =
                       actuator?.icon ??
                       ShowerHead
+                    const past = isOneTimeSchedulePast(schedule, clock)
 
 
                     return (
@@ -1647,13 +1650,13 @@ function ControlsPage({
 
                         <span
                           className={
-                            schedule.enabled
+                            schedule.enabled && !past
                               ? 'schedule-state is-active'
                               : 'schedule-state'
                           }
                         >
                           {
-                            schedule.enabled
+                            past ? 'Lewat' : schedule.enabled
                               ? 'Aktif'
                               : 'Nonaktif'
                           }
@@ -4408,6 +4411,7 @@ function SettingsPage({
 
 type SecondaryPageProps =
   ConnectedPageProps & {
+    clock: Date
     onNavigate: (page: PageKey) => void
     page:
       Exclude<
@@ -4419,6 +4423,7 @@ type SecondaryPageProps =
 
 export function SecondaryPage({
   page,
+  clock,
   data,
   connectionState,
   onRefresh,
@@ -4463,6 +4468,7 @@ export function SecondaryPage({
     return (
       <ControlsPage
         {...connectedProps}
+        clock={clock}
       />
     )
   }
