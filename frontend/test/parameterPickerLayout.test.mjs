@@ -14,6 +14,16 @@ test('picker opens upward near the bottom instead of overflowing the page', () =
   assert.equal(result.top + result.height, 354)
 })
 
+test('a wider panel stays aligned with the trigger beside the sidebar', () => {
+  const viewport = { width: 1920, height: 920 }
+  const result = parameterPickerLayout({ left: 325, right: 576, top: 640, bottom: 685 }, viewport)
+  assert.equal(result.left, 325)
+  assert.equal(result.width, 320)
+
+  const rightEdge = parameterPickerLayout({ left: 1690, right: 1880, top: 640, bottom: 685 }, viewport)
+  assert.equal(rightEdge.left + rightEdge.width, viewport.width - 8)
+})
+
 test('picker remains within narrow, short and keyboard-offset visual viewports', () => {
   for (const viewport of [
     { width: 320, height: 400 },

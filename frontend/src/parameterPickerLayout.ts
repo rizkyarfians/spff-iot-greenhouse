@@ -7,7 +7,7 @@ export function parameterPickerLayout(anchor: Anchor, viewport: Viewport) {
   const x = viewport.left ?? 0
   const y = viewport.top ?? 0
   const width = Math.min(320, Math.max(0, viewport.width - margin * 2))
-  const left = Math.max(x + margin, Math.min(anchor.right - width, x + viewport.width - margin - width))
+  const left = Math.max(x + margin, Math.min(anchor.left, x + viewport.width - margin - width))
   const below = Math.max(0, y + viewport.height - margin - anchor.bottom - gap)
   const above = Math.max(0, anchor.top - gap - y - margin)
   const upward = below < 300 && above > below

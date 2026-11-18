@@ -2107,10 +2107,10 @@ const datalogDisplayRow = (
 }
 
 
-function LogsPage({ data, connectionState }: ConnectedPageProps) {
+function LogsPage({ data, connectionState, clock }: ConnectedPageProps & { clock: Date }) {
   return (
     <section className="secondary-page" aria-label="Sensor">
-      <DatalogHistory data={data} connectionState={connectionState} logType="sensor" />
+      <DatalogHistory data={data} connectionState={connectionState} logType="sensor" liveDate={jakartaDateInputValue(clock)} />
     </section>
   )
 }
@@ -2122,17 +2122,16 @@ function DatalogHistory({
   liveDate,
 }: Pick<ConnectedPageProps, 'data' | 'connectionState'> & {
   logType: 'sensor' | 'actuator'
-  liveDate?: string
+  liveDate: string
 }) {
   const [selectedParameter, setSelectedParameter] = useState('all')
   const sensorLog = logType === 'sensor'
   const nameColumn = sensorLog ? 'Parameter' : 'Pompa'
   const valueColumn = sensorLog ? 'Nilai' : 'Kondisi'
 
-  const [initialDate, setInitialDate] = useState(jakartaDateInputValue)
   const [dateRange, setDateRange] = useState<{ from: string; to: string } | null>(null)
-  const fromDate = dateRange?.from ?? liveDate ?? initialDate
-  const toDate = dateRange?.to ?? liveDate ?? initialDate
+  const fromDate = dateRange?.from ?? liveDate
+  const toDate = dateRange?.to ?? liveDate
   const [fromTime, setFromTime] = useState('')
   const [toTime, setToTime] = useState('')
 
@@ -2328,7 +2327,7 @@ function DatalogHistory({
       const controller = new AbortController()
       const rangeHours = rangeDurationMs / (60 * 60 * 1000)
       const bucket = rangeHours <= 24 ? '5m' : rangeHours <= 7 * 24 ? '1h' : '6h'
-      const wholeDayToday = fromDate === toDate && toDate === jakartaDateInputValue() && !fromTime && !toTime
+      const wholeDayToday = fromDate === toDate && toDate === liveDate && !fromTime && !toTime
       setChartLoading(true)
 
       async function loadChart() {
@@ -2340,14 +2339,12 @@ function DatalogHistory({
         })
         if (!wholeDayToday || series.points.length >= 2 || controller.signal.aborted) return series
 
-        const now = new Date()
         const recent = await fetchSensorHistory(chartSensor, controller.signal, {
-          from: new Date(now.getTime() - 24 * 60 * 60 * 1000),
-          to: now,
           hours: 24,
           bucket: '5m',
         }).catch(() => null)
-        return recent && recent.points.length > series.points.length ? recent : series
+        const recentEnough = recent && Date.parse(recent.to) >= rangeFrom.getTime() - 24 * 60 * 60 * 1000
+        return recentEnough && recent.points.length > series.points.length ? recent : series
       }
 
       void loadChart()
@@ -2368,6 +2365,7 @@ function DatalogHistory({
       connectionState,
       fromDate,
       fromTime,
+      liveDate,
       sensorLog,
       toDate,
       toTime,
@@ -2592,7 +2590,6 @@ function DatalogHistory({
     () => {
       setSelectedParameter('all')
 
-      setInitialDate(jakartaDateInputValue())
       setDateRange(null)
       setFromTime('')
       setToTime('')
@@ -4487,6 +4484,7 @@ export function SecondaryPage({
     return (
       <LogsPage
         {...connectedProps}
+        clock={clock}
       />
     )
   }
