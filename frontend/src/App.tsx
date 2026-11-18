@@ -86,7 +86,7 @@ import {
 
 import './App.css'
 import { ActuatorSummary } from './ActuatorSummary'
-import { isScheduleToday } from './actuatorScheduleDate'
+import { isScheduleRemainingToday } from './actuatorScheduleDate'
 
 
 type SensorKey = string
@@ -1566,7 +1566,7 @@ const soilNpkGroups =
     )
       .filter(
         (schedule) =>
-          isScheduleToday(schedule, clock),
+          isScheduleRemainingToday(schedule, clock),
       )
       .slice(
         0,
@@ -2535,7 +2535,7 @@ const soilNpkGroups =
 
                             : (
                                 <div className="schedule-empty-inline">
-                                  Tidak ada jadwal hari ini.
+                                  Tidak ada jadwal tersisa hari ini.
                                 </div>
                               )
                         }
