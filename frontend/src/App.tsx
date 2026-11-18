@@ -9,6 +9,7 @@ import { alarmNotification, notificationBadgeText } from './alarmNotifications'
 import { isEnergySensor } from './sensorCategory'
 import { chartDomain } from './chartScale'
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -762,6 +763,18 @@ function App() {
     )
 
 
+  const serverClock = useRef<{ timestamp: number; sampledAt: number } | null>(null)
+  const updateServerClock = useCallback((timestamp: number) => {
+    const sampledAt = performance.now()
+    const previous = serverClock.current
+    serverClock.current = { timestamp, sampledAt }
+
+    // Only trigger an immediate render when establishing or correcting the clock.
+    if (!previous || Math.abs(timestamp - (previous.timestamp + sampledAt - previous.sampledAt)) >= 2_000) {
+      setClock(new Date(timestamp))
+    }
+  }, [])
+
   const [
     backendData,
     setBackendData,
@@ -855,10 +868,12 @@ function App() {
     () => {
       const timer =
         window.setInterval(
-          () =>
-            setClock(
-              new Date(),
-            ),
+          () => {
+            const sample = serverClock.current
+            setClock(sample
+              ? new Date(sample.timestamp + performance.now() - sample.sampledAt)
+              : new Date())
+          },
           30_000,
         )
 
@@ -888,6 +903,7 @@ function App() {
             const data =
               await fetchBootstrap(
                 controller.signal,
+                updateServerClock,
               )
 
 
@@ -936,6 +952,7 @@ function App() {
     },
     [
       refreshVersion,
+      updateServerClock,
     ],
   )
 
@@ -989,6 +1006,7 @@ function App() {
               const snapshot =
                 await fetchLatestTelemetry(
                   controller.signal,
+                  updateServerClock,
                 )
 
 
@@ -1131,6 +1149,7 @@ function App() {
     },
     [
       connectionState,
+      updateServerClock,
     ],
   )
 

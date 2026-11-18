@@ -202,6 +202,7 @@ function cookieValue(
 async function request<T>(
   path: string,
   init: RequestInit = {},
+  onServerDate?: (timestamp: number) => void,
 ): Promise<T> {
 
   const method =
@@ -310,6 +311,11 @@ try {
     )
   }
 
+
+  if (onServerDate && !init.signal?.aborted) {
+    const timestamp = Date.parse(response.headers.get('Date') ?? '')
+    if (Number.isFinite(timestamp)) onServerDate(timestamp)
+  }
 
   return payload.data
 }
@@ -455,6 +461,7 @@ export function fetchAuditLogs(
 
 export function fetchBootstrap(
   signal?: AbortSignal,
+  onServerDate?: (timestamp: number) => void,
 ) {
 
   return request<BootstrapData>(
@@ -462,12 +469,14 @@ export function fetchBootstrap(
     {
       signal,
     },
+    onServerDate,
   )
 }
 
 
 export function fetchLatestTelemetry(
   signal?: AbortSignal,
+  onServerDate?: (timestamp: number) => void,
 ) {
 
   return request<ApiTelemetrySnapshot>(
@@ -475,6 +484,7 @@ export function fetchLatestTelemetry(
     {
       signal,
     },
+    onServerDate,
   )
 }
 

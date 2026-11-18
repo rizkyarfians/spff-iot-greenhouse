@@ -1283,10 +1283,12 @@ function ControlsPage({
               : []
             const failed = ['rejected', 'failed', 'timed_out'].includes(control.commandStatus ?? '')
             const commandResult = control.pending ? 'pending' : failed ? 'failure' : control.commandStatus === 'completed' ? 'success' : 'none'
-            const commandEvent = events.find(event => event.source === 'command_ack') ?? events[0]
+            const reportedAt = control.pending
+              ? data?.actuatorLog.find(event => event.deviceId === control.deviceId && event.actuatorKey === control.id)?.recordedAt
+              : control.updatedAt
             const failureReason = failed && farmerReasonLabel(events.find(event => event.reason)?.reason)
             const pumpStatus = connectionState !== 'connected' || control.state === 'offline'
-              || getTelemetryFreshness(control.updatedAt, true) !== 'fresh'
+              || getTelemetryFreshness(reportedAt, true, clock.getTime()) !== 'fresh'
               ? null
               : control.state === 'fault' ? 'Bermasalah' : control.isActive ? 'Menyala' : 'Mati'
             return <article className="control-card" key={control.id}>
@@ -1298,8 +1300,8 @@ function ControlsPage({
                     {pumpStatus && <span>{pumpStatus}</span>}
                     <div className="controls-pump-time">
                       <span>Laporan</span>
-                      {commandEvent
-                        ? <time dateTime={commandEvent.recordedAt}>{new Date(commandEvent.recordedAt).toLocaleString('id-ID', {
+                      {reportedAt
+                        ? <time dateTime={reportedAt}>{new Date(reportedAt).toLocaleString('id-ID', {
                             timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short',
                           })} WIB</time>
                         : <span>—</span>}
@@ -1990,13 +1992,18 @@ function ControlsPage({
         </section>
         </dialog>
       </div>
-      <DatalogHistory data={data} connectionState={connectionState} logType="actuator" />
+      <DatalogHistory
+        data={data}
+        connectionState={connectionState}
+        logType="actuator"
+        liveDate={jakartaDateInputValue(clock)}
+      />
     </section>
   )
 }
 
 
-const jakartaDateInputValue = () =>
+const jakartaDateInputValue = (date = new Date()) =>
   new Intl.DateTimeFormat(
     'en-CA',
     {
@@ -2005,7 +2012,7 @@ const jakartaDateInputValue = () =>
       month: '2-digit',
       day: '2-digit',
     },
-  ).format(new Date())
+  ).format(date)
 
 
 const datalogDateTime = (
@@ -2112,14 +2119,20 @@ function DatalogHistory({
   data,
   connectionState,
   logType,
-}: Pick<ConnectedPageProps, 'data' | 'connectionState'> & { logType: 'sensor' | 'actuator' }) {
+  liveDate,
+}: Pick<ConnectedPageProps, 'data' | 'connectionState'> & {
+  logType: 'sensor' | 'actuator'
+  liveDate?: string
+}) {
   const [selectedParameter, setSelectedParameter] = useState('all')
   const sensorLog = logType === 'sensor'
   const nameColumn = sensorLog ? 'Parameter' : 'Pompa'
   const valueColumn = sensorLog ? 'Nilai' : 'Kondisi'
 
-  const [fromDate, setFromDate] = useState(jakartaDateInputValue)
-  const [toDate, setToDate] = useState(jakartaDateInputValue)
+  const [initialDate, setInitialDate] = useState(jakartaDateInputValue)
+  const [dateRange, setDateRange] = useState<{ from: string; to: string } | null>(null)
+  const fromDate = dateRange?.from ?? liveDate ?? initialDate
+  const toDate = dateRange?.to ?? liveDate ?? initialDate
   const [fromTime, setFromTime] = useState('')
   const [toTime, setToTime] = useState('')
 
@@ -2211,6 +2224,11 @@ function DatalogHistory({
     )
 
 
+  const actuatorHistoryRevision = sensorLog ? undefined : data?.actuatorLog
+    .filter(event => selectedParameter === 'all' || event.actuatorKey === selectedParameter)
+    .map(event => event.actuatorStateId)
+    .join(',')
+
   const databaseRows =
     (
       datalogPage?.items
@@ -2255,9 +2273,14 @@ function DatalogHistory({
         },
         controller.signal,
       )
-        .then(setDatalogPage)
+        .then((page) => {
+          if (!controller.signal.aborted) {
+            setDatalogPage(page)
+            setCurrentPage(current => Math.min(current, page.pagination.totalPages))
+          }
+        })
         .catch((error) => {
-          if (error instanceof DOMException && error.name === 'AbortError') return
+          if (controller.signal.aborted) return
           setDatalogPage(null)
           setDatalogError(
             error instanceof Error ? error.message : 'Riwayat belum dapat dimuat.',
@@ -2270,6 +2293,7 @@ function DatalogHistory({
       return () => controller.abort()
     },
     [
+      actuatorHistoryRevision,
       connectionState,
       currentPage,
       fromDate,
@@ -2360,22 +2384,6 @@ function DatalogHistory({
 
   const totalPages =
     datalogPage?.pagination.totalPages ?? 1
-
-
-  useEffect(
-    () => {
-      setCurrentPage(
-        (page) =>
-          Math.min(
-            page,
-            totalPages,
-          ),
-      )
-    },
-    [
-      totalPages,
-    ],
-  )
 
 
   const pageStart =
@@ -2584,9 +2592,8 @@ function DatalogHistory({
     () => {
       setSelectedParameter('all')
 
-      const today = jakartaDateInputValue()
-      setFromDate(today)
-      setToDate(today)
+      setInitialDate(jakartaDateInputValue())
+      setDateRange(null)
       setFromTime('')
       setToTime('')
 
@@ -2643,7 +2650,7 @@ function DatalogHistory({
                 value={fromDate}
                 max={toDate || undefined}
                 onChange={(event) => {
-                  setFromDate(event.target.value)
+                  setDateRange({ from: event.target.value, to: toDate })
                   setCurrentPage(1)
                 }}
               />
@@ -2656,7 +2663,7 @@ function DatalogHistory({
                 value={toDate}
                 min={fromDate || undefined}
                 onChange={(event) => {
-                  setToDate(event.target.value)
+                  setDateRange({ from: fromDate, to: event.target.value })
                   setCurrentPage(1)
                 }}
               />
