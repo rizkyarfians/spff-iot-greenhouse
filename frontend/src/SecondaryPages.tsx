@@ -1,4 +1,4 @@
-import { resumePumpAutomation } from './api'
+import { resumePumpAutomation, selectAiSoil2 } from './api'
 import { ToggleButtons } from './ToggleButtons'
 import { SettingChoice } from './SettingChoice'
 import './SettingsWorkspace.css'
@@ -683,6 +683,7 @@ function ControlsPage({
     setSavingAutomatic,
   ] = useState(false)
 
+  const [savingAiSensor, setSavingAiSensor] = useState(false)
   const [modeRequest, setModeRequest] = useState<{
     mode: 'manual' | 'automatic'; revision: number
   } | null>(null)
@@ -779,6 +780,25 @@ function ControlsPage({
 
   const automaticControl =
     data?.automaticControl ?? null
+
+  const canSelectAiSensor = (isAdmin || user.role === 'operator')
+    && mode === 'manual' && automaticControl?.desiredMode === 'manual'
+  const aiUsesSoil2 = automaticControl?.water.sensorKey === 'soil_2_moisture'
+
+  const applyAiSoil2 = async () => {
+    if (!automaticControl || savingAiSensor) return
+    setSavingAiSensor(true)
+    setCommandNotice('')
+    try {
+      await selectAiSoil2(automaticControl.deviceId)
+      setCommandNotice('Tanah 2 tersimpan sebagai input Fuzzy. Mode pompa Manual.')
+      onRefresh()
+    } catch (error) {
+      setCommandNotice(error instanceof Error ? error.message : 'Sensor AI belum bisa disimpan.')
+    } finally {
+      setSavingAiSensor(false)
+    }
+  }
 
   const modeFeedback = savingAutomatic
     ? { tone: 'pending', text: 'Menyimpan pilihan mode…' }
@@ -1333,6 +1353,13 @@ function ControlsPage({
         <div className="controls-pump-footer">
           <button className="controls-emergency-stop" type="button" onClick={() => void setAll(false)}
             disabled={sendingCommand || connectionState !== 'connected' || controls.length === 0}>Emergency Stop</button>
+          {canSelectAiSensor && (
+            <button type="button" className="secondary-button"
+              disabled={connectionState !== 'connected' || savingAiSensor || aiUsesSoil2}
+              onClick={() => void applyAiSoil2()}>
+              {savingAiSensor ? 'Menyimpan input AI…' : aiUsesSoil2 ? 'Input AI: Tanah 2' : 'Pakai Tanah 2 untuk AI'}
+            </button>
+          )}
           {(automaticSettingsAvailable || automaticControl?.operatorOverrideActive) && <div className="controls-automation">
             {automaticControl?.operatorOverrideActive && <button type="button" className="secondary-button"
               disabled={savingAutomatic || sendingCommand || connectionState !== 'connected'}

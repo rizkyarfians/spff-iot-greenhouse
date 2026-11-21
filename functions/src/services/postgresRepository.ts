@@ -1511,6 +1511,41 @@ async function automaticControl(deviceId?:string): Promise<ApiAutomaticControl |
   return result.rows[0] ? mapAutomaticControl(result.rows[0]) : null;
 }
 
+async function selectAiSoil2(deviceId: string, actor: string): Promise<ApiAutomaticControl | null> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`soil-ec:${siteId}:${deviceId}`]);
+    await client.query(`UPDATE spff.device_automatic_control_configs c SET
+        water_sensor_key = 'soil_2_moisture', revision = c.revision + 1,
+        published_revision = NULL, published_at = NULL, acknowledged_revision = NULL,
+        acknowledgement_status = NULL, acknowledged_at = NULL, acknowledgement_reason = NULL,
+        updated_by = $3
+      WHERE c.site_id = $1 AND c.device_id = $2 AND c.desired_mode = 'manual'
+        AND c.water_sensor_key IS DISTINCT FROM 'soil_2_moisture'
+        AND EXISTS (SELECT 1 FROM spff.devices d
+          WHERE d.site_id = c.site_id AND d.device_id = c.device_id AND d.enabled)
+        AND EXISTS (SELECT 1 FROM spff.latest_device_status h
+          WHERE h.site_id = c.site_id AND h.device_id = c.device_id AND h.online
+            AND h.mode = 'manual' AND h.recorded_at BETWEEN now() - interval '90 seconds'
+                                                       AND now() + interval '5 seconds')
+        AND NOT EXISTS (SELECT 1 FROM spff.latest_actuator_states a
+          WHERE a.site_id = c.site_id AND a.device_id = c.device_id
+            AND a.actuator_key IN ('pump_water', 'pump_fert') AND a.is_active)
+        AND NOT EXISTS (SELECT 1 FROM spff.control_commands q
+          WHERE q.site_id = c.site_id AND q.device_id = c.device_id
+            AND q.status IN ('pending', 'published', 'accepted') AND q.expires_at > now())`, [siteId, deviceId, actor]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  const control = await automaticControl(deviceId);
+  return control?.water.sensorKey === 'soil_2_moisture' ? control : null;
+}
+
 async function updateAutomaticControl(
   input: AutomaticControlInput,
   updatedBy: string,
@@ -1903,6 +1938,7 @@ export const repository = {
   updateSettings,
   automaticControl,
   updateAutomaticControl,
+  selectAiSoil2,
   setSensorGroupEnabled,
   hstFertilizationStarts,
   automaticCycleStatus,

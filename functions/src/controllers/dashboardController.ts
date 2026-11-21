@@ -595,6 +595,21 @@ export const getAutomaticControl = run(async (_req, res) => {
   );
 });
 
+export const selectAiSoil2 = run(async (req, res) => {
+  const deviceId = req.body?.deviceId;
+  if (typeof deviceId !== 'string' || !deviceId.trim()) {
+    return res.status(400).json({ success: false, message: 'deviceId wajib diisi.' });
+  }
+  const control = await repository.selectAiSoil2(deviceId, requestActor(req));
+  if (!control) {
+    return res.status(409).json({
+      success: false,
+      message: 'Pastikan perangkat online dalam mode Manual, pompa berhenti, dan perintah sebelumnya sudah selesai.',
+    });
+  }
+  return ok(res, control, 'Kelembapan Tanah 2 tersimpan sebagai input Fuzzy.');
+});
+
 export const updateAutomaticControl = run(async (req, res) => {
   if (!isAutomaticControlConfig(req.body)) {
     return res.status(400).json({

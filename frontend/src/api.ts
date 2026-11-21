@@ -908,6 +908,14 @@ export function saveAutomaticControl(
   )
 }
 
+export function selectAiSoil2(deviceId: string) {
+  return request<ApiAutomaticControl>('/automatic-control/ai-soil-2', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceId }),
+  })
+}
+
 export const resumePumpAutomation = (deviceId:string) => request<ApiAutomaticControl>('/automatic-control/resume',{
   method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId}),
 })

@@ -66,6 +66,7 @@ import {
   streamEvents,
   updatePump,
   resumeAutomation,
+  selectAiSoil2,
   updateAutomaticControl,
   updateSmartSoilReference,
   updateSmartSoilSelection,
@@ -465,6 +466,7 @@ apiRouter.put(
   requireCsrf,
   updateAutomaticControl,
 );
+apiRouter.post('/automatic-control/ai-soil-2', requireOperator, requireCsrf, selectAiSoil2);
 apiRouter.post('/automatic-control/resume',requireOperator,requireCsrf,resumeAutomation);
 
 
